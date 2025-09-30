@@ -423,7 +423,8 @@ class YouTubeOAuthConnector:
         description: str,
         tags: List[str] = None,
         category_id: str = "22",  # People & Blogs
-        privacy_status: str = "public"
+        privacy_status: str = "public",
+        thumbnail_data: str = None
     ) -> Dict[str, Any]:
         """Upload video to YouTube"""
         try:
@@ -490,7 +491,45 @@ class YouTubeOAuthConnector:
                             video_url = f"https://www.youtube.com/watch?v={video_id}"
                             
                             logger.info(f"YouTube upload successful: {video_url}")
+                            if thumbnail_data:
+                                try:
+                                    logger.info(f"🎨 Setting custom thumbnail for video: {video_id}")
+                                    if thumbnail_data.startswith('data:image'):
+                                        base64_data = thumbnail_data.split(',')[1]
+                                        thumbnail_bytes = base64.b64decode(base64_data)
+                                        temp_thumb = tempfile.NamedTemporaryFile(delete=False, suffix='.jpg')
+                                        temp_thumb.write(thumbnail_bytes)
+                                        temp_thumb.close()
+
+
+                                        youtube.thumbnails().set(
+                                            videoId=video_id,
+                                            media_body=temp_thumb.name
+                                            ).execute()
+                                        os.unlink(temp_thumb.name)
+                                        logger.info(f"✅ Custom thumbnail set successfully for video: {video_id}")
+
+                                    else:
+                                        logger.warning("⚠️ Invalid thumbnail data format")
+                                except Exception as e:
+                                             logger.error(f"❌ Thumbnail upload failed: {str(e)}")
                             
+
+                                            
+
+
+
+
+
+
+
+
+
+                            
+
+
+                            
+
                             return {
                                 "success": True,
                                 "video_id": video_id,
@@ -745,7 +784,8 @@ class YouTubeAutomationScheduler:
         content_type: str = "shorts",
         title: str = None,
         description: str = None,
-        video_url: str = None
+        video_url: str = None,
+        thumbnail_url: str = None
     ) -> Dict[str, Any]:
         """Generate and upload YouTube content"""
         try:
@@ -779,7 +819,8 @@ class YouTubeAutomationScheduler:
                     title=title,
                     description=description,
                     tags=tags,
-                    privacy_status="public"
+                    privacy_status="public",
+                    thumbnail_data=thumbnail_url
                 )
                 
                 # Clean up temp file
