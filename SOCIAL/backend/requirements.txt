@@ -68,4 +68,4 @@ facebook-business==18.0.2
 
 
 # NEW: Image Processing for Thumbnails
-Pillow==10.1.0
+Pillow==10.4.0
