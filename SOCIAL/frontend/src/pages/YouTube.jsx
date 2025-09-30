@@ -120,114 +120,133 @@ const YouTubeAutomation = () => {
 
 
 const generateThumbnails = useCallback(async () => {
-    if (!contentData.video_url || !contentData.title) {
-      setError('Video URL and title required for thumbnail generation');
+  if (!contentData.video_url || !contentData.title) {
+    setError('Video URL and title required for thumbnail generation');
+    return;
+  }
+  
+  setGeneratingThumbnails(true);
+  setError('');
+  
+  try {
+    const response = await fetch(`${API_BASE}/api/ai/generate-thumbnails`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        video_url: contentData.video_url,
+        video_title: contentData.title,
+        style: 'indian'
+      })
+    });
+    
+    const result = await response.json();
+    
+    console.log('🎨 Thumbnail Generation Result:', result); // ← ADD THIS DEBUG LOG
+    
+    if (result.success && result.thumbnails) {
+      setThumbnailOptions(result.thumbnails);
+      setSelectedThumbnail(result.thumbnails[0]); // Auto-select first
+      console.log('✅ Selected thumbnail:', result.thumbnails[0]); // ← ADD THIS
+      setError('');
+    } else {
+      setError(result.error || 'Thumbnail generation failed');
+    }
+  } catch (error) {
+    setError('Thumbnail generation failed: ' + error.message);
+  } finally {
+    setGeneratingThumbnails(false);
+  }
+}, [contentData.video_url, contentData.title, token, API_BASE]);
+
+
+
+
+
+
+
+const uploadVideo = useCallback(async () => {
+  if (!token) {
+    setError('Authentication required');
+    return;
+  }
+
+  if (!contentData.video_url || !contentData.title) {
+    setError('Please provide video URL and title');
+    return;
+  }
+
+  setLoading(true);
+  setError('');
+  
+  try {
+    const userData = getUserData();
+    
+    if (!userData || !userData.user_id) {
+      setError('User ID not found. Please log in again.');
       return;
     }
     
-    setGeneratingThumbnails(true);
-    setError('');
+    // ✅ ADD THESE DEBUG LOGS
+    console.log('📤 Uploading with thumbnail:', {
+      hasThumbnail: !!selectedThumbnail,
+      thumbnailUrl: selectedThumbnail?.url?.substring(0, 50) + '...',
+      thumbnailSize: selectedThumbnail?.url?.length
+    });
     
-    try {
-      const response = await fetch(`${API_BASE}/api/ai/generate-thumbnails`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          video_url: contentData.video_url,
-          video_title: contentData.title,
-          style: 'indian'
-        })
-      });
-      
-      const result = await response.json();
-      
-      if (result.success && result.thumbnails) {
-        setThumbnailOptions(result.thumbnails);
-        setSelectedThumbnail(result.thumbnails[0]); // Auto-select first
-        setError('');
-      } else {
-        setError(result.error || 'Thumbnail generation failed');
-      }
-    } catch (error) {
-      setError('Thumbnail generation failed: ' + error.message);
-    } finally {
-      setGeneratingThumbnails(false);
-    }
-  }, [contentData.video_url, contentData.title, token, API_BASE]);
-
-
-
-
-
-
-
-
-  const uploadVideo = useCallback(async () => {
-    if (!token) {
-      setError('Authentication required');
-      return;
-    }
-
-    if (!contentData.video_url || !contentData.title) {
-      setError('Please provide video URL and title');
-      return;
-    }
-
-    setLoading(true);
-    setError('');
+    const uploadPayload = {
+      user_id: userData.user_id,
+      content_type: contentData.content_type,
+      title: contentData.title,
+      description: contentData.description,
+      video_url: contentData.video_url,
+      thumbnail_url: selectedThumbnail?.url || null  // This should work if selectedThumbnail is set
+    };
     
-    try {
-      const userData = getUserData();
-      
-      if (!userData || !userData.user_id) {
-        setError('User ID not found. Please log in again.');
-        return;
-      }
-      
-      const response = await fetch(`${API_BASE}/api/youtube/upload`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-          'X-User-ID': userData.user_id
-        },
-        body: JSON.stringify({
-          user_id: userData.user_id,
-          content_type: contentData.content_type,
-          title: contentData.title,
-          description: contentData.description,
-          video_url: contentData.video_url,
-          thumbnail_url: selectedThumbnail?.url || null
-        })
-      });
-      
-      const result = await response.json();
-      
-      if (result.success) {
-        alert(`Video uploaded successfully! URL: ${result.video_url}`);
-        setContentData(prev => ({ 
-          ...prev, 
-          title: '', 
-          description: '', 
-          video_url: '' 
-        }));
-        await fetchAutomationStatus();
-        if (analytics) fetchAnalytics();
-        setError('');
-      } else {
-        setError(result.error || result.message || 'Upload failed');
-      }
-    } catch (error) {
-      setError('Upload failed: ' + error.message);
-    } finally {
-      setLoading(false);
+    console.log('📦 Upload payload:', {
+      ...uploadPayload,
+      thumbnail_url: uploadPayload.thumbnail_url ? 
+        uploadPayload.thumbnail_url.substring(0, 50) + '...' : 
+        'null'
+    });
+    
+    const response = await fetch(`${API_BASE}/api/youtube/upload`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+        'X-User-ID': userData.user_id
+      },
+      body: JSON.stringify(uploadPayload)
+    });
+    
+    const result = await response.json();
+    
+    if (result.success) {
+      alert(`Video uploaded successfully! URL: ${result.video_url}`);
+      // Reset form including thumbnails
+      setContentData(prev => ({ 
+        ...prev, 
+        title: '', 
+        description: '', 
+        video_url: '' 
+      }));
+      setThumbnailOptions([]);      // ← ADD THIS
+      setSelectedThumbnail(null);   // ← ADD THIS
+      await fetchAutomationStatus();
+      if (analytics) fetchAnalytics();
+      setError('');
+    } else {
+      setError(result.error || result.message || 'Upload failed');
     }
-  }, [token, contentData, getUserData, API_BASE]);
-
-
+  } catch (error) {
+    setError('Upload failed: ' + error.message);
+  } finally {
+    setLoading(false);
+  }
+}, [token, contentData, selectedThumbnail, getUserData, API_BASE]);
 
 
 // Add these functions before your return statement
