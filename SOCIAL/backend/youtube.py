@@ -790,6 +790,8 @@ class YouTubeAutomationScheduler:
         """Generate and upload YouTube content"""
         try:
             # Generate content using AI if not provided
+
+            
             if not title or not description:
                 ai_content = await self._generate_video_content(user_id, content_type)
                 if not ai_content.get("success"):
