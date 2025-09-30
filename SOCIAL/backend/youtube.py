@@ -791,7 +791,6 @@ class YouTubeAutomationScheduler:
         try:
             # Generate content using AI if not provided
 
-            
             if not title or not description:
                 ai_content = await self._generate_video_content(user_id, content_type)
                 if not ai_content.get("success"):
@@ -804,6 +803,7 @@ class YouTubeAutomationScheduler:
                 tags = []
             
             # Handle video upload if video_url is provided
+            
             if video_url:
                 # Download video temporarily
                 temp_video_path = await self._download_video_temporarily(video_url)
