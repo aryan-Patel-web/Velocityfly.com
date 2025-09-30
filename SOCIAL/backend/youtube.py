@@ -2,6 +2,14 @@
 YouTube Automation Module - Complete YouTube Shorts & Video Automation
 Multi-user support with OAuth, content generation, and scheduling
 Robust MongoDB Atlas integration for token storage
+
+FEATURES:
+- OAuth2 authentication with Google
+- Video upload with custom thumbnail support
+- YouTube Shorts detection (under 60 seconds)
+- Channel analytics
+- Community posts
+- Automated content scheduling
 """
 
 import os
@@ -9,6 +17,7 @@ import asyncio
 import logging
 import json
 import base64
+import subprocess
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any
 from dataclasses import dataclass, field
@@ -25,6 +34,10 @@ import motor.motor_asyncio
 from pymongo.errors import DuplicateKeyError, ConnectionFailure
 
 logger = logging.getLogger(__name__)
+
+# ============================================================================
+# DATABASE MANAGER
+# ============================================================================
 
 class YouTubeDatabase:
     """MongoDB Atlas database manager for YouTube authentication"""
@@ -282,6 +295,10 @@ class YouTubeDatabase:
             self.connected = False
             logger.info("Database connection closed")
 
+# ============================================================================
+# CONFIGURATION
+# ============================================================================
+
 @dataclass
 class YouTubeConfig:
     """Configuration for YouTube automation"""
@@ -297,6 +314,10 @@ class YouTubeConfig:
     shorts_per_day: int = 3
     videos_per_week: int = 2
 
+# ============================================================================
+# OAUTH CONNECTOR
+# ============================================================================
+
 class YouTubeOAuthConnector:
     """YouTube OAuth and API connector"""
     
@@ -310,7 +331,11 @@ class YouTubeOAuthConnector:
             'https://www.googleapis.com/auth/youtube.readonly'
         ]
         logger.info("YouTube OAuth Connector initialized")
-        
+    
+    # ------------------------------------------------------------------------
+    # OAUTH METHODS
+    # ------------------------------------------------------------------------
+    
     def generate_oauth_url(self, state: str = None, redirect_uri: str = None) -> Dict[str, str]:
         """Generate OAuth URL for YouTube authorization"""
         try:
@@ -415,6 +440,10 @@ class YouTubeOAuthConnector:
             logger.error(f"YouTube token exchange failed: {e}")
             return {"success": False, "error": str(e)}
     
+    # ------------------------------------------------------------------------
+    # VIDEO UPLOAD METHODS
+    # ------------------------------------------------------------------------
+    
     async def upload_video(
         self,
         credentials_data: Dict,
@@ -426,11 +455,39 @@ class YouTubeOAuthConnector:
         privacy_status: str = "public",
         thumbnail_data: str = None
     ) -> Dict[str, Any]:
-        """Upload video to YouTube"""
+        """
+        Upload video to YouTube with optional thumbnail
+        
+        Args:
+            credentials_data: User's OAuth credentials
+            video_file_path: Path to video file
+            title: Video title (max 100 chars)
+            description: Video description
+            tags: List of tags
+            category_id: YouTube category ID
+            privacy_status: private, unlisted, or public
+            thumbnail_data: Base64 encoded thumbnail (data:image/jpeg;base64,...)
+            
+        Returns:
+            Dict with success status, video_id, video_url, and thumbnail_uploaded flag
+        """
         try:
+            # ===== VALIDATE TITLE =====
+            if not title or not title.strip():
+                return {
+                    "success": False,
+                    "error": "Title is required and cannot be empty"
+                }
+            
+            # Clean and truncate title if needed
+            title = title.strip()
+            if len(title) > 100:
+                logger.warning(f"Title too long ({len(title)} chars), truncating to 100")
+                title = title[:97] + "..."
+            
             logger.info(f"Starting video upload: {title}")
             
-            # Reconstruct credentials
+            # ===== RECONSTRUCT CREDENTIALS =====
             credentials = Credentials(
                 token=credentials_data.get('access_token'),
                 refresh_token=credentials_data.get('refresh_token'),
@@ -440,14 +497,14 @@ class YouTubeOAuthConnector:
                 scopes=credentials_data.get('scopes')
             )
             
-            # Refresh if needed
+            # Refresh if expired
             if credentials.expired:
                 logger.info("Refreshing expired credentials")
                 credentials.refresh(Request())
             
             youtube = build('youtube', 'v3', credentials=credentials)
             
-            # Prepare video metadata
+            # ===== PREPARE VIDEO METADATA =====
             body = {
                 'snippet': {
                     'title': title,
@@ -461,12 +518,17 @@ class YouTubeOAuthConnector:
                 }
             }
             
-            # Check if it's a YouTube Short (< 60 seconds)
-            if self._is_youtube_short(video_file_path):
-                body['snippet']['title'] = f"{title} #Shorts"
+            # ===== CHECK IF YOUTUBE SHORT =====
+            is_short = self._is_youtube_short(video_file_path)
+            if is_short:
+                # Add #Shorts to title if not present
+                if '#Shorts' not in title and '#shorts' not in title.lower():
+                    body['snippet']['title'] = f"{title} #Shorts"
                 logger.info("Detected YouTube Short format")
             
-            # Upload video
+            logger.info(f"Final title: '{body['snippet']['title']}' ({len(body['snippet']['title'])} chars)")
+            
+            # ===== UPLOAD VIDEO =====
             media = MediaFileUpload(
                 video_file_path,
                 chunksize=-1,
@@ -485,57 +547,30 @@ class YouTubeOAuthConnector:
             while response is None:
                 try:
                     status, response = insert_request.next_chunk()
+                    
                     if response is not None:
                         if 'id' in response:
                             video_id = response['id']
                             video_url = f"https://www.youtube.com/watch?v={video_id}"
                             
-                            logger.info(f"YouTube upload successful: {video_url}")
+                            logger.info(f"✅ Video uploaded successfully: {video_url}")
+                            
+                            # ===== UPLOAD THUMBNAIL IF PROVIDED =====
+                            thumbnail_success = False
                             if thumbnail_data:
-                                try:
-                                    logger.info(f"🎨 Setting custom thumbnail for video: {video_id}")
-                                    if thumbnail_data.startswith('data:image'):
-                                        base64_data = thumbnail_data.split(',')[1]
-                                        thumbnail_bytes = base64.b64decode(base64_data)
-                                        temp_thumb = tempfile.NamedTemporaryFile(delete=False, suffix='.jpg')
-                                        temp_thumb.write(thumbnail_bytes)
-                                        temp_thumb.close()
-
-
-                                        youtube.thumbnails().set(
-                                            videoId=video_id,
-                                            media_body=temp_thumb.name
-                                            ).execute()
-                                        os.unlink(temp_thumb.name)
-                                        logger.info(f"✅ Custom thumbnail set successfully for video: {video_id}")
-
-                                    else:
-                                        logger.warning("⚠️ Invalid thumbnail data format")
-                                except Exception as e:
-                                             logger.error(f"❌ Thumbnail upload failed: {str(e)}")
+                                thumbnail_success = await self._upload_thumbnail(
+                                    youtube,
+                                    video_id,
+                                    thumbnail_data
+                                )
                             
-
-                                            
-
-
-
-
-
-
-
-
-
-                            
-
-
-                            
-
                             return {
                                 "success": True,
                                 "video_id": video_id,
                                 "video_url": video_url,
-                                "title": title,
-                                "privacy_status": privacy_status
+                                "title": body['snippet']['title'],
+                                "privacy_status": privacy_status,
+                                "thumbnail_uploaded": thumbnail_success
                             }
                         else:
                             return {
@@ -544,6 +579,7 @@ class YouTubeOAuthConnector:
                             }
                 
                 except HttpError as e:
+                    # Retry on server errors
                     if e.resp.status in [500, 502, 503, 504]:
                         retry += 1
                         if retry > 5:
@@ -560,22 +596,126 @@ class YouTubeOAuthConnector:
             
         except Exception as e:
             logger.error(f"YouTube upload failed: {e}")
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
             return {"success": False, "error": str(e)}
     
+    async def _upload_thumbnail(
+        self,
+        youtube,
+        video_id: str,
+        thumbnail_data: str
+    ) -> bool:
+        """
+        Upload custom thumbnail to YouTube video
+        
+        Args:
+            youtube: Authenticated YouTube API client
+            video_id: YouTube video ID
+            thumbnail_data: Base64 encoded image (data:image/jpeg;base64,...)
+            
+        Returns:
+            bool: True if successful, False otherwise
+        """
+        try:
+            logger.info(f"🎨 Setting custom thumbnail for video: {video_id}")
+            
+            # Validate thumbnail data format
+            if not thumbnail_data or not thumbnail_data.startswith('data:image'):
+                logger.warning("⚠️ Invalid thumbnail data format")
+                return False
+            
+            # Extract base64 data (remove "data:image/jpeg;base64," prefix)
+            base64_data = thumbnail_data.split(',')[1]
+            thumbnail_bytes = base64.b64decode(base64_data)
+            
+            # Create temporary file
+            temp_thumb = tempfile.NamedTemporaryFile(delete=False, suffix='.jpg')
+            temp_thumb.write(thumbnail_bytes)
+            temp_thumb.close()
+            
+            # Upload thumbnail to YouTube
+            youtube.thumbnails().set(
+                videoId=video_id,
+                media_body=temp_thumb.name
+            ).execute()
+            
+            # Clean up temporary file
+            os.unlink(temp_thumb.name)
+            
+            logger.info(f"✅ Custom thumbnail set successfully for video: {video_id}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"❌ Thumbnail upload failed: {str(e)}")
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
+            return False
+    
     def _is_youtube_short(self, video_file_path: str) -> bool:
-        """Check if video is eligible for YouTube Shorts (< 60 seconds)"""
+        """
+        Check if video is eligible for YouTube Shorts (< 60 seconds)
+        
+        Args:
+            video_file_path: Path to video file
+            
+        Returns:
+            bool: True if video is under 60 seconds
+        """
+        try:
+            # Try to get duration using ffprobe
+            cmd = [
+                'ffprobe', '-v', 'error',
+                '-show_entries', 'format=duration',
+                '-of', 'default=noprint_wrappers=1:nokey=1',
+                video_file_path
+            ]
+            
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+            
+            if result.returncode == 0 and result.stdout.strip():
+                duration = float(result.stdout.strip())
+                logger.info(f"Video duration: {duration}s")
+                return duration < 60
+            
+        except Exception as e:
+            logger.warning(f"Could not determine video duration using ffprobe: {e}")
+        
+        # Fallback: check file size (rough heuristic)
         try:
             file_size = os.path.getsize(video_file_path)
-            return file_size < 50 * 1024 * 1024  # Less than 50MB
-        except:
+            # Shorts are typically < 10MB for 60 seconds
+            is_short = file_size < 10 * 1024 * 1024
+            logger.info(f"Using file size fallback: {file_size} bytes, is_short={is_short}")
+            return is_short
+        except Exception as e:
+            logger.error(f"Could not determine file size: {e}")
             return False
-        
-
-
-
     
-    async def get_channel_analytics(self, credentials_data: Dict, days: int = 30) -> Dict[str, Any]:
-        """Get YouTube channel analytics"""
+    # ------------------------------------------------------------------------
+    # ANALYTICS METHODS
+    # ------------------------------------------------------------------------
+    
+    async def get_channel_analytics(
+        self,
+        credentials_data: Dict,
+        days: int = 30
+    ) -> Dict[str, Any]:
+        """
+        Get YouTube channel analytics
+        
+        Args:
+            credentials_data: User's OAuth credentials
+            days: Number of days to analyze
+            
+        Returns:
+            Dict with channel statistics and recent videos
+        """
         try:
             credentials = Credentials(
                 token=credentials_data.get('access_token'),
@@ -641,17 +781,31 @@ class YouTubeOAuthConnector:
         except Exception as e:
             logger.error(f"YouTube analytics failed: {e}")
             return {"success": False, "error": str(e)}
-        
-
-
-        # ➜ ADD THIS METHOD AFTER: return {"success": False, "error": str(e)}
-
+    
+    # ------------------------------------------------------------------------
+    # COMMUNITY POST METHODS
+    # ------------------------------------------------------------------------
+    
     async def create_community_post(
         self,
         credentials_data: Dict,
         post_data: Dict
     ) -> Dict[str, Any]:
-        """Create YouTube community post"""
+        """
+        Create YouTube community post
+        
+        Args:
+            credentials_data: User's OAuth credentials
+            post_data: Dict containing:
+                - content: Post text
+                - post_type: text, poll, quiz, image
+                - options: List of poll/quiz options
+                - correct_answer: Correct answer index for quiz
+                - image_url: Image URL for image posts
+                
+        Returns:
+            Dict with success status and post URL
+        """
         try:
             logger.info(f"Creating community post: {post_data.get('post_type', 'text')}")
             
@@ -716,12 +870,15 @@ class YouTubeOAuthConnector:
             logger.error(f"Community post creation failed: {e}")
             return {"success": False, "error": str(e)}
 
-    # ➜ YOUR EXISTING METHODS CONTINUE HERE
-        
+# ============================================================================
+# AUTOMATION SCHEDULER
+# ============================================================================
 
 
 
-
+# ============================================================================
+# AUTOMATION SCHEDULER
+# ============================================================================
 
 class YouTubeAutomationScheduler:
     """YouTube content automation scheduler"""
@@ -736,7 +893,11 @@ class YouTubeAutomationScheduler:
         
         logger.info("YouTube Automation Scheduler initialized")
     
-    async def setup_youtube_automation(self, user_id: str, config_data: Dict) -> Dict[str, Any]:
+    async def setup_youtube_automation(
+        self,
+        user_id: str,
+        config_data: Dict
+    ) -> Dict[str, Any]:
         """Setup YouTube automation for user"""
         try:
             # Create config object
@@ -787,10 +948,23 @@ class YouTubeAutomationScheduler:
         video_url: str = None,
         thumbnail_url: str = None
     ) -> Dict[str, Any]:
-        """Generate and upload YouTube content"""
+        """
+        Generate and upload YouTube content
+        
+        Args:
+            user_id: User ID
+            credentials_data: OAuth credentials
+            content_type: shorts or videos
+            title: Video title (optional, will be generated if not provided)
+            description: Video description (optional)
+            video_url: URL to video file
+            thumbnail_url: Base64 encoded thumbnail
+            
+        Returns:
+            Dict with upload result
+        """
         try:
             # Generate content using AI if not provided
-
             if not title or not description:
                 ai_content = await self._generate_video_content(user_id, content_type)
                 if not ai_content.get("success"):
@@ -803,7 +977,6 @@ class YouTubeAutomationScheduler:
                 tags = []
             
             # Handle video upload if video_url is provided
-            
             if video_url:
                 # Download video temporarily
                 temp_video_path = await self._download_video_temporarily(video_url)
@@ -828,8 +1001,8 @@ class YouTubeAutomationScheduler:
                 # Clean up temp file
                 try:
                     os.unlink(temp_video_path)
-                except:
-                    pass
+                except Exception as e:
+                    logger.warning(f"Failed to delete temp file: {e}")
                 
                 # Update statistics
                 if user_id in self.active_configs:
@@ -852,7 +1025,11 @@ class YouTubeAutomationScheduler:
             logger.error(f"YouTube content generation/upload failed: {e}")
             return {"success": False, "error": str(e)}
     
-    async def _generate_video_content(self, user_id: str, content_type: str) -> Dict[str, Any]:
+    async def _generate_video_content(
+        self,
+        user_id: str,
+        content_type: str
+    ) -> Dict[str, Any]:
         """Generate video title, description, and tags using AI"""
         try:
             if self.ai_service and hasattr(self.ai_service, 'generate_youtube_content'):
@@ -882,9 +1059,19 @@ class YouTubeAutomationScheduler:
             }
     
     async def _download_video_temporarily(self, video_url: str) -> Optional[str]:
-        """Download video to temporary file for uploading"""
+        """
+        Download video to temporary file for uploading
+        
+        Args:
+            video_url: URL to video file
+            
+        Returns:
+            str: Path to temporary file, or None if failed
+        """
         try:
-            async with httpx.AsyncClient(timeout=30.0,follow_redirects=True) as client:
+            logger.info(f"Downloading video from: {video_url}")
+            
+            async with httpx.AsyncClient(timeout=60.0, follow_redirects=True) as client:
                 response = await client.get(video_url)
                 
                 if response.status_code == 200:
@@ -901,12 +1088,11 @@ class YouTubeAutomationScheduler:
                     return temp_file.name
                 else:
                     logger.error(f"Download failed with status: {response.status_code}")
-
+                    return None
                     
         except Exception as e:
             logger.error(f"Video download failed: {e}")
-            
-        return None
+            return None
     
     def _get_next_upload_time(self, upload_schedule: List[str]) -> str:
         """Get next scheduled upload time"""
@@ -961,7 +1147,10 @@ class YouTubeAutomationScheduler:
             logger.error(f"YouTube status check failed: {e}")
             return {"success": False, "error": str(e)}
 
-# Global instances
+# ============================================================================
+# GLOBAL INSTANCES
+# ============================================================================
+
 youtube_database = None
 youtube_connector = None
 youtube_scheduler = None
@@ -973,13 +1162,24 @@ def get_youtube_database() -> YouTubeDatabase:
         youtube_database = YouTubeDatabase()
     return youtube_database
 
+# ============================================================================
+# INITIALIZATION
+# ============================================================================
 
-
-
-
-
-async def initialize_youtube_service(database_manager=None, ai_service=None) -> bool:
-    """Initialize YouTube service with required dependencies"""
+async def initialize_youtube_service(
+    database_manager=None,
+    ai_service=None
+) -> bool:
+    """
+    Initialize YouTube service with required dependencies
+    
+    Args:
+        database_manager: Optional database manager instance
+        ai_service: Optional AI service instance
+        
+    Returns:
+        bool: True if initialization successful
+    """
     global youtube_connector, youtube_scheduler, youtube_database
     
     try:
@@ -1030,14 +1230,10 @@ async def initialize_youtube_service(database_manager=None, ai_service=None) -> 
         logger.error(f"Traceback: {traceback.format_exc()}")
         return False
 
+# ============================================================================
+# EXPORT FUNCTIONS
+# ============================================================================
 
-
-
-
-
-
-
-# Export functions for main app
 def get_youtube_connector():
     """Get YouTube connector instance"""
     return youtube_connector
