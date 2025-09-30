@@ -189,27 +189,30 @@ const uploadVideo = useCallback(async () => {
       return;
     }
     
-    // ✅ ADD THESE DEBUG LOGS
-    console.log('📤 Uploading with thumbnail:', {
-      hasThumbnail: !!selectedThumbnail,
-      thumbnailUrl: selectedThumbnail?.url?.substring(0, 50) + '...',
-      thumbnailSize: selectedThumbnail?.url?.length
-    });
+    // ✅ VALIDATE THUMBNAIL
+    let thumbnailToSend = null;
+    if (selectedThumbnail?.url) {
+      // Make sure it's a valid data URL
+      if (selectedThumbnail.url.startsWith('data:image')) {
+        thumbnailToSend = selectedThumbnail.url;
+        console.log('📤 Uploading with thumbnail, size:', thumbnailToSend.length);
+      } else {
+        console.warn('⚠️ Invalid thumbnail format, skipping');
+      }
+    }
     
     const uploadPayload = {
       user_id: userData.user_id,
       content_type: contentData.content_type,
-      title: contentData.title,
-      description: contentData.description,
+      title: contentData.title.trim(), // ✅ TRIM WHITESPACE
+      description: contentData.description.trim(),
       video_url: contentData.video_url,
-      thumbnail_url: selectedThumbnail?.url || null  // This should work if selectedThumbnail is set
+      thumbnail_url: thumbnailToSend
     };
     
     console.log('📦 Upload payload:', {
       ...uploadPayload,
-      thumbnail_url: uploadPayload.thumbnail_url ? 
-        uploadPayload.thumbnail_url.substring(0, 50) + '...' : 
-        'null'
+      thumbnail_url: thumbnailToSend ? `${thumbnailToSend.substring(0, 50)}... (${thumbnailToSend.length} chars)` : 'null'
     });
     
     const response = await fetch(`${API_BASE}/api/youtube/upload`, {
@@ -225,16 +228,22 @@ const uploadVideo = useCallback(async () => {
     const result = await response.json();
     
     if (result.success) {
-      alert(`Video uploaded successfully! URL: ${result.video_url}`);
-      // Reset form including thumbnails
+      const successMessage = result.thumbnail_uploaded 
+        ? `✅ Video uploaded successfully with custom thumbnail!\n\nURL: ${result.video_url}`
+        : `✅ Video uploaded successfully!\n\n⚠️ Thumbnail upload failed - you can add it manually later.\n\nURL: ${result.video_url}`;
+      
+      alert(successMessage);
+      
+      // Reset form
       setContentData(prev => ({ 
         ...prev, 
         title: '', 
         description: '', 
         video_url: '' 
       }));
-      setThumbnailOptions([]);      // ← ADD THIS
-      setSelectedThumbnail(null);   // ← ADD THIS
+      setThumbnailOptions([]);
+      setSelectedThumbnail(null);
+      
       await fetchAutomationStatus();
       if (analytics) fetchAnalytics();
       setError('');
@@ -243,10 +252,14 @@ const uploadVideo = useCallback(async () => {
     }
   } catch (error) {
     setError('Upload failed: ' + error.message);
+    console.error('Upload error:', error);
   } finally {
     setLoading(false);
   }
-}, [token, contentData, selectedThumbnail, getUserData, API_BASE]);
+}, [token, contentData, selectedThumbnail, getUserData, API_BASE, fetchAutomationStatus, analytics, fetchAnalytics]);
+
+
+
 
 
 // Add these functions before your return statement
@@ -295,6 +308,12 @@ const uploadVideo = useCallback(async () => {
       setLoading(false);
     }
   }, [token, contentData.post_type, contentData.topic, contentData.target_audience, API_BASE]);
+
+
+
+
+
+
 
   const publishCommunityPost = useCallback(async () => {
     if (!token) {
@@ -1607,84 +1626,136 @@ useEffect(() => {
                   </button>
                 </div>
 
-                {/* Thumbnail Selection */}
-                {thumbnailOptions.length > 0 && (
-                  <div style={{ marginBottom: '20px' }}>
-                    <h4 style={{ color: '#333', marginBottom: '12px', fontSize: '16px' }}>
-                      Select Thumbnail:
-                    </h4>
-                    <div style={{ 
-                      display: 'grid', 
-                      gridTemplateColumns: '1fr 1fr 1fr', 
-                      gap: '12px' 
-                    }}>
-                      {thumbnailOptions.map((thumb, index) => (
-                        <div 
-                          key={index}
-                          onClick={() => setSelectedThumbnail(thumb)}
-                          style={{
-                            border: selectedThumbnail === thumb ? '3px solid #FF0000' : '2px solid #ddd',
-                            borderRadius: '8px',
-                            padding: '8px',
-                            cursor: 'pointer',
-                            position: 'relative',
-                            transition: 'all 0.3s ease'
-                          }}
-                        >
-                          <img 
-                            src={thumb.url} 
-                            alt={`Thumbnail ${index + 1}`}
-                            style={{ 
-                              width: '100%', 
-                              borderRadius: '4px',
-                              display: 'block'
-                            }}
-                          />
-                          <div style={{ 
-                            fontSize: '11px', 
-                            marginTop: '8px',
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center'
-                          }}>
-                            <span style={{ fontWeight: '600' }}>Option {thumb.variation}</span>
-                            <span style={{ 
-                              background: thumb.ctr_score > 70 ? '#28a745' : '#ffc107',
-                              color: 'white',
-                              padding: '2px 6px',
-                              borderRadius: '4px',
-                              fontSize: '10px',
-                              fontWeight: '600'
-                            }}>
-                              CTR: {thumb.ctr_score.toFixed(0)}%
-                            </span>
-                          </div>
-                          <div style={{ 
-                            fontSize: '10px', 
-                            color: '#666',
-                            marginTop: '4px',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap'
-                          }}>
-                            {thumb.text}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                    <div style={{
-                      marginTop: '12px',
-                      padding: '12px',
-                      background: '#f8f9fa',
-                      borderRadius: '6px',
-                      fontSize: '12px',
-                      color: '#666'
-                    }}>
-                      💡 <strong>Tip:</strong> Higher CTR score = better chance of getting clicks. 
-                      Click a thumbnail to select it for your video.
-                    </div>
-                  </div>
-                )}
+
+
+
+{/* Thumbnail Selection */}
+{thumbnailOptions.length > 0 && (
+  <div style={{ marginBottom: '20px' }}>
+    <h4 style={{ color: '#333', marginBottom: '12px', fontSize: '16px' }}>
+      🎨 Select Thumbnail:
+    </h4>
+    <div style={{ 
+      display: 'grid', 
+      gridTemplateColumns: '1fr 1fr 1fr', 
+      gap: '12px' 
+    }}>
+      {thumbnailOptions.map((thumb, index) => (
+        <div 
+          key={index}
+          onClick={() => {
+            setSelectedThumbnail(thumb);
+            console.log('✅ Thumbnail selected:', thumb.variation);
+          }}
+          style={{
+            border: selectedThumbnail?.variation === thumb.variation 
+              ? '3px solid #FF0000' 
+              : '2px solid #ddd',
+            borderRadius: '8px',
+            padding: '8px',
+            cursor: 'pointer',
+            position: 'relative',
+            transition: 'all 0.3s ease',
+            backgroundColor: selectedThumbnail?.variation === thumb.variation 
+              ? '#fff5f5' 
+              : 'white'
+          }}
+        >
+          <img 
+            src={thumb.url} 
+            alt={`Thumbnail ${index + 1}`}
+            style={{ 
+              width: '100%', 
+              borderRadius: '4px',
+              display: 'block'
+            }}
+          />
+          <div style={{ 
+            fontSize: '11px', 
+            marginTop: '8px',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center'
+          }}>
+            <span style={{ fontWeight: '600' }}>
+              {selectedThumbnail?.variation === thumb.variation ? '✓ ' : ''}
+              Option {thumb.variation}
+            </span>
+            <span style={{ 
+              background: thumb.ctr_score > 70 ? '#28a745' : '#ffc107',
+              color: 'white',
+              padding: '2px 6px',
+              borderRadius: '4px',
+              fontSize: '10px',
+              fontWeight: '600'
+            }}>
+              CTR: {thumb.ctr_score.toFixed(0)}%
+            </span>
+          </div>
+          <div style={{ 
+            fontSize: '10px', 
+            color: '#666',
+            marginTop: '4px',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap'
+          }}>
+            {thumb.text}
+          </div>
+        </div>
+      ))}
+    </div>
+    
+    {/* Selected Thumbnail Indicator */}
+    {selectedThumbnail && (
+      <div style={{
+        marginTop: '12px',
+        padding: '12px',
+        background: '#d4edda',
+        border: '1px solid #c3e6cb',
+        borderRadius: '6px',
+        fontSize: '13px',
+        color: '#155724'
+      }}>
+        ✅ <strong>Selected:</strong> Option {selectedThumbnail.variation} - "{selectedThumbnail.text}"
+        <br />
+        <small>This thumbnail will be uploaded with your video</small>
+      </div>
+    )}
+    
+    <div style={{
+      marginTop: '12px',
+      padding: '12px',
+      background: '#f8f9fa',
+      borderRadius: '6px',
+      fontSize: '12px',
+      color: '#666'
+    }}>
+      💡 <strong>Tip:</strong> Higher CTR score = better chance of getting clicks. 
+      Click a thumbnail to select it for your video.
+    </div>
+  </div>
+)}
+
+{/* Upload Button - SINGLE BUTTON ONLY */}
+<button 
+  onClick={uploadVideo}
+  disabled={loading || !contentData.title || !contentData.video_url}
+  style={{
+    width: '100%',
+    padding: '12px',
+    background: loading || !contentData.title || !contentData.video_url ? '#ccc' : '#FF0000',
+    color: 'white',
+    border: 'none',
+    borderRadius: '8px',
+    fontSize: '14px',
+    fontWeight: '600',
+    cursor: loading || !contentData.title || !contentData.video_url ? 'not-allowed' : 'pointer',
+    transition: 'background 0.3s ease'
+  }}
+>
+  {loading ? 'Uploading...' : 'Upload to YouTube'}
+</button>
 
 
 
@@ -1694,45 +1765,8 @@ useEffect(() => {
 
 
 
-                <button 
-                  onClick={uploadVideo}
-                  disabled={loading || !contentData.title || !contentData.video_url}
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    background: loading || !contentData.title || !contentData.video_url ? '#ccc' : '#FF0000',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '8px',
-                    fontSize: '14px',
-                    fontWeight: '600',
-                    cursor: loading || !contentData.title || !contentData.video_url ? 'not-allowed' : 'pointer',
-                    transition: 'background 0.3s ease'
-                  }}
-                >
-                  {loading ? 'Uploading...' : 'Upload to YouTube'}
-                </button>
 
 
-
-                                <button 
-                  onClick={uploadVideo}
-                  disabled={loading || !contentData.title || !contentData.video_url}
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    background: loading || !contentData.title || !contentData.video_url ? '#ccc' : '#FF0000',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '8px',
-                    fontSize: '14px',
-                    fontWeight: '600',
-                    cursor: loading || !contentData.title || !contentData.video_url ? 'not-allowed' : 'pointer',
-                    transition: 'background 0.3s ease'
-                  }}
-                >
-                  {loading ? 'Uploading...' : 'Upload to YouTube'}
-                </button>
 
                 {/* ADD THE COMMUNITY POSTS SECTION HERE - AFTER UPLOAD BUTTON */}
                 
