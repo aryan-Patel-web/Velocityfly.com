@@ -1906,205 +1906,372 @@ useEffect(() => {
 
 
 
+
+
+
+
+
+
+
+
 {/* NEW: Schedule Mode Toggle */}
+{/* IMPROVED: Unified Upload/Schedule Section */}
 <div style={{ marginTop: '30px', paddingTop: '30px', borderTop: '2px solid #f0f0f0' }}>
-  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
-    <button
-      onClick={() => setScheduleMode(!scheduleMode)}
+  <div style={{ 
+    display: 'flex', 
+    gap: '12px', 
+    marginBottom: '24px' 
+  }}>
+    {/* Upload Now Button */}
+    <button 
+      onClick={uploadVideo}
+      disabled={loading || !contentData.title || !contentData.video_url}
       style={{
-        padding: '10px 20px',
-        background: scheduleMode ? '#FF0000' : '#f0f0f0',
-        color: scheduleMode ? 'white' : '#333',
+        flex: 1,
+        padding: '14px',
+        background: loading || !contentData.title || !contentData.video_url ? '#ccc' : '#FF0000',
+        color: 'white',
         border: 'none',
         borderRadius: '8px',
-        fontSize: '14px',
+        fontSize: '15px',
         fontWeight: '600',
-        cursor: 'pointer'
+        cursor: loading || !contentData.title || !contentData.video_url ? 'not-allowed' : 'pointer',
+        transition: 'all 0.3s ease'
       }}
     >
-      {scheduleMode ? '📅 Schedule Mode Active' : '📅 Switch to Schedule Mode'}
+      {loading ? 'Uploading...' : 'Upload to YouTube Now'}
     </button>
-    {scheduleMode && (
-      <span style={{ fontSize: '12px', color: '#666' }}>
-        Schedule up to 3 videos at different times
-      </span>
-    )}
+    
+    {/* OR Separator */}
+    <div style={{ 
+      display: 'flex', 
+      alignItems: 'center', 
+      color: '#999',
+      fontSize: '14px',
+      fontWeight: '600'
+    }}>
+      OR
+    </div>
+    
+    {/* Schedule Button */}
+    <button
+      onClick={() => setScheduleMode(!scheduleMode)}
+      disabled={!contentData.title || !contentData.video_url}
+      style={{
+        flex: 1,
+        padding: '14px',
+        background: scheduleMode ? '#28a745' : (!contentData.title || !contentData.video_url ? '#ccc' : '#f0f0f0'),
+        color: scheduleMode ? 'white' : (!contentData.title || !contentData.video_url ? '#999' : '#333'),
+        border: scheduleMode ? 'none' : '2px solid #ddd',
+        borderRadius: '8px',
+        fontSize: '15px',
+        fontWeight: '600',
+        cursor: !contentData.title || !contentData.video_url ? 'not-allowed' : 'pointer',
+        transition: 'all 0.3s ease'
+      }}
+    >
+      {scheduleMode ? 'Scheduling Active' : 'Schedule for Later'}
+    </button>
   </div>
 
   {scheduleMode && (
-    <div>
-      <h4 style={{ color: '#333', marginBottom: '16px' }}>Schedule Video Uploads</h4>
+    <div style={{
+      background: '#f8f9fa',
+      padding: '20px',
+      borderRadius: '12px',
+      border: '2px solid #28a745'
+    }}>
+      <h4 style={{ color: '#28a745', marginBottom: '16px', fontSize: '16px' }}>
+        Schedule Upload Times
+      </h4>
+      
+      <div style={{
+        background: 'white',
+        padding: '12px',
+        borderRadius: '8px',
+        marginBottom: '16px',
+        fontSize: '13px',
+        color: '#666',
+        border: '1px solid #ddd'
+      }}>
+        <strong>Ready to schedule:</strong> {contentData.title}
+        <br />
+        <small>Video will upload automatically at selected times</small>
+      </div>
       
       {scheduleSlots.map((slot, index) => (
         <div key={slot.id} style={{
-          background: '#f8f9fa',
+          background: 'white',
           padding: '16px',
           borderRadius: '8px',
           marginBottom: '12px',
-          border: '1px solid #ddd'
+          border: '2px solid #e0e0e0'
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-            <span style={{ fontWeight: '600', color: '#FF0000' }}>Slot {index + 1}</span>
+          <div style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'space-between',
+            marginBottom: '12px'
+          }}>
+            <span style={{ fontWeight: '600', color: '#28a745', fontSize: '14px' }}>
+              Upload Time {index + 1}
+            </span>
+            {slot.date && slot.time && (
+              <button
+                onClick={() => {
+                  const newSlots = [...scheduleSlots];
+                  newSlots[index] = { id: slot.id, date: '', time: '' };
+                  setScheduleSlots(newSlots);
+                }}
+                style={{
+                  padding: '4px 8px',
+                  background: '#dc3545',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  fontSize: '11px',
+                  cursor: 'pointer'
+                }}
+              >
+                Clear
+              </button>
+            )}
           </div>
           
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-            <input
-              type="text"
-              placeholder="Video Title"
-              value={slot.title}
-              onChange={(e) => {
-                const newSlots = [...scheduleSlots];
-                newSlots[index].title = e.target.value;
-                setScheduleSlots(newSlots);
-              }}
-              style={{
-                padding: '10px',
-                borderRadius: '6px',
-                border: '1px solid #ddd',
-                fontSize: '13px'
-              }}
-            />
+            <div>
+              <label style={{ 
+                display: 'block', 
+                fontSize: '12px', 
+                color: '#666',
+                marginBottom: '4px',
+                fontWeight: '500'
+              }}>
+                Date
+              </label>
+              <input
+                type="date"
+                value={slot.date}
+                min={new Date().toISOString().split('T')[0]}
+                onChange={(e) => {
+                  const newSlots = [...scheduleSlots];
+                  newSlots[index].date = e.target.value;
+                  setScheduleSlots(newSlots);
+                }}
+                style={{
+                  width: '100%',
+                  padding: '10px',
+                  borderRadius: '6px',
+                  border: '1px solid #ddd',
+                  fontSize: '13px'
+                }}
+              />
+            </div>
             
-            <input
-              type="url"
-              placeholder="Video URL"
-              value={slot.video_url}
-              onChange={(e) => {
-                const newSlots = [...scheduleSlots];
-                newSlots[index].video_url = e.target.value;
-                setScheduleSlots(newSlots);
-              }}
-              style={{
-                padding: '10px',
-                borderRadius: '6px',
-                border: '1px solid #ddd',
-                fontSize: '13px'
-              }}
-            />
-            
-            <input
-              type="date"
-              value={slot.date}
-              min={new Date().toISOString().split('T')[0]}
-              onChange={(e) => {
-                const newSlots = [...scheduleSlots];
-                newSlots[index].date = e.target.value;
-                setScheduleSlots(newSlots);
-              }}
-              style={{
-                padding: '10px',
-                borderRadius: '6px',
-                border: '1px solid #ddd',
-                fontSize: '13px'
-              }}
-            />
-            
-            <input
-              type="time"
-              value={slot.time}
-              onChange={(e) => {
-                const newSlots = [...scheduleSlots];
-                newSlots[index].time = e.target.value;
-                setScheduleSlots(newSlots);
-              }}
-              style={{
-                padding: '10px',
-                borderRadius: '6px',
-                border: '1px solid #ddd',
-                fontSize: '13px'
-              }}
-            />
+            <div>
+              <label style={{ 
+                display: 'block', 
+                fontSize: '12px', 
+                color: '#666',
+                marginBottom: '4px',
+                fontWeight: '500'
+              }}>
+                Time
+              </label>
+              <input
+                type="time"
+                value={slot.time}
+                onChange={(e) => {
+                  const newSlots = [...scheduleSlots];
+                  newSlots[index].time = e.target.value;
+                  setScheduleSlots(newSlots);
+                }}
+                style={{
+                  width: '100%',
+                  padding: '10px',
+                  borderRadius: '6px',
+                  border: '1px solid #ddd',
+                  fontSize: '13px'
+                }}
+              />
+            </div>
           </div>
           
-          <textarea
-            placeholder="Description (optional)"
-            value={slot.description}
-            onChange={(e) => {
-              const newSlots = [...scheduleSlots];
-              newSlots[index].description = e.target.value;
-              setScheduleSlots(newSlots);
-            }}
-            rows={2}
-            style={{
-              width: '100%',
+          {slot.date && slot.time && (
+            <div style={{
               marginTop: '8px',
               padding: '8px',
-              borderRadius: '6px',
-              border: '1px solid #ddd',
+              background: '#d4edda',
+              borderRadius: '4px',
               fontSize: '12px',
-              resize: 'vertical'
-            }}
-          />
+              color: '#155724'
+            }}>
+              Will upload: {new Date(`${slot.date}T${slot.time}`).toLocaleString()}
+            </div>
+          )}
         </div>
       ))}
       
+      <div style={{
+        background: '#fff3cd',
+        padding: '12px',
+        borderRadius: '8px',
+        marginBottom: '16px',
+        border: '1px solid #ffc107'
+      }}>
+        <div style={{ fontSize: '12px', fontWeight: '600', color: '#856404', marginBottom: '8px' }}>
+          Quick Test (3-minute intervals)
+        </div>
+        <button
+          onClick={() => {
+            const now = new Date();
+            const newSlots = [
+              { id: 1, date: now.toISOString().split('T')[0], time: new Date(now.getTime() + 3 * 60000).toTimeString().slice(0, 5) },
+              { id: 2, date: now.toISOString().split('T')[0], time: new Date(now.getTime() + 6 * 60000).toTimeString().slice(0, 5) },
+              { id: 3, date: now.toISOString().split('T')[0], time: new Date(now.getTime() + 9 * 60000).toTimeString().slice(0, 5) }
+            ];
+            setScheduleSlots(newSlots);
+          }}
+          style={{
+            padding: '8px 16px',
+            background: '#ffc107',
+            color: '#000',
+            border: 'none',
+            borderRadius: '6px',
+            fontSize: '12px',
+            fontWeight: '600',
+            cursor: 'pointer'
+          }}
+        >
+          Set Test Times (Now +3min, +6min, +9min)
+        </button>
+      </div>
+      
       <button
-        onClick={scheduleVideos}
-        disabled={loading}
+        onClick={async () => {
+          const validSlots = scheduleSlots.filter(s => s.date && s.time);
+          
+          if (validSlots.length === 0) {
+            setError('Please set at least one upload time');
+            return;
+          }
+          
+          setLoading(true);
+          setError('');
+          
+          try {
+            const userData = getUserData();
+            
+            const results = await Promise.all(
+              validSlots.map(slot => 
+                fetch(`${API_BASE}/api/youtube/schedule-video`, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                  },
+                  body: JSON.stringify({
+                    user_id: userData.user_id,
+                    schedule_date: slot.date,
+                    schedule_time: slot.time,
+                    video_data: {
+                      title: contentData.title,
+                      description: contentData.description,
+                      video_url: contentData.video_url,
+                      content_type: contentData.content_type,
+                      thumbnail_url: selectedThumbnail?.url
+                    }
+                  })
+                }).then(r => r.json())
+              )
+            );
+            
+            const successCount = results.filter(r => r.success).length;
+            alert(`${successCount} upload(s) scheduled successfully!`);
+            
+            setScheduleSlots([
+              { id: 1, date: '', time: '' },
+              { id: 2, date: '', time: '' },
+              { id: 3, date: '', time: '' }
+            ]);
+            
+            setScheduleMode(false);
+            await fetchScheduledPosts();
+            
+          } catch (error) {
+            setError('Scheduling failed: ' + error.message);
+          } finally {
+            setLoading(false);
+          }
+        }}
+        disabled={loading || scheduleSlots.filter(s => s.date && s.time).length === 0}
         style={{
           width: '100%',
-          padding: '12px',
-          background: loading ? '#ccc' : '#28a745',
+          padding: '14px',
+          background: loading || scheduleSlots.filter(s => s.date && s.time).length === 0 ? '#ccc' : '#28a745',
           color: 'white',
           border: 'none',
           borderRadius: '8px',
-          fontSize: '14px',
+          fontSize: '15px',
           fontWeight: '600',
-          cursor: loading ? 'not-allowed' : 'pointer',
-          marginTop: '12px'
+          cursor: loading || scheduleSlots.filter(s => s.date && s.time).length === 0 ? 'not-allowed' : 'pointer'
         }}
       >
-        {loading ? 'Scheduling...' : '📅 Schedule All Videos'}
+        {loading ? 'Scheduling...' : `Schedule ${scheduleSlots.filter(s => s.date && s.time).length} Upload(s)`}
       </button>
-      
-      {/* Scheduled Posts List */}
-      {scheduledPosts.length > 0 && (
-        <div style={{ marginTop: '30px' }}>
-          <h4 style={{ color: '#333', marginBottom: '12px' }}>Your Scheduled Posts</h4>
-          {scheduledPosts.map(post => (
-            <div key={post.id} style={{
-              background: 'white',
-              padding: '12px',
-              borderRadius: '6px',
-              marginBottom: '8px',
-              border: '1px solid #ddd',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center'
-            }}>
-              <div>
-                <div style={{ fontWeight: '600', fontSize: '13px' }}>{post.title}</div>
-                <div style={{ fontSize: '11px', color: '#666', marginTop: '4px' }}>
-                  📅 {new Date(post.scheduled_for).toLocaleString()}
-                  {' • '}
-                  <span style={{
-                    color: post.status === 'published' ? '#28a745' : 
-                           post.status === 'failed' ? '#dc3545' : '#ffc107'
-                  }}>
-                    {post.status.toUpperCase()}
-                  </span>
-                </div>
-              </div>
-              {post.status === 'scheduled' && (
-                <button
-                  onClick={() => deleteScheduledPost(post.id)}
-                  style={{
-                    padding: '6px 12px',
-                    background: '#dc3545',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '4px',
-                    fontSize: '11px',
-                    cursor: 'pointer'
-                  }}
-                >
-                  Delete
-                </button>
-              )}
+    </div>
+  )}
+  
+  {scheduledPosts.length > 0 && (
+    <div style={{ marginTop: '24px' }}>
+      <h4 style={{ color: '#333', marginBottom: '12px', fontSize: '15px' }}>
+        Scheduled Uploads
+      </h4>
+      {scheduledPosts.map(post => (
+        <div key={post.id} style={{
+          background: 'white',
+          padding: '12px',
+          borderRadius: '8px',
+          marginBottom: '8px',
+          border: '1px solid #ddd',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center'
+        }}>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontWeight: '600', fontSize: '13px', marginBottom: '4px' }}>
+              {post.title}
             </div>
-          ))}
+            <div style={{ fontSize: '11px', color: '#666' }}>
+              {new Date(post.scheduled_for).toLocaleString()}
+              {' '}
+              <span style={{
+                color: post.status === 'published' ? '#28a745' : 
+                       post.status === 'failed' ? '#dc3545' : '#ffc107',
+                fontWeight: '600'
+              }}>
+                {post.status.toUpperCase()}
+              </span>
+            </div>
+          </div>
+          {post.status === 'scheduled' && (
+            <button
+              onClick={() => deleteScheduledPost(post.id)}
+              style={{
+                padding: '6px 12px',
+                background: '#dc3545',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                fontSize: '11px',
+                cursor: 'pointer'
+              }}
+            >
+              Cancel
+            </button>
+          )}
         </div>
-      )}
+      ))}
     </div>
   )}
 </div>
