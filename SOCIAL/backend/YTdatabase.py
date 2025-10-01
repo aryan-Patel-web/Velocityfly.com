@@ -726,7 +726,7 @@ async def get_due_scheduled_posts(self) -> List[Dict[str, Any]]:
             logger.error(f"Traceback: {traceback.format_exc()}")
             return []
     
-    async def update_scheduled_post_status(self, post_id, status: str, error_message: str = None) -> bool:
+async def update_scheduled_post_status(self, post_id, status: str, error_message: str = None) -> bool:
         """Update scheduled post status"""
         try:
             if not self.scheduled_posts_collection:
