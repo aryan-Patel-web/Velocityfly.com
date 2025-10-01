@@ -20,16 +20,18 @@ const YouTubeAutomation = () => {
     videos_per_week: 2
   });
   
-  const [contentData, setContentData] = useState({
-    content_type: 'shorts',
-    topic: '',
-    target_audience: 'general',
-    duration_seconds: 30,
-    style: 'engaging',
-    title: '',
-    description: '',
-    video_url: ''
-  });
+ // Add to state
+const [contentData, setContentData] = useState({
+  content_type: 'shorts',
+  topic: '',
+  target_audience: 'general',
+  duration_seconds: 30,
+  style: 'engaging',
+  language: 'english',  // NEW
+  title: '',
+  description: '',
+  video_url: ''
+});
 
   const [generatedContent, setGeneratedContent] = useState(null);
   const [analytics, setAnalytics] = useState(null);
@@ -216,13 +218,15 @@ const fetchScheduledPosts = useCallback(async () => {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({
-          content_type: contentData.content_type,
-          topic: contentData.topic,
-          target_audience: contentData.target_audience,
-          duration_seconds: contentData.duration_seconds,
-          style: contentData.style
-        })
+body: JSON.stringify({
+  content_type: contentData.content_type,
+  topic: contentData.topic,
+  target_audience: contentData.target_audience,
+  duration_seconds: contentData.duration_seconds,
+  style: contentData.style,
+  language: contentData.language || 'english',  // NEW
+  region: 'india'  // NEW
+})
       });
       
       const result = await response.json();
@@ -1584,6 +1588,41 @@ useEffect(() => {
                     <option value="casual">Casual</option>
                     <option value="trending">Trending</option>
                   </select>
+
+                  {/* Language Selector - ADD THIS */}
+<label style={{ 
+  display: 'block', 
+  marginBottom: '8px', 
+  fontWeight: '600', 
+  color: '#333' 
+}}>
+  Content Language 🌐
+</label>
+<select 
+  value={contentData.language || 'english'} 
+  onChange={(e) => setContentData(prev => ({...prev, language: e.target.value}))}
+  style={{ 
+    width: '100%', 
+    padding: '12px', 
+    borderRadius: '8px', 
+    border: '2px solid #ddd', 
+    fontSize: '14px', 
+    marginBottom: '20px' 
+  }}
+>
+  <option value="english">English</option>
+  <option value="hindi">हिन्दी (Hindi)</option>
+  <option value="hinglish">Hinglish (हिन्दी + English)</option>
+  <option value="tamil">தமிழ் (Tamil)</option>
+  <option value="telugu">తెలుగు (Telugu)</option>
+  <option value="bengali">বাংলা (Bengali)</option>
+  <option value="marathi">मराठी (Marathi)</option>
+  <option value="gujarati">ગુજરાતી (Gujarati)</option>
+  <option value="malayalam">മലയാളം (Malayalam)</option>
+  <option value="kannada">ಕನ್ನಡ (Kannada)</option>
+  <option value="punjabi">ਪੰਜਾਬੀ (Punjabi)</option>
+  <option value="assamese">অসমীয়া (Assamese)</option>
+</select>
                 </div>
                 
                 <button 

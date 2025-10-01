@@ -1652,128 +1652,45 @@ async def delete_scheduled_post(post_id: str):
 
 @app.post("/api/ai/generate-youtube-content")
 async def generate_youtube_content(request: dict):
-    """Generate YouTube content using AI - FIXED"""
+    """Generate YouTube content using AI with trending and multilingual support"""
     try:
         logger.info(f"Generating YouTube content: {request}")
         
+        # Extract parameters
         content_type = request.get("content_type", "shorts")
         topic = request.get("topic", "general")
         target_audience = request.get("target_audience", "general")
         style = request.get("style", "engaging")
+        language = request.get("language", "english")
+        region = request.get("region", "india")
+        duration_seconds = request.get("duration_seconds", 30)
         
-        # Try to use real AI service first
+        # Get trending hashtags and context
+        trending_context = await get_trending_context(topic, language, region)
+        
+        # Use real AI service first
         if ai_service and hasattr(ai_service, 'generate_youtube_content'):
             try:
                 result = await ai_service.generate_youtube_content(
                     content_type=content_type,
                     topic=topic,
                     target_audience=target_audience,
-                    style=style
+                    duration_seconds=duration_seconds,
+                    style=style,
+                    language=language,
+                    region=region,
+                    trending_context=trending_context
                 )
                 if result.get("success"):
-                    logger.info("Real AI content generation successful")
+                    logger.info(f"AI content generation successful in {language}")
                     return result
             except Exception as ai_error:
                 logger.warning(f"AI service failed: {ai_error}")
         
-        # Enhanced fallback content generation
-        mock_content_templates = {
-            "shorts": {
-                "titles": [
-                    f"🔥 {topic.title()} Hack That Will Blow Your Mind!",
-                    f"Why Everyone is Talking About {topic.title()}",
-                    f"The {topic.title()} Secret Nobody Tells You",
-                    f"60 Seconds to Master {topic.title()}",
-                    f"This {topic.title()} Tip Changed Everything!"
-                ],
-                "descriptions": [
-                    f"Quick {topic} tips that actually work! Perfect for {target_audience} who want fast results. 🚀\n\n"
-                    f"In this short, you'll discover:\n"
-                    f"✅ The most effective {topic} strategy\n"
-                    f"✅ Common mistakes to avoid\n" 
-                    f"✅ Pro tips from experts\n\n"
-                    f"Like and follow for more {topic} content!\n\n"
-                    f"#shorts #{topic.lower().replace(' ', '')} #{target_audience.lower().replace(' ', '')}"
-                ]
-            },
-            "videos": {
-                "titles": [
-                    f"Complete {topic.title()} Guide for {target_audience.title()} (2024)",
-                    f"Everything You Need to Know About {topic.title()}",
-                    f"From Beginner to Pro: {topic.title()} Mastery",
-                    f"The Ultimate {topic.title()} Tutorial",
-                    f"Why {topic.title()} is Essential for {target_audience.title()}"
-                ],
-                "descriptions": [
-                    f"Welcome to the most comprehensive {topic} guide for {target_audience}! 🎯\n\n"
-                    f"⏰ TIMESTAMPS:\n"
-                    f"00:00 - Introduction\n"
-                    f"02:30 - {topic.title()} Basics\n"
-                    f"05:45 - Advanced Techniques\n"
-                    f"08:20 - Common Mistakes\n"
-                    f"10:15 - Pro Tips & Tricks\n"
-                    f"12:40 - Conclusion & Next Steps\n\n"
-                    f"🔔 Subscribe for more {topic} content!\n"
-                    f"👍 Like if this helped you!\n"
-                    f"💬 Comment your questions below!\n\n"
-                    f"#{topic.lower().replace(' ', '')} #{target_audience.lower().replace(' ', '')} #tutorial"
-                ]
-            }
-        }
-        
-        template = mock_content_templates.get(content_type, mock_content_templates["videos"])
-        
-        mock_content = {
-            "success": True,
-            "title": random.choice(template["titles"]),
-            "description": random.choice(template["descriptions"]),
-            "script": f"🎬 SCRIPT FOR {content_type.upper()}:\n\n"
-                     f"HOOK (0-3s): Did you know that {topic} can completely transform your {target_audience} journey?\n\n"
-                     f"MAIN CONTENT:\n"
-                     f"Today I'm sharing the most {style} {topic} insights that actually work.\n\n"
-                     f"Point 1: The foundation of {topic} success\n"
-                     f"Point 2: Advanced {topic} strategies\n"
-                     f"Point 3: Common {topic} mistakes to avoid\n\n"
-                     f"CALL TO ACTION: If this {topic} content helped you, smash that like button and subscribe for more {target_audience}-focused content!\n\n"
-                     f"OUTRO: What's your biggest {topic} challenge? Drop it in the comments!",
-            "tags": [
-                topic.lower().replace(" ", ""),
-                target_audience.lower().replace(" ", ""),
-                content_type,
-                "tutorial",
-                "howto",
-                "tips",
-                "guide",
-                "2024",
-                style.lower(),
-                "youtube" + content_type
-            ],
-            "thumbnail_suggestions": [
-                f"Bold text: '{topic.upper()} SECRETS' with shocked face emoji",
-                f"Before/After split screen showing {topic} transformation",
-                f"Eye-catching arrows pointing to {topic} elements",
-                f"Bright background with {topic} icons and exclamation marks",
-                f"Your face with surprised expression + {topic} graphics"
-            ],
-            "optimal_length": "15-60 seconds" if content_type == "shorts" else "8-12 minutes",
-            "best_posting_time": "2:00 PM - 4:00 PM (your timezone)",
-            "engagement_tips": [
-                f"Ask viewers about their {topic} experience in comments",
-                f"Create a series about different {topic} aspects",
-                f"Collaborate with other {target_audience} creators",
-                f"Use trending {topic} hashtags",
-                f"Post consistently in your {topic} niche"
-            ],
-            "ai_service": "enhanced_mock",
-            "content_type": content_type,
-            "topic": topic,
-            "target_audience": target_audience,
-            "style": style,
-            "word_count": len(f"mock script for {topic}".split()) * 8,
-            "estimated_duration": 30 if content_type == "shorts" else 600
-        }
-        
-        return mock_content
+        # Fallback to enhanced mock (only if AI fails)
+        return await generate_fallback_content(
+            content_type, topic, target_audience, style, language, trending_context
+        )
         
     except Exception as e:
         logger.error(f"YouTube content generation failed: {e}")
@@ -1782,6 +1699,265 @@ async def generate_youtube_content(request: dict):
             "error": str(e),
             "message": "Content generation failed"
         }
+
+async def get_trending_context(topic: str, language: str, region: str) -> dict:
+    """Get trending hashtags and context for content generation"""
+    try:
+        current_date = datetime.now()
+        current_month = current_date.month
+        
+        # Regional trending topics
+        regional_trends = {
+            "india": {
+                1: ["RepublicDay", "MakarSankranti", "Pongal", "WinterFashion"],
+                2: ["Budget2024", "ValentinesDay", "MahaShivratri", "WinterSports"],
+                3: ["Holi", "SpringFashion", "BoardExams", "IPLAuction"],
+                4: ["IPL2024", "SummerFashion", "Elections", "Vacations"],
+                5: ["IPL2024", "SummerTips", "Elections", "Mangoes"],
+                6: ["Monsoon", "WorldEnvironmentDay", "Yoga", "FitnessTips"],
+                7: ["Independence", "Monsoon", "BackToSchool", "TechTrends"],
+                8: ["RakshaBandhan", "Independence", "Festive", "TechReviews"],
+                9: ["Ganpati", "Navratri", "FestivePrep", "OnlineShopping"],
+                10: ["Diwali", "FestiveShopping", "WinterPrep", "TechDeals"],
+                11: ["Diwali", "WeddingSeason", "WinterFashion", "CyberMonday"],
+                12: ["NewYear", "WinterFashion", "YearEnd", "Resolutions"]
+            }
+        }
+        
+        # Language-specific hashtags
+        language_hashtags = {
+            "hindi": ["हिंदी", "भारत", "देसी", "घर"],
+            "tamil": ["தமிழ்", "தமிழ்நாடு"],
+            "telugu": ["తెలుగు", "ఆంధ్ర"],
+            "bengali": ["বাংলা", "পশ্চিমবঙ্গ"],
+            "marathi": ["मराठी", "महाराष्ट्र"],
+            "gujarati": ["ગુજરાતી", "ગુજરાત"],
+            "malayalam": ["മലയാളം", "കേരളം"],
+            "kannada": ["ಕನ್ನಡ", "ಕರ್ನಾಟಕ"],
+            "punjabi": ["ਪੰਜਾਬੀ", "ਪੰਜਾਬ"],
+            "hinglish": ["Hinglish", "Desi", "Indian"]
+        }
+        
+        # Get current trends
+        current_trends = regional_trends.get(region, {}).get(current_month, ["Trending", "Viral"])
+        lang_tags = language_hashtags.get(language, ["English"])
+        
+        # Topic-specific trending hashtags
+        topic_trends = {
+            "tech": ["TechTrends", "Innovation", "Gadgets", "AI", "Mobile"],
+            "cooking": ["Recipes", "Cooking", "Food", "Kitchen", "Chef"],
+            "fitness": ["Fitness", "Health", "Workout", "Gym", "Wellness"],
+            "travel": ["Travel", "Explore", "Adventure", "Tourism", "Wanderlust"],
+            "education": ["Education", "Learning", "Study", "Knowledge", "Skills"],
+            "business": ["Business", "Entrepreneur", "Success", "Money", "Startup"],
+            "entertainment": ["Entertainment", "Fun", "Comedy", "Music", "Movies"]
+        }
+        
+        topic_hashtags = topic_trends.get(topic.lower(), ["General", "Content"])
+        
+        return {
+            "regional_trends": current_trends,
+            "language_hashtags": lang_tags,
+            "topic_hashtags": topic_hashtags,
+            "current_month": current_month,
+            "season": get_current_season(current_month),
+            "festivals": get_current_festivals(current_month)
+        }
+        
+    except Exception as e:
+        logger.error(f"Failed to get trending context: {e}")
+        return {
+            "regional_trends": ["Trending"],
+            "language_hashtags": ["Content"],
+            "topic_hashtags": ["General"],
+            "current_month": datetime.now().month,
+            "season": "current",
+            "festivals": []
+        }
+
+def get_current_season(month: int) -> str:
+    """Get current season based on month"""
+    seasons = {
+        (12, 1, 2): "Winter",
+        (3, 4, 5): "Spring", 
+        (6, 7, 8): "Monsoon",
+        (9, 10, 11): "Autumn"
+    }
+    
+    for months, season in seasons.items():
+        if month in months:
+            return season
+    return "Current"
+
+def get_current_festivals(month: int) -> list:
+    """Get current festivals based on month"""
+    festivals = {
+        1: ["Makar Sankranti", "Pongal", "Republic Day"],
+        2: ["Maha Shivratri", "Vasant Panchami"],
+        3: ["Holi", "Ugadi"],
+        4: ["Ram Navami", "Baisakhi"],
+        5: ["Buddha Purnima"],
+        6: ["Rath Yatra"],
+        7: ["Guru Purnima"],
+        8: ["Raksha Bandhan", "Krishna Janmashtami"],
+        9: ["Ganesh Chaturthi"],
+        10: ["Navratri", "Dussehra"],
+        11: ["Diwali", "Karwa Chauth"],
+        12: ["Christmas", "New Year"]
+    }
+    return festivals.get(month, [])
+
+async def generate_fallback_content(content_type: str, topic: str, target_audience: str, 
+                                  style: str, language: str, trending_context: dict) -> dict:
+    """Generate enhanced fallback content when AI service fails"""
+    try:
+        # Get unique content based on timestamp and user input
+        timestamp = int(datetime.now().timestamp())
+        unique_id = f"{topic}_{language}_{timestamp}"
+        
+        # Language-specific content templates
+        if language == "hindi":
+            title_templates = [
+                f"🔥 {topic} के अद्भुत राज जो आपको पता होने चाहिए!",
+                f"क्यों हर कोई {topic} के बारे में बात कर रहा है?",
+                f"{topic} का यह रहस्य कोई नहीं बताता",
+                f"60 सेकंड में {topic} को मास्टर करें",
+                f"यह {topic} टिप सब कुछ बदल देगी!"
+            ]
+            description_start = f"{topic} के लिए त्वरित टिप्स जो वास्तव में काम करती हैं! {target_audience} के लिए परफेक्ट जो तेज़ परिणाम चाहते हैं। 🚀"
+            
+        elif language == "hinglish":
+            title_templates = [
+                f"🔥 {topic} ke amazing secrets jo tumhe pata hone chahiye!",
+                f"Kyun har koi {topic} ke bare mein baat kar raha hai?",
+                f"{topic} ka yeh secret koi nahi batata",
+                f"60 seconds mein {topic} ko master karo",
+                f"Yeh {topic} tip sab kuch change kar degi!"
+            ]
+            description_start = f"{topic} ke liye quick tips jo actually work karte hain! {target_audience} ke liye perfect jo fast results chahte hain। 🚀"
+            
+        else:  # English and other languages
+            title_templates = [
+                f"🔥 Amazing {topic} Secrets You Must Know!",
+                f"Why Everyone is Talking About {topic} Right Now",
+                f"The {topic} Secret Nobody Tells You",
+                f"Master {topic} in 60 Seconds",
+                f"This {topic} Tip Changed Everything!"
+            ]
+            description_start = f"Quick {topic} tips that actually work! Perfect for {target_audience} who want fast results. 🚀"
+        
+        # Generate unique title using hash of unique_id
+        title_index = hash(unique_id) % len(title_templates)
+        title = title_templates[title_index]
+        
+        # Create trending hashtags
+        all_hashtags = (
+            trending_context["regional_trends"] +
+            trending_context["language_hashtags"] +
+            trending_context["topic_hashtags"] +
+            [topic.replace(" ", ""), target_audience.replace(" ", ""), content_type] +
+            [f"{language}Content", "2024", style]
+        )
+        
+        # Remove duplicates and format
+        unique_hashtags = list(set([f"#{tag}" for tag in all_hashtags if tag]))[:15]
+        
+        # Create description with trending context
+        description = f"""{description_start}
+
+इस {content_type} में आप जानेंगे:
+✅ सबसे प्रभावी {topic} रणनीति
+✅ सामान्य गलतियों से कैसे बचें
+✅ एक्सपर्ट्स की प्रो टिप्स
+
+Trending now: {', '.join(trending_context['regional_trends'][:3])}
+Current festivals: {', '.join(trending_context['festivals'][:2])}
+
+Like और follow करें more {topic} content के लिए!
+
+{' '.join(unique_hashtags)}"""
+        
+        # Generate script with trending context
+        script = f"""🎬 SCRIPT FOR {content_type.upper()} ({language}):
+
+HOOK (0-3s): क्या आपको पता है कि {topic} आपकी {target_audience} journey को पूरी तरह से बदल सकता है?
+
+TRENDING CONTEXT: अभी {trending_context['season']} season में {topic} बहुत popular है!
+
+MAIN CONTENT:
+आज मैं share कर रहा हूं सबसे {style} {topic} insights जो actually काम करती हैं।
+
+Point 1: {topic} success की foundation
+Point 2: Advanced {topic} strategies  
+Point 3: Common {topic} mistakes जिनसे बचना है
+
+FESTIVAL TIE-IN: {trending_context['festivals'][0] if trending_context['festivals'] else 'इस season'} के लिए special {topic} tips!
+
+CALL TO ACTION: अगर यह {topic} content helpful लगा, तो like button smash करें और subscribe करें more {target_audience}-focused content के लिए!
+
+OUTRO: आपकी सबसे बड़ी {topic} challenge क्या है? Comments में बताएं!"""
+        
+        return {
+            "success": True,
+            "title": title,
+            "description": description,
+            "script": script,
+            "tags": [tag.replace("#", "") for tag in unique_hashtags],
+            "content_type": content_type,
+            "language": language,
+            "trending_context": trending_context,
+            "unique_id": unique_id,
+            "ai_service": "enhanced_trending_fallback",
+            "word_count": len(script.split()),
+            "estimated_duration": 30 if content_type == "shorts" else 600,
+            "hashtags": unique_hashtags
+        }
+        
+    except Exception as e:
+        logger.error(f"Fallback content generation failed: {e}")
+        return {
+            "success": False,
+            "error": str(e),
+            "message": "Both AI and fallback generation failed"
+        }
+
+# Add this new endpoint for getting supported languages
+@app.get("/api/ai/supported-languages")
+async def get_supported_languages():
+    """Get list of supported languages for content generation"""
+    try:
+        if ai_service and hasattr(ai_service, 'get_supported_languages'):
+            return ai_service.get_supported_languages()
+        
+        # Fallback language list
+        return {
+            "success": True,
+            "languages": {
+                "english": {"name": "English", "native_name": "English", "code": "en"},
+                "hindi": {"name": "Hindi", "native_name": "हिन्दी", "code": "hi"},
+                "hinglish": {"name": "Hinglish", "native_name": "Hinglish (हिन्दी + English)", "code": "hi-en"},
+                "tamil": {"name": "Tamil", "native_name": "தமிழ்", "code": "ta"},
+                "telugu": {"name": "Telugu", "native_name": "తెలుగు", "code": "te"},
+                "bengali": {"name": "Bengali", "native_name": "বাংলা", "code": "bn"},
+                "marathi": {"name": "Marathi", "native_name": "मराठी", "code": "mr"},
+                "gujarati": {"name": "Gujarati", "native_name": "ગુજરાતી", "code": "gu"},
+                "malayalam": {"name": "Malayalam", "native_name": "മലയാളം", "code": "ml"},
+                "kannada": {"name": "Kannada", "native_name": "ಕನ್ನಡ", "code": "kn"},
+                "punjabi": {"name": "Punjabi", "native_name": "ਪੰਜਾਬੀ", "code": "pa"},
+                "assamese": {"name": "Assamese", "native_name": "অসমীয়া", "code": "as"}
+            },
+            "default_language": "english"
+        }
+        
+    except Exception as e:
+        logger.error(f"Failed to get supported languages: {e}")
+        return {"success": False, "error": str(e)}
+
+
+
+
+
+
 
 
 @app.post("/api/ai/generate-thumbnails")
