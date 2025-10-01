@@ -2151,36 +2151,26 @@ useEffect(() => {
 
       
       <button
+
+
+
+
+
+
+
+
 onClick={async () => {
-  // DEBUG: Check what we have
-  console.log('=== SCHEDULE DEBUG ===');
-  console.log('contentData:', contentData);
-  console.log('scheduleSlots:', scheduleSlots);
-  console.log('selectedThumbnail:', selectedThumbnail);
-  
   const validSlots = scheduleSlots.filter(s => s.date && s.time);
-  console.log('validSlots count:', validSlots.length);
   
   if (validSlots.length === 0) {
     alert('Please set at least one date and time for scheduling');
-    setError('Please set at least one upload time');
     return;
   }
   
-  // Check main form data
-  if (!contentData.title?.trim()) {
-    alert('Please enter a video title first');
-    setError('Video title is required');
+  if (!contentData.title?.trim() || !contentData.video_url?.trim()) {
+    alert('Please enter video title and URL first');
     return;
   }
-  
-  if (!contentData.video_url?.trim()) {
-    alert('Please enter a video URL first');
-    setError('Video URL is required');
-    return;
-  }
-  
-  console.log('Validation passed - proceeding with scheduling');
   
   setLoading(true);
   setError('');
@@ -2196,10 +2186,19 @@ onClick={async () => {
     
     const results = await Promise.all(
       validSlots.map(async (slot, index) => {
+        // ✅ CONVERT IST TO UTC
+        const istDateTime = new Date(`${slot.date}T${slot.time}:00+05:30`); // IST timezone
+        const utcDate = istDateTime.toISOString().split('T')[0]; // YYYY-MM-DD
+        const utcTime = istDateTime.toISOString().split('T')[1].substring(0, 5); // HH:MM
+        
+        console.log(`Slot ${index + 1}:`);
+        console.log(`  IST: ${slot.date} ${slot.time}`);
+        console.log(`  UTC: ${utcDate} ${utcTime}`);
+        
         const payload = {
           user_id: userData.user_id,
-          schedule_date: slot.date,
-          schedule_time: slot.time,
+          schedule_date: utcDate,  // ← Send UTC date
+          schedule_time: utcTime,  // ← Send UTC time
           video_data: {
             title: contentData.title.trim(),
             description: contentData.description.trim(),
@@ -2209,7 +2208,7 @@ onClick={async () => {
           }
         };
         
-        console.log(`Schedule request ${index + 1}:`, payload);
+        console.log(`Schedule payload ${index + 1}:`, payload);
         
         const response = await fetch(`${API_BASE}/api/youtube/schedule-video`, {
           method: 'POST',
@@ -2228,14 +2227,10 @@ onClick={async () => {
     );
     
     const successCount = results.filter(r => r.success).length;
-    const failedCount = results.length - successCount;
-    
-    console.log(`Results: ${successCount} success, ${failedCount} failed`);
     
     if (successCount > 0) {
-      alert(`${successCount} upload(s) scheduled successfully!`);
+      alert(`✅ ${successCount} upload(s) scheduled successfully!\n\nNote: Times are converted to UTC for server processing.`);
       
-      // Reset
       setScheduleSlots([
         { id: 1, date: '', time: '' },
         { id: 2, date: '', time: '' },
