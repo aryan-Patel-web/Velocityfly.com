@@ -1346,9 +1346,12 @@ async def youtube_analytics(user_id: str, days: int = 30):
         logger.error(f"YouTube analytics failed: {e}")
         raise HTTPException(status_code=500, detail=f"Analytics error: {str(e)}")
 
+
+
+
 @app.post("/api/youtube/upload")
 async def youtube_upload_video(request: dict):
-    """Upload video to YouTube - FIXED"""
+    """Upload video to YouTube with thumbnail support"""
     try:
         logger.info(f"YouTube upload request: {request}")
         
@@ -1359,6 +1362,13 @@ async def youtube_upload_video(request: dict):
         tags = request.get("tags", [])
         privacy_status = request.get("privacy_status", "public")
         content_type = request.get("content_type", "video")
+        thumbnail_url = request.get("thumbnail_url")  # ← ADDED THIS LINE
+        
+        # DEBUG: Log thumbnail info
+        logger.info(f"🔍 Thumbnail URL present: {thumbnail_url is not None}")
+        if thumbnail_url:
+            logger.info(f"🔍 Thumbnail data length: {len(thumbnail_url)} chars")
+            logger.info(f"🔍 Thumbnail preview: {thumbnail_url[:100]}")
         
         if not user_id:
             raise HTTPException(status_code=400, detail="user_id is required")
@@ -1391,7 +1401,8 @@ async def youtube_upload_video(request: dict):
                     content_type=content_type,
                     title=title,
                     description=description,
-                    video_url=video_url
+                    video_url=video_url,
+                    thumbnail_url=thumbnail_url  # ← ADDED THIS LINE
                 )
                 
                 if upload_result.get("success"):
@@ -1406,11 +1417,13 @@ async def youtube_upload_video(request: dict):
                             "tags": tags,
                             "privacy_status": privacy_status,
                             "content_type": content_type,
-                            "ai_generated": False
+                            "ai_generated": False,
+                            "thumbnail_uploaded": upload_result.get("thumbnail_uploaded", False)  # ← ADDED THIS
                         }
                     )
                     
                     logger.info(f"Real upload successful for user {user_id}")
+                    logger.info(f"📊 Thumbnail uploaded: {upload_result.get('thumbnail_uploaded', False)}")
                     return upload_result
                 else:
                     logger.warning(f"Upload failed via scheduler: {upload_result.get('error')}")
@@ -1470,6 +1483,14 @@ async def youtube_upload_video(request: dict):
             "error": str(e),
             "message": "Upload failed"
         }
+    
+
+
+
+
+
+
+
 
 @app.post("/api/ai/generate-youtube-content")
 async def generate_youtube_content(request: dict):

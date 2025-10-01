@@ -444,6 +444,7 @@ class YouTubeOAuthConnector:
     # VIDEO UPLOAD METHODS
     # ------------------------------------------------------------------------
     
+    # async def upload_video(
     async def upload_video(
         self,
         credentials_data: Dict,
@@ -557,12 +558,23 @@ class YouTubeOAuthConnector:
                             
                             # ===== UPLOAD THUMBNAIL IF PROVIDED =====
                             thumbnail_success = False
+                            
+                            # DEBUG: Check what we received
+                            logger.info(f"🔍 THUMBNAIL DEBUG - Data exists: {thumbnail_data is not None}")
                             if thumbnail_data:
+                                logger.info(f"🔍 THUMBNAIL DEBUG - Data length: {len(thumbnail_data)}")
+                                logger.info(f"🔍 THUMBNAIL DEBUG - Data preview: {thumbnail_data[:100]}")
+                                
+                                # NOW try to upload
                                 thumbnail_success = await self._upload_thumbnail(
                                     youtube,
                                     video_id,
                                     thumbnail_data
                                 )
+                                
+                                logger.info(f"📊 Thumbnail upload result: {thumbnail_success}")
+                            else:
+                                logger.warning("⚠️ No thumbnail data provided - skipping thumbnail upload")
                             
                             return {
                                 "success": True,
@@ -599,10 +611,15 @@ class YouTubeOAuthConnector:
             import traceback
             logger.error(f"Traceback: {traceback.format_exc()}")
             return {"success": False, "error": str(e)}
-    
 
 
 
+
+
+
+
+
+    # async def _upload_thumbnail(
     # async def _upload_thumbnail(
     async def _upload_thumbnail(
         self,
@@ -684,7 +701,7 @@ class YouTubeOAuthConnector:
                     logger.info(f"🗑️ Temp file deleted: {temp_thumb_path}")
                 except Exception as cleanup_error:
                     logger.warning(f"⚠️ Failed to delete temp file: {cleanup_error}")
- 
+
         
 
 
