@@ -1217,20 +1217,33 @@ class YouTubeBackgroundScheduler:
         self.youtube_scheduler = youtube_scheduler
         self.running = False
         self.check_interval = 60  # Check every 60 seconds
+        self.task = None
         logger.info("YouTubeBackgroundScheduler initialized")
     
     async def start(self):
         """Start the background scheduler loop"""
+        if self.running:
+            logger.warning("Background scheduler already running")
+            return
+        
         self.running = True
-        logger.info("Background scheduler started")
+        logger.info("🚀 Background scheduler started - will check every 60 seconds")
         
         while self.running:
             try:
+                current_time = datetime.now()
+                logger.info(f"🔍 Checking for scheduled posts at {current_time.strftime('%Y-%m-%d %H:%M:%S')}")
+                
                 await self.process_scheduled_posts()
+                
+                logger.debug(f"✅ Check complete - next check in {self.check_interval} seconds")
                 await asyncio.sleep(self.check_interval)
+                
             except Exception as e:
-                logger.error(f"Background scheduler error: {e}")
-                await asyncio.sleep(30)
+                logger.error(f"❌ Background scheduler error: {e}")
+                import traceback
+                logger.error(f"Traceback: {traceback.format_exc()}")
+                await asyncio.sleep(30)  # Wait 30s on error
     
     async def stop(self):
         """Stop the background scheduler"""
@@ -1240,16 +1253,24 @@ class YouTubeBackgroundScheduler:
     async def process_scheduled_posts(self):
         """Check and execute posts that are due"""
         try:
+            # Check database connection
+            if not self.database or not hasattr(self.database, 'scheduled_posts_collection'):
+                logger.error("❌ Database or collection not available")
+                return
+            
             due_posts = await self.database.get_due_scheduled_posts()
             
             if due_posts:
-                logger.info(f"Found {len(due_posts)} posts ready for execution")
-            
-            for post in due_posts:
-                await self.execute_scheduled_post(post)
+                logger.info(f"📤 Found {len(due_posts)} posts ready for execution")
+                for post in due_posts:
+                    await self.execute_scheduled_post(post)
+            else:
+                logger.debug("No posts due at this time")
                 
         except Exception as e:
-            logger.error(f"Error processing scheduled posts: {e}")
+            logger.error(f"❌ Error processing scheduled posts: {e}")
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
     
     async def execute_scheduled_post(self, post):
         """Execute a single scheduled post"""
@@ -1258,7 +1279,8 @@ class YouTubeBackgroundScheduler:
             user_id = post["user_id"]
             video_data = post["video_data"]
             
-            logger.info(f"Executing scheduled post {post_id} for user {user_id}")
+            logger.info(f"🎬 Executing scheduled post {post_id} for user {user_id}")
+            logger.info(f"📹 Video: {video_data.get('title', 'Untitled')}")
             
             # Mark as processing
             await self.database.update_scheduled_post_status(post_id, "processing")
@@ -1282,16 +1304,21 @@ class YouTubeBackgroundScheduler:
             if result.get("success"):
                 await self.database.update_scheduled_post_status(post_id, "published")
                 logger.info(f"✅ Scheduled post {post_id} published successfully")
+                logger.info(f"🔗 Video URL: {result.get('video_url', 'N/A')}")
             else:
                 error_msg = result.get("error", "Unknown error")
                 await self.database.update_scheduled_post_status(post_id, "failed", error_msg)
                 logger.error(f"❌ Scheduled post {post_id} failed: {error_msg}")
                 
         except Exception as e:
-            logger.error(f"Failed to execute scheduled post: {e}")
-            await self.database.update_scheduled_post_status(post["_id"], "failed", str(e))
-        
-
+            logger.error(f"❌ Failed to execute scheduled post: {e}")
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
+            await self.database.update_scheduled_post_status(
+                post.get("_id"), 
+                "failed", 
+                str(e)
+            )
 
 
 
@@ -1326,15 +1353,8 @@ async def initialize_youtube_service(
 ) -> bool:
     """
     Initialize YouTube service with required dependencies
-    
-    Args:
-        database_manager: Optional database manager instance
-        ai_service: Optional AI service instance
-        
-    Returns:
-        bool: True if initialization successful
     """
-    global youtube_connector, youtube_scheduler, youtube_database, youtube_background_scheduler  # ADD youtube_background_scheduler here
+    global youtube_connector, youtube_scheduler, youtube_database, youtube_background_scheduler
     
     try:
         logger.info("Initializing YouTube service...")
@@ -1374,17 +1394,16 @@ async def initialize_youtube_service(
             database_manager
         )
         
-        # ========== ADD THIS SECTION HERE ==========
         # Initialize background scheduler
+        logger.info("Initializing background scheduler...")
         youtube_background_scheduler = YouTubeBackgroundScheduler(
             database_manager,
             youtube_scheduler
         )
         
-        # Start scheduler in background
+        # Start scheduler in background task - ONLY ONCE
         asyncio.create_task(youtube_background_scheduler.start())
-        logger.info("Background scheduler started")
-        # ========== END OF NEW SECTION ==========
+        logger.info("✅ Background scheduler initialized and task created")
         
         logger.info("YouTube service initialized successfully")
         logger.info(f"OAuth redirect URI: {redirect_uri}")

@@ -522,6 +522,9 @@ def initialize_ai_service():
 # FIXED service initialization with proper order AND background scheduler
 
 
+
+
+
 async def initialize_services():
     """Initialize all services with robust error handling"""
     global database_manager, ai_service, youtube_connector, youtube_scheduler, youtube_background_scheduler, youtube_ai_service, youtube_feature_extractor
@@ -573,7 +576,7 @@ async def initialize_services():
             try:
                 logger.info("Initializing YouTube service with dependencies...")
                 
-                # FIXED: Pass both database_manager and ai_service to YouTube initialization
+                # Pass both database_manager and ai_service to YouTube initialization
                 success = await initialize_youtube_service(
                     database_manager=database_manager,
                     ai_service=ai_service
@@ -589,6 +592,11 @@ async def initialize_services():
                         youtube_scheduler = get_youtube_scheduler()
                         logger.info("YouTube scheduler initialized")
                     
+                    # CRITICAL: Get background scheduler from youtube.py module
+                    from youtube import youtube_background_scheduler as yt_bg_scheduler
+                    youtube_background_scheduler = yt_bg_scheduler
+                    logger.info("Background scheduler reference obtained")
+                    
                     logger.info("YouTube service initialization completed successfully")
                 else:
                     logger.error("YouTube service initialization returned False")
@@ -603,14 +611,7 @@ async def initialize_services():
             logger.error("YouTube module not available - check imports")
             return False
         
-        # STEP 4: NEW - Initialize background scheduler
-        if database_manager and youtube_scheduler:
-            youtube_background_scheduler = YouTubeBackgroundScheduler(database_manager, youtube_scheduler)
-            # Start scheduler in background
-            asyncio.create_task(youtube_background_scheduler.start())
-            logger.info("Background scheduler initialized and started")
-
-            # STEP 5: NEW - Initialize YouTube AI services
+        # STEP 4: Initialize YouTube AI services
         if YOUTUBE_AI_AVAILABLE:
             try:
                 youtube_ai_service = YouTubeAIService()
@@ -628,18 +629,23 @@ async def initialize_services():
         logger.error(f"Traceback: {traceback.format_exc()}")
         return False
 
+# ========== ADD cleanup_services HERE ==========
 async def cleanup_services():
     """Cleanup services on shutdown"""
     try:
-        # NEW: Stop background scheduler
+        # Stop background scheduler
         if youtube_background_scheduler:
             await youtube_background_scheduler.stop()
+            logger.info("Background scheduler stopped")
         
         if database_manager:
             await database_manager.close()
         logger.info("Services cleaned up successfully")
     except Exception as e:
         logger.error(f"Service cleanup failed: {e}")
+
+
+
 
 # Initialize FastAPI app
 @asynccontextmanager
@@ -1799,58 +1805,53 @@ async def test_mongodb():
 
 
 
-@app.on_event("startup")
-async def start_scheduler():
-    asyncio.create_task(process_scheduled_posts())
-
-
 
 
 
 # Example API endpoint modification for scheduling
-@app.post("/api/youtube/schedule-video")
-async def schedule_video_upload(request: dict):
-    """Schedule a video upload for later"""
-    try:
-        user_id = request.get("user_id")
-        schedule_date = request.get("schedule_date")
-        schedule_time = request.get("schedule_time")
-        video_data = request.get("video_data", {})
+# @app.post("/api/youtube/schedule-video")
+# async def schedule_video_upload(request: dict):
+#     """Schedule a video upload for later"""
+#     try:
+#         user_id = request.get("user_id")
+#         schedule_date = request.get("schedule_date")
+#         schedule_time = request.get("schedule_time")
+#         video_data = request.get("video_data", {})
         
-        if not all([user_id, schedule_date, schedule_time]):
-            raise HTTPException(status_code=400, detail="Missing required fields")
+#         if not all([user_id, schedule_date, schedule_time]):
+#             raise HTTPException(status_code=400, detail="Missing required fields")
         
-        # Parse scheduled time
-        scheduled_datetime = datetime.strptime(
-            f"{schedule_date} {schedule_time}", 
-            "%Y-%m-%d %H:%M"
-        )
+#         # Parse scheduled time
+#         scheduled_datetime = datetime.strptime(
+#             f"{schedule_date} {schedule_time}", 
+#             "%Y-%m-%d %H:%M"
+#         )
         
-        if scheduled_datetime <= datetime.now():
-            raise HTTPException(status_code=400, detail="Scheduled time must be in the future")
+#         if scheduled_datetime <= datetime.now():
+#             raise HTTPException(status_code=400, detail="Scheduled time must be in the future")
         
-        # Store scheduled post
-        success = await store_scheduled_post(
-            user_id=user_id,
-            post_type="video",
-            post_data=video_data,
-            scheduled_for=scheduled_datetime
-        )
+#         # Store scheduled post
+#         success = await store_scheduled_post(
+#             user_id=user_id,
+#             post_type="video",
+#             post_data=video_data,
+#             scheduled_for=scheduled_datetime
+#         )
         
-        if success:
-            return {
-                "success": True,
-                "message": f"Video scheduled for {scheduled_datetime.strftime('%Y-%m-%d %H:%M')}",
-                "scheduled_for": scheduled_datetime.isoformat()
-            }
-        else:
-            raise HTTPException(status_code=500, detail="Failed to schedule video")
+#         if success:
+#             return {
+#                 "success": True,
+#                 "message": f"Video scheduled for {scheduled_datetime.strftime('%Y-%m-%d %H:%M')}",
+#                 "scheduled_for": scheduled_datetime.isoformat()
+#             }
+#         else:
+#             raise HTTPException(status_code=500, detail="Failed to schedule video")
             
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=f"Invalid date/time format: {e}")
-    except Exception as e:
-        logger.error(f"Schedule video failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+#     except ValueError as e:
+#         raise HTTPException(status_code=400, detail=f"Invalid date/time format: {e}")
+#     except Exception as e:
+#         logger.error(f"Schedule video failed: {e}")
+#         raise HTTPException(status_code=500, detail=str(e))
 
 # Example usage and testing
 """
@@ -1989,7 +1990,59 @@ async def general_exception_handler(request: Request, exc: Exception):
         }
     )
 
+@app.get("/api/debug/trigger-scheduler-check")
+async def trigger_scheduler_check():
+    """Manually trigger scheduler check (TESTING ONLY)"""
+    try:
+        if not youtube_background_scheduler:
+            return {
+                "success": False,
+                "error": "Background scheduler not initialized"
+            }
+        
+        logger.info("🔧 Manual scheduler trigger requested")
+        await youtube_background_scheduler.process_scheduled_posts()
+        
+        return {
+            "success": True,
+            "message": "Scheduler check completed",
+            "scheduler_running": youtube_background_scheduler.running,
+            "current_time": datetime.now().isoformat()
+        }
+        
+    except Exception as e:
+        logger.error(f"Manual trigger failed: {e}")
+        return {
+            "success": False,
+            "error": str(e)
+        }
 
+@app.get("/api/debug/scheduled-posts-raw/{user_id}")
+async def get_raw_scheduled_posts(user_id: str):
+    """Get raw scheduled posts from database (TESTING)"""
+    try:
+        posts = await database_manager.get_scheduled_posts_by_user(user_id)
+        
+        current_time = datetime.now()
+        
+        return {
+            "success": True,
+            "current_time": current_time.isoformat(),
+            "posts": [
+                {
+                    "id": str(p["_id"]),
+                    "title": p["video_data"].get("title"),
+                    "scheduled_for": p["scheduled_for"].isoformat(),
+                    "status": p["status"],
+                    "time_until_execution": str(p["scheduled_for"] - current_time),
+                    "is_due": p["scheduled_for"] <= current_time + timedelta(minutes=2)
+                }
+                for p in posts
+            ]
+        }
+        
+    except Exception as e:
+        return {"success": False, "error": str(e)}
 
 
 # ➜ ADD THESE ROUTES AFTER: return upload_result
