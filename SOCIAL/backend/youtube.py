@@ -600,6 +600,10 @@ class YouTubeOAuthConnector:
             logger.error(f"Traceback: {traceback.format_exc()}")
             return {"success": False, "error": str(e)}
     
+
+
+
+    # async def _upload_thumbnail(
     async def _upload_thumbnail(
         self,
         youtube,
@@ -617,40 +621,76 @@ class YouTubeOAuthConnector:
         Returns:
             bool: True if successful, False otherwise
         """
+        temp_thumb_path = None
         try:
             logger.info(f"🎨 Setting custom thumbnail for video: {video_id}")
             
             # Validate thumbnail data format
-            if not thumbnail_data or not thumbnail_data.startswith('data:image'):
-                logger.warning("⚠️ Invalid thumbnail data format")
+            if not thumbnail_data or not isinstance(thumbnail_data, str):
+                logger.warning("⚠️ Invalid thumbnail data - not a string")
+                return False
+            
+            if not thumbnail_data.startswith('data:image'):
+                logger.error(f"⚠️ Invalid thumbnail format. Starts with: {thumbnail_data[:30]}")
                 return False
             
             # Extract base64 data (remove "data:image/jpeg;base64," prefix)
-            base64_data = thumbnail_data.split(',')[1]
-            thumbnail_bytes = base64.b64decode(base64_data)
+            try:
+                base64_data = thumbnail_data.split(',')[1]
+                thumbnail_bytes = base64.b64decode(base64_data)
+                logger.info(f"📦 Thumbnail decoded: {len(thumbnail_bytes)} bytes")
+            except Exception as decode_error:
+                logger.error(f"❌ Base64 decode failed: {decode_error}")
+                return False
+            
+            # Validate image size (YouTube requires 2MB max)
+            if len(thumbnail_bytes) > 2 * 1024 * 1024:
+                logger.error(f"❌ Thumbnail too large: {len(thumbnail_bytes)} bytes (max 2MB)")
+                return False
             
             # Create temporary file
             temp_thumb = tempfile.NamedTemporaryFile(delete=False, suffix='.jpg')
             temp_thumb.write(thumbnail_bytes)
             temp_thumb.close()
+            temp_thumb_path = temp_thumb.name
+            logger.info(f"💾 Temp thumbnail saved: {temp_thumb_path}")
             
-            # Upload thumbnail to YouTube
-            youtube.thumbnails().set(
-                videoId=video_id,
-                media_body=temp_thumb.name
-            ).execute()
-            
-            # Clean up temporary file
-            os.unlink(temp_thumb.name)
-            
-            logger.info(f"✅ Custom thumbnail set successfully for video: {video_id}")
-            return True
+            # Upload thumbnail to YouTube API
+            try:
+                response = youtube.thumbnails().set(
+                    videoId=video_id,
+                    media_body=temp_thumb_path
+                ).execute()
+                
+                logger.info(f"✅ Thumbnail API response: {response}")
+                logger.info(f"✅ Custom thumbnail set successfully for video: {video_id}")
+                return True
+                
+            except HttpError as http_err:
+                logger.error(f"❌ YouTube API error: {http_err.resp.status} - {http_err.content}")
+                return False
             
         except Exception as e:
             logger.error(f"❌ Thumbnail upload failed: {str(e)}")
             import traceback
             logger.error(f"Traceback: {traceback.format_exc()}")
             return False
+            
+        finally:
+            # Clean up temporary file
+            if temp_thumb_path:
+                try:
+                    os.unlink(temp_thumb_path)
+                    logger.info(f"🗑️ Temp file deleted: {temp_thumb_path}")
+                except Exception as cleanup_error:
+                    logger.warning(f"⚠️ Failed to delete temp file: {cleanup_error}")
+ 
+        
+
+
+
+
+        
     
     def _is_youtube_short(self, video_file_path: str) -> bool:
         """

@@ -282,16 +282,17 @@ const uploadVideo = useCallback(async () => {
     }
     
     // ✅ VALIDATE THUMBNAIL
-    let thumbnailToSend = null;
-    if (selectedThumbnail?.url) {
-      // Make sure it's a valid data URL
-      if (selectedThumbnail.url.startsWith('data:image')) {
-        thumbnailToSend = selectedThumbnail.url;
-        console.log('📤 Uploading with thumbnail, size:', thumbnailToSend.length);
-      } else {
-        console.warn('⚠️ Invalid thumbnail format, skipping');
-      }
-    }
+// Make sure thumbnail is being sent correctly
+let thumbnailToSend = null;
+if (selectedThumbnail?.url) {
+  if (selectedThumbnail.url.startsWith('data:image')) {
+    thumbnailToSend = selectedThumbnail.url;
+    console.log('📤 Thumbnail size:', thumbnailToSend.length, 'chars');
+    console.log('📤 Thumbnail preview:', thumbnailToSend.substring(0, 100));
+  } else {
+    console.warn('⚠️ Invalid thumbnail format:', selectedThumbnail.url.substring(0, 50));
+  }
+}
     
     const uploadPayload = {
       user_id: userData.user_id,
