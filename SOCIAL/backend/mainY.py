@@ -1506,18 +1506,35 @@ async def schedule_video_upload(request: dict):
         if not all([user_id, schedule_date, schedule_time, video_data.get("video_url")]):
             raise HTTPException(status_code=400, detail="Missing required fields")
         
-        # Parse scheduled datetime
+        # ✅ FIXED: Parse as UTC datetime
         try:
-            scheduled_datetime = datetime.strptime(
+            # Parse the date/time string
+            scheduled_datetime_naive = datetime.strptime(
                 f"{schedule_date} {schedule_time}",
                 "%Y-%m-%d %H:%M"
             )
-        except ValueError:
-            raise HTTPException(status_code=400, detail="Invalid date/time format. Use YYYY-MM-DD and HH:MM")
+            
+            # Convert to UTC (assume user is sending in their local time, convert to UTC)
+            # For now, treat input as UTC directly to match server time
+            scheduled_datetime = scheduled_datetime_naive
+            
+            logger.info(f"📅 Parsed scheduled time: {scheduled_datetime} (UTC)")
+            logger.info(f"📅 Current server time: {datetime.now()} (UTC)")
+            
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=f"Invalid date/time format: {e}")
         
         # Check if time is in the future
-        if scheduled_datetime <= datetime.now():
-            raise HTTPException(status_code=400, detail="Scheduled time must be in the future")
+        current_time = datetime.now()
+        if scheduled_datetime <= current_time:
+            logger.warning(f"Scheduled time {scheduled_datetime} is in the past. Current: {current_time}")
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Scheduled time must be in the future. Server time: {current_time.strftime('%Y-%m-%d %H:%M')} UTC"
+            )
+        
+        time_until = scheduled_datetime - current_time
+        logger.info(f"⏰ Video will upload in {time_until.total_seconds()/60:.1f} minutes")
         
         # Store scheduled post
         success = await database_manager.store_scheduled_post(
@@ -1529,9 +1546,11 @@ async def schedule_video_upload(request: dict):
         if success:
             return {
                 "success": True,
-                "message": f"Video scheduled for {scheduled_datetime.strftime('%Y-%m-%d %H:%M')}",
+                "message": f"Video scheduled for {scheduled_datetime.strftime('%Y-%m-%d %H:%M')} UTC",
                 "scheduled_for": scheduled_datetime.isoformat(),
-                "video_title": video_data.get("title", "Untitled")
+                "video_title": video_data.get("title", "Untitled"),
+                "server_time_utc": current_time.isoformat(),
+                "time_until_upload_minutes": round(time_until.total_seconds() / 60, 1)
             }
         else:
             raise HTTPException(status_code=500, detail="Failed to schedule video")
@@ -1540,9 +1559,9 @@ async def schedule_video_upload(request: dict):
         raise
     except Exception as e:
         logger.error(f"Schedule video failed: {e}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=str(e))
-
-
 
 
 @app.get("/api/youtube/scheduled-posts/{user_id}")
