@@ -30,7 +30,7 @@ class YouTubeDatabaseManager:
         self.automation_configs_collection = None
         self.upload_history_collection = None
         self.analytics_collection = None
-        self.scheduled_posts_collection = None  # NEW: For scheduled posts
+        self.scheduled_posts_collection = None
         
         logger.info("YouTube Database Manager initialized")
     
@@ -46,7 +46,7 @@ class YouTubeDatabaseManager:
             self.automation_configs_collection = self.db["automation_configs"]
             self.upload_history_collection = self.db["upload_history"]
             self.analytics_collection = self.db["analytics"]
-            self.scheduled_posts_collection = self.db["scheduled_posts"]  # NEW
+            self.scheduled_posts_collection = self.db["scheduled_posts"]
             
             # Test connection
             await self.client.admin.command('ping')
@@ -64,24 +64,15 @@ class YouTubeDatabaseManager:
     async def _create_indexes(self):
         """Create database indexes for better performance"""
         try:
-            # Users collection indexes
             await self.users_collection.create_index("email", unique=True)
             await self.users_collection.create_index("created_at")
-            
-            # YouTube credentials indexes
             await self.youtube_credentials_collection.create_index("user_id", unique=True)
             await self.youtube_credentials_collection.create_index("channel_id")
-            
-            # Automation configs indexes
             await self.automation_configs_collection.create_index("user_id")
             await self.automation_configs_collection.create_index("config_type")
-            
-            # Upload history indexes
             await self.upload_history_collection.create_index("user_id")
             await self.upload_history_collection.create_index("video_id", unique=True)
             await self.upload_history_collection.create_index("upload_date")
-            
-            # Analytics indexes
             await self.analytics_collection.create_index("user_id")
             await self.analytics_collection.create_index("date")
             await self.scheduled_posts_collection.create_index("user_id")
@@ -92,7 +83,6 @@ class YouTubeDatabaseManager:
                 ("status", 1),
                 ("scheduled_for", 1)
             ])
-            
             
             logger.info("YouTube database indexes created")
             
@@ -105,7 +95,6 @@ class YouTubeDatabaseManager:
             self.client.close()
             logger.info("YouTube database connection closed")
 
-    # ➜ FIXED: Community Post Logging (properly indented)
     async def log_community_post(self, user_id: str, post_data: Dict) -> bool:
         """Log community post to database"""
         try:
@@ -123,7 +112,6 @@ class YouTubeDatabaseManager:
                 "updated_at": datetime.now()
             }
             
-            # Create community posts collection if not exists
             if not hasattr(self, 'community_posts_collection'):
                 self.community_posts_collection = self.db.community_posts
                 await self.community_posts_collection.create_index("user_id")
@@ -136,7 +124,6 @@ class YouTubeDatabaseManager:
             logger.error(f"Failed to log community post: {e}")
             return False
 
-    # ➜ FIXED: Video Upload Logging (properly indented and deduplicated)
     async def log_video_upload(self, user_id: str, video_data: Dict) -> bool:
         """Log video upload to database"""
         try:
@@ -168,7 +155,6 @@ class YouTubeDatabaseManager:
             logger.error(f"Failed to log video upload: {e}")
             return False
     
-    # User Management
     async def create_user(self, user_data: Dict[str, Any]) -> Dict[str, Any]:
         """Create a new user"""
         try:
@@ -221,12 +207,7 @@ class YouTubeDatabaseManager:
             logger.error(f"User update failed: {e}")
             return False
 
-    # YouTube Credentials Management
-    async def store_youtube_credentials(
-        self,
-        user_id: str,
-        credentials: Dict[str, Any]
-    ) -> bool:
+    async def store_youtube_credentials(self, user_id: str, credentials: Dict[str, Any]) -> bool:
         """Store YouTube OAuth credentials for user"""
         try:
             credential_data = {
@@ -245,14 +226,12 @@ class YouTubeDatabaseManager:
                 "platform": "youtube"
             }
             
-            # Upsert (update if exists, insert if not)
             await self.youtube_credentials_collection.replace_one(
                 {"user_id": user_id},
                 credential_data,
                 upsert=True
             )
             
-            # Update user record to show YouTube connected
             await self.update_user(user_id, {
                 "youtube_connected": True,
                 "youtube_connected_at": datetime.now()
@@ -276,12 +255,7 @@ class YouTubeDatabaseManager:
             logger.error(f"Get YouTube credentials failed: {e}")
             return None
     
-    async def refresh_youtube_token(
-        self,
-        user_id: str,
-        new_access_token: str,
-        expires_at: datetime
-    ) -> bool:
+    async def refresh_youtube_token(self, user_id: str, new_access_token: str, expires_at: datetime) -> bool:
         """Update YouTube access token after refresh"""
         try:
             result = await self.youtube_credentials_collection.update_one(
@@ -302,16 +276,11 @@ class YouTubeDatabaseManager:
     async def revoke_youtube_access(self, user_id: str) -> bool:
         """Revoke YouTube access for user"""
         try:
-            # Delete credentials
             await self.youtube_credentials_collection.delete_one({"user_id": user_id})
-            
-            # Update user record
             await self.update_user(user_id, {
                 "youtube_connected": False,
                 "automation_enabled": False
             })
-            
-            # Delete automation configs
             await self.automation_configs_collection.delete_many({
                 "user_id": user_id,
                 "platform": "youtube"
@@ -324,13 +293,7 @@ class YouTubeDatabaseManager:
             logger.error(f"Revoke YouTube access failed: {e}")
             return False
     
-    # Automation Configuration Management
-    async def store_automation_config(
-        self,
-        user_id: str,
-        config_type: str,
-        config_data: Dict[str, Any]
-    ) -> bool:
+    async def store_automation_config(self, user_id: str, config_type: str, config_data: Dict[str, Any]) -> bool:
         """Store automation configuration"""
         try:
             config_document = {
@@ -343,14 +306,12 @@ class YouTubeDatabaseManager:
                 "updated_at": datetime.now()
             }
             
-            # Upsert configuration
             await self.automation_configs_collection.replace_one(
                 {"user_id": user_id, "config_type": config_type},
                 config_document,
                 upsert=True
             )
             
-            # Update user automation status
             await self.update_user(user_id, {"automation_enabled": True})
             
             return True
@@ -359,11 +320,7 @@ class YouTubeDatabaseManager:
             logger.error(f"Store automation config failed: {e}")
             return False
     
-    async def get_automation_config(
-        self,
-        user_id: str,
-        config_type: str
-    ) -> Optional[Dict[str, Any]]:
+    async def get_automation_config(self, user_id: str, config_type: str) -> Optional[Dict[str, Any]]:
         """Get automation configuration"""
         try:
             config = await self.automation_configs_collection.find_one({
@@ -403,11 +360,7 @@ class YouTubeDatabaseManager:
             logger.error(f"Disable automation failed: {e}")
             return False
     
-    async def get_upload_history(
-        self,
-        user_id: str,
-        limit: int = 50
-    ) -> List[Dict[str, Any]]:
+    async def get_upload_history(self, user_id: str, limit: int = 50) -> List[Dict[str, Any]]:
         """Get user's upload history"""
         try:
             uploads = []
@@ -427,14 +380,12 @@ class YouTubeDatabaseManager:
                 {"user_id": user_id}
             )
             
-            # Get uploads from last 30 days
             thirty_days_ago = datetime.now() - timedelta(days=30)
             recent_uploads = await self.upload_history_collection.count_documents({
                 "user_id": user_id,
                 "upload_date": {"$gte": thirty_days_ago}
             })
             
-            # Get shorts vs regular videos
             shorts_count = await self.upload_history_collection.count_documents({
                 "user_id": user_id,
                 "content_type": "shorts"
@@ -447,7 +398,7 @@ class YouTubeDatabaseManager:
                 "recent_uploads": recent_uploads,
                 "shorts_count": shorts_count,
                 "videos_count": videos_count,
-                "success_rate": 100.0  # Placeholder - can be calculated based on status
+                "success_rate": 100.0
             }
             
         except Exception as e:
@@ -460,12 +411,7 @@ class YouTubeDatabaseManager:
                 "success_rate": 0.0
             }
     
-    # Analytics Management
-    async def store_channel_analytics(
-        self,
-        user_id: str,
-        analytics_data: Dict[str, Any]
-    ) -> bool:
+    async def store_channel_analytics(self, user_id: str, analytics_data: Dict[str, Any]) -> bool:
         """Store channel analytics data"""
         try:
             analytics_record = {
@@ -477,7 +423,6 @@ class YouTubeDatabaseManager:
                 "created_at": datetime.now()
             }
             
-            # Upsert daily analytics
             await self.analytics_collection.replace_one(
                 {
                     "user_id": user_id,
@@ -493,11 +438,7 @@ class YouTubeDatabaseManager:
             logger.error(f"Store channel analytics failed: {e}")
             return False
     
-    async def get_channel_analytics(
-        self,
-        user_id: str,
-        days: int = 30
-    ) -> Optional[Dict[str, Any]]:
+    async def get_channel_analytics(self, user_id: str, days: int = 30) -> Optional[Dict[str, Any]]:
         """Get latest channel analytics"""
         try:
             analytics = await self.analytics_collection.find_one(
@@ -509,21 +450,14 @@ class YouTubeDatabaseManager:
             logger.error(f"Get channel analytics failed: {e}")
             return None
     
-    # General utility methods
     async def get_user_credentials(self, user_id: str, platform: str) -> Optional[Dict[str, Any]]:
-        """Get user credentials for any platform (for compatibility)"""
+        """Get user credentials for any platform"""
         if platform == "youtube":
             return await self.get_youtube_credentials(user_id)
         return None
     
-    async def store_user_credentials(
-        self,
-        user_id: str,
-        platform: str,
-        credentials: Dict[str, Any],
-        channel_info: Dict[str, Any] = None
-    ) -> bool:
-        """Store user credentials for any platform (for compatibility)"""
+    async def store_user_credentials(self, user_id: str, platform: str, credentials: Dict[str, Any], channel_info: Dict[str, Any] = None) -> bool:
+        """Store user credentials for any platform"""
         if platform == "youtube":
             if channel_info:
                 credentials["channel_info"] = channel_info
@@ -533,10 +467,8 @@ class YouTubeDatabaseManager:
     async def health_check(self) -> Dict[str, Any]:
         """Check database health"""
         try:
-            # Test connection
             await self.client.admin.command('ping')
             
-            # Get collection counts
             users_count = await self.users_collection.count_documents({})
             credentials_count = await self.youtube_credentials_collection.count_documents({})
             
@@ -558,141 +490,35 @@ class YouTubeDatabaseManager:
                 "timestamp": datetime.now().isoformat()
             }
     
-    # sldjflsfjsfejwse
-    # Global instanc
-
-    # Global instanc
-async def store_scheduled_post(
-    self,
-    user_id: str,
-    video_data: Dict[str, Any],
-    scheduled_for: datetime
-) -> bool:
-    """Store a scheduled video post"""
-    try:
-        # Validate collection exists
-        if not self.scheduled_posts_collection:
-            logger.error("scheduled_posts_collection not initialized")
-            return False
-        
-        scheduled_post = {
-            "user_id": user_id,
-            "video_data": video_data,
-            "scheduled_for": scheduled_for,
-            "status": "scheduled",  # scheduled, processing, published, failed
-            "created_at": datetime.now(),
-            "updated_at": datetime.now(),
-            "execution_attempts": 0,
-            "last_error": None
-        }
-
-        result = await self.scheduled_posts_collection.insert_one(scheduled_post)
-        logger.info(f"Scheduled post stored for user {user_id} at {scheduled_for} with ID: {result.inserted_id}")
-        return True
-
-    except Exception as e:
-        logger.error(f"Failed to store scheduled post: {e}")
-        import traceback
-        logger.error(f"Traceback: {traceback.format_exc()}")
-        return False
-
-
-async def get_due_scheduled_posts(self) -> List[Dict[str, Any]]:
-    """Get posts that are due to be published"""
-    try:
-        current_time = datetime.now()
-        time_window = current_time + timedelta(minutes=2)  # 2-minute window
-
-        posts = []
-        async for post in self.scheduled_posts_collection.find({
-            "status": "scheduled",
-            "scheduled_for": {
-                "$lte": time_window,
-                "$gte": current_time - timedelta(minutes=1)
-            }
-        }):
-            posts.append(post)
-
-        return posts
-
-    except Exception as e:
-        logger.error(f"Failed to get due posts: {e}")
-        return []
-
-
-async def update_scheduled_post_status(
-    self, 
-    post_id, 
-    status: str, 
-    error_message: str = None
-) -> bool:
-    """Update scheduled post status"""
-    try:
-        if not self.scheduled_posts_collection:
-            logger.error("❌ scheduled_posts_collection not initialized")
-            return False
-        
-        update_data = {
-            "status": status,
-            "updated_at": datetime.now()
-        }
-        
-        if status == "processing":
-            update_data["processing_started_at"] = datetime.now()
-        elif status == "published":
-            update_data["published_at"] = datetime.now()
-        elif status == "failed":
-            update_data["failed_at"] = datetime.now()
-            if error_message:
-                update_data["error_message"] = error_message
-        
-        result = await self.scheduled_posts_collection.update_one(
-            {"_id": post_id},
-            {"$set": update_data}
-        )
-        
-        if result.modified_count > 0:
-            logger.info(f"✅ Post {post_id} status updated to: {status}")
-            return True
-        else:
-            logger.warning(f"⚠️ No post found with ID: {post_id}")
-            return False
+    async def store_scheduled_post(self, user_id: str, video_data: Dict[str, Any], scheduled_for: datetime) -> bool:
+        """Store a scheduled video post"""
+        try:
+            if not self.scheduled_posts_collection:
+                logger.error("scheduled_posts_collection not initialized")
+                return False
             
-    except Exception as e:
-        logger.error(f"❌ update_scheduled_post_status failed: {e}")
-        return False
+            scheduled_post = {
+                "user_id": user_id,
+                "video_data": video_data,
+                "scheduled_for": scheduled_for,
+                "status": "scheduled",
+                "created_at": datetime.now(),
+                "updated_at": datetime.now(),
+                "execution_attempts": 0,
+                "last_error": None
+            }
 
+            result = await self.scheduled_posts_collection.insert_one(scheduled_post)
+            logger.info(f"Scheduled post stored for user {user_id} at {scheduled_for} with ID: {result.inserted_id}")
+            return True
 
+        except Exception as e:
+            logger.error(f"Failed to store scheduled post: {e}")
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
+            return False
 
-
-
-
-async def get_scheduled_posts_by_user(
-    self,
-    user_id: str,
-    status: str = None
-) -> List[Dict[str, Any]]:
-    """Get scheduled posts for a user"""
-    try:
-        query = {"user_id": user_id}
-        if status:
-            query["status"] = status
-
-        posts = []
-        async for post in self.scheduled_posts_collection.find(query).sort("scheduled_for", 1):
-            posts.append(post)
-
-        return posts
-
-    except Exception as e:
-        logger.error(f"Failed to get user scheduled posts: {e}")
-        return []
-
-
-
-
-
-async def get_due_scheduled_posts(self) -> List[Dict[str, Any]]:
+    async def get_due_scheduled_posts(self) -> List[Dict[str, Any]]:
         """Get posts scheduled to be published now"""
         try:
             current_time = datetime.now()
@@ -726,7 +552,7 @@ async def get_due_scheduled_posts(self) -> List[Dict[str, Any]]:
             logger.error(f"Traceback: {traceback.format_exc()}")
             return []
     
-async def update_scheduled_post_status(self, post_id, status: str, error_message: str = None) -> bool:
+    async def update_scheduled_post_status(self, post_id, status: str, error_message: str = None) -> bool:
         """Update scheduled post status"""
         try:
             if not self.scheduled_posts_collection:
@@ -738,33 +564,56 @@ async def update_scheduled_post_status(self, post_id, status: str, error_message
                 "updated_at": datetime.now()
             }
             
-            if status == "failed" and error_message:
-                update_data["error_message"] = error_message
+            if status == "processing":
+                update_data["processing_started_at"] = datetime.now()
+            elif status == "published":
+                update_data["published_at"] = datetime.now()
+            elif status == "failed":
+                update_data["failed_at"] = datetime.now()
+                if error_message:
+                    update_data["error_message"] = error_message
             
             result = await self.scheduled_posts_collection.update_one(
                 {"_id": post_id},
                 {"$set": update_data}
             )
             
-            logger.info(f"Post {post_id} status updated to: {status}")
-            return result.modified_count > 0
-            
+            if result.modified_count > 0:
+                logger.info(f"Post {post_id} status updated to: {status}")
+                return True
+            else:
+                logger.warning(f"No post found with ID: {post_id}")
+                return False
+                
         except Exception as e:
             logger.error(f"update_scheduled_post_status failed: {e}")
             return False
 
+    async def get_scheduled_posts_by_user(self, user_id: str, status: str = None) -> List[Dict[str, Any]]:
+        """Get scheduled posts for a user"""
+        try:
+            query = {"user_id": user_id}
+            if status:
+                query["status"] = status
 
+            posts = []
+            async for post in self.scheduled_posts_collection.find(query).sort("scheduled_for", 1):
+                posts.append(post)
 
+            return posts
 
+        except Exception as e:
+            logger.error(f"Failed to get user scheduled posts: {e}")
+            return []
 
-async def delete_scheduled_post(self, post_id) -> bool:
-    """Delete a scheduled post"""
-    try:
-        result = await self.scheduled_posts_collection.delete_one({"_id": post_id})
-        return result.deleted_count > 0
-    except Exception as e:
-        logger.error(f"Failed to delete scheduled post: {e}")
-        return False
+    async def delete_scheduled_post(self, post_id) -> bool:
+        """Delete a scheduled post"""
+        try:
+            result = await self.scheduled_posts_collection.delete_one({"_id": post_id})
+            return result.deleted_count > 0
+        except Exception as e:
+            logger.error(f"Failed to delete scheduled post: {e}")
+            return False
 
 
 # Global instance
@@ -776,8 +625,3 @@ def get_youtube_database() -> YouTubeDatabaseManager:
     if not youtube_db_manager:
         youtube_db_manager = YouTubeDatabaseManager()
     return youtube_db_manager
-
-
-
-
-   
