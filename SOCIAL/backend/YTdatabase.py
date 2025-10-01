@@ -493,7 +493,8 @@ class YouTubeDatabaseManager:
     async def store_scheduled_post(self, user_id: str, video_data: Dict[str, Any], scheduled_for: datetime) -> bool:
         """Store a scheduled video post"""
         try:
-            if not self.scheduled_posts_collection:
+            # FIXED: Compare with None instead of truthy check
+            if self.scheduled_posts_collection is None:
                 logger.error("scheduled_posts_collection not initialized")
                 return False
             
@@ -527,7 +528,8 @@ class YouTubeDatabaseManager:
             
             logger.info(f"Querying scheduled posts between {time_window_start.strftime('%H:%M')} and {time_window_end.strftime('%H:%M')}")
             
-            if not self.scheduled_posts_collection:
+            # FIXED: Compare with None instead of truthy check
+            if self.scheduled_posts_collection is None:
                 logger.error("scheduled_posts_collection not initialized")
                 return []
             
@@ -544,6 +546,9 @@ class YouTubeDatabaseManager:
                 posts.append(post)
                 logger.info(f"Found post: {post.get('video_data', {}).get('title')} @ {post.get('scheduled_for')}")
             
+            if not posts:
+                logger.debug(f"No posts due between {time_window_start.strftime('%H:%M')} and {time_window_end.strftime('%H:%M')}")
+            
             return posts
             
         except Exception as e:
@@ -555,7 +560,8 @@ class YouTubeDatabaseManager:
     async def update_scheduled_post_status(self, post_id, status: str, error_message: str = None) -> bool:
         """Update scheduled post status"""
         try:
-            if not self.scheduled_posts_collection:
+            # FIXED: Compare with None instead of truthy check
+            if self.scheduled_posts_collection is None:
                 logger.error("scheduled_posts_collection not initialized")
                 return False
             
