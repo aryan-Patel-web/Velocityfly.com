@@ -1204,6 +1204,98 @@ class YouTubeAutomationScheduler:
             logger.error(f"YouTube status check failed: {e}")
             return {"success": False, "error": str(e)}
 
+
+    # ============================================================================
+# BACKGROUND SCHEDULER
+# ============================================================================
+
+class YouTubeBackgroundScheduler:
+    """Background scheduler that checks and executes scheduled posts"""
+    
+    def __init__(self, database_manager, youtube_scheduler):
+        self.database = database_manager
+        self.youtube_scheduler = youtube_scheduler
+        self.running = False
+        self.check_interval = 60  # Check every 60 seconds
+        logger.info("YouTubeBackgroundScheduler initialized")
+    
+    async def start(self):
+        """Start the background scheduler loop"""
+        self.running = True
+        logger.info("Background scheduler started")
+        
+        while self.running:
+            try:
+                await self.process_scheduled_posts()
+                await asyncio.sleep(self.check_interval)
+            except Exception as e:
+                logger.error(f"Background scheduler error: {e}")
+                await asyncio.sleep(30)
+    
+    async def stop(self):
+        """Stop the background scheduler"""
+        self.running = False
+        logger.info("Background scheduler stopped")
+    
+    async def process_scheduled_posts(self):
+        """Check and execute posts that are due"""
+        try:
+            due_posts = await self.database.get_due_scheduled_posts()
+            
+            if due_posts:
+                logger.info(f"Found {len(due_posts)} posts ready for execution")
+            
+            for post in due_posts:
+                await self.execute_scheduled_post(post)
+                
+        except Exception as e:
+            logger.error(f"Error processing scheduled posts: {e}")
+    
+    async def execute_scheduled_post(self, post):
+        """Execute a single scheduled post"""
+        try:
+            post_id = post["_id"]
+            user_id = post["user_id"]
+            video_data = post["video_data"]
+            
+            logger.info(f"Executing scheduled post {post_id} for user {user_id}")
+            
+            # Mark as processing
+            await self.database.update_scheduled_post_status(post_id, "processing")
+            
+            # Get user credentials
+            credentials = await self.database.get_youtube_credentials(user_id)
+            if not credentials:
+                raise Exception("No YouTube credentials found")
+            
+            # Execute upload
+            result = await self.youtube_scheduler.generate_and_upload_content(
+                user_id=user_id,
+                credentials_data=credentials,
+                content_type=video_data.get("content_type", "video"),
+                title=video_data.get("title"),
+                description=video_data.get("description"),
+                video_url=video_data.get("video_url"),
+                thumbnail_url=video_data.get("thumbnail_url")
+            )
+            
+            if result.get("success"):
+                await self.database.update_scheduled_post_status(post_id, "published")
+                logger.info(f"✅ Scheduled post {post_id} published successfully")
+            else:
+                error_msg = result.get("error", "Unknown error")
+                await self.database.update_scheduled_post_status(post_id, "failed", error_msg)
+                logger.error(f"❌ Scheduled post {post_id} failed: {error_msg}")
+                
+        except Exception as e:
+            logger.error(f"Failed to execute scheduled post: {e}")
+            await self.database.update_scheduled_post_status(post["_id"], "failed", str(e))
+        
+
+
+
+
+
 # ============================================================================
 # GLOBAL INSTANCES
 # ============================================================================
@@ -1211,6 +1303,7 @@ class YouTubeAutomationScheduler:
 youtube_database = None
 youtube_connector = None
 youtube_scheduler = None
+youtube_background_scheduler = None  # NEW: Background scheduler instance
 
 def get_youtube_database() -> YouTubeDatabase:
     """Get global YouTube database instance"""
@@ -1222,6 +1315,10 @@ def get_youtube_database() -> YouTubeDatabase:
 # ============================================================================
 # INITIALIZATION
 # ============================================================================
+
+
+
+# async def initialize_youtube_service(
 
 async def initialize_youtube_service(
     database_manager=None,
@@ -1237,7 +1334,7 @@ async def initialize_youtube_service(
     Returns:
         bool: True if initialization successful
     """
-    global youtube_connector, youtube_scheduler, youtube_database
+    global youtube_connector, youtube_scheduler, youtube_database, youtube_background_scheduler  # ADD youtube_background_scheduler here
     
     try:
         logger.info("Initializing YouTube service...")
@@ -1277,6 +1374,18 @@ async def initialize_youtube_service(
             database_manager
         )
         
+        # ========== ADD THIS SECTION HERE ==========
+        # Initialize background scheduler
+        youtube_background_scheduler = YouTubeBackgroundScheduler(
+            database_manager,
+            youtube_scheduler
+        )
+        
+        # Start scheduler in background
+        asyncio.create_task(youtube_background_scheduler.start())
+        logger.info("Background scheduler started")
+        # ========== END OF NEW SECTION ==========
+        
         logger.info("YouTube service initialized successfully")
         logger.info(f"OAuth redirect URI: {redirect_uri}")
         return True
@@ -1286,6 +1395,10 @@ async def initialize_youtube_service(
         import traceback
         logger.error(f"Traceback: {traceback.format_exc()}")
         return False
+
+    
+
+
 
 # ============================================================================
 # EXPORT FUNCTIONS

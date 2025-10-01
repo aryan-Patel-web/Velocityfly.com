@@ -30,6 +30,7 @@ class YouTubeDatabaseManager:
         self.automation_configs_collection = None
         self.upload_history_collection = None
         self.analytics_collection = None
+        self.scheduled_posts_collection = None  # NEW: For scheduled posts
         
         logger.info("YouTube Database Manager initialized")
     
@@ -45,6 +46,7 @@ class YouTubeDatabaseManager:
             self.automation_configs_collection = self.db["automation_configs"]
             self.upload_history_collection = self.db["upload_history"]
             self.analytics_collection = self.db["analytics"]
+            self.scheduled_posts_collection = self.db["scheduled_posts"]  # NEW
             
             # Test connection
             await self.client.admin.command('ping')
@@ -82,6 +84,15 @@ class YouTubeDatabaseManager:
             # Analytics indexes
             await self.analytics_collection.create_index("user_id")
             await self.analytics_collection.create_index("date")
+            await self.scheduled_posts_collection.create_index("user_id")
+            await self.scheduled_posts_collection.create_index("scheduled_for")
+            await self.scheduled_posts_collection.create_index("status")
+            await self.scheduled_posts_collection.create_index([
+                ("user_id", 1),
+                ("status", 1),
+                ("scheduled_for", 1)
+            ])
+            
             
             logger.info("YouTube database indexes created")
             
@@ -546,8 +557,131 @@ class YouTubeDatabaseManager:
                 "error": str(e),
                 "timestamp": datetime.now().isoformat()
             }
+    
+    # sldjflsfjsfejwse
+    # Global instanc
+    
+    async def store_scheduled_post(
+        self,
+        user_id: str,
+        video_data: Dict[str, Any],
+        scheduled_for: datetime
+    ) -> bool:
+        """Store a scheduled video post"""
+        try:
+            scheduled_post = {
+                "user_id": user_id,
+                "video_data": video_data,
+                "scheduled_for": scheduled_for,
+                "status": "scheduled",  # scheduled, processing, published, failed
+                "created_at": datetime.now(),
+                "updated_at": datetime.now(),
+                "execution_attempts": 0,
+                "last_error": None
+            }
+            
+            await self.scheduled_posts_collection.insert_one(scheduled_post)
+            logger.info(f"Scheduled post stored for user {user_id} at {scheduled_for}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Failed to store scheduled post: {e}")
+            return False
+
+    async def get_due_scheduled_posts(self) -> List[Dict[str, Any]]:
+        """Get posts that are due to be published"""
+        try:
+            current_time = datetime.now()
+            time_window = current_time + timedelta(minutes=2)  # 2-minute window
+            
+            posts = []
+            async for post in self.scheduled_posts_collection.find({
+                "status": "scheduled",
+                "scheduled_for": {
+                    "$lte": time_window,
+                    "$gte": current_time - timedelta(minutes=1)
+                }
+            }):
+                posts.append(post)
+            
+            return posts
+            
+        except Exception as e:
+            logger.error(f"Failed to get due posts: {e}")
+            return []
+
+    async def update_scheduled_post_status(
+        self,
+        post_id,
+        status: str,
+        error: str = None
+    ) -> bool:
+        """Update scheduled post status"""
+        try:
+            update_data = {
+                "status": status,
+                "updated_at": datetime.now()
+            }
+            
+            if status == "published":
+                update_data["executed_at"] = datetime.now()
+            
+            if error:
+                update_data["last_error"] = error
+                update_data["$inc"] = {"execution_attempts": 1}
+            
+            await self.scheduled_posts_collection.update_one(
+                {"_id": post_id},
+                {"$set": update_data}
+            )
+            
+            return True
+            
+        except Exception as e:
+            logger.error(f"Failed to update post status: {e}")
+            return False
+
+    async def get_scheduled_posts_by_user(
+        self,
+        user_id: str,
+        status: str = None
+    ) -> List[Dict[str, Any]]:
+        """Get scheduled posts for a user"""
+        try:
+            query = {"user_id": user_id}
+            if status:
+                query["status"] = status
+            
+            posts = []
+            async for post in self.scheduled_posts_collection.find(query).sort("scheduled_for", 1):
+                posts.append(post)
+            
+            return posts
+            
+        except Exception as e:
+            logger.error(f"Failed to get user scheduled posts: {e}")
+            return []
+
+    async def delete_scheduled_post(self, post_id) -> bool:
+        """Delete a scheduled post"""
+        try:
+            result = await self.scheduled_posts_collection.delete_one({"_id": post_id})
+            return result.deleted_count > 0
+        except Exception as e:
+            logger.error(f"Failed to delete scheduled post: {e}")
+            return False
+
+    
+    
+        
+
+    
 
 # Global instance
+
+
+
+
 youtube_db_manager = None
 
 def get_youtube_database() -> YouTubeDatabaseManager:

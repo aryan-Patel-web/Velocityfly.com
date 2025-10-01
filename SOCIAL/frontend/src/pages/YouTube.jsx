@@ -38,6 +38,18 @@ const YouTubeAutomation = () => {
   const [selectedThumbnail, setSelectedThumbnail] = useState(null);
   const [generatingThumbnails, setGeneratingThumbnails] = useState(false);
 
+
+// NEW: Scheduling states
+const [scheduleMode, setScheduleMode] = useState(false);
+const [scheduledPosts, setScheduledPosts] = useState([]);
+const [scheduleSlots, setScheduleSlots] = useState([
+  { id: 1, video_url: '', title: '', description: '', date: '', time: '' },
+  { id: 2, video_url: '', title: '', description: '', date: '', time: '' },
+  { id: 3, video_url: '', title: '', description: '', date: '', time: '' }
+]);
+
+
+
   const API_BASE = process.env.NODE_ENV === 'production' 
     ? (import.meta.env.VITE_API_URL || 'https://agentic-u5lx.onrender.com')
     : (import.meta.env.VITE_API_URL || 'http://localhost:8000');
@@ -156,6 +168,32 @@ const fetchAnalytics = useCallback(async () => {
 }, [token, getUserData, API_BASE]);
 
 
+
+
+const fetchScheduledPosts = useCallback(async () => {
+  if (!token) return;
+  
+  try {
+    const userData = getUserData();
+    if (!userData?.user_id) return;
+    
+    const response = await fetch(`${API_BASE}/api/youtube/scheduled-posts/${userData.user_id}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      if (data.success) {
+        setScheduledPosts(data.scheduled_posts);
+      }
+    }
+  } catch (error) {
+    console.error('Failed to fetch scheduled posts:', error);
+  }
+}, [token, getUserData, API_BASE]);
 
   const generateContent = useCallback(async () => {
     if (!token) {
@@ -351,7 +389,98 @@ if (selectedThumbnail?.url) {
   }
 }, [token, contentData, selectedThumbnail, getUserData, API_BASE, fetchAutomationStatus, analytics, fetchAnalytics]);
 
+const scheduleVideos = useCallback(async () => {
+  if (!token) {
+    setError('Authentication required');
+    return;
+  }
+  
+  const userData = getUserData();
+  if (!userData?.user_id) {
+    setError('User ID not found');
+    return;
+  }
+  
+  setLoading(true);
+  setError('');
+  
+  try {
+    // Filter valid slots (must have video_url, title, date, time)
+    const validSlots = scheduleSlots.filter(slot => 
+      slot.video_url && slot.title && slot.date && slot.time
+    );
+    
+    if (validSlots.length === 0) {
+      setError('Please fill at least one schedule slot completely');
+      setLoading(false);
+      return;
+    }
+    
+    // Schedule each video
+    const results = await Promise.all(
+      validSlots.map(slot => 
+        fetch(`${API_BASE}/api/youtube/schedule-video`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            user_id: userData.user_id,
+            schedule_date: slot.date,
+            schedule_time: slot.time,
+            video_data: {
+              title: slot.title,
+              description: slot.description || '',
+              video_url: slot.video_url,
+              content_type: contentData.content_type,
+              thumbnail_url: selectedThumbnail?.url
+            }
+          })
+        }).then(r => r.json())
+      )
+    );
+    
+    const successCount = results.filter(r => r.success).length;
+    
+    alert(`✅ ${successCount} video(s) scheduled successfully!`);
+    
+    // Reset schedule slots
+    setScheduleSlots([
+      { id: 1, video_url: '', title: '', description: '', date: '', time: '' },
+      { id: 2, video_url: '', title: '', description: '', date: '', time: '' },
+      { id: 3, video_url: '', title: '', description: '', date: '', time: '' }
+    ]);
+    
+    // Refresh scheduled posts list
+    await fetchScheduledPosts();
+    
+  } catch (error) {
+    setError('Scheduling failed: ' + error.message);
+  } finally {
+    setLoading(false);
+  }
+}, [token, scheduleSlots, contentData.content_type, selectedThumbnail, getUserData, API_BASE, fetchScheduledPosts]);
 
+const deleteScheduledPost = useCallback(async (postId) => {
+  if (!confirm('Delete this scheduled post?')) return;
+  
+  try {
+    const response = await fetch(`${API_BASE}/api/youtube/scheduled-post/${postId}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    
+    if (response.ok) {
+      alert('Scheduled post deleted');
+      await fetchScheduledPosts();
+    }
+  } catch (error) {
+    console.error('Delete failed:', error);
+  }
+}, [token, API_BASE, fetchScheduledPosts]);
 
 
 
@@ -614,6 +743,7 @@ useEffect(() => {
   if (isAuthenticated && token) {
     console.log('Normal initialization - fetching status');
     fetchAutomationStatus();
+    fetchScheduledPosts();  // NEW: Load scheduled posts
   } else {
     console.log('Waiting for authentication...');
   }
@@ -1776,7 +1906,208 @@ useEffect(() => {
 
 
 
+{/* NEW: Schedule Mode Toggle */}
+<div style={{ marginTop: '30px', paddingTop: '30px', borderTop: '2px solid #f0f0f0' }}>
+  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
+    <button
+      onClick={() => setScheduleMode(!scheduleMode)}
+      style={{
+        padding: '10px 20px',
+        background: scheduleMode ? '#FF0000' : '#f0f0f0',
+        color: scheduleMode ? 'white' : '#333',
+        border: 'none',
+        borderRadius: '8px',
+        fontSize: '14px',
+        fontWeight: '600',
+        cursor: 'pointer'
+      }}
+    >
+      {scheduleMode ? '📅 Schedule Mode Active' : '📅 Switch to Schedule Mode'}
+    </button>
+    {scheduleMode && (
+      <span style={{ fontSize: '12px', color: '#666' }}>
+        Schedule up to 3 videos at different times
+      </span>
+    )}
+  </div>
 
+  {scheduleMode && (
+    <div>
+      <h4 style={{ color: '#333', marginBottom: '16px' }}>Schedule Video Uploads</h4>
+      
+      {scheduleSlots.map((slot, index) => (
+        <div key={slot.id} style={{
+          background: '#f8f9fa',
+          padding: '16px',
+          borderRadius: '8px',
+          marginBottom: '12px',
+          border: '1px solid #ddd'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+            <span style={{ fontWeight: '600', color: '#FF0000' }}>Slot {index + 1}</span>
+          </div>
+          
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+            <input
+              type="text"
+              placeholder="Video Title"
+              value={slot.title}
+              onChange={(e) => {
+                const newSlots = [...scheduleSlots];
+                newSlots[index].title = e.target.value;
+                setScheduleSlots(newSlots);
+              }}
+              style={{
+                padding: '10px',
+                borderRadius: '6px',
+                border: '1px solid #ddd',
+                fontSize: '13px'
+              }}
+            />
+            
+            <input
+              type="url"
+              placeholder="Video URL"
+              value={slot.video_url}
+              onChange={(e) => {
+                const newSlots = [...scheduleSlots];
+                newSlots[index].video_url = e.target.value;
+                setScheduleSlots(newSlots);
+              }}
+              style={{
+                padding: '10px',
+                borderRadius: '6px',
+                border: '1px solid #ddd',
+                fontSize: '13px'
+              }}
+            />
+            
+            <input
+              type="date"
+              value={slot.date}
+              min={new Date().toISOString().split('T')[0]}
+              onChange={(e) => {
+                const newSlots = [...scheduleSlots];
+                newSlots[index].date = e.target.value;
+                setScheduleSlots(newSlots);
+              }}
+              style={{
+                padding: '10px',
+                borderRadius: '6px',
+                border: '1px solid #ddd',
+                fontSize: '13px'
+              }}
+            />
+            
+            <input
+              type="time"
+              value={slot.time}
+              onChange={(e) => {
+                const newSlots = [...scheduleSlots];
+                newSlots[index].time = e.target.value;
+                setScheduleSlots(newSlots);
+              }}
+              style={{
+                padding: '10px',
+                borderRadius: '6px',
+                border: '1px solid #ddd',
+                fontSize: '13px'
+              }}
+            />
+          </div>
+          
+          <textarea
+            placeholder="Description (optional)"
+            value={slot.description}
+            onChange={(e) => {
+              const newSlots = [...scheduleSlots];
+              newSlots[index].description = e.target.value;
+              setScheduleSlots(newSlots);
+            }}
+            rows={2}
+            style={{
+              width: '100%',
+              marginTop: '8px',
+              padding: '8px',
+              borderRadius: '6px',
+              border: '1px solid #ddd',
+              fontSize: '12px',
+              resize: 'vertical'
+            }}
+          />
+        </div>
+      ))}
+      
+      <button
+        onClick={scheduleVideos}
+        disabled={loading}
+        style={{
+          width: '100%',
+          padding: '12px',
+          background: loading ? '#ccc' : '#28a745',
+          color: 'white',
+          border: 'none',
+          borderRadius: '8px',
+          fontSize: '14px',
+          fontWeight: '600',
+          cursor: loading ? 'not-allowed' : 'pointer',
+          marginTop: '12px'
+        }}
+      >
+        {loading ? 'Scheduling...' : '📅 Schedule All Videos'}
+      </button>
+      
+      {/* Scheduled Posts List */}
+      {scheduledPosts.length > 0 && (
+        <div style={{ marginTop: '30px' }}>
+          <h4 style={{ color: '#333', marginBottom: '12px' }}>Your Scheduled Posts</h4>
+          {scheduledPosts.map(post => (
+            <div key={post.id} style={{
+              background: 'white',
+              padding: '12px',
+              borderRadius: '6px',
+              marginBottom: '8px',
+              border: '1px solid #ddd',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center'
+            }}>
+              <div>
+                <div style={{ fontWeight: '600', fontSize: '13px' }}>{post.title}</div>
+                <div style={{ fontSize: '11px', color: '#666', marginTop: '4px' }}>
+                  📅 {new Date(post.scheduled_for).toLocaleString()}
+                  {' • '}
+                  <span style={{
+                    color: post.status === 'published' ? '#28a745' : 
+                           post.status === 'failed' ? '#dc3545' : '#ffc107'
+                  }}>
+                    {post.status.toUpperCase()}
+                  </span>
+                </div>
+              </div>
+              {post.status === 'scheduled' && (
+                <button
+                  onClick={() => deleteScheduledPost(post.id)}
+                  style={{
+                    padding: '6px 12px',
+                    background: '#dc3545',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    fontSize: '11px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Delete
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )}
+</div>
 
 
 

@@ -1486,7 +1486,105 @@ async def youtube_upload_video(request: dict):
     
 
 
+@app.post("/api/youtube/schedule-video")
+async def schedule_video_upload(request: dict):
+    """Schedule a video for later upload"""
+    try:
+        logger.info(f"Schedule video request: {request}")
+        
+        user_id = request.get("user_id")
+        schedule_date = request.get("schedule_date")  # YYYY-MM-DD
+        schedule_time = request.get("schedule_time")  # HH:MM
+        video_data = request.get("video_data", {})
+        
+        if not all([user_id, schedule_date, schedule_time, video_data.get("video_url")]):
+            raise HTTPException(status_code=400, detail="Missing required fields")
+        
+        # Parse scheduled datetime
+        try:
+            scheduled_datetime = datetime.strptime(
+                f"{schedule_date} {schedule_time}",
+                "%Y-%m-%d %H:%M"
+            )
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid date/time format. Use YYYY-MM-DD and HH:MM")
+        
+        # Check if time is in the future
+        if scheduled_datetime <= datetime.now():
+            raise HTTPException(status_code=400, detail="Scheduled time must be in the future")
+        
+        # Store scheduled post
+        success = await database_manager.store_scheduled_post(
+            user_id=user_id,
+            video_data=video_data,
+            scheduled_for=scheduled_datetime
+        )
+        
+        if success:
+            return {
+                "success": True,
+                "message": f"Video scheduled for {scheduled_datetime.strftime('%Y-%m-%d %H:%M')}",
+                "scheduled_for": scheduled_datetime.isoformat(),
+                "video_title": video_data.get("title", "Untitled")
+            }
+        else:
+            raise HTTPException(status_code=500, detail="Failed to schedule video")
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Schedule video failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/api/youtube/scheduled-posts/{user_id}")
+async def get_scheduled_posts(user_id: str, status: str = None):
+    """Get scheduled posts for a user"""
+    try:
+        posts = await database_manager.get_scheduled_posts_by_user(user_id, status)
+        
+        # Format posts for frontend
+        formatted_posts = []
+        for post in posts:
+            formatted_posts.append({
+                "id": str(post["_id"]),
+                "title": post["video_data"].get("title", "Untitled"),
+                "video_url": post["video_data"].get("video_url"),
+                "scheduled_for": post["scheduled_for"].isoformat(),
+                "status": post["status"],
+                "created_at": post["created_at"].isoformat(),
+                "execution_attempts": post.get("execution_attempts", 0),
+                "last_error": post.get("last_error")
+            })
+        
+        return {
+            "success": True,
+            "scheduled_posts": formatted_posts,
+            "count": len(formatted_posts)
+        }
+        
+    except Exception as e:
+        logger.error(f"Get scheduled posts failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete("/api/youtube/scheduled-post/{post_id}")
+async def delete_scheduled_post(post_id: str):
+    """Delete a scheduled post"""
+    try:
+        from bson import ObjectId
+        
+        success = await database_manager.delete_scheduled_post(ObjectId(post_id))
+        
+        if success:
+            return {
+                "success": True,
+                "message": "Scheduled post deleted"
+            }
+        else:
+            raise HTTPException(status_code=404, detail="Scheduled post not found")
+            
+    except Exception as e:
+        logger.error(f"Delete scheduled post failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 
