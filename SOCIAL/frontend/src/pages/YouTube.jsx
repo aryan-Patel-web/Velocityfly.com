@@ -2147,63 +2147,120 @@ useEffect(() => {
         </button>
       </div>
       
+
+
+      
       <button
-        onClick={async () => {
-          const validSlots = scheduleSlots.filter(s => s.date && s.time);
-          
-          if (validSlots.length === 0) {
-            setError('Please set at least one upload time');
-            return;
+onClick={async () => {
+  // DEBUG: Check what we have
+  console.log('=== SCHEDULE DEBUG ===');
+  console.log('contentData:', contentData);
+  console.log('scheduleSlots:', scheduleSlots);
+  console.log('selectedThumbnail:', selectedThumbnail);
+  
+  const validSlots = scheduleSlots.filter(s => s.date && s.time);
+  console.log('validSlots count:', validSlots.length);
+  
+  if (validSlots.length === 0) {
+    alert('Please set at least one date and time for scheduling');
+    setError('Please set at least one upload time');
+    return;
+  }
+  
+  // Check main form data
+  if (!contentData.title?.trim()) {
+    alert('Please enter a video title first');
+    setError('Video title is required');
+    return;
+  }
+  
+  if (!contentData.video_url?.trim()) {
+    alert('Please enter a video URL first');
+    setError('Video URL is required');
+    return;
+  }
+  
+  console.log('Validation passed - proceeding with scheduling');
+  
+  setLoading(true);
+  setError('');
+  
+  try {
+    const userData = getUserData();
+    
+    if (!userData?.user_id) {
+      throw new Error('User ID not found');
+    }
+    
+    console.log('Sending schedule requests...');
+    
+    const results = await Promise.all(
+      validSlots.map(async (slot, index) => {
+        const payload = {
+          user_id: userData.user_id,
+          schedule_date: slot.date,
+          schedule_time: slot.time,
+          video_data: {
+            title: contentData.title.trim(),
+            description: contentData.description.trim(),
+            video_url: contentData.video_url.trim(),
+            content_type: contentData.content_type,
+            thumbnail_url: selectedThumbnail?.url || null
           }
-          
-          setLoading(true);
-          setError('');
-          
-          try {
-            const userData = getUserData();
-            
-            const results = await Promise.all(
-              validSlots.map(slot => 
-                fetch(`${API_BASE}/api/youtube/schedule-video`, {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                  },
-                  body: JSON.stringify({
-                    user_id: userData.user_id,
-                    schedule_date: slot.date,
-                    schedule_time: slot.time,
-                    video_data: {
-                      title: contentData.title,
-                      description: contentData.description,
-                      video_url: contentData.video_url,
-                      content_type: contentData.content_type,
-                      thumbnail_url: selectedThumbnail?.url
-                    }
-                  })
-                }).then(r => r.json())
-              )
-            );
-            
-            const successCount = results.filter(r => r.success).length;
-            alert(`${successCount} upload(s) scheduled successfully!`);
-            
-            setScheduleSlots([
-              { id: 1, date: '', time: '' },
-              { id: 2, date: '', time: '' },
-              { id: 3, date: '', time: '' }
-            ]);
-            
-            setScheduleMode(false);
-            await fetchScheduledPosts();
-            
-          } catch (error) {
-            setError('Scheduling failed: ' + error.message);
-          } finally {
-            setLoading(false);
-          }
-        }}
+        };
+        
+        console.log(`Schedule request ${index + 1}:`, payload);
+        
+        const response = await fetch(`${API_BASE}/api/youtube/schedule-video`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(payload)
+        });
+        
+        const result = await response.json();
+        console.log(`Schedule response ${index + 1}:`, result);
+        
+        return result;
+      })
+    );
+    
+    const successCount = results.filter(r => r.success).length;
+    const failedCount = results.length - successCount;
+    
+    console.log(`Results: ${successCount} success, ${failedCount} failed`);
+    
+    if (successCount > 0) {
+      alert(`${successCount} upload(s) scheduled successfully!`);
+      
+      // Reset
+      setScheduleSlots([
+        { id: 1, date: '', time: '' },
+        { id: 2, date: '', time: '' },
+        { id: 3, date: '', time: '' }
+      ]);
+      
+      setScheduleMode(false);
+      await fetchScheduledPosts();
+    } else {
+      alert('All scheduling attempts failed. Check browser console.');
+      console.error('All failed. Results:', results);
+    }
+    
+  } catch (error) {
+    console.error('Scheduling error:', error);
+    alert('Scheduling failed: ' + error.message);
+    setError('Scheduling failed: ' + error.message);
+  } finally {
+    setLoading(false);
+  }
+}}
+
+
+
+
         disabled={loading || scheduleSlots.filter(s => s.date && s.time).length === 0}
         style={{
           width: '100%',
