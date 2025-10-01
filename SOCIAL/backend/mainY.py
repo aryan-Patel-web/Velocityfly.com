@@ -1542,25 +1542,40 @@ async def schedule_video_upload(request: dict):
         logger.error(f"Schedule video failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+
+
+
 @app.get("/api/youtube/scheduled-posts/{user_id}")
 async def get_scheduled_posts(user_id: str, status: str = None):
     """Get scheduled posts for a user"""
     try:
+        if not database_manager:
+            return {
+                "success": False,
+                "error": "Database not available",
+                "scheduled_posts": [],
+                "count": 0
+            }
+        
         posts = await database_manager.get_scheduled_posts_by_user(user_id, status)
         
         # Format posts for frontend
         formatted_posts = []
         for post in posts:
-            formatted_posts.append({
-                "id": str(post["_id"]),
-                "title": post["video_data"].get("title", "Untitled"),
-                "video_url": post["video_data"].get("video_url"),
-                "scheduled_for": post["scheduled_for"].isoformat(),
-                "status": post["status"],
-                "created_at": post["created_at"].isoformat(),
-                "execution_attempts": post.get("execution_attempts", 0),
-                "last_error": post.get("last_error")
-            })
+            try:
+                formatted_posts.append({
+                    "id": str(post["_id"]),
+                    "title": post.get("video_data", {}).get("title", "Untitled"),
+                    "video_url": post.get("video_data", {}).get("video_url", ""),
+                    "scheduled_for": post["scheduled_for"].isoformat() if post.get("scheduled_for") else None,
+                    "status": post.get("status", "unknown"),
+                    "created_at": post["created_at"].isoformat() if post.get("created_at") else None,
+                    "execution_attempts": post.get("execution_attempts", 0),
+                    "last_error": post.get("last_error")
+                })
+            except Exception as format_error:
+                logger.warning(f"Failed to format post {post.get('_id')}: {format_error}")
+                continue
         
         return {
             "success": True,
@@ -1570,15 +1585,32 @@ async def get_scheduled_posts(user_id: str, status: str = None):
         
     except Exception as e:
         logger.error(f"Get scheduled posts failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        return {
+            "success": False,
+            "error": str(e),
+            "scheduled_posts": [],
+            "count": 0
+        }
+
 
 @app.delete("/api/youtube/scheduled-post/{post_id}")
 async def delete_scheduled_post(post_id: str):
     """Delete a scheduled post"""
     try:
+        if not database_manager:
+            raise HTTPException(status_code=503, detail="Database not available")
+        
         from bson import ObjectId
         
-        success = await database_manager.delete_scheduled_post(ObjectId(post_id))
+        # Validate ObjectId format
+        try:
+            obj_id = ObjectId(post_id)
+        except Exception as id_error:
+            raise HTTPException(status_code=400, detail=f"Invalid post ID format: {id_error}")
+        
+        success = await database_manager.delete_scheduled_post(obj_id)
         
         if success:
             return {
@@ -1586,12 +1618,15 @@ async def delete_scheduled_post(post_id: str):
                 "message": "Scheduled post deleted"
             }
         else:
-            raise HTTPException(status_code=404, detail="Scheduled post not found")
+            raise HTTPException(status_code=404, detail="Scheduled post not found or already deleted")
             
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Delete scheduled post failed: {e}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=str(e))
-
 
 
 
