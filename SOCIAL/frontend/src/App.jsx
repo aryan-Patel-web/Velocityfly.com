@@ -44,8 +44,7 @@ const WhatsAppAutomation = lazy(() =>
 );
 
 const YouTubeAutomation = lazy(() => 
-  // import('./pages/YouTube').catch(() => ({
-  import('./pages/YouTubeAutomation').catch(() => ({
+  import('./pages/YouTube').catch(() => ({
     default: () => <div style={{ padding: '40px', textAlign: 'center', color: '#ff4444' }}>
       <h2>YouTube Component Error</h2>
       <p>Please check if YouTube.jsx exists and has a default export.</p>

@@ -42,28 +42,31 @@ const YouTubeAutomation = () => {
     ? (import.meta.env.VITE_API_URL || 'https://agentic-u5lx.onrender.com')
     : (import.meta.env.VITE_API_URL || 'http://localhost:8000');
 
-  const getUserData = useCallback(() => {
-    if (user && user.user_id) {
-      return user;
-    }
-    
-    const possibleKeys = ['user', 'cached_user', 'auth_user'];
-    for (const key of possibleKeys) {
-      try {
-        const storedUser = localStorage.getItem(key);
-        if (storedUser) {
-          const parsedUser = JSON.parse(storedUser);
-          if (parsedUser && parsedUser.user_id) {
-            return parsedUser;
-          }
+// Line 62-114: getUserData (stays here)
+const getUserData = useCallback(() => {
+  if (user && user.user_id) {
+    return user;
+  }
+  
+  const possibleKeys = ['user', 'cached_user', 'auth_user'];
+  for (const key of possibleKeys) {
+    try {
+      const storedUser = localStorage.getItem(key);
+      if (storedUser) {
+        const parsedUser = JSON.parse(storedUser);
+        if (parsedUser && parsedUser.user_id) {
+          return parsedUser;
         }
-      } catch (error) {
-        console.warn(`Error parsing ${key} from localStorage:`, error);
       }
+    } catch (error) {
+      console.warn(`Error parsing ${key} from localStorage:`, error);
     }
-    
-    return null;
-  }, [user]);
+  }
+  
+  return null;
+}, [user]);
+
+
 
   const generateContent = useCallback(async () => {
     if (!token) {
@@ -394,91 +397,98 @@ const uploadVideo = useCallback(async () => {
 
 
 
-  const fetchAnalytics = useCallback(async () => {
-    if (!token) return;
-    
-    try {
-      const userData = getUserData();
-      if (!userData?.user_id) return;
-      
-      setLoading(true);
-      
-      const response = await fetch(`${API_BASE}/api/youtube/analytics/${userData.user_id}?days=30`, {
-        headers: { 
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-          'X-User-ID': userData.user_id
-        }
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        if (data.success) {
-          setAnalytics(data);
-        }
-      } else {
-        console.error('Analytics fetch failed:', response.status);
-      }
-    } catch (error) {
-      console.error('Analytics fetch failed:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, [token, getUserData, API_BASE]);
 
-  const fetchAutomationStatus = useCallback(async (retryCount = 0) => {
-    if (!token) {
-      console.log('No token available for status fetch');
+
+
+
+
+
+
+
+
+const fetchAutomationStatus = useCallback(async (retryCount = 0) => {
+  if (!token) {
+    console.log('No token available for status fetch');
+    return;
+  }
+  
+  try {
+    const userData = getUserData();
+    
+    if (!userData || !userData.user_id) {
+      console.error('No user_id found for status fetch');
+      setStatus({ youtube_connected: false });
       return;
     }
     
-    try {
-      const userData = getUserData();
-      
-      if (!userData || !userData.user_id) {
-        console.error('No user_id found for status fetch');
-        setStatus({ youtube_connected: false });
-        return;
+    console.log('Fetching status for user_id:', userData.user_id);
+    
+    const response = await fetch(`${API_BASE}/api/youtube/status/${userData.user_id}`, {
+      method: 'GET',
+      headers: { 
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        'X-User-ID': userData.user_id
       }
-      
-      console.log('Fetching status for user_id:', userData.user_id);
-      
-      const response = await fetch(`${API_BASE}/api/youtube/status/${userData.user_id}`, {
-        method: 'GET',
-        headers: { 
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-          'X-User-ID': userData.user_id
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      if (data.success) {
+        setStatus(data);
+        if (data.youtube_automation?.config) {
+          setConfig(prev => ({ ...prev, ...data.youtube_automation.config }));
         }
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        if (data.success) {
-          setStatus(data);
-          if (data.youtube_automation?.config) {
-            setConfig(prev => ({ ...prev, ...data.youtube_automation.config }));
-          }
-        }
-      } else if (response.status === 404) {
-        setStatus({ youtube_connected: false });
-      } else if (response.status === 503 && retryCount < 3) {
-        console.log(`Service unavailable, retrying... (${retryCount + 1}/3)`);
-        setTimeout(() => fetchAutomationStatus(retryCount + 1), 2000);
-      } else {
-        throw new Error(`Status fetch failed: ${response.status}`);
       }
-    } catch (error) {
-      console.error('Status fetch failed:', error);
+    } else if (response.status === 404) {
       setStatus({ youtube_connected: false });
-      if (retryCount === 0) {
-        setError('Failed to fetch YouTube connection status');
-      }
+    } else if (response.status === 503 && retryCount < 3) {
+      console.log(`Service unavailable, retrying... (${retryCount + 1}/3)`);
+      setTimeout(() => fetchAutomationStatus(retryCount + 1), 2000);
+    } else {
+      throw new Error(`Status fetch failed: ${response.status}`);
     }
-  }, [token, getUserData, API_BASE]);
+  } catch (error) {
+    console.error('Status fetch failed:', error);
+    setStatus({ youtube_connected: false });
+    if (retryCount === 0) {
+      setError('Failed to fetch YouTube connection status');
+    }
+  }
+}, [token, getUserData, API_BASE]);
 
 
-
+const fetchAnalytics = useCallback(async () => {
+  if (!token) return;
+  
+  try {
+    const userData = getUserData();
+    if (!userData?.user_id) return;
+    
+    setLoading(true);
+    
+    const response = await fetch(`${API_BASE}/api/youtube/analytics/${userData.user_id}?days=30`, {
+      headers: { 
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        'X-User-ID': userData.user_id
+      }
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      if (data.success) {
+        setAnalytics(data);
+      }
+    } else {
+      console.error('Analytics fetch failed:', response.status);
+    }
+  } catch (error) {
+    console.error('Analytics fetch failed:', error);
+  } finally {
+    setLoading(false);
+  }
+}, [token, getUserData, API_BASE]);
 
 
 
@@ -2439,14 +2449,3 @@ useEffect(() => {
 };
 
 export default YouTubeAutomation;
-
-
-
-
-
-
-
-
-
-  
-
