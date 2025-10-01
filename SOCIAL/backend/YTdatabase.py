@@ -560,128 +560,180 @@ class YouTubeDatabaseManager:
     
     # sldjflsfjsfejwse
     # Global instanc
-    
-    async def store_scheduled_post(
-        self,
-        user_id: str,
-        video_data: Dict[str, Any],
-        scheduled_for: datetime
-    ) -> bool:
-        """Store a scheduled video post"""
-        try:
-            scheduled_post = {
-                "user_id": user_id,
-                "video_data": video_data,
-                "scheduled_for": scheduled_for,
-                "status": "scheduled",  # scheduled, processing, published, failed
-                "created_at": datetime.now(),
-                "updated_at": datetime.now(),
-                "execution_attempts": 0,
-                "last_error": None
+
+    # Global instanc
+
+async def store_scheduled_post(
+    self,
+    user_id: str,
+    video_data: Dict[str, Any],
+    scheduled_for: datetime
+) -> bool:
+    """Store a scheduled video post"""
+    try:
+        scheduled_post = {
+            "user_id": user_id,
+            "video_data": video_data,
+            "scheduled_for": scheduled_for,
+            "status": "scheduled",  # scheduled, processing, published, failed
+            "created_at": datetime.now(),
+            "updated_at": datetime.now(),
+            "execution_attempts": 0,
+            "last_error": None
+        }
+
+        await self.scheduled_posts_collection.insert_one(scheduled_post)
+        logger.info(f"Scheduled post stored for user {user_id} at {scheduled_for}")
+        return True
+
+    except Exception as e:
+        logger.error(f"Failed to store scheduled post: {e}")
+        return False
+
+
+async def get_due_scheduled_posts(self) -> List[Dict[str, Any]]:
+    """Get posts that are due to be published"""
+    try:
+        current_time = datetime.now()
+        time_window = current_time + timedelta(minutes=2)  # 2-minute window
+
+        posts = []
+        async for post in self.scheduled_posts_collection.find({
+            "status": "scheduled",
+            "scheduled_for": {
+                "$lte": time_window,
+                "$gte": current_time - timedelta(minutes=1)
             }
-            
-            await self.scheduled_posts_collection.insert_one(scheduled_post)
-            logger.info(f"Scheduled post stored for user {user_id} at {scheduled_for}")
-            return True
-            
-        except Exception as e:
-            logger.error(f"Failed to store scheduled post: {e}")
+        }):
+            posts.append(post)
+
+        return posts
+
+    except Exception as e:
+        logger.error(f"Failed to get due posts: {e}")
+        return []
+
+
+async def update_scheduled_post_status(
+    self, 
+    post_id, 
+    status: str, 
+    error_message: str = None
+) -> bool:
+    """Update scheduled post status"""
+    try:
+        if not self.scheduled_posts_collection:
+            logger.error("❌ scheduled_posts_collection not initialized")
             return False
-
-    async def get_due_scheduled_posts(self) -> List[Dict[str, Any]]:
-        """Get posts that are due to be published"""
-        try:
-            current_time = datetime.now()
-            time_window = current_time + timedelta(minutes=2)  # 2-minute window
-            
-            posts = []
-            async for post in self.scheduled_posts_collection.find({
-                "status": "scheduled",
-                "scheduled_for": {
-                    "$lte": time_window,
-                    "$gte": current_time - timedelta(minutes=1)
-                }
-            }):
-                posts.append(post)
-            
-            return posts
-            
-        except Exception as e:
-            logger.error(f"Failed to get due posts: {e}")
-            return []
-
-    async def update_scheduled_post_status(
-        self,
-        post_id,
-        status: str,
-        error: str = None
-    ) -> bool:
-        """Update scheduled post status"""
-        try:
-            update_data = {
-                "status": status,
-                "updated_at": datetime.now()
-            }
-            
-            if status == "published":
-                update_data["executed_at"] = datetime.now()
-            
-            if error:
-                update_data["last_error"] = error
-                update_data["$inc"] = {"execution_attempts": 1}
-            
-            await self.scheduled_posts_collection.update_one(
-                {"_id": post_id},
-                {"$set": update_data}
-            )
-            
-            return True
-            
-        except Exception as e:
-            logger.error(f"Failed to update post status: {e}")
-            return False
-
-    async def get_scheduled_posts_by_user(
-        self,
-        user_id: str,
-        status: str = None
-    ) -> List[Dict[str, Any]]:
-        """Get scheduled posts for a user"""
-        try:
-            query = {"user_id": user_id}
-            if status:
-                query["status"] = status
-            
-            posts = []
-            async for post in self.scheduled_posts_collection.find(query).sort("scheduled_for", 1):
-                posts.append(post)
-            
-            return posts
-            
-        except Exception as e:
-            logger.error(f"Failed to get user scheduled posts: {e}")
-            return []
-
-    async def delete_scheduled_post(self, post_id) -> bool:
-        """Delete a scheduled post"""
-        try:
-            result = await self.scheduled_posts_collection.delete_one({"_id": post_id})
-            return result.deleted_count > 0
-        except Exception as e:
-            logger.error(f"Failed to delete scheduled post: {e}")
-            return False
-
-    
-    
         
+        update_data = {
+            "status": status,
+            "updated_at": datetime.now()
+        }
+        
+        if status == "processing":
+            update_data["processing_started_at"] = datetime.now()
+        elif status == "published":
+            update_data["published_at"] = datetime.now()
+        elif status == "failed":
+            update_data["failed_at"] = datetime.now()
+            if error_message:
+                update_data["error_message"] = error_message
+        
+        result = await self.scheduled_posts_collection.update_one(
+            {"_id": post_id},
+            {"$set": update_data}
+        )
+        
+        if result.modified_count > 0:
+            logger.info(f"✅ Post {post_id} status updated to: {status}")
+            return True
+        else:
+            logger.warning(f"⚠️ No post found with ID: {post_id}")
+            return False
+            
+    except Exception as e:
+        logger.error(f"❌ update_scheduled_post_status failed: {e}")
+        return False
 
-    
+
+
+
+
+
+async def get_scheduled_posts_by_user(
+    self,
+    user_id: str,
+    status: str = None
+) -> List[Dict[str, Any]]:
+    """Get scheduled posts for a user"""
+    try:
+        query = {"user_id": user_id}
+        if status:
+            query["status"] = status
+
+        posts = []
+        async for post in self.scheduled_posts_collection.find(query).sort("scheduled_for", 1):
+            posts.append(post)
+
+        return posts
+
+    except Exception as e:
+        logger.error(f"Failed to get user scheduled posts: {e}")
+        return []
+
+
+async def get_due_scheduled_posts(self) -> List[Dict[str, Any]]:
+    """Get posts scheduled to be published now"""
+    try:
+        current_time = datetime.now()
+        time_window_start = current_time - timedelta(minutes=1)
+        time_window_end = current_time + timedelta(minutes=2)
+
+        logger.info(f"🔍 Querying scheduled posts between {time_window_start.strftime('%H:%M')} and {time_window_end.strftime('%H:%M')}")
+
+        if not self.scheduled_posts_collection:
+            logger.error("❌ scheduled_posts_collection not initialized")
+            return []
+
+        posts = []
+        cursor = self.scheduled_posts_collection.find({
+            "status": "scheduled",
+            "scheduled_for": {
+                "$gte": time_window_start,
+                "$lte": time_window_end
+            }
+        })
+
+        async for post in cursor:
+            posts.append(post)
+            logger.info(f"📌 Found post: {post.get('video_data', {}).get('title')} @ {post.get('scheduled_for')}")
+
+        if not posts:
+            logger.debug(f"No posts due between {time_window_start.strftime('%H:%M')} - {time_window_end.strftime('%H:%M')}")
+        else:
+            logger.info(f"📤 Returning {len(posts)} posts ready for execution")
+
+        return posts
+
+    except Exception as e:
+        logger.error(f"❌ get_due_scheduled_posts failed: {e}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        return []
+
+
+async def delete_scheduled_post(self, post_id) -> bool:
+    """Delete a scheduled post"""
+    try:
+        result = await self.scheduled_posts_collection.delete_one({"_id": post_id})
+        return result.deleted_count > 0
+    except Exception as e:
+        logger.error(f"Failed to delete scheduled post: {e}")
+        return False
+
 
 # Global instance
-
-
-
-
 youtube_db_manager = None
 
 def get_youtube_database() -> YouTubeDatabaseManager:
@@ -690,3 +742,8 @@ def get_youtube_database() -> YouTubeDatabaseManager:
     if not youtube_db_manager:
         youtube_db_manager = YouTubeDatabaseManager()
     return youtube_db_manager
+
+
+
+
+   
