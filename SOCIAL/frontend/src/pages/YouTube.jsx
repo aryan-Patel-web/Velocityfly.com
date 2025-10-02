@@ -649,13 +649,19 @@ const stopAutomatedReplies = useCallback(async () => {
 }, [token, API_BASE, getUserData]);
 
 const deleteComment = useCallback(async (commentId) => {
-  if (!confirm('Delete this comment?')) return;
+  if (!confirm('Delete this comment/reply?')) return;
   
   try {
     const userData = getUserData();
     if (!userData?.user_id) return;
     
-    const response = await fetch(`${API_BASE}/api/youtube/delete-comment/${commentId}?user_id=${userData.user_id}`, {
+    // Check if it's our reply or original comment
+    const isReply = commentId.includes('reply');
+    const endpoint = isReply 
+      ? `${API_BASE}/api/youtube/delete-reply/${commentId}?user_id=${userData.user_id}`
+      : `${API_BASE}/api/youtube/delete-comment/${commentId}?user_id=${userData.user_id}`;
+    
+    const response = await fetch(endpoint, {
       method: 'DELETE',
       headers: {
         'Authorization': `Bearer ${token}`
@@ -663,14 +669,13 @@ const deleteComment = useCallback(async (commentId) => {
     });
     
     if (response.ok) {
-      alert('Comment deleted');
+      alert(isReply ? 'Reply deleted' : 'Comment deleted');
       await fetchComments(selectedVideoId);
     }
   } catch (error) {
     console.error('Delete failed:', error);
   }
 }, [token, API_BASE, selectedVideoId, fetchComments, getUserData]);
-
 // Add these functions before your return statement
 
   const generateCommunityPost = useCallback(async () => {

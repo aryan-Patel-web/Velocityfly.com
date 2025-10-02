@@ -2628,15 +2628,17 @@ async def reply_to_comment(request: dict):
         logger.error(f"Reply to comment failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.put("/api/youtube/edit-comment")
-async def edit_comment(request: dict):
-    """Edit a YouTube comment/reply"""
+
+
+@app.put("/api/youtube/edit-reply")
+async def edit_reply(request: dict):
+    """Edit MY reply to a comment (not the original comment)"""
     try:
         user_id = request.get("user_id")
-        comment_id = request.get("comment_id")
+        reply_id = request.get("reply_id")  # Changed from comment_id
         new_text = request.get("new_text")
         
-        if not all([user_id, comment_id, new_text]):
+        if not all([user_id, reply_id, new_text]):
             raise HTTPException(status_code=400, detail="Missing required fields")
         
         # Get authenticated service
@@ -2644,11 +2646,11 @@ async def edit_comment(request: dict):
         if not youtube_service:
             raise HTTPException(status_code=400, detail="Failed to authenticate with YouTube")
         
-        # Update comment
+        # Update MY reply (not original comment)
         youtube_service.comments().update(
             part="snippet",
             body={
-                "id": comment_id,
+                "id": reply_id,
                 "snippet": {
                     "textOriginal": new_text
                 }
@@ -2657,14 +2659,39 @@ async def edit_comment(request: dict):
         
         return {
             "success": True,
-            "message": "Comment updated successfully"
+            "message": "Reply updated successfully"
         }
         
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Edit comment failed: {e}")
+        logger.error(f"Edit reply failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete("/api/youtube/delete-reply/{reply_id}")
+async def delete_reply(reply_id: str, user_id: str):
+    """Delete MY reply (not original comment)"""
+    try:
+        # Get authenticated service
+        youtube_service = await youtube_connector.get_authenticated_service(user_id)
+        if not youtube_service:
+            raise HTTPException(status_code=400, detail="Failed to authenticate with YouTube")
+        
+        # Delete MY reply
+        youtube_service.comments().delete(id=reply_id).execute()
+        
+        return {
+            "success": True,
+            "message": "Reply deleted successfully"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Delete reply failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 
 @app.delete("/api/youtube/delete-comment/{comment_id}")
 async def delete_comment(comment_id: str, user_id: str):
@@ -2729,6 +2756,12 @@ async def generate_auto_reply(request: dict):
     except Exception as e:
         logger.error(f"Generate auto reply failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+
+
+
+
 
 @app.post("/api/youtube/start-auto-reply")
 async def start_automated_replies(request: dict):

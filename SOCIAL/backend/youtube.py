@@ -1368,7 +1368,136 @@ class YouTubeBackgroundScheduler:
                 "failed", 
                 str(e)
             )
+class AutoReplyScheduler:
+    """Automated comment reply scheduler"""
+    
+    def __init__(self, database_manager, youtube_connector, ai_service):
+        self.database = database_manager
+        self.youtube_connector = youtube_connector
+        self.ai_service = ai_service
+        self.running = False
+        self.check_interval = 300  # Check every 5 minutes
+        logger.info("AutoReplyScheduler initialized")
+    
+    async def start(self):
+        """Start auto-reply checking"""
+        if self.running:
+            return
+        
+        self.running = True
+        logger.info("🤖 Auto-reply scheduler started")
+        
+        while self.running:
+            try:
+                await self.process_auto_replies()
+                await asyncio.sleep(self.check_interval)
+            except Exception as e:
+                logger.error(f"Auto-reply error: {e}")
+                await asyncio.sleep(60)
+    
+    async def process_auto_replies(self):
+        """Check for new comments and auto-reply"""
+        try:
+            # Get users with auto-reply enabled
+            configs = await self.database.get_all_automation_configs_by_type("auto_reply")
+            
+            for config in configs:
+                if config.get("enabled"):
+                    await self.reply_to_user_comments(config["user_id"], config["config_data"])
+                    
+        except Exception as e:
+            logger.error(f"Process auto-replies failed: {e}")
+    
+    async def reply_to_user_comments(self, user_id: str, config: dict):
+        """Auto-reply to new comments for a user"""
+        try:
+            # Get user's recent comments
+            youtube_service = await self.youtube_connector.get_authenticated_service(user_id)
+            if not youtube_service:
+                return
+            
+            # Get channel ID
+            credentials = await self.database.get_youtube_credentials(user_id)
+            channel_id = credentials["channel_info"]["channel_id"]
+            
+            # Get recent videos
+            search_response = youtube_service.search().list(
+                part="id",
+                channelId=channel_id,
+                type="video",
+                order="date",
+                maxResults=5
+            ).execute()
+            
+            for video in search_response.get("items", []):
+                video_id = video["id"]["videoId"]
+                
+                # Get comments for this video
+                comments_response = youtube_service.commentThreads().list(
+                    part="snippet",
+                    videoId=video_id,
+                    order="time",
+                    maxResults=10
+                ).execute()
+                
+                for comment_item in comments_response.get("items", []):
+                    comment = comment_item["snippet"]["topLevelComment"]["snippet"]
+                    
+                    # Check if we already replied
+                    if not self._already_replied(comment_item, channel_id):
+                        await self._generate_and_post_reply(
+                            user_id, comment_item["id"], comment["textDisplay"], config
+                        )
+                        
+        except Exception as e:
+            logger.error(f"Auto-reply for user {user_id} failed: {e}")
+    
+    def _already_replied(self, comment_item: dict, channel_id: str) -> bool:
+        """Check if we already replied to this comment"""
+        replies = comment_item.get("replies", {}).get("comments", [])
+        for reply in replies:
+            if reply["snippet"]["authorChannelId"]["value"] == channel_id:
+                return True
+        return False
+    
+    async def _generate_and_post_reply(self, user_id: str, comment_id: str, comment_text: str, config: dict):
+        """Generate and post auto-reply"""
+        try:
+            # Generate reply using AI
+            if self.ai_service:
+                reply_result = await self.ai_service.generate_comment_reply(
+                    comment_text=comment_text,
+                    reply_style=config.get("reply_style", "friendly"),
+                    language="english",  # Will auto-detect
+                    custom_prompt=config.get("custom_prompt", "")
+                )
+                
+                if reply_result.get("success"):
+                    reply_text = reply_result["reply"]
+                    
+                    # Post reply
+                    youtube_service = await self.youtube_connector.get_authenticated_service(user_id)
+                    youtube_service.comments().insert(
+                        part="snippet",
+                        body={
+                            "snippet": {
+                                "parentId": comment_id,
+                                "textOriginal": reply_text
+                            }
+                        }
+                    ).execute()
+                    
+                    logger.info(f"Auto-replied to comment: {comment_text[:50]}...")
+                    
+        except Exception as e:
+            logger.error(f"Generate and post reply failed: {e}")
 
+# Add to global instances
+auto_reply_scheduler = None
+
+def get_auto_reply_scheduler():
+    """Get auto-reply scheduler instance"""
+    return auto_reply_scheduler
 
 
 
@@ -1379,7 +1508,8 @@ class YouTubeBackgroundScheduler:
 youtube_database = None
 youtube_connector = None
 youtube_scheduler = None
-youtube_background_scheduler = None  # NEW: Background scheduler instance
+youtube_background_scheduler = None
+auto_reply_scheduler = None  # NEW: Background scheduler instance
 
 def get_youtube_database() -> YouTubeDatabase:
     """Get global YouTube database instance"""
@@ -1403,7 +1533,7 @@ async def initialize_youtube_service(
     """
     Initialize YouTube service with required dependencies
     """
-    global youtube_connector, youtube_scheduler, youtube_database, youtube_background_scheduler
+    global youtube_connector, youtube_scheduler, youtube_database, youtube_background_scheduler, auto_reply_scheduler
     
     try:
         logger.info("Initializing YouTube service...")
@@ -1443,16 +1573,28 @@ async def initialize_youtube_service(
             database_manager
         )
         
-        # Initialize background scheduler
+        # Initialize background scheduler for video uploads
         logger.info("Initializing background scheduler...")
         youtube_background_scheduler = YouTubeBackgroundScheduler(
             database_manager,
             youtube_scheduler
         )
         
-        # Start scheduler in background task - ONLY ONCE
+        # Start video upload scheduler in background task
         asyncio.create_task(youtube_background_scheduler.start())
         logger.info("✅ Background scheduler initialized and task created")
+        
+        # Initialize auto-reply scheduler for comments
+        logger.info("Initializing auto-reply scheduler...")
+        auto_reply_scheduler = AutoReplyScheduler(
+            database_manager,
+            youtube_connector, 
+            ai_service
+        )
+        
+        # Start auto-reply scheduler in background task
+        asyncio.create_task(auto_reply_scheduler.start())
+        logger.info("✅ Auto-reply scheduler initialized and task created")
         
         logger.info("YouTube service initialized successfully")
         logger.info(f"OAuth redirect URI: {redirect_uri}")
