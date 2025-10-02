@@ -3944,51 +3944,95 @@ onClick={async () => {
         type="file"
         accept="image/*"
         multiple
+
+
+
+
 onChange={async (e) => {
   const files = Array.from(e.target.files).slice(0, 6);
   
   if (files.length < 2) {
     alert('Please upload at least 2 images');
+    e.target.value = ''; // Clear input
     return;
   }
   
   if (files.length > 6) {
     alert('Maximum 6 images allowed');
+    e.target.value = '';
+    return;
+  }
+  
+  // Validate file types
+  const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+  const invalidFiles = files.filter(f => !validTypes.includes(f.type));
+  
+  if (invalidFiles.length > 0) {
+    alert('Please upload only JPG, PNG, or WEBP images');
+    e.target.value = '';
     return;
   }
   
   setLoading(true);
+  setError('');
   
   try {
     const base64Images = await Promise.all(
-      files.map(file => new Promise((resolve, reject) => {
+      files.map((file, idx) => new Promise((resolve, reject) => {
+        // Validate file size (max 5MB per image)
+        if (file.size > 5 * 1024 * 1024) {
+          reject(new Error(`Image ${idx + 1} is too large (max 5MB)`));
+          return;
+        }
+        
         const reader = new FileReader();
+        
         reader.onload = () => {
           const result = reader.result;
-          console.log('📸 Image loaded:', {
+          
+          // Validate result is base64 image
+          if (!result || typeof result !== 'string') {
+            reject(new Error(`Failed to read image ${idx + 1}`));
+            return;
+          }
+          
+          if (!result.startsWith('data:image/')) {
+            reject(new Error(`Image ${idx + 1} is not a valid image format`));
+            return;
+          }
+          
+          console.log(`Image ${idx + 1} loaded:`, {
             name: file.name,
             size: file.size,
             type: file.type,
             base64Length: result.length,
-            base64Preview: result.substring(0, 100)
+            base64Preview: result.substring(0, 50)
           });
+          
           resolve(result);
         };
-        reader.onerror = reject;
+        
+        reader.onerror = () => {
+          reject(new Error(`Failed to read image ${idx + 1}: ${reader.error?.message || 'Unknown error'}`));
+        };
+        
         reader.readAsDataURL(file);
       }))
     );
     
-    console.log('✅ All images loaded:', base64Images.length);
+    console.log('All images loaded successfully:', base64Images.length);
     setUploadedImages(base64Images);
     setError('');
+    
   } catch (error) {
+    console.error('Image upload error:', error);
     setError('Failed to upload images: ' + error.message);
+    setUploadedImages([]);
+    e.target.value = ''; // Clear input on error
   } finally {
     setLoading(false);
   }
 }}
-
 
 
 

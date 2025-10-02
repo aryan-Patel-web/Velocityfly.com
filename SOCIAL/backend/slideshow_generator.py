@@ -127,14 +127,31 @@ class SlideshowGenerator:
         
         for idx, img_b64 in enumerate(images):
             try:
+                # Validate input type
+                if not isinstance(img_b64, str):
+                    raise ValueError(f"Image {idx + 1} is not a string")
+                
+                # Validate it's base64 image data
+                if not img_b64.startswith('data:image/'):
+                    logger.error(f"Invalid image format for image {idx}. Got: {img_b64[:100]}")
+                    raise ValueError(f"Image {idx + 1} is not in data:image format. Please upload actual image files (JPG, PNG, WEBP)")
+                
+                # Extract mime type
+                try:
+                    mime_match = img_b64.split(';')[0].split(':')[1]
+                    if mime_match not in ['image/jpeg', 'image/jpg', 'image/png', 'image/webp']:
+                        raise ValueError(f"Unsupported image type: {mime_match}. Use JPG, PNG, or WEBP")
+                except IndexError:
+                    raise ValueError(f"Image {idx + 1} has invalid format")
+                
                 # Clean the base64 string properly
-                if isinstance(img_b64, str):
-                    # Remove data:image/jpeg;base64, or data:image/png;base64, prefix
-                    if img_b64.startswith('data:image'):
-                        img_b64 = img_b64.split(',', 1)[1]
-                    
-                    # Remove any whitespace/newlines
-                    img_b64 = img_b64.strip().replace('\n', '').replace('\r', '')
+                if 'base64,' in img_b64:
+                    img_b64 = img_b64.split('base64,', 1)[1]
+                else:
+                    raise ValueError(f"Image {idx + 1} missing base64 data")
+                
+                # Remove any whitespace/newlines
+                img_b64 = img_b64.strip().replace('\n', '').replace('\r', '')
                 
                 # Decode base64
                 try:
@@ -149,7 +166,7 @@ class SlideshowGenerator:
                 
                 # Verify it's a valid image
                 if len(img_data) < 100:
-                    raise ValueError(f"Image data too small: {len(img_data)} bytes")
+                    raise ValueError(f"Image {idx + 1} data too small: {len(img_data)} bytes. File may be corrupted")
                 
                 # Open image
                 img_buffer = io.BytesIO(img_data)
@@ -171,7 +188,8 @@ class SlideshowGenerator:
                 
             except Exception as e:
                 logger.error(f"Failed to process image {idx}: {e}")
-                logger.error(f"Image data preview: {str(img_b64)[:100] if isinstance(img_b64, str) else 'Not a string'}")
+                if isinstance(img_b64, str):
+                    logger.error(f"Image data preview: {str(img_b64)[:100]}")
                 raise ValueError(f"Image {idx + 1} processing failed: {str(e)}")
         
         return image_paths
