@@ -838,6 +838,55 @@ class YouTubeOAuthConnector:
         except Exception as e:
             logger.error(f"YouTube analytics failed: {e}")
             return {"success": False, "error": str(e)}
+        
+
+    async def get_authenticated_service(self, user_id: str):
+        """Get authenticated YouTube service for API calls"""
+        try:
+            # This method should be in YTdatabase, not here
+            # But we'll create a bridge method
+            from YTdatabase import get_youtube_database
+            
+            database_manager = get_youtube_database()
+            credentials = await database_manager.get_youtube_credentials(user_id)
+            
+            if not credentials:
+                logger.error(f"No credentials found for user {user_id}")
+                return None
+            
+            # Build credentials object
+            from google.oauth2.credentials import Credentials
+            from google.auth.transport.requests import Request
+            
+            creds = Credentials(
+                token=credentials["access_token"],
+                refresh_token=credentials["refresh_token"],
+                token_uri=credentials["token_uri"],
+                client_id=credentials["client_id"],
+                client_secret=credentials["client_secret"],
+                scopes=credentials["scopes"]
+            )
+            
+            # Check if token needs refresh
+            if creds.expired:
+                logger.info(f"Refreshing token for user {user_id}")
+                creds.refresh(Request())
+                
+                # Update token in database
+                await database_manager.refresh_youtube_token(
+                    user_id, 
+                    creds.token, 
+                    creds.expiry
+                )
+            
+            # Build YouTube service
+            youtube_service = build('youtube', 'v3', credentials=creds)
+            logger.info(f"YouTube service authenticated for user {user_id}")
+            return youtube_service
+            
+        except Exception as e:
+            logger.error(f"Failed to authenticate YouTube service: {e}")
+            return None
     
     # ------------------------------------------------------------------------
     # COMMUNITY POST METHODS

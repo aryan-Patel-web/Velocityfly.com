@@ -1098,60 +1098,84 @@ async def debug_youtube_status():
 
 # YouTube API Routes - FIXED all endpoints
 @app.get("/api/youtube/status/{user_id}")
-async def youtube_status(user_id: str):
-    """Get YouTube connection and automation status with persistent token check"""
+async def get_youtube_status(user_id: str):
+    """Get YouTube automation status with real channel data"""
     try:
-        logger.info(f"Checking YouTube status for user: {user_id}")
+        logger.info(f"Getting YouTube status for user: {user_id}")
         
-        youtube_connected = False
-        channel_info = None
-        credentials_valid = False
-        credentials = None
+        # Get credentials
+        credentials = await database_manager.get_youtube_credentials(user_id)
+        if not credentials:
+            return {
+                "success": True,
+                "youtube_connected": False,
+                "message": "YouTube not connected"
+            }
         
+        # Get real channel info from YouTube API
         try:
-            credentials = await database_manager.get_youtube_credentials(user_id)
-            if credentials and credentials.get("is_active"):
-                youtube_connected = True
-                channel_info = credentials.get("channel_info")
+            youtube_service = await youtube_connector.get_authenticated_service(user_id)
+            if youtube_service:
+                channels_response = youtube_service.channels().list(
+                    part="statistics,snippet",
+                    mine=True
+                ).execute()
                 
-                expires_at = credentials.get("expires_at")
-                if expires_at and isinstance(expires_at, datetime):
-                    credentials_valid = datetime.now() < expires_at
+                if channels_response.get("items"):
+                    channel = channels_response["items"][0]
+                    channel_stats = channel["statistics"]
+                    channel_snippet = channel["snippet"]
+                    
+                    # Real channel info
+                    real_channel_info = {
+                        "channel_name": channel_snippet.get("title", "Unknown"),
+                        "channel_id": channel["id"],
+                        "subscriber_count": int(channel_stats.get("subscriberCount", 0)),
+                        "video_count": int(channel_stats.get("videoCount", 0)),
+                        "view_count": int(channel_stats.get("viewCount", 0)),
+                        "thumbnail_url": channel_snippet["thumbnails"]["default"]["url"]
+                    }
                 else:
-                    credentials_valid = True
-                
-                logger.info(f"YouTube credentials found for user {user_id}, valid: {credentials_valid}")
+                    real_channel_info = credentials.get("channel_info", {})
             else:
-                logger.info(f"No active YouTube credentials found for user {user_id}")
-        except Exception as db_error:
-            logger.error(f"Database error fetching YouTube status: {db_error}")
+                real_channel_info = credentials.get("channel_info", {})
+                
+        except Exception as e:
+            logger.warning(f"Failed to get real-time channel data: {e}")
+            real_channel_info = credentials.get("channel_info", {})
         
-        # Get automation status if scheduler is available
-        automation_status = {}
-        if youtube_scheduler and youtube_connected:
-            automation_status = await youtube_scheduler.get_automation_status(user_id)
+        # Get automation config
+        automation_config = await database_manager.get_automation_config(user_id, "youtube")
+        
+        # Get upload stats
+        upload_stats = await database_manager.get_upload_stats(user_id)
         
         return {
             "success": True,
-            "user_id": user_id,
-            "youtube_connected": youtube_connected and credentials_valid,
-            "channel_info": channel_info,
-            "connected_at": credentials.get("created_at") if credentials else None,
-            "last_updated": credentials.get("updated_at") if credentials else None,
-            "youtube_automation": automation_status.get("youtube_automation", {
-                "enabled": False,
-                "config": None,
-                "stats": {
-                    "total_uploads": 0,
-                    "successful_uploads": 0,
-                    "failed_uploads": 0
-                }
-            })
+            "youtube_connected": True,
+            "channel_info": real_channel_info,
+            "youtube_automation": {
+                "enabled": automation_config.get("enabled", False) if automation_config else False,
+                "config": automation_config.get("config_data", {}) if automation_config else {},
+                "stats": upload_stats
+            },
+            "credentials_active": True,
+            "last_updated": datetime.now().isoformat()
         }
         
     except Exception as e:
-        logger.error(f"YouTube status check failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Status check failed: {e}")
+        return {
+            "success": False,
+            "error": str(e),
+            "youtube_connected": False
+        }
+    
+
+
+
+
+
 
 @app.post("/api/youtube/disconnect/{user_id}")
 async def youtube_disconnect(user_id: str):
@@ -1257,101 +1281,116 @@ async def youtube_setup_automation(request: dict):
         }
 
 @app.get("/api/youtube/analytics/{user_id}")
-async def youtube_analytics(user_id: str, days: int = 30):
-    """Get YouTube channel analytics - FIXED"""
+async def get_youtube_analytics(user_id: str, days: int = 30):
+    """Get YouTube channel analytics with real data"""
     try:
-        logger.info(f"Fetching YouTube analytics for user {user_id}, days: {days}")
+        logger.info(f"Fetching analytics for user: {user_id}")
         
-        # Check if user has YouTube connected
+        # Get user credentials
+        credentials = await database_manager.get_youtube_credentials(user_id)
+        if not credentials:
+            raise HTTPException(status_code=404, detail="YouTube credentials not found")
+        
+        # Initialize YouTube service
+        youtube_service = await youtube_connector.get_authenticated_service(user_id)
+        if not youtube_service:
+            raise HTTPException(status_code=400, detail="Failed to authenticate with YouTube")
+        
+        # Get channel statistics
         try:
-            credentials = await database_manager.get_youtube_credentials(user_id)
-            if not credentials:
-                raise HTTPException(status_code=400, detail="YouTube not connected")
+            channels_response = youtube_service.channels().list(
+                part="statistics,snippet",
+                mine=True
+            ).execute()
             
-            # Try to get real analytics using YouTube connector
-            if youtube_connector:
-                try:
-                    analytics_result = await youtube_connector.get_channel_analytics(credentials, days)
-                    if analytics_result.get("success"):
-                        logger.info(f"Real analytics returned for user {user_id}")
-                        return {
-                            "success": True,
-                            "analytics": analytics_result,
-                            "period_days": days,
-                            "user_id": user_id,
-                            "data_source": "youtube_api"
-                        }
-                except Exception as api_error:
-                    logger.warning(f"YouTube API analytics failed: {api_error}")
-                    
-        except Exception as db_error:
-            logger.error(f"Database error: {db_error}")
+            if not channels_response.get("items"):
+                raise HTTPException(status_code=404, detail="No channel found")
+            
+            channel = channels_response["items"][0]
+            channel_stats = channel["statistics"]
+            channel_snippet = channel["snippet"]
+            
+            logger.info(f"Channel stats retrieved: {channel_stats}")
+            
+        except Exception as e:
+            logger.error(f"Failed to get channel statistics: {e}")
+            raise HTTPException(status_code=500, detail=f"Failed to get channel stats: {str(e)}")
         
-        # Fallback to mock analytics (enhanced with realistic data)
-        mock_analytics = {
+        # Get recent videos
+        recent_videos = []
+        try:
+            # Search for recent videos from this channel
+            search_response = youtube_service.search().list(
+                part="id",
+                channelId=channel["id"],
+                type="video",
+                order="date",
+                maxResults=10
+            ).execute()
+            
+            if search_response.get("items"):
+                video_ids = [item["id"]["videoId"] for item in search_response["items"]]
+                
+                # Get detailed video statistics
+                videos_response = youtube_service.videos().list(
+                    part="statistics,snippet",
+                    id=",".join(video_ids)
+                ).execute()
+                
+                for video in videos_response.get("items", []):
+                    video_stats = video["statistics"]
+                    video_snippet = video["snippet"]
+                    
+                    recent_videos.append({
+                        "video_id": video["id"],
+                        "title": video_snippet["title"],
+                        "published_at": video_snippet["publishedAt"],
+                        "view_count": int(video_stats.get("viewCount", 0)),
+                        "like_count": int(video_stats.get("likeCount", 0)),
+                        "comment_count": int(video_stats.get("commentCount", 0)),
+                        "thumbnail_url": video_snippet["thumbnails"]["default"]["url"]
+                    })
+                
+                logger.info(f"Retrieved {len(recent_videos)} recent videos")
+            
+        except Exception as e:
+            logger.error(f"Failed to get recent videos: {e}")
+            # Don't fail the whole request if videos can't be fetched
+        
+        # Prepare analytics data
+        analytics_data = {
             "success": True,
-            "analytics": {
-                "channel_stats": {
-                    "subscribers": 1,
-                    "total_views": 17,
-                    "total_videos": 1,
-                    "average_view_duration": "2:15",
-                    "subscriber_growth": 0,
-                    "view_growth": 0
-                },
-                "recent_videos": [
-                    {
-                        "video_id": "mock_video_1",
-                        "title": "Bajaj claim adviser",
-                        "views": 17,
-                        "likes": 0,
-                        "comments": 0,
-                        "published_at": "2 months ago",
-                        "duration": "4:33",
-                        "performance": "below_average"
-                    }
-                ],
-                "performance": {
-                    "views_last_30_days": 17,
-                    "subscribers_gained": 0,
-                    "estimated_minutes_watched": 38,
-                    "top_traffic_source": "YouTube search",
-                    "engagement_rate": "0.0%",
-                    "click_through_rate": "0.5%"
-                },
-                "demographics": {
-                    "top_countries": ["India"],
-                    "age_groups": {
-                        "18-24": 50,
-                        "25-34": 30,
-                        "35-44": 20
-                    },
-                    "gender_split": {
-                        "male": 60,
-                        "female": 40
-                    }
-                },
-                "revenue": {
-                    "estimated_earnings": "$0.00",
-                    "rpm": "$0.00",
-                    "monetization_status": "not_eligible"
-                }
+            "channel_statistics": {
+                "subscriberCount": int(channel_stats.get("subscriberCount", 0)),
+                "viewCount": int(channel_stats.get("viewCount", 0)),
+                "videoCount": int(channel_stats.get("videoCount", 0))
             },
+            "channel_info": {
+                "channel_name": channel_snippet.get("title", "Unknown"),
+                "channel_id": channel["id"],
+                "description": channel_snippet.get("description", ""),
+                "thumbnail_url": channel_snippet["thumbnails"]["default"]["url"],
+                "published_at": channel_snippet.get("publishedAt")
+            },
+            "recent_videos": recent_videos,
             "period_days": days,
-            "user_id": user_id,
-            "data_source": "mock",
-            "note": "This is mock data. Connect your channel and wait 24-48 hours for real analytics."
+            "fetched_at": datetime.now().isoformat(),
+            "total_recent_videos": len(recent_videos)
         }
         
-        logger.info(f"Mock analytics returned for user {user_id}")
-        return mock_analytics
+        # Store analytics in database
+        await database_manager.store_channel_analytics(user_id, analytics_data)
+        
+        logger.info(f"Analytics successfully fetched and stored for user {user_id}")
+        return analytics_data
         
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"YouTube analytics failed: {e}")
-        raise HTTPException(status_code=500, detail=f"Analytics error: {str(e)}")
-
+        logger.error(f"Analytics fetch failed: {e}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=f"Analytics fetch failed: {str(e)}")
 
 
 
