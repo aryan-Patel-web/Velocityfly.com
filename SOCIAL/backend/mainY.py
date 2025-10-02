@@ -3247,7 +3247,43 @@ async def upload_slideshow_multi_platform(request: dict):
         logger.error(f"Multi-platform upload failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-
+@app.post("/api/slideshow/test-image")
+async def test_image_upload(request: dict):
+    """Test image decoding"""
+    try:
+        img_b64 = request.get('image', '')
+        
+        logger.info(f"Received image data length: {len(img_b64)}")
+        logger.info(f"First 100 chars: {img_b64[:100]}")
+        
+        # Clean base64
+        if img_b64.startswith('data:image'):
+            img_b64 = img_b64.split(',', 1)[1]
+        
+        img_b64 = img_b64.strip()
+        
+        # Decode
+        img_data = base64.b64decode(img_b64)
+        logger.info(f"Decoded to {len(img_data)} bytes")
+        
+        # Open image
+        img = Image.open(io.BytesIO(img_data))
+        img.load()
+        
+        return {
+            "success": True,
+            "format": img.format,
+            "size": img.size,
+            "mode": img.mode,
+            "data_length": len(img_data)
+        }
+        
+    except Exception as e:
+        logger.error(f"Test failed: {e}")
+        return {
+            "success": False,
+            "error": str(e)
+        }
 
 
 

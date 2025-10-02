@@ -127,12 +127,38 @@ class SlideshowGenerator:
         
         for idx, img_b64 in enumerate(images):
             try:
-                # Remove data:image/... prefix if present
-                if ',' in img_b64:
-                    img_b64 = img_b64.split(',')[1]
+                # Clean the base64 string properly
+                if isinstance(img_b64, str):
+                    # Remove data:image/jpeg;base64, or data:image/png;base64, prefix
+                    if img_b64.startswith('data:image'):
+                        img_b64 = img_b64.split(',', 1)[1]
+                    
+                    # Remove any whitespace/newlines
+                    img_b64 = img_b64.strip().replace('\n', '').replace('\r', '')
                 
-                img_data = base64.b64decode(img_b64)
-                img = Image.open(io.BytesIO(img_data))
+                # Decode base64
+                try:
+                    img_data = base64.b64decode(img_b64)
+                except Exception as decode_error:
+                    logger.error(f"Base64 decode failed for image {idx}: {decode_error}")
+                    # Try with padding
+                    missing_padding = len(img_b64) % 4
+                    if missing_padding:
+                        img_b64 += '=' * (4 - missing_padding)
+                    img_data = base64.b64decode(img_b64)
+                
+                # Verify it's a valid image
+                if len(img_data) < 100:
+                    raise ValueError(f"Image data too small: {len(img_data)} bytes")
+                
+                # Open image
+                img_buffer = io.BytesIO(img_data)
+                img = Image.open(img_buffer)
+                
+                # Force load the image to catch any corruption
+                img.load()
+                
+                logger.info(f"✅ Loaded image {idx}: {img.format} {img.size} {img.mode}")
                 
                 # Resize and pad to target aspect ratio
                 img = self._resize_with_padding(img, target_size)
@@ -145,7 +171,8 @@ class SlideshowGenerator:
                 
             except Exception as e:
                 logger.error(f"Failed to process image {idx}: {e}")
-                raise
+                logger.error(f"Image data preview: {str(img_b64)[:100] if isinstance(img_b64, str) else 'Not a string'}")
+                raise ValueError(f"Image {idx + 1} processing failed: {str(e)}")
         
         return image_paths
     

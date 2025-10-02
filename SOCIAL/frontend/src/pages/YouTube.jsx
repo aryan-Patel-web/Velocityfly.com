@@ -3936,43 +3936,69 @@ onClick={async () => {
         📸 Step 1: Upload Images (2-6)
       </h3>
       
+
+
+
+
       <input
         type="file"
         accept="image/*"
         multiple
-        onChange={async (e) => {
-          const files = Array.from(e.target.files).slice(0, 6);
-          
-          if (files.length < 2) {
-            alert('Please upload at least 2 images');
-            return;
-          }
-          
-          if (files.length > 6) {
-            alert('Maximum 6 images allowed');
-            return;
-          }
-          
-          setLoading(true);
-          
-          try {
-            const base64Images = await Promise.all(
-              files.map(file => new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onload = () => resolve(reader.result);
-                reader.onerror = reject;
-                reader.readAsDataURL(file);
-              }))
-            );
-            
-            setUploadedImages(base64Images);
-            setError('');
-          } catch (error) {
-            setError('Failed to upload images: ' + error.message);
-          } finally {
-            setLoading(false);
-          }
-        }}
+onChange={async (e) => {
+  const files = Array.from(e.target.files).slice(0, 6);
+  
+  if (files.length < 2) {
+    alert('Please upload at least 2 images');
+    return;
+  }
+  
+  if (files.length > 6) {
+    alert('Maximum 6 images allowed');
+    return;
+  }
+  
+  setLoading(true);
+  
+  try {
+    const base64Images = await Promise.all(
+      files.map(file => new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const result = reader.result;
+          console.log('📸 Image loaded:', {
+            name: file.name,
+            size: file.size,
+            type: file.type,
+            base64Length: result.length,
+            base64Preview: result.substring(0, 100)
+          });
+          resolve(result);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      }))
+    );
+    
+    console.log('✅ All images loaded:', base64Images.length);
+    setUploadedImages(base64Images);
+    setError('');
+  } catch (error) {
+    setError('Failed to upload images: ' + error.message);
+  } finally {
+    setLoading(false);
+  }
+}}
+
+
+
+
+
+
+
+
+
+
+
         style={{
           padding: '12px',
           width: '100%',
