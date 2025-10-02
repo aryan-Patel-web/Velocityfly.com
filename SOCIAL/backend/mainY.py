@@ -2485,17 +2485,121 @@ async def youtube_community_post(request: dict):
 # ============================================================================
 # YOUTUBE COMMENTS MANAGEMENT ROUTES
 # ============================================================================
+@app.get("/api/youtube/user-videos/{user_id}")
+async def get_user_videos(user_id: str):
+    """Get user's YouTube videos with statistics"""
+    try:
+        logger.info(f"Fetching videos for user: {user_id}")
+        
+        # Get authenticated service
+        youtube_service = await youtube_connector.get_authenticated_service(user_id)
+        if not youtube_service:
+            raise HTTPException(status_code=400, detail="Failed to authenticate with YouTube")
+        
+        # Get user's channel
+        credentials = await database_manager.get_youtube_credentials(user_id)
+        channel_id = credentials["channel_info"]["channel_id"]
+        
+        # Get recent videos (increased limit for better selection)
+        search_response = youtube_service.search().list(
+            part="id,snippet",
+            channelId=channel_id,
+            type="video",
+            order="date",
+            maxResults=50
+        ).execute()
+        
+        videos = []
+        video_ids = []
+        
+        for item in search_response.get("items", []):
+            video_id = item["id"]["videoId"]
+            video_ids.append(video_id)
+            
+            # Parse publish date for IST conversion
+            published_at = item["snippet"]["publishedAt"]
+            
+            videos.append({
+                "video_id": video_id,
+                "title": item["snippet"]["title"],
+                "description": item["snippet"]["description"][:150] + "..." if len(item["snippet"]["description"]) > 150 else item["snippet"]["description"],
+                "published_at": published_at,
+                "thumbnail_url": item["snippet"]["thumbnails"]["medium"]["url"] if "medium" in item["snippet"]["thumbnails"] else item["snippet"]["thumbnails"]["default"]["url"],
+                "channel_title": item["snippet"]["channelTitle"]
+            })
+        
+        # Get video statistics in batches (YouTube API limit is 50 per request)
+        if video_ids:
+            stats_response = youtube_service.videos().list(
+                part="statistics,contentDetails",
+                id=",".join(video_ids)
+            ).execute()
+            
+            # Create stats mapping
+            stats_map = {}
+            for video_stats in stats_response.get("items", []):
+                vid_id = video_stats["id"]
+                stats = video_stats["statistics"]
+                content_details = video_stats.get("contentDetails", {})
+                
+                stats_map[vid_id] = {
+                    "view_count": int(stats.get("viewCount", 0)),
+                    "like_count": int(stats.get("likeCount", 0)),
+                    "comment_count": int(stats.get("commentCount", 0)),
+                    "duration": content_details.get("duration", "PT0S")
+                }
+            
+            # Apply statistics to videos
+            for video in videos:
+                vid_stats = stats_map.get(video["video_id"], {})
+                video.update(vid_stats)
+                
+                # Determine if it's a Short (under 60 seconds)
+                duration = video.get("duration", "PT0S")
+                video["is_short"] = _is_youtube_short_duration(duration)
+        
+        # Sort by publish date (newest first)
+        videos.sort(key=lambda x: x["published_at"], reverse=True)
+        
+        return {
+            "success": True,
+            "videos": videos,
+            "total_videos": len(videos),
+            "shorts_count": sum(1 for v in videos if v.get("is_short", False)),
+            "regular_videos_count": sum(1 for v in videos if not v.get("is_short", False))
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Get user videos failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+def _is_youtube_short_duration(duration_string: str) -> bool:
+    """Check if video duration indicates a YouTube Short"""
+    try:
+        import re
+        # Parse ISO 8601 duration format (PT1M30S = 1 minute 30 seconds)
+        pattern = r'PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?'
+        match = re.match(pattern, duration_string)
+        
+        if match:
+            hours = int(match.group(1) or 0)
+            minutes = int(match.group(2) or 0)
+            seconds = int(match.group(3) or 0)
+            
+            total_seconds = hours * 3600 + minutes * 60 + seconds
+            return total_seconds <= 60  # 60 seconds or less = Short
+        
+        return False
+    except Exception:
+        return False
 
 @app.get("/api/youtube/comments/{user_id}")
 async def get_youtube_comments(user_id: str, video_id: str = None, max_results: int = 50):
-    """Get YouTube comments for user's videos"""
+    """Get YouTube comments for user's videos with video selection support"""
     try:
-        logger.info(f"Fetching comments for user: {user_id}")
-        
-        # Get user credentials
-        credentials = await database_manager.get_youtube_credentials(user_id)
-        if not credentials:
-            raise HTTPException(status_code=404, detail="YouTube credentials not found")
+        logger.info(f"Fetching comments for user: {user_id}, video_id: {video_id}")
         
         # Get authenticated service
         youtube_service = await youtube_connector.get_authenticated_service(user_id)
@@ -2516,29 +2620,45 @@ async def get_youtube_comments(user_id: str, video_id: str = None, max_results: 
                 
                 for item in response.get("items", []):
                     comment_data = item["snippet"]["topLevelComment"]["snippet"]
+                    
+                    # Convert UTC to IST for Indian users
+                    published_at_utc = comment_data["publishedAt"]
+                    published_at_ist = _convert_utc_to_ist(published_at_utc)
+                    
+                    # Detect comment language
+                    comment_language = _detect_comment_language(comment_data["textDisplay"])
+                    
                     comments.append({
                         "comment_id": item["id"],
                         "video_id": video_id,
                         "author_name": comment_data["authorDisplayName"],
+                        "author_channel_id": comment_data.get("authorChannelId", {}).get("value", ""),
                         "author_channel_url": comment_data.get("authorChannelUrl", ""),
                         "text": comment_data["textDisplay"],
                         "like_count": comment_data.get("likeCount", 0),
-                        "published_at": comment_data["publishedAt"],
-                        "updated_at": comment_data.get("updatedAt", comment_data["publishedAt"]),
+                        "published_at": published_at_utc,
+                        "published_at_ist": published_at_ist,
+                        "updated_at": comment_data.get("updatedAt", published_at_utc),
                         "reply_count": item["snippet"].get("totalReplyCount", 0),
-                        "has_replies": item["snippet"].get("totalReplyCount", 0) > 0
+                        "has_replies": item["snippet"].get("totalReplyCount", 0) > 0,
+                        "language": comment_language,
+                        "can_reply": True,  # Always true for video owner
+                        "is_spam": _is_likely_spam(comment_data["textDisplay"])
                     })
                     
             except Exception as e:
                 logger.error(f"Failed to get comments for video {video_id}: {e}")
                 
         else:
-            # Get comments for all user's recent videos
+            # Get comments for all user's recent videos (fallback)
             try:
-                # First get user's recent videos
+                credentials = await database_manager.get_youtube_credentials(user_id)
+                channel_id = credentials["channel_info"]["channel_id"]
+                
+                # Get recent videos
                 search_response = youtube_service.search().list(
                     part="id",
-                    channelId=credentials["channel_info"]["channel_id"],
+                    channelId=channel_id,
                     type="video",
                     order="date",
                     maxResults=10
@@ -2552,20 +2672,29 @@ async def get_youtube_comments(user_id: str, video_id: str = None, max_results: 
                         comments_response = youtube_service.commentThreads().list(
                             part="snippet",
                             videoId=vid_id,
-                            maxResults=10,
+                            maxResults=5,  # Reduced for overview
                             order="time"
                         ).execute()
                         
                         for item in comments_response.get("items", []):
                             comment_data = item["snippet"]["topLevelComment"]["snippet"]
+                            
+                            published_at_utc = comment_data["publishedAt"]
+                            published_at_ist = _convert_utc_to_ist(published_at_utc)
+                            comment_language = _detect_comment_language(comment_data["textDisplay"])
+                            
                             comments.append({
                                 "comment_id": item["id"],
                                 "video_id": vid_id,
                                 "author_name": comment_data["authorDisplayName"],
                                 "text": comment_data["textDisplay"],
                                 "like_count": comment_data.get("likeCount", 0),
-                                "published_at": comment_data["publishedAt"],
-                                "reply_count": item["snippet"].get("totalReplyCount", 0)
+                                "published_at": published_at_utc,
+                                "published_at_ist": published_at_ist,
+                                "reply_count": item["snippet"].get("totalReplyCount", 0),
+                                "language": comment_language,
+                                "can_reply": True,
+                                "is_spam": _is_likely_spam(comment_data["textDisplay"])
                             })
                     except Exception as e:
                         logger.warning(f"Failed to get comments for video {vid_id}: {e}")
@@ -2577,10 +2706,16 @@ async def get_youtube_comments(user_id: str, video_id: str = None, max_results: 
         # Sort by date (newest first)
         comments.sort(key=lambda x: x["published_at"], reverse=True)
         
+        # Filter out spam if requested
+        non_spam_comments = [c for c in comments if not c.get("is_spam", False)]
+        
         return {
             "success": True,
-            "comments": comments[:max_results],
-            "total_comments": len(comments)
+            "comments": non_spam_comments[:max_results],
+            "total_comments": len(non_spam_comments),
+            "spam_filtered": len(comments) - len(non_spam_comments),
+            "languages_detected": list(set(c["language"] for c in non_spam_comments)),
+            "video_id": video_id
         }
         
     except HTTPException:
@@ -2588,6 +2723,76 @@ async def get_youtube_comments(user_id: str, video_id: str = None, max_results: 
     except Exception as e:
         logger.error(f"Get comments failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+def _convert_utc_to_ist(utc_time_str: str) -> str:
+    """Convert UTC time to IST (Indian Standard Time)"""
+    try:
+        from datetime import datetime, timedelta
+        import re
+        
+        # Parse ISO format: 2025-10-02T05:20:04Z
+        utc_time = datetime.fromisoformat(utc_time_str.replace('Z', '+00:00'))
+        
+        # Add 5:30 for IST
+        ist_time = utc_time + timedelta(hours=5, minutes=30)
+        
+        return ist_time.strftime("%Y-%m-%d %H:%M:%S IST")
+    except Exception:
+        return utc_time_str
+
+def _detect_comment_language(text: str) -> str:
+    """Detect comment language for auto-reply"""
+    text_lower = text.lower()
+    
+    # Hindi/Devanagari script detection
+    hindi_chars = "अआइईउऊएऐओऔकखगघङचछजझञटठडढणतथदधनपफबभमयरलवशषसह"
+    if any(char in hindi_chars for char in text):
+        return "hindi"
+    
+    # Hinglish detection (common Hindi words in Roman script)
+    hinglish_words = ["acha", "accha", "bhai", "yaar", "kya", "hai", "nahi", "bahut", "sahi", "theek"]
+    if any(word in text_lower for word in hinglish_words):
+        return "hinglish"
+    
+    # Tamil script detection
+    tamil_chars = "அஆஇஈஉஊஎஏஐஒஓஔகஙசஞடணதநபமயரலவழளறன"
+    if any(char in tamil_chars for char in text):
+        return "tamil"
+    
+    # Default to English
+    return "english"
+
+def _is_likely_spam(text: str) -> bool:
+    """Basic spam detection for comments"""
+    text_lower = text.lower()
+    
+    spam_indicators = [
+        "subscribe to my channel",
+        "check out my channel",
+        "follow me",
+        "click here",
+        "free money",
+        "win cash",
+        "telegram",
+        "whatsapp me",
+        "dm me"
+    ]
+    
+    # Check for excessive repetition
+    words = text_lower.split()
+    if len(words) > 5:
+        unique_words = set(words)
+        if len(unique_words) / len(words) < 0.5:  # Less than 50% unique words
+            return True
+    
+    # Check for spam phrases
+    return any(indicator in text_lower for indicator in spam_indicators)
+
+
+
+
+
+
 
 @app.post("/api/youtube/reply-comment")
 async def reply_to_comment(request: dict):
@@ -2762,26 +2967,33 @@ async def generate_auto_reply(request: dict):
 
 
 
-
 @app.post("/api/youtube/start-auto-reply")
 async def start_automated_replies(request: dict):
-    """Start automated comment replies"""
+    """Start automated comment replies for selected videos"""
     try:
         user_id = request.get("user_id")
+        selected_videos = request.get("selected_videos", [])
         auto_reply_config = request.get("config", {})
         
         if not user_id:
             raise HTTPException(status_code=400, detail="User ID required")
         
-        # Store auto-reply configuration
+        if not selected_videos:
+            raise HTTPException(status_code=400, detail="Please select at least one video")
+        
+        # Store auto-reply configuration with selected videos
         config_data = {
             "enabled": True,
+            "selected_videos": selected_videos,
             "reply_style": auto_reply_config.get("reply_style", "friendly"),
-            "reply_delay_minutes": auto_reply_config.get("reply_delay_minutes", 5),
+            "reply_delay_seconds": auto_reply_config.get("reply_delay_seconds", 30),
             "custom_prompt": auto_reply_config.get("custom_prompt", ""),
             "languages": auto_reply_config.get("languages", ["english", "hindi"]),
             "filter_spam": auto_reply_config.get("filter_spam", True),
-            "max_replies_per_hour": auto_reply_config.get("max_replies_per_hour", 10)
+            "max_replies_per_hour": auto_reply_config.get("max_replies_per_hour", 10),
+            "timezone": auto_reply_config.get("timezone", "Asia/Kolkata"),
+            "created_at": datetime.now().isoformat(),
+            "last_check": datetime.now().isoformat()
         }
         
         await database_manager.store_automation_config(
@@ -2790,8 +3002,9 @@ async def start_automated_replies(request: dict):
         
         return {
             "success": True,
-            "message": "Automated replies started successfully",
-            "config": config_data
+            "message": f"Automated replies started for {len(selected_videos)} video(s)",
+            "config": config_data,
+            "selected_videos_count": len(selected_videos)
         }
         
     except HTTPException:
@@ -2799,6 +3012,9 @@ async def start_automated_replies(request: dict):
     except Exception as e:
         logger.error(f"Start auto reply failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+    
+
+
 
 @app.post("/api/youtube/stop-auto-reply")
 async def stop_automated_replies(request: dict):
