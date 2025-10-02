@@ -1052,7 +1052,8 @@ class YouTubeAutomationScheduler:
         title: str = None,
         description: str = None,
         video_url: str = None,
-        thumbnail_url: str = None
+        thumbnail_url: str = None,
+        
     ) -> Dict[str, Any]:
         """
         Generate and upload YouTube content

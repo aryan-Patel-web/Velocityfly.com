@@ -3322,7 +3322,21 @@ async def test_image_upload(request: dict):
             "error": str(e)
         }
 
-
+@app.get("/api/debug/ffmpeg-check")
+async def check_ffmpeg():
+    """Verify FFmpeg is available"""
+    import subprocess
+    try:
+        result = subprocess.run(['ffmpeg', '-version'], 
+                              capture_output=True, 
+                              text=True, 
+                              timeout=5)
+        return {
+            "ffmpeg_installed": result.returncode == 0,
+            "version": result.stdout.split('\n')[0] if result.returncode == 0 else "Not found"
+        }
+    except Exception as e:
+        return {"ffmpeg_installed": False, "error": str(e)}
 
 # Main application runner
 if __name__ == "__main__":
