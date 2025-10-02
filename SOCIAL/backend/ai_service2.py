@@ -1,5 +1,3 @@
-
-
 """
 AI Service Module for YouTube & WhatsApp Content Generation
 Enhanced AI content generation with multi-platform and multilingual support
@@ -228,7 +226,7 @@ class AIService2:
                 return self._get_mock_youtube_content(content_type, topic, language)
             
             prompt = self._create_multilingual_youtube_prompt(
-                content_type, topic, target_audience, duration_seconds, style, language, region,trending_context
+                content_type, topic, target_audience, duration_seconds, style, language, region, trending_context
             )
             
             result = await self._generate_with_primary_service(prompt)
@@ -266,7 +264,8 @@ class AIService2:
         duration_seconds: int,
         style: str,
         language: str,
-        region: str
+        region: str,
+        trending_context: dict = None
     ) -> str:
         """Create multilingual optimized prompt for YouTube content generation"""
         duration_text = "under 60 seconds" if content_type == "shorts" else f"approximately {duration_seconds} seconds"
@@ -631,9 +630,7 @@ Generate only the reply message in {lang_info["native_name"]}, no extra text."""
         except Exception as e:
             logger.error(f"WhatsApp reply generation failed: {e}")
             return {"success": False, "error": str(e)}
-        
-    # sdlgjrslgjslrgjlgj
-    # async def generate_comment_reply(
+    
     async def generate_comment_reply(
         self,
         comment_text: str,
@@ -645,7 +642,8 @@ Generate only the reply message in {lang_info["native_name"]}, no extra text."""
         """Generate YouTube comment reply using AI with emotion detection"""
         try:
             if self.is_mock:
-                return self._generate_mock_comment_reply(comment_text, language)
+                emotion = self._detect_comment_emotion(comment_text)
+                return self._generate_mock_comment_reply(comment_text, language, emotion)
             
             # Detect emotion from comment
             emotion = self._detect_comment_emotion(comment_text)
@@ -658,7 +656,6 @@ Generate only the reply message in {lang_info["native_name"]}, no extra text."""
 Comment: "{comment_text}"
 Emotion: {emotion}
 Style: {reply_style}
-
 Rules:
 - Reply in {lang_info["native_name"]} only
 - Maximum 30 words
@@ -684,11 +681,13 @@ Generate only the reply text:"""
                     "ai_service": self.primary_service
                 }
             else:
-                return self._generate_mock_comment_reply(comment_text, language)
+                emotion = self._detect_comment_emotion(comment_text)
+                return self._generate_mock_comment_reply(comment_text, language, emotion)
         
         except Exception as e:
             logger.error(f"Comment reply generation failed: {e}")
-            return self._generate_mock_comment_reply(comment_text, language)
+            emotion = self._detect_comment_emotion(comment_text)
+            return self._generate_mock_comment_reply(comment_text, language, emotion)
 
     def _detect_comment_emotion(self, text: str) -> str:
         """Detect emotion from comment text"""
@@ -762,12 +761,6 @@ Generate only the reply text:"""
             "emotion": emotion,
             "ai_service": "mock"
         }
-
-
-
-
-
-
     
     async def _generate_with_primary_service(self, prompt: str) -> Dict[str, Any]:
         """Generate content with primary AI service"""
@@ -803,7 +796,7 @@ Generate only the reply text:"""
                                 "content": prompt
                             }
                         ],
-                        "model": "mixtral-8x7b-32768",
+                        "model": "llama-3.3-70b-versatile",
                         "max_tokens": 2000,
                         "temperature": 0.8,
                         "top_p": 0.9
@@ -819,7 +812,7 @@ Generate only the reply text:"""
                         "success": True,
                         "content": content.strip(),
                         "ai_service": "groq",
-                        "model": "mixtral-8x7b-32768",
+                        "model": "llama-3.3-70b-versatile",
                         "tokens_used": data.get("usage", {}).get("total_tokens", 0)
                     }
                 else:
@@ -886,7 +879,6 @@ Generate only the reply text:"""
             logger.error(f"Mistral generation failed: {e}")
             return {"success": False, "error": str(e)}
     
-    # def _create_whatsapp_prompt(
     def _create_whatsapp_prompt(
         self,
         message_type: str,
@@ -1092,7 +1084,6 @@ EMOJIS: [list of suggested emojis]"""
             "estimated_read_time": 3
         }
     
-    # Backward compatibility methods
     async def generate_reddit_domain_content(self, **kwargs) -> Dict[str, Any]:
         """Backward compatibility with existing Reddit AI service"""
         try:
@@ -1160,4 +1151,3 @@ CONTENT: [main content in {lang_info["native_name"]}]"""
         except Exception as e:
             logger.error(f"Backward compatibility content generation failed: {e}")
             return {"success": False, "error": str(e)}
-

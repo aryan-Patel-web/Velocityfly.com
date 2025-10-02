@@ -1368,8 +1368,13 @@ class YouTubeBackgroundScheduler:
                 "failed", 
                 str(e)
             )
+
+
+
+
+
 class AutoReplyScheduler:
-    """Automated comment reply scheduler"""
+    """Automated comment reply scheduler with video selection and IST timezone support"""
     
     def __init__(self, database_manager, youtube_connector, ai_service):
         self.database = database_manager
@@ -1377,120 +1382,367 @@ class AutoReplyScheduler:
         self.ai_service = ai_service
         self.running = False
         self.check_interval = 300  # Check every 5 minutes
-        logger.info("AutoReplyScheduler initialized")
+        self.rate_limit_tracker = {}  # Track rate limits per user
+        logger.info("AutoReplyScheduler initialized with video selection support")
     
     async def start(self):
         """Start auto-reply checking"""
         if self.running:
+            logger.warning("Auto-reply scheduler already running")
             return
         
         self.running = True
-        logger.info("🤖 Auto-reply scheduler started")
+        logger.info("🤖 Auto-reply scheduler started - checking every 5 minutes")
         
         while self.running:
             try:
                 await self.process_auto_replies()
                 await asyncio.sleep(self.check_interval)
             except Exception as e:
-                logger.error(f"Auto-reply error: {e}")
-                await asyncio.sleep(60)
+                logger.error(f"Auto-reply scheduler error: {e}")
+                await asyncio.sleep(60)  # Wait 1 minute on error
     
+    async def stop(self):
+        """Stop auto-reply scheduler"""
+        self.running = False
+        logger.info("Auto-reply scheduler stopped")
+
     async def process_auto_replies(self):
-        """Check for new comments and auto-reply"""
+        """Check for new comments and auto-reply based on selected videos"""
         try:
             # Get users with auto-reply enabled
             configs = await self.database.get_all_automation_configs_by_type("auto_reply")
             
+            if not configs:
+                logger.debug("No auto-reply configs found")
+                return
+            
+            logger.info(f"🤖 Processing auto-replies for {len(configs)} users")
+            
             for config in configs:
-                if config.get("enabled"):
-                    await self.reply_to_user_comments(config["user_id"], config["config_data"])
+                if config.get("enabled", False):
+                    try:
+                        await self.reply_to_user_comments(
+                            config["user_id"], 
+                            config.get("config_data", {})
+                        )
+                        # Small delay between users to avoid API rate limits
+                        await asyncio.sleep(2)
+                    except Exception as e:
+                        logger.error(f"Failed processing user {config['user_id']}: {e}")
+                        continue
                     
         except Exception as e:
             logger.error(f"Process auto-replies failed: {e}")
     
     async def reply_to_user_comments(self, user_id: str, config: dict):
-        """Auto-reply to new comments for a user"""
+        """Auto-reply to new comments for selected videos"""
         try:
-            # Get user's recent comments
-            youtube_service = await self.youtube_connector.get_authenticated_service(user_id)
-            if not youtube_service:
+            logger.info(f"🎯 Checking comments for user: {user_id}")
+            
+            # Check rate limits first
+            if not await self._check_rate_limit(user_id, config):
+                logger.info(f"Rate limit reached for user {user_id}")
                 return
             
-            # Get channel ID
-            credentials = await self.database.get_youtube_credentials(user_id)
-            channel_id = credentials["channel_info"]["channel_id"]
+            # Get authenticated YouTube service
+            youtube_service = await self.youtube_connector.get_authenticated_service(user_id)
+            if not youtube_service:
+                logger.warning(f"No YouTube service for user {user_id}")
+                return
             
-            # Get recent videos
-            search_response = youtube_service.search().list(
-                part="id",
-                channelId=channel_id,
-                type="video",
-                order="date",
-                maxResults=5
-            ).execute()
+            # Get selected videos from config
+            selected_videos = config.get("selected_videos", [])
+            if not selected_videos:
+                logger.info(f"No selected videos for user {user_id}")
+                return
             
-            for video in search_response.get("items", []):
-                video_id = video["id"]["videoId"]
-                
-                # Get comments for this video
-                comments_response = youtube_service.commentThreads().list(
-                    part="snippet",
-                    videoId=video_id,
-                    order="time",
-                    maxResults=10
-                ).execute()
-                
-                for comment_item in comments_response.get("items", []):
-                    comment = comment_item["snippet"]["topLevelComment"]["snippet"]
+            reply_delay = config.get("reply_delay_seconds", 30)
+            logger.info(f"🔍 Checking {len(selected_videos)} selected videos for new comments")
+            
+            comments_processed = 0
+            replies_sent = 0
+            
+            # Process each selected video
+            for video_id in selected_videos[:10]:  # Limit to 10 videos per check
+                try:
+                    video_result = await self._process_video_comments(
+                        youtube_service, user_id, video_id, config, reply_delay
+                    )
                     
-                    # Check if we already replied
-                    if not self._already_replied(comment_item, channel_id):
-                        await self._generate_and_post_reply(
-                            user_id, comment_item["id"], comment["textDisplay"], config
-                        )
+                    comments_processed += video_result.get("comments_checked", 0)
+                    replies_sent += video_result.get("replies_sent", 0)
+                    
+                    # Stop if we've sent enough replies
+                    max_replies = config.get("max_replies_per_hour", 10)
+                    if replies_sent >= max_replies:
+                        logger.info(f"Reached reply limit ({max_replies}) for user {user_id}")
+                        break
                         
+                except Exception as e:
+                    logger.error(f"Failed to process video {video_id}: {e}")
+                    continue
+            
+            # Log session results
+            await self._log_auto_reply_session(user_id, {
+                "videos_processed": selected_videos[:10],
+                "comments_found": comments_processed,
+                "replies_sent": replies_sent,
+                "config_used": config
+            })
+            
+            logger.info(f"✅ Session complete for {user_id}: {replies_sent} replies sent from {comments_processed} comments")
+                    
         except Exception as e:
             logger.error(f"Auto-reply for user {user_id} failed: {e}")
     
-    def _already_replied(self, comment_item: dict, channel_id: str) -> bool:
-        """Check if we already replied to this comment"""
-        replies = comment_item.get("replies", {}).get("comments", [])
-        for reply in replies:
-            if reply["snippet"]["authorChannelId"]["value"] == channel_id:
-                return True
-        return False
-    
-    async def _generate_and_post_reply(self, user_id: str, comment_id: str, comment_text: str, config: dict):
-        """Generate and post auto-reply"""
+    async def _process_video_comments(self, youtube_service, user_id: str, video_id: str, config: dict, reply_delay: int):
+        """Process comments for a single video"""
         try:
-            # Generate reply using AI
-            if self.ai_service:
-                reply_result = await self.ai_service.generate_comment_reply(
-                    comment_text=comment_text,
-                    reply_style=config.get("reply_style", "friendly"),
-                    language="english",  # Will auto-detect
-                    custom_prompt=config.get("custom_prompt", "")
-                )
+            # Get comments for this video
+            comments_response = youtube_service.commentThreads().list(
+                part="snippet,replies",
+                videoId=video_id,
+                order="time",
+                maxResults=5
+            ).execute()
+            
+            comments_checked = 0
+            replies_sent = 0
+            
+            for comment_item in comments_response.get("items", []):
+                comment = comment_item["snippet"]["topLevelComment"]["snippet"]
+                comment_id = comment_item["id"]
+                comment_text = comment["textDisplay"]
                 
-                if reply_result.get("success"):
-                    reply_text = reply_result["reply"]
+                comments_checked += 1
+                
+                # Check if comment is recent and needs reply
+                if (self._is_recent_comment(comment["publishedAt"]) and 
+                    not await self._already_replied_to_comment(user_id, comment_id) and
+                    not self._is_spam_comment(comment_text)):
                     
-                    # Post reply
-                    youtube_service = await self.youtube_connector.get_authenticated_service(user_id)
-                    youtube_service.comments().insert(
-                        part="snippet",
-                        body={
-                            "snippet": {
-                                "parentId": comment_id,
-                                "textOriginal": reply_text
-                            }
-                        }
-                    ).execute()
+                    logger.info(f"💬 New comment found: {comment_text[:50]}...")
                     
-                    logger.info(f"Auto-replied to comment: {comment_text[:50]}...")
+                    # Wait for configured delay (convert to IST awareness)
+                    await asyncio.sleep(reply_delay)
+                    
+                    # Generate and post reply
+                    reply_success = await self._generate_and_post_reply(
+                        user_id, comment_id, comment_text, config, video_id
+                    )
+                    
+                    if reply_success:
+                        replies_sent += 1
+                        # Rate limiting gap between replies
+                        await asyncio.sleep(10)
+                    
+                    # Only one reply per video per check to avoid spam
+                    break
+            
+            return {
+                "comments_checked": comments_checked,
+                "replies_sent": replies_sent
+            }
+                
+        except Exception as e:
+            logger.error(f"Failed to process video {video_id}: {e}")
+            return {"comments_checked": 0, "replies_sent": 0}
+    
+    def _is_recent_comment(self, published_at: str, hours_back: int = 24) -> bool:
+        """Check if comment is recent (within specified hours)"""
+        try:
+            from datetime import datetime, timedelta
+            
+            # Parse UTC time from YouTube API
+            comment_time = datetime.fromisoformat(published_at.replace('Z', '+00:00'))
+            now = datetime.now(comment_time.tzinfo)
+            
+            # Check if within time window
+            is_recent = (now - comment_time) < timedelta(hours=hours_back)
+            
+            if is_recent:
+                # Convert to IST for logging
+                ist_time = comment_time + timedelta(hours=5, minutes=30)
+                logger.debug(f"Recent comment from {ist_time.strftime('%Y-%m-%d %H:%M:%S IST')}")
+            
+            return is_recent
+        except Exception as e:
+            logger.warning(f"Failed to parse comment time: {e}")
+            return True  # Default to processing if can't parse
+    
+    async def _already_replied_to_comment(self, user_id: str, comment_id: str) -> bool:
+        """Check if we already replied to this specific comment"""
+        try:
+            # Check database for existing reply
+            replied = await self.database.check_comment_already_replied(user_id, comment_id)
+            return replied
+        except Exception as e:
+            logger.warning(f"Failed to check reply status: {e}")
+            return False
+    
+    def _is_spam_comment(self, comment_text: str) -> bool:
+        """Basic spam detection for comments"""
+        try:
+            text_lower = comment_text.lower()
+            
+            # Spam indicators
+            spam_keywords = [
+                "subscribe to my channel", "check out my channel", "follow me",
+                "click here", "free money", "win cash", "telegram", "whatsapp me",
+                "dm me", "bot", "scam", "hack"
+            ]
+            
+            # Check for spam patterns
+            if any(keyword in text_lower for keyword in spam_keywords):
+                return True
+            
+            # Check for excessive repetition
+            words = text_lower.split()
+            if len(words) > 5:
+                unique_words = set(words)
+                if len(unique_words) / len(words) < 0.4:  # Less than 40% unique words
+                    return True
+            
+            # Check for excessive special characters
+            special_chars = sum(1 for char in comment_text if not char.isalnum() and char != ' ')
+            if special_chars / len(comment_text) > 0.3:  # More than 30% special chars
+                return True
+            
+            return False
+            
+        except Exception:
+            return False  # Default to not spam if check fails
+    
+    async def _generate_and_post_reply(self, user_id: str, comment_id: str, comment_text: str, config: dict, video_id: str = None):
+        """Generate and post auto-reply with enhanced error handling"""
+        try:
+            logger.info(f"🤖 Generating reply for: {comment_text[:30]}...")
+            
+            reply_text = None
+            ai_service_used = "fallback"
+            
+            # Try AI generation first
+            if self.ai_service and hasattr(self.ai_service, 'generate_comment_reply'):
+                try:
+                    reply_result = await self.ai_service.generate_comment_reply(
+                        comment_text=comment_text,
+                        reply_style=config.get("reply_style", "friendly"),
+                        language="english",  # Auto-detect within the method
+                        custom_prompt=config.get("custom_prompt", "")
+                    )
+                    
+                    if reply_result.get("success"):
+                        reply_text = reply_result["reply"]
+                        ai_service_used = reply_result.get("ai_service", "ai")
+                        logger.info(f"AI generated reply: {reply_text}")
+                    else:
+                        logger.warning(f"AI reply generation failed: {reply_result.get('error')}")
+                        
+                except Exception as ai_error:
+                    logger.error(f"AI service error: {ai_error}")
+            
+            # Fallback to simple reply if AI fails
+            if not reply_text:
+                language = self._detect_comment_language(comment_text)
+                reply_text = self._get_fallback_reply(language, config.get("reply_style", "friendly"))
+                ai_service_used = "fallback"
+                logger.info(f"Using fallback reply: {reply_text}")
+            
+            # Post reply to YouTube
+            youtube_service = await self.youtube_connector.get_authenticated_service(user_id)
+            if not youtube_service:
+                logger.error("No YouTube service available")
+                return False
+            
+            response = youtube_service.comments().insert(
+                part="snippet",
+                body={
+                    "snippet": {
+                        "parentId": comment_id,
+                        "textOriginal": reply_text
+                    }
+                }
+            ).execute()
+            
+            reply_id = response.get("id")
+            logger.info(f"✅ Auto-replied successfully: {reply_text}")
+            
+            # Log the reply to database
+            await self.database.log_comment_reply(user_id, {
+                "comment_id": comment_id,
+                "video_id": video_id,
+                "reply_id": reply_id,
+                "reply_text": reply_text,
+                "original_comment": comment_text,
+                "reply_type": "auto",
+                "ai_service_used": ai_service_used,
+                "language_detected": self._detect_comment_language(comment_text)
+            })
+            
+            return True
                     
         except Exception as e:
             logger.error(f"Generate and post reply failed: {e}")
+            return False
+    
+    def _detect_comment_language(self, text: str) -> str:
+        """Detect language of comment for appropriate reply"""
+        text_lower = text.lower()
+        
+        # Hindi/Devanagari detection
+        hindi_chars = "अआइईउऊएऐओऔकखगघङचछजझञटठडढणतथदधनपफबभमयरलवशषसह"
+        if any(char in hindi_chars for char in text):
+            return "hindi"
+        
+        # Hinglish detection
+        hinglish_words = ["acha", "accha", "bhai", "yaar", "kya", "hai", "nahi", "bahut"]
+        if any(word in text_lower for word in hinglish_words):
+            return "hinglish"
+        
+        return "english"
+    
+    def _get_fallback_reply(self, language: str, style: str) -> str:
+        """Get fallback reply based on language and style"""
+        replies = {
+            "hindi": {
+                "friendly": "टिप्पणी के लिए धन्यवाद! 😊",
+                "professional": "आपकी टिप्पणी के लिए धन्यवाद।",
+                "casual": "Thanks yaar! 😄",
+                "enthusiastic": "वाह! बहुत बढ़िया कमेंट! 🔥"
+            },
+            "hinglish": {
+                "friendly": "Thank you for comment! Bahut accha laga 😊",
+                "professional": "Thanks for your feedback!",
+                "casual": "Thanks bhai! 😄",
+                "enthusiastic": "Wow! Amazing comment! 🔥"
+            },
+            "english": {
+                "friendly": "Thank you for your comment! 😊",
+                "professional": "Thank you for your feedback.",
+                "casual": "Thanks for watching! 😄",
+                "enthusiastic": "Awesome comment! Thanks! 🔥"
+            }
+        }
+        
+        return replies.get(language, replies["english"]).get(style, replies["english"]["friendly"])
+    
+    async def _check_rate_limit(self, user_id: str, config: dict) -> bool:
+        """Check if user has exceeded rate limits"""
+        try:
+            rate_info = await self.database.get_auto_reply_rate_limit(user_id, hours=1)
+            return rate_info.get("can_send", True)
+        except Exception as e:
+            logger.warning(f"Rate limit check failed: {e}")
+            return True  # Allow if check fails
+    
+    async def _log_auto_reply_session(self, user_id: str, session_data: dict):
+        """Log auto-reply session to database"""
+        try:
+            await self.database.log_auto_reply_session(user_id, session_data)
+        except Exception as e:
+            logger.warning(f"Failed to log session: {e}")
+
 
 # Add to global instances
 auto_reply_scheduler = None
