@@ -2482,7 +2482,329 @@ async def youtube_community_post(request: dict):
         return {"success": False, "error": str(e)}
 
 # ➜ YOUR EXISTING CODE CONTINUES HERE
+# ============================================================================
+# YOUTUBE COMMENTS MANAGEMENT ROUTES
+# ============================================================================
 
+@app.get("/api/youtube/comments/{user_id}")
+async def get_youtube_comments(user_id: str, video_id: str = None, max_results: int = 50):
+    """Get YouTube comments for user's videos"""
+    try:
+        logger.info(f"Fetching comments for user: {user_id}")
+        
+        # Get user credentials
+        credentials = await database_manager.get_youtube_credentials(user_id)
+        if not credentials:
+            raise HTTPException(status_code=404, detail="YouTube credentials not found")
+        
+        # Get authenticated service
+        youtube_service = await youtube_connector.get_authenticated_service(user_id)
+        if not youtube_service:
+            raise HTTPException(status_code=400, detail="Failed to authenticate with YouTube")
+        
+        comments = []
+        
+        if video_id:
+            # Get comments for specific video
+            try:
+                response = youtube_service.commentThreads().list(
+                    part="snippet,replies",
+                    videoId=video_id,
+                    maxResults=max_results,
+                    order="time"
+                ).execute()
+                
+                for item in response.get("items", []):
+                    comment_data = item["snippet"]["topLevelComment"]["snippet"]
+                    comments.append({
+                        "comment_id": item["id"],
+                        "video_id": video_id,
+                        "author_name": comment_data["authorDisplayName"],
+                        "author_channel_url": comment_data.get("authorChannelUrl", ""),
+                        "text": comment_data["textDisplay"],
+                        "like_count": comment_data.get("likeCount", 0),
+                        "published_at": comment_data["publishedAt"],
+                        "updated_at": comment_data.get("updatedAt", comment_data["publishedAt"]),
+                        "reply_count": item["snippet"].get("totalReplyCount", 0),
+                        "has_replies": item["snippet"].get("totalReplyCount", 0) > 0
+                    })
+                    
+            except Exception as e:
+                logger.error(f"Failed to get comments for video {video_id}: {e}")
+                
+        else:
+            # Get comments for all user's recent videos
+            try:
+                # First get user's recent videos
+                search_response = youtube_service.search().list(
+                    part="id",
+                    channelId=credentials["channel_info"]["channel_id"],
+                    type="video",
+                    order="date",
+                    maxResults=10
+                ).execute()
+                
+                for video in search_response.get("items", []):
+                    vid_id = video["id"]["videoId"]
+                    
+                    # Get comments for each video
+                    try:
+                        comments_response = youtube_service.commentThreads().list(
+                            part="snippet",
+                            videoId=vid_id,
+                            maxResults=10,
+                            order="time"
+                        ).execute()
+                        
+                        for item in comments_response.get("items", []):
+                            comment_data = item["snippet"]["topLevelComment"]["snippet"]
+                            comments.append({
+                                "comment_id": item["id"],
+                                "video_id": vid_id,
+                                "author_name": comment_data["authorDisplayName"],
+                                "text": comment_data["textDisplay"],
+                                "like_count": comment_data.get("likeCount", 0),
+                                "published_at": comment_data["publishedAt"],
+                                "reply_count": item["snippet"].get("totalReplyCount", 0)
+                            })
+                    except Exception as e:
+                        logger.warning(f"Failed to get comments for video {vid_id}: {e}")
+                        continue
+                        
+            except Exception as e:
+                logger.error(f"Failed to get user videos: {e}")
+        
+        # Sort by date (newest first)
+        comments.sort(key=lambda x: x["published_at"], reverse=True)
+        
+        return {
+            "success": True,
+            "comments": comments[:max_results],
+            "total_comments": len(comments)
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Get comments failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/youtube/reply-comment")
+async def reply_to_comment(request: dict):
+    """Reply to a YouTube comment"""
+    try:
+        user_id = request.get("user_id")
+        comment_id = request.get("comment_id")
+        reply_text = request.get("reply_text")
+        
+        if not all([user_id, comment_id, reply_text]):
+            raise HTTPException(status_code=400, detail="Missing required fields")
+        
+        # Get authenticated service
+        youtube_service = await youtube_connector.get_authenticated_service(user_id)
+        if not youtube_service:
+            raise HTTPException(status_code=400, detail="Failed to authenticate with YouTube")
+        
+        # Post reply
+        response = youtube_service.comments().insert(
+            part="snippet",
+            body={
+                "snippet": {
+                    "parentId": comment_id,
+                    "textOriginal": reply_text
+                }
+            }
+        ).execute()
+        
+        return {
+            "success": True,
+            "reply_id": response["id"],
+            "message": "Reply posted successfully"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Reply to comment failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.put("/api/youtube/edit-comment")
+async def edit_comment(request: dict):
+    """Edit a YouTube comment/reply"""
+    try:
+        user_id = request.get("user_id")
+        comment_id = request.get("comment_id")
+        new_text = request.get("new_text")
+        
+        if not all([user_id, comment_id, new_text]):
+            raise HTTPException(status_code=400, detail="Missing required fields")
+        
+        # Get authenticated service
+        youtube_service = await youtube_connector.get_authenticated_service(user_id)
+        if not youtube_service:
+            raise HTTPException(status_code=400, detail="Failed to authenticate with YouTube")
+        
+        # Update comment
+        youtube_service.comments().update(
+            part="snippet",
+            body={
+                "id": comment_id,
+                "snippet": {
+                    "textOriginal": new_text
+                }
+            }
+        ).execute()
+        
+        return {
+            "success": True,
+            "message": "Comment updated successfully"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Edit comment failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete("/api/youtube/delete-comment/{comment_id}")
+async def delete_comment(comment_id: str, user_id: str):
+    """Delete a YouTube comment/reply"""
+    try:
+        # Get authenticated service
+        youtube_service = await youtube_connector.get_authenticated_service(user_id)
+        if not youtube_service:
+            raise HTTPException(status_code=400, detail="Failed to authenticate with YouTube")
+        
+        # Delete comment
+        youtube_service.comments().delete(id=comment_id).execute()
+        
+        return {
+            "success": True,
+            "message": "Comment deleted successfully"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Delete comment failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/youtube/generate-auto-reply")
+async def generate_auto_reply(request: dict):
+    """Generate automated reply using AI"""
+    try:
+        user_id = request.get("user_id")
+        comment_text = request.get("comment_text")
+        video_title = request.get("video_title", "")
+        reply_style = request.get("reply_style", "friendly")
+        
+        if not all([user_id, comment_text]):
+            raise HTTPException(status_code=400, detail="Missing required fields")
+        
+        # Detect language
+        detected_language = detect_comment_language(comment_text)
+        
+        # Generate reply using AI
+        if ai_service and hasattr(ai_service, 'generate_comment_reply'):
+            reply_result = await ai_service.generate_comment_reply(
+                comment_text=comment_text,
+                video_title=video_title,
+                reply_style=reply_style,
+                language=detected_language
+            )
+        else:
+            # Fallback reply generation
+            reply_result = {
+                "success": True,
+                "reply": f"Thank you for your comment! 😊" if detected_language == "english" 
+                        else f"आपके कमेंट के लिए धन्यवाद! 😊" if detected_language == "hindi"
+                        else "Thank you for your comment! 😊",
+                "language": detected_language
+            }
+        
+        return reply_result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Generate auto reply failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/youtube/start-auto-reply")
+async def start_automated_replies(request: dict):
+    """Start automated comment replies"""
+    try:
+        user_id = request.get("user_id")
+        auto_reply_config = request.get("config", {})
+        
+        if not user_id:
+            raise HTTPException(status_code=400, detail="User ID required")
+        
+        # Store auto-reply configuration
+        config_data = {
+            "enabled": True,
+            "reply_style": auto_reply_config.get("reply_style", "friendly"),
+            "reply_delay_minutes": auto_reply_config.get("reply_delay_minutes", 5),
+            "custom_prompt": auto_reply_config.get("custom_prompt", ""),
+            "languages": auto_reply_config.get("languages", ["english", "hindi"]),
+            "filter_spam": auto_reply_config.get("filter_spam", True),
+            "max_replies_per_hour": auto_reply_config.get("max_replies_per_hour", 10)
+        }
+        
+        await database_manager.store_automation_config(
+            user_id, "auto_reply", config_data
+        )
+        
+        return {
+            "success": True,
+            "message": "Automated replies started successfully",
+            "config": config_data
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Start auto reply failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/youtube/stop-auto-reply")
+async def stop_automated_replies(request: dict):
+    """Stop automated comment replies"""
+    try:
+        user_id = request.get("user_id")
+        
+        if not user_id:
+            raise HTTPException(status_code=400, detail="User ID required")
+        
+        # Disable auto-reply
+        await database_manager.disable_automation(user_id, "auto_reply")
+        
+        return {
+            "success": True,
+            "message": "Automated replies stopped successfully"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Stop auto reply failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+def detect_comment_language(text: str) -> str:
+    """Detect language of comment text"""
+    # Simple language detection based on script
+    hindi_chars = set("अआइईउऊएऐओऔकखगघङचछजझञटठडढणतथदधनपफबभमयरलवशषसह")
+    
+    if any(char in hindi_chars for char in text):
+        return "hindi"
+    elif any(ord(char) > 127 for char in text):
+        # Other non-ASCII languages
+        tamil_chars = set("அஆஇஈஉஊஎஏஐஒஓஔகஙசஞடணதநபமயரலவழளறன")
+        if any(char in tamil_chars for char in text):
+            return "tamil"
+        return "other"
+    else:
+        return "english"
 
 
 

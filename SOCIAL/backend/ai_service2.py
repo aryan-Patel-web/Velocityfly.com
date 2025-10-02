@@ -1408,6 +1408,119 @@ Generate only the reply message in {lang_info["native_name"]}, no extra text."""
         except Exception as e:
             logger.error(f"WhatsApp reply generation failed: {e}")
             return {"success": False, "error": str(e)}
+        
+    # sdlgjrslgjslrgjlgj
+    async def generate_comment_reply(
+        self,
+        comment_text: str,
+        video_title: str = "",
+        reply_style: str = "friendly",
+        language: str = "english",
+        custom_prompt: str = ""
+    ) -> Dict[str, Any]:
+        """Generate YouTube comment reply using AI"""
+        try:
+            if self.is_mock:
+                return self._generate_mock_comment_reply(comment_text, language)
+            
+            lang_info = self.supported_languages.get(language, self.supported_languages["english"])
+            
+            # Create context-aware prompt
+            base_prompt = f"""Generate a YouTube comment reply in {lang_info["native_name"]} language.
+
+Original Comment: "{comment_text}"
+Video Title: "{video_title}"
+Reply Style: {reply_style}
+Language: {lang_info["native_name"]}
+
+Requirements for {lang_info["name"]} reply:
+- Be {reply_style} and engaging
+- Keep it under 100 characters for better engagement
+- Use appropriate emojis (1-2 max)
+- Match the language of the original comment
+- Be authentic and personal, not robotic
+- Thank for watching if appropriate
+- Encourage further engagement
+
+"""
+
+            if custom_prompt:
+                base_prompt += f"\nCustom instructions: {custom_prompt}\n"
+
+            if language == "hindi":
+                base_prompt += """
+Hindi-specific requirements:
+- Use respectful Hindi language
+- Include appropriate Hindi greetings
+- Use Devanagari script properly
+- Cultural context appropriate for Indian audience
+"""
+            elif language == "hinglish":
+                base_prompt += """
+Hinglish-specific requirements:
+- Mix Hindi and English naturally (70% Hindi, 30% English)
+- Use popular Hinglish phrases
+- Write in Roman script with Hindi words
+- Examples: "Bahut accha comment!", "Thanks yaar!", "Bilkul sahi kaha"
+"""
+
+            base_prompt += f"\nGenerate only the reply text in {lang_info['native_name']}, no extra explanation."
+
+            result = await self._generate_with_primary_service(base_prompt)
+            
+            if result.get("success"):
+                reply_text = result.get("content", "").strip()
+                
+                # Clean up the reply
+                reply_text = reply_text.replace('"', '').replace("Reply:", "").strip()
+                
+                return {
+                    "success": True,
+                    "reply": reply_text,
+                    "language": language,
+                    "ai_service": self.primary_service,
+                    "style": reply_style
+                }
+            
+            return result
+            
+        except Exception as e:
+            logger.error(f"Comment reply generation failed: {e}")
+            return {"success": False, "error": str(e)}
+    
+    def _generate_mock_comment_reply(self, comment_text: str, language: str) -> Dict[str, Any]:
+        """Generate mock comment reply for testing"""
+        mock_replies = {
+            "english": [
+                "Thank you for watching! 😊",
+                "Glad you enjoyed it!",
+                "Thanks for the feedback!",
+                "Appreciate your support! 🙏"
+            ],
+            "hindi": [
+                "देखने के लिए धन्यवाद! 😊",
+                "आपको पसंद आया, खुशी हुई!",
+                "फीडबैक के लिए धन्यवाद!",
+                "आपके सपोर्ट के लिए शुक्रिया! 🙏"
+            ],
+            "hinglish": [
+                "Thank you for watching yaar! 😊",
+                "Bahut accha comment!",
+                "Feedback ke liye thanks!",
+                "Support ke liye shukriya! 🙏"
+            ]
+        }
+        
+        import random
+        replies = mock_replies.get(language, mock_replies["english"])
+        
+        return {
+            "success": True,
+            "reply": random.choice(replies),
+            "language": language,
+            "ai_service": "mock"
+        }
+
     
     async def _generate_with_primary_service(self, prompt: str) -> Dict[str, Any]:
         """Generate content with primary AI service"""

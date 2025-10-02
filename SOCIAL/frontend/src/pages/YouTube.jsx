@@ -44,6 +44,21 @@ const [contentData, setContentData] = useState({
 // NEW: Scheduling states
 const [scheduleMode, setScheduleMode] = useState(false);
 const [scheduledPosts, setScheduledPosts] = useState([]);
+// Comments management state
+const [comments, setComments] = useState([]);
+const [selectedVideoId, setSelectedVideoId] = useState('');
+const [autoReplyEnabled, setAutoReplyEnabled] = useState(false);
+const [autoReplyConfig, setAutoReplyConfig] = useState({
+  reply_style: 'friendly',
+  reply_delay_minutes: 5,
+  custom_prompt: '',
+  languages: ['english', 'hindi'],
+  filter_spam: true,
+  max_replies_per_hour: 10
+});
+const [replyText, setReplyText] = useState('');
+const [editingCommentId, setEditingCommentId] = useState(null);
+const [editText, setEditText] = useState('');
 const [scheduleSlots, setScheduleSlots] = useState([
   { id: 1, video_url: '', title: '', description: '', date: '', time: '' },
   { id: 2, video_url: '', title: '', description: '', date: '', time: '' },
@@ -486,7 +501,175 @@ const deleteScheduledPost = useCallback(async (postId) => {
   }
 }, [token, API_BASE, fetchScheduledPosts]);
 
+// Comments management functions
+const fetchComments = useCallback(async (videoId = '') => {
+  if (!token) return;
+  
+  try {
+    const userData = getUserData();
+    if (!userData?.user_id) return;
+    
+    setLoading(true);
+    
+    const url = videoId 
+      ? `${API_BASE}/api/youtube/comments/${userData.user_id}?video_id=${videoId}`
+      : `${API_BASE}/api/youtube/comments/${userData.user_id}`;
+    
+    const response = await fetch(url, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      if (data.success) {
+        setComments(data.comments);
+      }
+    }
+  } catch (error) {
+    console.error('Failed to fetch comments:', error);
+  } finally {
+    setLoading(false);
+  }
+}, [token, API_BASE]);
 
+const replyToComment = useCallback(async (commentId, replyText) => {
+  if (!token || !replyText.trim()) return;
+  
+  try {
+    const userData = getUserData();
+    if (!userData?.user_id) return;
+    
+    const response = await fetch(`${API_BASE}/api/youtube/reply-comment`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        user_id: userData.user_id,
+        comment_id: commentId,
+        reply_text: replyText
+      })
+    });
+    
+    if (response.ok) {
+      alert('Reply posted successfully!');
+      setReplyText('');
+      await fetchComments(selectedVideoId);
+    }
+  } catch (error) {
+    console.error('Reply failed:', error);
+    alert('Failed to post reply');
+  }
+}, [token, API_BASE, selectedVideoId, fetchComments]);
+
+const generateAutoReply = useCallback(async (commentText, commentId) => {
+  if (!token) return;
+  
+  try {
+    const userData = getUserData();
+    if (!userData?.user_id) return;
+    
+    const response = await fetch(`${API_BASE}/api/youtube/generate-auto-reply`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        user_id: userData.user_id,
+        comment_text: commentText,
+        reply_style: autoReplyConfig.reply_style
+      })
+    });
+    
+    const result = await response.json();
+    
+    if (result.success) {
+      // Auto-post the reply
+      await replyToComment(commentId, result.reply);
+    }
+  } catch (error) {
+    console.error('Auto reply failed:', error);
+  }
+}, [token, API_BASE, autoReplyConfig.reply_style, replyToComment]);
+
+const startAutomatedReplies = useCallback(async () => {
+  try {
+    const userData = getUserData();
+    if (!userData?.user_id) return;
+    
+    const response = await fetch(`${API_BASE}/api/youtube/start-auto-reply`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        user_id: userData.user_id,
+        config: autoReplyConfig
+      })
+    });
+    
+    if (response.ok) {
+      setAutoReplyEnabled(true);
+      alert('✅ Automated replies started! Comments will be replied to automatically.');
+    }
+  } catch (error) {
+    console.error('Failed to start auto replies:', error);
+  }
+}, [token, API_BASE, autoReplyConfig, getUserData]);
+
+const stopAutomatedReplies = useCallback(async () => {
+  try {
+    const userData = getUserData();
+    if (!userData?.user_id) return;
+    
+    const response = await fetch(`${API_BASE}/api/youtube/stop-auto-reply`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        user_id: userData.user_id
+      })
+    });
+    
+    if (response.ok) {
+      setAutoReplyEnabled(false);
+      alert('⏹️ Automated replies stopped.');
+    }
+  } catch (error) {
+    console.error('Failed to stop auto replies:', error);
+  }
+}, [token, API_BASE, getUserData]);
+
+const deleteComment = useCallback(async (commentId) => {
+  if (!confirm('Delete this comment?')) return;
+  
+  try {
+    const userData = getUserData();
+    if (!userData?.user_id) return;
+    
+    const response = await fetch(`${API_BASE}/api/youtube/delete-comment/${commentId}?user_id=${userData.user_id}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    
+    if (response.ok) {
+      alert('Comment deleted');
+      await fetchComments(selectedVideoId);
+    }
+  } catch (error) {
+    console.error('Delete failed:', error);
+  }
+}, [token, API_BASE, selectedVideoId, fetchComments, getUserData]);
 
 // Add these functions before your return statement
 
@@ -1043,6 +1226,14 @@ useEffect(() => {
             active={activeTab === 'analytics'} 
             onClick={() => setActiveTab('analytics')} 
           />
+
+          <TabButton 
+  id="comments" 
+  label="Comments" 
+  emoji="💬" 
+  active={activeTab === 'comments'} 
+  onClick={() => setActiveTab('comments')} 
+/>
         </div>
 
         {/* Connect YouTube Tab */}
@@ -3004,6 +3195,508 @@ onClick={async () => {
             )}
           </div>
         )}
+
+
+
+        {/* Comments Management Tab */}
+        {activeTab === 'comments' && status?.youtube_connected && (
+          <div style={{ 
+            background: 'rgba(255, 255, 255, 0.95)', 
+            borderRadius: '20px', 
+            padding: '40px', 
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2)' 
+          }}>
+            <div style={{ 
+              display: 'flex', 
+              justifyContent: 'space-between', 
+              alignItems: 'center', 
+              marginBottom: '30px' 
+            }}>
+              <h2 style={{ 
+                color: '#FF0000', 
+                fontSize: '28px', 
+                fontWeight: '700', 
+                margin: 0 
+              }}>
+                💬 Comments Management
+              </h2>
+              
+              <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                <button 
+                  onClick={() => fetchComments()}
+                  disabled={loading}
+                  style={{
+                    padding: '10px 16px',
+                    background: loading ? '#ccc' : '#007bff',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '6px',
+                    cursor: loading ? 'not-allowed' : 'pointer',
+                    fontSize: '14px'
+                  }}
+                >
+                  {loading ? 'Loading...' : 'Refresh Comments'}
+                </button>
+                
+                {autoReplyEnabled ? (
+                  <button
+                    onClick={stopAutomatedReplies}
+                    style={{
+                      padding: '10px 16px',
+                      background: '#dc3545',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      fontSize: '14px',
+                      fontWeight: '600'
+                    }}
+                  >
+                    ⏹️ Stop Auto-Reply
+                  </button>
+                ) : (
+                  <button
+                    onClick={startAutomatedReplies}
+                    style={{
+                      padding: '10px 16px',
+                      background: '#28a745',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      fontSize: '14px',
+                      fontWeight: '600'
+                    }}
+                  >
+                    🤖 Start Auto-Reply
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Auto-Reply Configuration */}
+            <div style={{
+              background: '#f8f9fa',
+              padding: '20px',
+              borderRadius: '12px',
+              marginBottom: '30px',
+              border: '2px solid #28a745'
+            }}>
+              <h3 style={{ color: '#28a745', marginBottom: '16px' }}>🤖 Automated Reply Settings</h3>
+              
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                gap: '16px',
+                marginBottom: '16px'
+              }}>
+                <div>
+                  <label style={{ 
+                    display: 'block', 
+                    marginBottom: '4px', 
+                    fontSize: '14px', 
+                    fontWeight: '600' 
+                  }}>
+                    Reply Style
+                  </label>
+                  <select
+                    value={autoReplyConfig.reply_style}
+                    onChange={(e) => setAutoReplyConfig(prev => ({
+                      ...prev, 
+                      reply_style: e.target.value
+                    }))}
+                    style={{
+                      width: '100%',
+                      padding: '8px',
+                      borderRadius: '4px',
+                      border: '1px solid #ddd',
+                      fontSize: '14px'
+                    }}
+                  >
+                    <option value="friendly">Friendly</option>
+                    <option value="professional">Professional</option>
+                    <option value="casual">Casual</option>
+                    <option value="enthusiastic">Enthusiastic</option>
+                  </select>
+                </div>
+                
+                <div>
+                  <label style={{ 
+                    display: 'block', 
+                    marginBottom: '4px', 
+                    fontSize: '14px', 
+                    fontWeight: '600' 
+                  }}>
+                    Reply Delay (minutes)
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="60"
+                    value={autoReplyConfig.reply_delay_minutes}
+                    onChange={(e) => setAutoReplyConfig(prev => ({
+                      ...prev, 
+                      reply_delay_minutes: parseInt(e.target.value)
+                    }))}
+                    style={{
+                      width: '100%',
+                      padding: '8px',
+                      borderRadius: '4px',
+                      border: '1px solid #ddd',
+                      fontSize: '14px'
+                    }}
+                  />
+                </div>
+                
+                <div>
+                  <label style={{ 
+                    display: 'block', 
+                    marginBottom: '4px', 
+                    fontSize: '14px', 
+                    fontWeight: '600' 
+                  }}>
+                    Max Replies/Hour
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="50"
+                    value={autoReplyConfig.max_replies_per_hour}
+                    onChange={(e) => setAutoReplyConfig(prev => ({
+                      ...prev, 
+                      max_replies_per_hour: parseInt(e.target.value)
+                    }))}
+                    style={{
+                      width: '100%',
+                      padding: '8px',
+                      borderRadius: '4px',
+                      border: '1px solid #ddd',
+                      fontSize: '14px'
+                    }}
+                  />
+                </div>
+              </div>
+              
+              <div>
+                <label style={{ 
+                  display: 'block', 
+                  marginBottom: '8px', 
+                  fontSize: '14px', 
+                  fontWeight: '600' 
+                }}>
+                  Custom Reply Instructions (Optional)
+                </label>
+                <textarea
+                  value={autoReplyConfig.custom_prompt}
+                  onChange={(e) => setAutoReplyConfig(prev => ({
+                    ...prev, 
+                    custom_prompt: e.target.value
+                  }))}
+                  placeholder="e.g., Always mention to subscribe, be enthusiastic about cooking videos..."
+                  rows={3}
+                  style={{
+                    width: '100%',
+                    padding: '8px',
+                    borderRadius: '4px',
+                    border: '1px solid #ddd',
+                    fontSize: '14px',
+                    resize: 'vertical'
+                  }}
+                />
+              </div>
+              
+              <div style={{
+                marginTop: '12px',
+                padding: '12px',
+                background: autoReplyEnabled ? '#d4edda' : '#fff3cd',
+                borderRadius: '6px',
+                fontSize: '13px',
+                color: autoReplyEnabled ? '#155724' : '#856404'
+              }}>
+                <strong>Status:</strong> {autoReplyEnabled 
+                  ? '✅ Auto-reply is ACTIVE - responding to new comments automatically' 
+                  : '⏸️ Auto-reply is INACTIVE - click Start to enable'}
+              </div>
+            </div>
+
+            {/* Comments List */}
+            <div style={{
+              background: 'white',
+              borderRadius: '12px',
+              padding: '24px',
+              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
+            }}>
+              <h3 style={{ color: '#333', marginBottom: '20px' }}>Recent Comments</h3>
+              
+              {comments.length > 0 ? (
+                <div style={{ maxHeight: '600px', overflowY: 'auto' }}>
+                  {comments.map((comment, index) => (
+                    <div key={comment.comment_id} style={{
+                      padding: '16px',
+                      borderBottom: index < comments.length - 1 ? '1px solid #eee' : 'none',
+                      marginBottom: '12px',
+                      background: '#fafafa',
+                      borderRadius: '8px'
+                    }}>
+                      <div style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'flex-start',
+                        marginBottom: '8px'
+                      }}>
+                        <div style={{ flex: 1 }}>
+                          <div style={{
+                            fontWeight: '600',
+                            color: '#333',
+                            marginBottom: '4px',
+                            fontSize: '14px'
+                          }}>
+                            {comment.author_name}
+                          </div>
+                          
+                          {editingCommentId === comment.comment_id ? (
+                            <div style={{ marginBottom: '12px' }}>
+                              <textarea
+                                value={editText}
+                                onChange={(e) => setEditText(e.target.value)}
+                                style={{
+                                  width: '100%',
+                                  padding: '8px',
+                                  borderRadius: '4px',
+                                  border: '1px solid #ddd',
+                                  fontSize: '14px',
+                                  marginBottom: '8px'
+                                }}
+                                rows={3}
+                              />
+                              <div style={{ display: 'flex', gap: '8px' }}>
+                                <button
+                                  onClick={async () => {
+                                    try {
+                                      const userData = getUserData();
+                                      const response = await fetch(`${API_BASE}/api/youtube/edit-comment`, {
+                                        method: 'PUT',
+                                        headers: {
+                                          'Content-Type': 'application/json',
+                                          'Authorization': `Bearer ${token}`
+                                        },
+                                        body: JSON.stringify({
+                                          user_id: userData.user_id,
+                                          comment_id: comment.comment_id,
+                                          new_text: editText
+                                        })
+                                      });
+                                      
+                                      if (response.ok) {
+                                        alert('Comment updated successfully!');
+                                        setEditingCommentId(null);
+                                        setEditText('');
+                                        await fetchComments();
+                                      }
+                                    } catch (error) {
+                                      console.error('Edit failed:', error);
+                                    }
+                                  }}
+                                  style={{
+                                    padding: '4px 8px',
+                                    background: '#28a745',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '4px',
+                                    fontSize: '12px',
+                                    cursor: 'pointer'
+                                  }}
+                                >
+                                  Save
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setEditingCommentId(null);
+                                    setEditText('');
+                                  }}
+                                  style={{
+                                    padding: '4px 8px',
+                                    background: '#6c757d',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '4px',
+                                    fontSize: '12px',
+                                    cursor: 'pointer'
+                                  }}
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div style={{
+                              color: '#666',
+                              fontSize: '14px',
+                              lineHeight: 1.5,
+                              marginBottom: '8px'
+                            }}>
+                              {comment.text}
+                            </div>
+                          )}
+                          
+                          <div style={{
+                            fontSize: '12px',
+                            color: '#999',
+                            display: 'flex',
+                            gap: '16px'
+                          }}>
+                            <span>👍 {comment.like_count}</span>
+                            <span>💬 {comment.reply_count} replies</span>
+                            <span>{new Date(comment.published_at).toLocaleDateString()}</span>
+                          </div>
+                        </div>
+                        
+                        <div style={{
+                          display: 'flex',
+                          gap: '6px',
+                          marginLeft: '16px',
+                          flexDirection: 'column'
+                        }}>
+                          <button
+                            onClick={() => generateAutoReply(comment.text, comment.comment_id)}
+                            style={{
+                              padding: '4px 8px',
+                              background: '#28a745',
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: '4px',
+                              fontSize: '11px',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            🤖 Auto Reply
+                          </button>
+                          
+                          <button
+                            onClick={() => {
+                              setEditingCommentId(comment.comment_id);
+                              setEditText(comment.text);
+                            }}
+                            style={{
+                              padding: '4px 8px',
+                              background: '#ffc107',
+                              color: 'black',
+                              border: 'none',
+                              borderRadius: '4px',
+                              fontSize: '11px',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            ✏️ Edit
+                          </button>
+                          
+                          <button
+                            onClick={() => deleteComment(comment.comment_id)}
+                            style={{
+                              padding: '4px 8px',
+                              background: '#dc3545',
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: '4px',
+                              fontSize: '11px',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            🗑️ Delete
+                          </button>
+                        </div>
+                      </div>
+                      
+                      {/* Manual Reply Section */}
+                      <div style={{
+                        marginTop: '12px',
+                        paddingTop: '12px',
+                        borderTop: '1px solid #eee'
+                      }}>
+                        <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-end' }}>
+                          <div style={{ flex: 1 }}>
+                            <label style={{
+                              display: 'block',
+                              fontSize: '12px',
+                              fontWeight: '600',
+                              marginBottom: '4px',
+                              color: '#555'
+                            }}>
+                              Manual Reply:
+                            </label>
+                            <textarea
+                              value={replyText}
+                              onChange={(e) => setReplyText(e.target.value)}
+                              placeholder="Type your reply..."
+                              rows={2}
+                              style={{
+                                width: '100%',
+                                padding: '8px',
+                                borderRadius: '4px',
+                                border: '1px solid #ddd',
+                                fontSize: '13px',
+                                resize: 'none'
+                              }}
+                            />
+                          </div>
+                          <button
+                            onClick={() => {
+                              if (replyText.trim()) {
+                                replyToComment(comment.comment_id, replyText);
+                              }
+                            }}
+                            disabled={!replyText.trim()}
+                            style={{
+                              padding: '8px 12px',
+                              background: replyText.trim() ? '#007bff' : '#ccc',
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: '4px',
+                              fontSize: '12px',
+                              cursor: replyText.trim() ? 'pointer' : 'not-allowed',
+                              whiteSpace: 'nowrap'
+                            }}
+                          >
+                            📤 Send Reply
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ 
+                  textAlign: 'center', 
+                  padding: '40px', 
+                  color: '#666' 
+                }}>
+                  <div style={{ fontSize: '48px', marginBottom: '16px' }}>💬</div>
+                  <p>No comments found. Upload some videos and engage with your audience!</p>
+                  <button 
+                    onClick={() => fetchComments()}
+                    style={{ 
+                      padding: '8px 16px', 
+                      background: '#FF0000', 
+                      color: 'white', 
+                      border: 'none', 
+                      borderRadius: '6px', 
+                      cursor: 'pointer', 
+                      fontWeight: '600',
+                      marginTop: '12px'
+                    }}
+                  >
+                    Load Comments
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+
+
+
+
 
         {/* Not Connected Message for other tabs */}
         {activeTab !== 'connect' && !status?.youtube_connected && (
