@@ -81,7 +81,8 @@ const [slideshowConfig, setSlideshowConfig] = useState({
 });
 const [generatedSlideshow, setGeneratedSlideshow] = useState(null);
 const [generatingSlideshow, setGeneratingSlideshow] = useState(false);
-
+const [uploadMethod, setUploadMethod] = useState('url'); // Default to URL
+const [imageUrls, setImageUrls] = useState('');
 
 
   const API_BASE = process.env.NODE_ENV === 'production' 
@@ -3930,128 +3931,246 @@ onClick={async () => {
       </p>
     </div>
 
-    {/* Step 1: Upload Images */}
+
+
+{/* Step 1: Upload Images */}
     <div style={{ marginBottom: '30px' }}>
       <h3 style={{ color: '#333', marginBottom: '16px', fontSize: '20px' }}>
-        📸 Step 1: Upload Images (2-6)
+        📸 Step 1: Add Images (2-6)
       </h3>
       
+      {/* TAB SELECTOR */}
+      <div style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>
+        <button
+          onClick={() => setUploadMethod('file')}
+          style={{
+            padding: '8px 16px',
+            background: uploadMethod === 'file' ? '#FF0000' : '#f0f0f0',
+            color: uploadMethod === 'file' ? 'white' : '#333',
+            border: 'none',
+            borderRadius: '6px',
+            cursor: 'pointer',
+            fontWeight: '600'
+          }}
+        >
+          📂 Upload Files
+        </button>
+        <button
+          onClick={() => setUploadMethod('url')}
+          style={{
+            padding: '8px 16px',
+            background: uploadMethod === 'url' ? '#FF0000' : '#f0f0f0',
+            color: uploadMethod === 'url' ? 'white' : '#333',
+            border: 'none',
+            borderRadius: '6px',
+            cursor: 'pointer',
+            fontWeight: '600'
+          }}
+        >
+          🔗 Use Image URLs
+        </button>
+      </div>
 
+      {/* FILE UPLOAD */}
+      {uploadMethod === 'file' && (
+        <input
+          type="file"
+          accept="image/*"
+          multiple
+          onChange={async (e) => {
+            const files = Array.from(e.target.files).slice(0, 6);
+            
+            if (files.length < 2) {
+              alert('Please upload at least 2 images');
+              e.target.value = '';
+              return;
+            }
+            
+            if (files.length > 6) {
+              alert('Maximum 6 images allowed');
+              e.target.value = '';
+              return;
+            }
+            
+            const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+            const invalidFiles = files.filter(f => !validTypes.includes(f.type));
+            
+            if (invalidFiles.length > 0) {
+              alert('Please upload only JPG, PNG, or WEBP images');
+              e.target.value = '';
+              return;
+            }
+            
+            setLoading(true);
+            setError('');
+            
+            try {
+              const base64Images = await Promise.all(
+                files.map((file, idx) => new Promise((resolve, reject) => {
+                  if (file.size > 5 * 1024 * 1024) {
+                    reject(new Error(`Image ${idx + 1} is too large (max 5MB)`));
+                    return;
+                  }
+                  
+                  const reader = new FileReader();
+                  
+                  reader.onload = () => {
+                    const result = reader.result;
+                    
+                    if (!result || typeof result !== 'string') {
+                      reject(new Error(`Failed to read image ${idx + 1}`));
+                      return;
+                    }
+                    
+                    if (!result.startsWith('data:image/')) {
+                      reject(new Error(`Image ${idx + 1} is not a valid image format`));
+                      return;
+                    }
+                    
+                    console.log(`Image ${idx + 1} loaded:`, {
+                      name: file.name,
+                      size: file.size,
+                      type: file.type,
+                      base64Length: result.length,
+                      base64Preview: result.substring(0, 50)
+                    });
+                    
+                    resolve(result);
+                  };
+                  
+                  reader.onerror = () => {
+                    reject(new Error(`Failed to read image ${idx + 1}: ${reader.error?.message || 'Unknown error'}`));
+                  };
+                  
+                  reader.readAsDataURL(file);
+                }))
+              );
+              
+              console.log('All images loaded successfully:', base64Images.length);
+              setUploadedImages(base64Images);
+              setError('');
+              
+            } catch (error) {
+              console.error('Image upload error:', error);
+              setError('Failed to upload images: ' + error.message);
+              setUploadedImages([]);
+              e.target.value = '';
+            } finally {
+              setLoading(false);
+            }
+          }}
+          style={{
+            padding: '12px',
+            width: '100%',
+            marginBottom: '16px',
+            border: '2px dashed #FF0000',
+            borderRadius: '8px',
+            cursor: 'pointer'
+          }}
+        />
+      )}
 
-
-
-      <input
-        type="file"
-        accept="image/*"
-        multiple
-
-
-
-
-onChange={async (e) => {
-  const files = Array.from(e.target.files).slice(0, 6);
-  
-  if (files.length < 2) {
-    alert('Please upload at least 2 images');
-    e.target.value = ''; // Clear input
-    return;
-  }
-  
-  if (files.length > 6) {
-    alert('Maximum 6 images allowed');
-    e.target.value = '';
-    return;
-  }
-  
-  // Validate file types
-  const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-  const invalidFiles = files.filter(f => !validTypes.includes(f.type));
-  
-  if (invalidFiles.length > 0) {
-    alert('Please upload only JPG, PNG, or WEBP images');
-    e.target.value = '';
-    return;
-  }
-  
-  setLoading(true);
-  setError('');
-  
-  try {
-    const base64Images = await Promise.all(
-      files.map((file, idx) => new Promise((resolve, reject) => {
-        // Validate file size (max 5MB per image)
-        if (file.size > 5 * 1024 * 1024) {
-          reject(new Error(`Image ${idx + 1} is too large (max 5MB)`));
-          return;
-        }
-        
-        const reader = new FileReader();
-        
-        reader.onload = () => {
-          const result = reader.result;
+      {/* URL INPUT */}
+      {uploadMethod === 'url' && (
+        <div>
+          <p style={{ fontSize: '14px', color: '#666', marginBottom: '12px' }}>
+            Enter image URLs (one per line, 2-6 URLs). Try these test URLs:
+          </p>
+          <textarea
+            value={imageUrls}
+            onChange={(e) => setImageUrls(e.target.value)}
+            placeholder="https://picsum.photos/1080/1920?random=1&#x0A;https://picsum.photos/1080/1920?random=2&#x0A;https://picsum.photos/1080/1920?random=3"
+            rows={6}
+            style={{
+              width: '100%',
+              padding: '12px',
+              borderRadius: '8px',
+              border: '2px dashed #FF0000',
+              fontSize: '14px',
+              fontFamily: 'monospace'
+            }}
+          />
+          <button
+            onClick={async () => {
+              const urls = imageUrls.split('\n').filter(u => u.trim());
+              if (urls.length < 2 || urls.length > 6) {
+                alert('Enter 2-6 image URLs');
+                return;
+              }
+              
+              setLoading(true);
+              setError('');
+              
+              try {
+                const base64Images = await Promise.all(
+                  urls.map(async (url, idx) => {
+                    try {
+                      const response = await fetch(url);
+                      if (!response.ok) throw new Error(`Failed to fetch image ${idx + 1}`);
+                      
+                      const blob = await response.blob();
+                      
+                      if (!blob.type.startsWith('image/')) {
+                        throw new Error(`URL ${idx + 1} is not an image`);
+                      }
+                      
+                      return new Promise((resolve, reject) => {
+                        const reader = new FileReader();
+                        reader.onload = () => {
+                          console.log(`URL image ${idx + 1} loaded:`, {
+                            url: url.substring(0, 50),
+                            type: blob.type,
+                            size: blob.size
+                          });
+                          resolve(reader.result);
+                        };
+                        reader.onerror = () => reject(new Error(`Failed to convert image ${idx + 1}`));
+                        reader.readAsDataURL(blob);
+                      });
+                    } catch (error) {
+                      throw new Error(`Image ${idx + 1} (${url.substring(0, 30)}...): ${error.message}`);
+                    }
+                  })
+                );
+                
+                setUploadedImages(base64Images);
+                setError('');
+                alert('Images loaded successfully!');
+                
+              } catch (error) {
+                setError('Failed to load images: ' + error.message);
+                alert('Error: ' + error.message);
+              } finally {
+                setLoading(false);
+              }
+            }}
+            disabled={loading}
+            style={{
+              marginTop: '12px',
+              padding: '10px 20px',
+              background: loading ? '#ccc' : '#28a745',
+              color: 'white',
+              border: 'none',
+              borderRadius: '6px',
+              cursor: loading ? 'not-allowed' : 'pointer',
+              fontWeight: '600'
+            }}
+          >
+            {loading ? '⏳ Loading...' : '📥 Load Images from URLs'}
+          </button>
           
-          // Validate result is base64 image
-          if (!result || typeof result !== 'string') {
-            reject(new Error(`Failed to read image ${idx + 1}`));
-            return;
-          }
-          
-          if (!result.startsWith('data:image/')) {
-            reject(new Error(`Image ${idx + 1} is not a valid image format`));
-            return;
-          }
-          
-          console.log(`Image ${idx + 1} loaded:`, {
-            name: file.name,
-            size: file.size,
-            type: file.type,
-            base64Length: result.length,
-            base64Preview: result.substring(0, 50)
-          });
-          
-          resolve(result);
-        };
-        
-        reader.onerror = () => {
-          reject(new Error(`Failed to read image ${idx + 1}: ${reader.error?.message || 'Unknown error'}`));
-        };
-        
-        reader.readAsDataURL(file);
-      }))
-    );
-    
-    console.log('All images loaded successfully:', base64Images.length);
-    setUploadedImages(base64Images);
-    setError('');
-    
-  } catch (error) {
-    console.error('Image upload error:', error);
-    setError('Failed to upload images: ' + error.message);
-    setUploadedImages([]);
-    e.target.value = ''; // Clear input on error
-  } finally {
-    setLoading(false);
-  }
-}}
-
-
-
-
-
-
-
-
-
-
-        style={{
-          padding: '12px',
-          width: '100%',
-          marginBottom: '16px',
-          border: '2px dashed #FF0000',
-          borderRadius: '8px',
-          cursor: 'pointer'
-        }}
-      />
+          <div style={{
+            marginTop: '12px',
+            padding: '12px',
+            background: '#e7f3ff',
+            borderRadius: '6px',
+            fontSize: '13px',
+            color: '#004085'
+          }}>
+            💡 <strong>Quick Test:</strong> Use the default URLs in the box above (Picsum placeholder images)
+          </div>
+        </div>
+      )}
       
       {uploadedImages.length > 0 && (
         <div>
@@ -4444,7 +4563,6 @@ onChange={async (e) => {
               if (result.success) {
                 alert(`✅ Uploaded to: ${result.platforms_uploaded.join(', ')}`);
                 
-                // Reset form
                 setUploadedImages([]);
                 setGeneratedSlideshow(null);
                 setContentData(prev => ({...prev, title: ''}));
@@ -4495,8 +4613,6 @@ onChange={async (e) => {
   </div>
 )}
 
-
-
         {/* Not Connected Message for other tabs */}
         {activeTab !== 'connect' && !status?.youtube_connected && (
           <div style={{ 
@@ -4506,9 +4622,6 @@ onChange={async (e) => {
             boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2)', 
             textAlign: 'center' 
           }}>
-
-
-
             <div style={{ fontSize: '64px', marginBottom: '20px' }}>🔗</div>
             <h3 style={{ color: '#FF0000', marginBottom: '20px' }}>
               YouTube Not Connected
