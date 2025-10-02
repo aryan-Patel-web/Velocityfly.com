@@ -3058,6 +3058,199 @@ def detect_comment_language(text: str) -> str:
 
 
 
+# Add after line 50 in mainY.py (after other imports)
+from slideshow_generator import get_slideshow_generator
+
+# Add this endpoint after line 1200 (after youtube upload endpoints)
+
+@app.post("/api/slideshow/generate")
+async def generate_slideshow(request: dict):
+    """
+    Generate slideshow from uploaded images
+    
+    Request body:
+    {
+        "user_id": "user123",
+        "images": ["data:image/jpeg;base64,...", ...],  // 2-6 images
+        "title": "My Amazing Product",
+        "language": "hindi",  // hindi/english/hinglish
+        "duration_per_image": 2.0,  // 1-3 seconds
+        "transition": "fade",  // fade/slide/zoom
+        "music_style": "upbeat",  // upbeat/calm/energetic
+        "add_text": true,
+        "platforms": ["youtube_shorts", "instagram_reels", "facebook_ads"]
+    }
+    """
+    try:
+        logger.info(f"🎬 Slideshow request from user: {request.get('user_id')}")
+        
+        # Validate
+        images = request.get('images', [])
+        if not 2 <= len(images) <= 6:
+            raise HTTPException(status_code=400, detail="Upload 2-6 images")
+        
+        # Generate slideshow
+        slideshow_gen = get_slideshow_generator()
+        result = await slideshow_gen.generate_slideshow(
+            images=images,
+            title=request.get('title', 'Video'),
+            language=request.get('language', 'english'),
+            duration_per_image=request.get('duration_per_image', 2.0),
+            transition=request.get('transition', 'fade'),
+            add_text=request.get('add_text', True),
+            music_style=request.get('music_style', 'upbeat'),
+            aspect_ratio="9:16"  # Shorts/Reels format
+        )
+        
+        if not result.get('success'):
+            raise HTTPException(status_code=500, detail=result.get('error'))
+        
+        # Generate platform-specific metadata using AI
+        platforms = request.get('platforms', ['youtube_shorts'])
+        metadata = await _generate_platform_metadata(
+            request.get('title'),
+            request.get('language'),
+            platforms
+        )
+        
+        return {
+            "success": True,
+            "video_url": result['video_url'],
+            "thumbnail_url": result['thumbnail_url'],
+            "duration": result['duration'],
+            "platforms_ready": platforms,
+            "metadata": metadata,
+            "local_path": result.get('local_path')  # For direct YouTube upload
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Slideshow generation failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+async def _generate_platform_metadata(title: str, language: str, platforms: List[str]) -> Dict:
+    """Generate platform-specific titles, descriptions, hashtags using AI"""
+    
+    if not ai_service:
+        # Fallback without AI
+        return {
+            platform: {
+                "title": title,
+                "description": f"Check out {title}!",
+                "hashtags": ["#trending", "#viral", "#shorts"]
+            }
+            for platform in platforms
+        }
+    
+    # Use your existing Mistral/Groq AI
+    metadata = {}
+    
+    for platform in platforms:
+        prompt = f"""Create {platform} metadata in {language}:
+
+Title: {title}
+
+Generate:
+1. Catchy title (50 chars max)
+2. Description with hooks
+3. 10 trending hashtags
+
+Platform: {platform}
+Language: {language}
+Format: JSON"""
+        
+        ai_result = await ai_service.generate_youtube_content(
+            content_type="shorts",
+            topic=title,
+            language=language,
+            region="india"
+        )
+        
+        if ai_result.get('success'):
+            metadata[platform] = {
+                "title": ai_result.get('title', title)[:50],
+                "description": ai_result.get('description', ''),
+                "hashtags": ai_result.get('tags', [])[:10]
+            }
+    
+    return metadata
+
+
+@app.post("/api/slideshow/upload-multi-platform")
+async def upload_slideshow_multi_platform(request: dict):
+    """
+    Upload generated slideshow to multiple platforms
+    
+    Currently supports:
+    - YouTube Shorts (working)
+    - Instagram Reels (mock - would need Instagram Graph API)
+    - Facebook Ads (mock - would need Facebook Marketing API)
+    """
+    try:
+        user_id = request.get('user_id')
+        video_path = request.get('video_path')  # Local path from generation
+        platforms = request.get('platforms', [])
+        metadata = request.get('metadata', {})
+        
+        results = {}
+        
+        # YouTube Shorts (already implemented!)
+        if 'youtube_shorts' in platforms:
+            yt_metadata = metadata.get('youtube_shorts', {})
+            
+            credentials = await database_manager.get_youtube_credentials(user_id)
+            if credentials:
+                upload_result = await youtube_scheduler.generate_and_upload_content(
+                    user_id=user_id,
+                    credentials_data=credentials,
+                    content_type="shorts",
+                    title=yt_metadata.get('title'),
+                    description=yt_metadata.get('description'),
+                    video_url=video_path  # Use local path
+                )
+                results['youtube_shorts'] = upload_result
+            else:
+                results['youtube_shorts'] = {
+                    "success": False,
+                    "error": "YouTube not connected"
+                }
+        
+        # Instagram Reels (mock for now)
+        if 'instagram_reels' in platforms:
+            results['instagram_reels'] = {
+                "success": True,
+                "platform": "instagram_reels",
+                "post_id": f"mock_ig_{int(datetime.now().timestamp())}",
+                "message": "Mock upload - integrate Instagram Graph API for production",
+                "note": "Requires: Instagram Business Account + Facebook Developer App"
+            }
+        
+        # Facebook Ads (mock for now)
+        if 'facebook_ads' in platforms:
+            results['facebook_ads'] = {
+                "success": True,
+                "platform": "facebook_ads",
+                "campaign_id": f"mock_fb_{int(datetime.now().timestamp())}",
+                "message": "Mock campaign - integrate Facebook Marketing API for production",
+                "note": "Requires: Facebook Business Manager + Ad Account"
+            }
+        
+        return {
+            "success": True,
+            "platforms_uploaded": list(results.keys()),
+            "results": results
+        }
+        
+    except Exception as e:
+        logger.error(f"Multi-platform upload failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+
+
+
 # Main application runner
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 8000))

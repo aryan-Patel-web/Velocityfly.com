@@ -69,6 +69,18 @@ const [scheduleSlots, setScheduleSlots] = useState([
   { id: 2, video_url: '', title: '', description: '', date: '', time: '' },
   { id: 3, video_url: '', title: '', description: '', date: '', time: '' }
 ]);
+// Slideshow states
+const [slideshowMode, setSlideshowMode] = useState(false);
+const [uploadedImages, setUploadedImages] = useState([]);
+const [slideshowConfig, setSlideshowConfig] = useState({
+  duration_per_image: 2,
+  transition: 'fade',
+  music_style: 'upbeat',
+  add_text: true,
+  platforms: ['youtube_shorts']
+});
+const [generatedSlideshow, setGeneratedSlideshow] = useState(null);
+const [generatingSlideshow, setGeneratingSlideshow] = useState(false);
 
 
 
@@ -1339,6 +1351,15 @@ useEffect(() => {
   active={activeTab === 'comments'} 
   onClick={() => setActiveTab('comments')} 
 />
+<TabButton 
+  id="slideshow" 
+  label="Image Slideshow" 
+  emoji="🎬" 
+  active={activeTab === 'slideshow'} 
+  onClick={() => setActiveTab('slideshow')} 
+/>
+
+
         </div>
 
         {/* Connect YouTube Tab */}
@@ -3879,7 +3900,530 @@ onClick={async () => {
         )}
 
 
+{/* Image Slideshow Tab */}
+{activeTab === 'slideshow' && status?.youtube_connected && (
+  <div style={{ 
+    background: 'rgba(255, 255, 255, 0.95)', 
+    borderRadius: '20px', 
+    padding: '40px', 
+    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2)' 
+  }}>
+    <h2 style={{ 
+      color: '#FF0000', 
+      marginBottom: '30px', 
+      fontSize: '28px', 
+      fontWeight: '700' 
+    }}>
+      🎬 Create Image Slideshow
+    </h2>
 
+    <div style={{ 
+      background: '#fff3cd', 
+      padding: '16px', 
+      borderRadius: '8px', 
+      marginBottom: '30px',
+      border: '1px solid #ffc107'
+    }}>
+      <strong>🚀 Transform Images into Viral Videos!</strong>
+      <p style={{ margin: '8px 0 0 0', fontSize: '14px' }}>
+        Upload 2-6 images → AI adds transitions & text → Upload to YouTube Shorts, Instagram Reels, Facebook Ads
+      </p>
+    </div>
+
+    {/* Step 1: Upload Images */}
+    <div style={{ marginBottom: '30px' }}>
+      <h3 style={{ color: '#333', marginBottom: '16px', fontSize: '20px' }}>
+        📸 Step 1: Upload Images (2-6)
+      </h3>
+      
+      <input
+        type="file"
+        accept="image/*"
+        multiple
+        onChange={async (e) => {
+          const files = Array.from(e.target.files).slice(0, 6);
+          
+          if (files.length < 2) {
+            alert('Please upload at least 2 images');
+            return;
+          }
+          
+          if (files.length > 6) {
+            alert('Maximum 6 images allowed');
+            return;
+          }
+          
+          setLoading(true);
+          
+          try {
+            const base64Images = await Promise.all(
+              files.map(file => new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+              }))
+            );
+            
+            setUploadedImages(base64Images);
+            setError('');
+          } catch (error) {
+            setError('Failed to upload images: ' + error.message);
+          } finally {
+            setLoading(false);
+          }
+        }}
+        style={{
+          padding: '12px',
+          width: '100%',
+          marginBottom: '16px',
+          border: '2px dashed #FF0000',
+          borderRadius: '8px',
+          cursor: 'pointer'
+        }}
+      />
+      
+      {uploadedImages.length > 0 && (
+        <div>
+          <div style={{ 
+            display: 'grid', 
+            gridTemplateColumns: 'repeat(3, 1fr)', 
+            gap: '12px',
+            marginBottom: '12px'
+          }}>
+            {uploadedImages.map((img, idx) => (
+              <div key={idx} style={{ position: 'relative' }}>
+                <img 
+                  src={img} 
+                  alt={`Upload ${idx + 1}`} 
+                  style={{
+                    width: '100%',
+                    height: '200px',
+                    objectFit: 'cover',
+                    borderRadius: '8px',
+                    border: '2px solid #ddd'
+                  }}
+                />
+                <button
+                  onClick={() => {
+                    setUploadedImages(prev => prev.filter((_, i) => i !== idx));
+                  }}
+                  style={{
+                    position: 'absolute',
+                    top: '8px',
+                    right: '8px',
+                    background: '#dc3545',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '50%',
+                    width: '30px',
+                    height: '30px',
+                    cursor: 'pointer',
+                    fontSize: '16px'
+                  }}
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+          </div>
+          
+          <div style={{
+            padding: '12px',
+            background: '#d4edda',
+            borderRadius: '6px',
+            fontSize: '14px',
+            color: '#155724'
+          }}>
+            ✅ {uploadedImages.length} images uploaded. 
+            {uploadedImages.length < 6 && ` You can add ${6 - uploadedImages.length} more.`}
+          </div>
+        </div>
+      )}
+    </div>
+
+    {/* Step 2: Configuration */}
+    {uploadedImages.length >= 2 && (
+      <div style={{ marginBottom: '30px' }}>
+        <h3 style={{ color: '#333', marginBottom: '16px', fontSize: '20px' }}>
+          ⚙️ Step 2: Customize Your Video
+        </h3>
+        
+        <div style={{ 
+          display: 'grid', 
+          gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', 
+          gap: '20px' 
+        }}>
+          <div>
+            <label style={{ 
+              display: 'block', 
+              marginBottom: '8px', 
+              fontWeight: '600', 
+              color: '#333' 
+            }}>
+              Video Title
+            </label>
+            <input
+              type="text"
+              value={contentData.title}
+              onChange={(e) => setContentData(prev => ({...prev, title: e.target.value}))}
+              placeholder="Enter video title..."
+              style={{
+                width: '100%',
+                padding: '12px',
+                borderRadius: '8px',
+                border: '2px solid #ddd',
+                fontSize: '14px'
+              }}
+            />
+          </div>
+
+          <div>
+            <label style={{ 
+              display: 'block', 
+              marginBottom: '8px', 
+              fontWeight: '600', 
+              color: '#333' 
+            }}>
+              Language
+            </label>
+            <select
+              value={contentData.language || 'english'}
+              onChange={(e) => setContentData(prev => ({...prev, language: e.target.value}))}
+              style={{
+                width: '100%',
+                padding: '12px',
+                borderRadius: '8px',
+                border: '2px solid #ddd',
+                fontSize: '14px'
+              }}
+            >
+              <option value="english">English</option>
+              <option value="hindi">हिन्दी (Hindi)</option>
+              <option value="hinglish">Hinglish</option>
+            </select>
+          </div>
+
+          <div>
+            <label style={{ 
+              display: 'block', 
+              marginBottom: '8px', 
+              fontWeight: '600', 
+              color: '#333' 
+            }}>
+              Duration per Image
+            </label>
+            <select
+              value={slideshowConfig.duration_per_image}
+              onChange={(e) => setSlideshowConfig(prev => ({
+                ...prev, 
+                duration_per_image: parseFloat(e.target.value)
+              }))}
+              style={{
+                width: '100%',
+                padding: '12px',
+                borderRadius: '8px',
+                border: '2px solid #ddd',
+                fontSize: '14px'
+              }}
+            >
+              <option value="1">⚡ Fast (1 sec)</option>
+              <option value="2">⏱️ Medium (2 sec)</option>
+              <option value="3">🐌 Slow (3 sec)</option>
+            </select>
+          </div>
+
+          <div>
+            <label style={{ 
+              display: 'block', 
+              marginBottom: '8px', 
+              fontWeight: '600', 
+              color: '#333' 
+            }}>
+              Transition Effect
+            </label>
+            <select
+              value={slideshowConfig.transition}
+              onChange={(e) => setSlideshowConfig(prev => ({...prev, transition: e.target.value}))}
+              style={{
+                width: '100%',
+                padding: '12px',
+                borderRadius: '8px',
+                border: '2px solid #ddd',
+                fontSize: '14px'
+              }}
+            >
+              <option value="fade">🌫️ Fade</option>
+              <option value="slide">➡️ Slide</option>
+              <option value="zoom">🔍 Zoom</option>
+            </select>
+          </div>
+        </div>
+
+        <div style={{ marginTop: '20px' }}>
+          <label style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '8px',
+            cursor: 'pointer'
+          }}>
+            <input
+              type="checkbox"
+              checked={slideshowConfig.add_text}
+              onChange={(e) => setSlideshowConfig(prev => ({
+                ...prev, 
+                add_text: e.target.checked
+              }))}
+              style={{ width: '18px', height: '18px' }}
+            />
+            <span style={{ fontSize: '14px', fontWeight: '600', color: '#333' }}>
+              Add title overlay on first image
+            </span>
+          </label>
+        </div>
+      </div>
+    )}
+
+    {/* Step 3: Platform Selection */}
+    {uploadedImages.length >= 2 && contentData.title && (
+      <div style={{ marginBottom: '30px' }}>
+        <h3 style={{ color: '#333', marginBottom: '16px', fontSize: '20px' }}>
+          📱 Step 3: Select Upload Platforms
+        </h3>
+        
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          {[
+            { id: 'youtube_shorts', label: '📺 YouTube Shorts', available: true },
+            { id: 'instagram_reels', label: '📸 Instagram Reels', available: false },
+            { id: 'facebook_ads', label: '📘 Facebook Ads', available: false }
+          ].map(platform => (
+            <label 
+              key={platform.id}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+                padding: '12px',
+                background: slideshowConfig.platforms.includes(platform.id) ? '#d4edda' : '#f8f9fa',
+                border: slideshowConfig.platforms.includes(platform.id) ? '2px solid #28a745' : '1px solid #ddd',
+                borderRadius: '8px',
+                cursor: platform.available ? 'pointer' : 'not-allowed',
+                opacity: platform.available ? 1 : 0.6
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={slideshowConfig.platforms.includes(platform.id)}
+                disabled={!platform.available}
+                onChange={(e) => {
+                  const newPlatforms = e.target.checked
+                    ? [...slideshowConfig.platforms, platform.id]
+                    : slideshowConfig.platforms.filter(p => p !== platform.id);
+                  setSlideshowConfig(prev => ({...prev, platforms: newPlatforms}));
+                }}
+                style={{ width: '18px', height: '18px' }}
+              />
+              <span style={{ fontWeight: '600', fontSize: '14px' }}>
+                {platform.label}
+                {!platform.available && ' (Coming Soon)'}
+              </span>
+            </label>
+          ))}
+        </div>
+      </div>
+    )}
+
+    {/* Generate Button */}
+    {uploadedImages.length >= 2 && contentData.title && (
+      <button
+        onClick={async () => {
+          if (!contentData.title.trim()) {
+            alert('Please enter a video title');
+            return;
+          }
+          
+          setGeneratingSlideshow(true);
+          setError('');
+          
+          try {
+            const userData = getUserData();
+            
+            if (!userData?.user_id) {
+              throw new Error('User ID not found');
+            }
+            
+            const response = await fetch(`${API_BASE}/api/slideshow/generate`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+              },
+              body: JSON.stringify({
+                user_id: userData.user_id,
+                images: uploadedImages,
+                title: contentData.title,
+                language: contentData.language || 'english',
+                ...slideshowConfig
+              })
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+              setGeneratedSlideshow(result);
+              alert('✅ Slideshow generated! Scroll down to preview.');
+            } else {
+              throw new Error(result.error || 'Generation failed');
+            }
+          } catch (error) {
+            setError('Slideshow generation failed: ' + error.message);
+            alert('Error: ' + error.message);
+          } finally {
+            setGeneratingSlideshow(false);
+          }
+        }}
+        disabled={generatingSlideshow}
+        style={{
+          width: '100%',
+          padding: '16px',
+          background: generatingSlideshow ? '#ccc' : '#FF0000',
+          color: 'white',
+          border: 'none',
+          borderRadius: '12px',
+          fontSize: '16px',
+          fontWeight: '700',
+          cursor: generatingSlideshow ? 'not-allowed' : 'pointer',
+          transition: 'background 0.3s ease'
+        }}
+      >
+        {generatingSlideshow ? '🎬 Generating Video...' : '🎬 Generate Slideshow Video'}
+      </button>
+    )}
+
+    {/* Preview & Upload */}
+    {generatedSlideshow && (
+      <div style={{
+        marginTop: '40px',
+        padding: '30px',
+        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        borderRadius: '16px',
+        color: 'white'
+      }}>
+        <h3 style={{ marginBottom: '20px', fontSize: '24px' }}>
+          ✅ Your Slideshow is Ready!
+        </h3>
+        
+        <div style={{
+          background: 'rgba(255, 255, 255, 0.1)',
+          padding: '20px',
+          borderRadius: '12px',
+          marginBottom: '20px'
+        }}>
+          <p style={{ fontSize: '16px', marginBottom: '10px' }}>
+            📊 Video Details:
+          </p>
+          <ul style={{ fontSize: '14px', paddingLeft: '20px' }}>
+            <li>Duration: {generatedSlideshow.duration} seconds</li>
+            <li>Images: {generatedSlideshow.image_count}</li>
+            <li>Platforms: {slideshowConfig.platforms.length}</li>
+          </ul>
+        </div>
+
+        <video 
+          controls 
+          style={{
+            width: '100%',
+            maxWidth: '400px',
+            borderRadius: '12px',
+            marginBottom: '20px',
+            display: 'block',
+            margin: '0 auto 20px auto'
+          }}
+        >
+          <source src={generatedSlideshow.video_url} type="video/mp4" />
+          Your browser does not support video playback.
+        </video>
+
+        <button
+          onClick={async () => {
+            if (!confirm(`Upload to ${slideshowConfig.platforms.length} platform(s)?`)) {
+              return;
+            }
+            
+            setLoading(true);
+            
+            try {
+              const userData = getUserData();
+              
+              const response = await fetch(`${API_BASE}/api/slideshow/upload-multi-platform`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                  user_id: userData.user_id,
+                  video_path: generatedSlideshow.local_path,
+                  platforms: slideshowConfig.platforms,
+                  metadata: generatedSlideshow.metadata
+                })
+              });
+              
+              const result = await response.json();
+              
+              if (result.success) {
+                alert(`✅ Uploaded to: ${result.platforms_uploaded.join(', ')}`);
+                
+                // Reset form
+                setUploadedImages([]);
+                setGeneratedSlideshow(null);
+                setContentData(prev => ({...prev, title: ''}));
+              } else {
+                alert('Upload failed: ' + result.error);
+              }
+            } catch (error) {
+              alert('Upload error: ' + error.message);
+            } finally {
+              setLoading(false);
+            }
+          }}
+          disabled={loading}
+          style={{
+            width: '100%',
+            padding: '16px',
+            background: loading ? '#ccc' : '#28a745',
+            color: 'white',
+            border: 'none',
+            borderRadius: '12px',
+            fontSize: '16px',
+            fontWeight: '700',
+            cursor: loading ? 'not-allowed' : 'pointer'
+          }}
+        >
+          {loading ? '📤 Uploading...' : `📤 Upload to ${slideshowConfig.platforms.length} Platform(s)`}
+        </button>
+      </div>
+    )}
+
+    {/* Tips */}
+    <div style={{
+      marginTop: '30px',
+      padding: '20px',
+      background: '#f8f9fa',
+      borderRadius: '12px',
+      border: '1px solid #ddd'
+    }}>
+      <h4 style={{ color: '#333', marginBottom: '12px' }}>💡 Pro Tips:</h4>
+      <ul style={{ fontSize: '14px', color: '#666', paddingLeft: '20px' }}>
+        <li>Use high-quality images (1080p recommended)</li>
+        <li>Keep consistent aspect ratio for best results</li>
+        <li>Add relevant keywords in the title for better reach</li>
+        <li>2-second duration works best for Shorts/Reels</li>
+        <li>Total video length: {uploadedImages.length * slideshowConfig.duration_per_image} seconds</li>
+      </ul>
+    </div>
+  </div>
+)}
 
 
 
@@ -3892,6 +4436,9 @@ onClick={async () => {
             boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2)', 
             textAlign: 'center' 
           }}>
+
+
+
             <div style={{ fontSize: '64px', marginBottom: '20px' }}>🔗</div>
             <h3 style={{ color: '#FF0000', marginBottom: '20px' }}>
               YouTube Not Connected
