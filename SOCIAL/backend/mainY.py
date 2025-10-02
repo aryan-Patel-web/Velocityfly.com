@@ -3063,10 +3063,13 @@ from slideshow_generator import get_slideshow_generator
 
 # Add this endpoint after line 1200 (after youtube upload endpoints)
 
+import time
+from typing import List, Dict
+
 @app.post("/api/slideshow/generate")
 async def generate_slideshow(request: dict):
     """
-    Generate slideshow from uploaded images
+    Start slideshow generation (returns immediately, processes in background)
     
     Request body:
     {
@@ -3078,20 +3081,21 @@ async def generate_slideshow(request: dict):
         "transition": "fade",  // fade/slide/zoom
         "music_style": "upbeat",  // upbeat/calm/energetic
         "add_text": true,
-        "platforms": ["youtube_shorts", "instagram_reels", "facebook_ads"]
+        "platforms": ["youtube_shorts"]
     }
     """
     try:
-        logger.info(f"🎬 Slideshow request from user: {request.get('user_id')}")
+        user_id = request.get('user_id')
+        logger.info(f"🎬 Slideshow request from user: {user_id}")
         
         # Validate
         images = request.get('images', [])
         if not 2 <= len(images) <= 6:
             raise HTTPException(status_code=400, detail="Upload 2-6 images")
         
-        # Generate slideshow
-        slideshow_gen = get_slideshow_generator()
-        result = await slideshow_gen.generate_slideshow(
+        # Start background task (won't block)
+        asyncio.create_task(generate_slideshow_background(
+            user_id=user_id,
             images=images,
             title=request.get('title', 'Video'),
             language=request.get('language', 'english'),
@@ -3099,83 +3103,116 @@ async def generate_slideshow(request: dict):
             transition=request.get('transition', 'fade'),
             add_text=request.get('add_text', True),
             music_style=request.get('music_style', 'upbeat'),
-            aspect_ratio="9:16"  # Shorts/Reels format
-        )
+            platforms=request.get('platforms', ['youtube_shorts'])
+        ))
         
-        if not result.get('success'):
-            raise HTTPException(status_code=500, detail=result.get('error'))
-        
-        # Generate platform-specific metadata using AI
-        platforms = request.get('platforms', ['youtube_shorts'])
-        metadata = await _generate_platform_metadata(
-            request.get('title'),
-            request.get('language'),
-            platforms
-        )
-        
+        # Return immediately
         return {
             "success": True,
-            "video_url": result['video_url'],
-            "thumbnail_url": result['thumbnail_url'],
-            "duration": result['duration'],
-            "platforms_ready": platforms,
-            "metadata": metadata,
-            "local_path": result.get('local_path')  # For direct YouTube upload
+            "message": "Video generation started",
+            "status": "processing",
+            "estimated_time_seconds": 30,
+            "note": "Video will be automatically uploaded to YouTube in ~30 seconds. Check your channel!"
         }
         
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Slideshow generation failed: {e}")
+        logger.error(f"Slideshow request failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
-async def _generate_platform_metadata(title: str, language: str, platforms: List[str]) -> Dict:
-    """Generate platform-specific titles, descriptions, hashtags using AI"""
-    
-    if not ai_service:
-        # Fallback without AI
-        return {
-            platform: {
-                "title": title,
-                "description": f"Check out {title}!",
-                "hashtags": ["#trending", "#viral", "#shorts"]
-            }
-            for platform in platforms
-        }
-    
-    # Use your existing Mistral/Groq AI
-    metadata = {}
-    
-    for platform in platforms:
-        prompt = f"""Create {platform} metadata in {language}:
-
-Title: {title}
-
-Generate:
-1. Catchy title (50 chars max)
-2. Description with hooks
-3. 10 trending hashtags
-
-Platform: {platform}
-Language: {language}
-Format: JSON"""
+async def generate_slideshow_background(
+    user_id: str,
+    images: List[str],
+    title: str,
+    language: str,
+    duration_per_image: float,
+    transition: str,
+    add_text: bool,
+    music_style: str,
+    platforms: List[str]
+):
+    """Background task - generates video and uploads to YouTube"""
+    try:
+        logger.info(f"🎬 Background generation started for user: {user_id}")
         
-        ai_result = await ai_service.generate_youtube_content(
-            content_type="shorts",
-            topic=title,
+        # Generate slideshow
+        slideshow_gen = get_slideshow_generator()
+        result = await slideshow_gen.generate_slideshow(
+            images=images,
+            title=title,
             language=language,
-            region="india"
+            duration_per_image=duration_per_image,
+            transition=transition,
+            add_text=add_text,
+            music_style=music_style,
+            aspect_ratio="9:16"
         )
         
-        if ai_result.get('success'):
-            metadata[platform] = {
-                "title": ai_result.get('title', title)[:50],
-                "description": ai_result.get('description', ''),
-                "hashtags": ai_result.get('tags', [])[:10]
-            }
+        if not result.get('success'):
+            logger.error(f"❌ Generation failed: {result.get('error')}")
+            return
+        
+        logger.info(f"✅ Video generated: {result['local_path']}")
+        
+        # Auto-upload to YouTube
+        if 'youtube_shorts' in platforms:
+            try:
+                credentials = await database_manager.get_youtube_credentials(user_id)
+                
+                if credentials:
+                    logger.info(f"📤 Uploading to YouTube for user: {user_id}")
+                    
+                    upload_result = await youtube_scheduler.generate_and_upload_content(
+                        user_id=user_id,
+                        credentials_data=credentials,
+                        content_type="shorts",
+                        title=title,
+                        description=f"Created with AI slideshow generator\n\n{title}",
+                        video_url=result['local_path']  # Use local file path
+                    )
+                    
+                    if upload_result.get('success'):
+                        logger.info(f"✅ Video uploaded to YouTube: {upload_result.get('video_id')}")
+                    else:
+                        logger.error(f"❌ Upload failed: {upload_result.get('error')}")
+                else:
+                    logger.warning(f"No YouTube credentials for user: {user_id}")
+                    
+            except Exception as upload_error:
+                logger.error(f"Upload error: {upload_error}")
+        
+        # Clean up temp files after 5 minutes
+        await asyncio.sleep(300)
+        try:
+            import shutil
+            shutil.rmtree(Path(result['local_path']).parent, ignore_errors=True)
+            logger.info(f"🗑️ Cleaned up temp files")
+        except Exception as cleanup_error:
+            logger.warning(f"Cleanup failed: {cleanup_error}")
+        
+    except Exception as e:
+        logger.error(f"❌ Background generation failed: {e}")
+
+
+async def _generate_platform_metadata(title: str, language: str, platforms: List[str]) -> Dict:
+    """Generate platform-specific metadata using AI (fallback if AI unavailable)"""
     
-    return metadata
+    # Simple fallback - AI generation removed since it's now auto-uploading
+    return {
+        platform: {
+            "title": title[:50],
+            "description": f"Check out {title}!",
+            "hashtags": ["#shorts", "#trending", "#viral"]
+        }
+        for platform in platforms
+    }
+
+
+
+
+
 
 
 @app.post("/api/slideshow/upload-multi-platform")

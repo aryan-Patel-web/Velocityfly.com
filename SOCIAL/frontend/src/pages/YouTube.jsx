@@ -4422,72 +4422,97 @@ onClick={async () => {
       </div>
     )}
 
-    {/* Generate Button */}
-    {uploadedImages.length >= 2 && contentData.title && (
-      <button
-        onClick={async () => {
-          if (!contentData.title.trim()) {
-            alert('Please enter a video title');
-            return;
-          }
+
+
+
+
+{/* Generate Button */}
+{uploadedImages.length >= 2 && contentData.title && (
+  <button
+    onClick={async () => {
+      if (!contentData.title.trim()) {
+        alert('Please enter a video title');
+        return;
+      }
+      
+      setGeneratingSlideshow(true);
+      setError('');
+      
+      try {
+        const userData = getUserData();
+        
+        if (!userData?.user_id) {
+          throw new Error('User ID not found');
+        }
+        
+        const response = await fetch(`${API_BASE}/api/slideshow/generate`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            user_id: userData.user_id,
+            images: uploadedImages,
+            title: contentData.title,
+            language: contentData.language || 'english',
+            ...slideshowConfig
+          })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+          // Show success message with instructions
+          alert(
+            `✅ ${result.message}\n\n` +
+            `${result.note}\n\n` +
+            `⏱️ Estimated time: ${result.estimated_time_seconds} seconds\n\n` +
+            `Your video will appear on your YouTube channel automatically.`
+          );
           
-          setGeneratingSlideshow(true);
+          // Reset form
+          setUploadedImages([]);
+          setContentData(prev => ({...prev, title: ''}));
           setError('');
           
-          try {
-            const userData = getUserData();
-            
-            if (!userData?.user_id) {
-              throw new Error('User ID not found');
-            }
-            
-            const response = await fetch(`${API_BASE}/api/slideshow/generate`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-              },
-              body: JSON.stringify({
-                user_id: userData.user_id,
-                images: uploadedImages,
-                title: contentData.title,
-                language: contentData.language || 'english',
-                ...slideshowConfig
-              })
-            });
-            
-            const result = await response.json();
-            
-            if (result.success) {
-              setGeneratedSlideshow(result);
-              alert('✅ Slideshow generated! Scroll down to preview.');
-            } else {
-              throw new Error(result.error || 'Generation failed');
-            }
-          } catch (error) {
-            setError('Slideshow generation failed: ' + error.message);
-            alert('Error: ' + error.message);
-          } finally {
-            setGeneratingSlideshow(false);
-          }
-        }}
-        disabled={generatingSlideshow}
-        style={{
-          width: '100%',
-          padding: '16px',
-          background: generatingSlideshow ? '#ccc' : '#FF0000',
-          color: 'white',
-          border: 'none',
-          borderRadius: '12px',
-          fontSize: '16px',
-          fontWeight: '700',
-          cursor: generatingSlideshow ? 'not-allowed' : 'pointer',
-          transition: 'background 0.3s ease'
-        }}
-      >
-        {generatingSlideshow ? '🎬 Generating Video...' : '🎬 Generate Slideshow Video'}
-      </button>
-    )}
+          // Optional: Show notification
+          setError(''); // Clear any previous errors
+          
+        } else {
+          throw new Error(result.error || result.message || 'Generation failed');
+        }
+      } catch (error) {
+        console.error('Slideshow error:', error);
+        setError('Request failed: ' + error.message);
+        alert('Error: ' + error.message);
+      } finally {
+        setGeneratingSlideshow(false);
+      }
+    }}
+    disabled={generatingSlideshow}
+    style={{
+      width: '100%',
+      padding: '16px',
+      background: generatingSlideshow ? '#ccc' : '#FF0000',
+      color: 'white',
+      border: 'none',
+      borderRadius: '12px',
+      fontSize: '16px',
+      fontWeight: '700',
+      cursor: generatingSlideshow ? 'not-allowed' : 'pointer',
+      transition: 'background 0.3s ease'
+    }}
+  >
+    {generatingSlideshow ? '⏳ Submitting...' : '🚀 Generate & Upload to YouTube'}
+  </button>
+)}
+
+
+
+
+
+
 
     {/* Preview & Upload */}
     {generatedSlideshow && (
