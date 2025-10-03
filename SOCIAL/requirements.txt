@@ -1,38 +1,76 @@
-# Essential Core
+# Core FastAPI and ASGI Server
 fastapi==0.104.1
 uvicorn[standard]==0.24.0
-pydantic==2.5.0
-python-dotenv==1.0.0
 
-# Reddit Integration
-praw==7.7.1
-httpx==0.25.2
+# Database - MongoDB
+motor==3.6.0
+pymongo==4.9.1
 
-# AI Services
-mistralai==0.1.2
+# Authentication & Security
+bcrypt==4.1.2
+PyJWT==2.8.0
+python-jose[cryptography]==3.3.0
+cryptography==41.0.7
+
+# HTTP Requests (replaces mistralai)
+requests==2.31.0
+httpx>=0.25.2
+
+# AI Services - HTTP API only (no pyarrow dependencies)
 groq==0.4.1
 
-# Database
-pymongo==4.6.0
-motor==3.3.2
+# Configuration & Environment
+python-dotenv==1.0.0
 
-# Authentication
-python-jose[cryptography]==3.3.0
-cryptography==41.0.8
+# Data Validation
+pydantic[email]==2.9.2
+pydantic-core==2.23.4
 
-# Utilities
-python-dateutil==2.8.2
+# Scheduling & Background Tasks
 schedule==1.2.0
 
-# Production
-gunicorn==21.2.0
+# File Upload & Form Handling
+python-multipart==0.0.6
+
+# Additional Dependencies for Production
+aiofiles==23.2.1
+python-dateutil==2.8.2
+
+# Development & Debugging
+rich==13.7.0
 
 
-# NEW: YouTube Thumbnail Generation
-Pillow==10.1.0
 
-# NEW: Google APIs (YouTube)
+
+# Google APIs (YouTube)
+google-api-python-client==2.108.0
 google-auth==2.23.4
 google-auth-oauthlib==1.1.0
-google-auth-httplib2==0.1.1
-google-api-python-client==2.108.0
+google-auth-httplib2==0.2.0
+
+
+# Social Media Content Templates
+# beautifulsoup4==4.12.2
+
+
+# System Information
+psutil==5.9.6
+
+# Social Media Specific
+tweepy==4.14.0
+
+
+# WhatsApp Cloud API
+facebook-business==18.0.2
+
+
+# NEW: Image Processing for Thumbnails
+Pillow==10.4.0
+
+# NEW: For product scraping
+
+playwright==1.40.0
+
+beautifulsoup4==4.12.2
+lxml==4.9.3
+
