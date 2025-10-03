@@ -29,7 +29,7 @@ import base64
 from fastapi.exceptions import RequestValidationError
 from fastapi.encoders import jsonable_encoder
 from enum import Enum
-
+from pathlib import Path
 # Load environment variables
 from dotenv import load_dotenv
 load_dotenv()

@@ -11,7 +11,7 @@ import base64
 import io
 import gc
 from pathlib import Path
-from typing import List, Dict, Any, Tuple
+from typing import List, Dict, Any, Tuple, Optional
 from PIL import Image, ImageDraw, ImageFont
 
 logger = logging.getLogger(__name__)
@@ -27,8 +27,22 @@ class SlideshowGenerator:
     ]
     
     def __init__(self):
-        self.ffmpeg_path = "ffmpeg"
+        self.ffmpeg_path = self._find_ffmpeg()
         self.temp_dir = tempfile.gettempdir()
+        logger.info(f"SlideshowGenerator initialized - FFmpeg: {self.ffmpeg_path}")
+    
+    def _find_ffmpeg(self) -> str:
+        """Find FFmpeg executable"""
+        try:
+            result = subprocess.run(['which', 'ffmpeg'], 
+                                  capture_output=True, 
+                                  text=True, 
+                                  timeout=5)
+            if result.returncode == 0:
+                return result.stdout.strip()
+        except:
+            pass
+        return "ffmpeg"  # Fallback
     
     async def generate_slideshow(
         self,
@@ -46,9 +60,19 @@ class SlideshowGenerator:
         if not 2 <= len(images) <= 6:
             return {"success": False, "error": "Upload 2-6 images"}
         
-        session_id = f"slideshow_{int(asyncio.get_event_loop().time() * 1000)}"
+        # Get event loop safely
+        try:
+            loop = asyncio.get_running_loop()
+            timestamp = int(loop.time() * 1000)
+        except:
+            import time
+            timestamp = int(time.time() * 1000)
+        
+        session_id = f"slideshow_{timestamp}"
         work_dir = Path(self.temp_dir) / session_id
-        work_dir.mkdir(exist_ok=True)
+        work_dir.mkdir(exist_ok=True, parents=True)
+        
+        logger.info(f"Working directory: {work_dir}")
         
         # Try each quality tier
         for tier_index, quality_tier in enumerate(self.QUALITY_TIERS):
@@ -59,6 +83,9 @@ class SlideshowGenerator:
                 image_paths = await self._save_images_optimized(
                     images, work_dir, quality_tier['resolution']
                 )
+                
+                if not image_paths:
+                    raise Exception("No images were saved")
                 
                 # Step 2: Add text overlays
                 if add_text:
@@ -73,6 +100,9 @@ class SlideshowGenerator:
                     quality_tier,
                     work_dir
                 )
+                
+                if not video_path or not video_path.exists():
+                    raise Exception("Video file was not created")
                 
                 # Step 4: Generate thumbnail
                 thumbnail_path = await self._generate_thumbnail(image_paths[0], work_dir)
@@ -92,15 +122,18 @@ class SlideshowGenerator:
                 }
                 
             except Exception as e:
-                logger.warning(f"❌ {quality_tier['name']} failed: {e}")
+                logger.error(f"❌ {quality_tier['name']} failed: {e}")
+                import traceback
+                logger.error(f"Traceback: {traceback.format_exc()}")
                 
                 # Clean up failed attempt
                 try:
                     import shutil
-                    shutil.rmtree(work_dir, ignore_errors=True)
-                    work_dir.mkdir(exist_ok=True)
-                except:
-                    pass
+                    if work_dir.exists():
+                        shutil.rmtree(work_dir, ignore_errors=True)
+                        work_dir.mkdir(exist_ok=True, parents=True)
+                except Exception as cleanup_err:
+                    logger.warning(f"Cleanup failed: {cleanup_err}")
                 
                 # Force garbage collection
                 gc.collect()
@@ -114,7 +147,11 @@ class SlideshowGenerator:
                 
                 # Otherwise, continue to next tier
                 logger.info(f"⏩ Retrying with {self.QUALITY_TIERS[tier_index + 1]['name']}")
+                await asyncio.sleep(1)  # Brief pause before retry
                 continue
+        
+        # Should never reach here
+        return {"success": False, "error": "Unknown error in slideshow generation"}
     
     async def _save_images_optimized(
         self, 
@@ -128,8 +165,11 @@ class SlideshowGenerator:
         for idx, img_b64 in enumerate(images):
             try:
                 # Validate format
-                if not isinstance(img_b64, str) or not img_b64.startswith('data:image/'):
-                    raise ValueError(f"Image {idx + 1} invalid format")
+                if not isinstance(img_b64, str):
+                    raise ValueError(f"Image {idx + 1} is not a string")
+                
+                if not img_b64.startswith('data:image/'):
+                    raise ValueError(f"Image {idx + 1} invalid format (must start with data:image/)")
                 
                 # Extract base64
                 if 'base64,' in img_b64:
@@ -139,14 +179,21 @@ class SlideshowGenerator:
                 
                 # Decode
                 img_b64 = img_b64.strip()
-                img_data = base64.b64decode(img_b64)
+                
+                try:
+                    img_data = base64.b64decode(img_b64)
+                except Exception as decode_err:
+                    raise ValueError(f"Image {idx + 1} base64 decode failed: {decode_err}")
                 
                 if len(img_data) < 100:
-                    raise ValueError(f"Image {idx + 1} data too small")
+                    raise ValueError(f"Image {idx + 1} data too small ({len(img_data)} bytes)")
                 
                 # Load image
-                img = Image.open(io.BytesIO(img_data))
-                img.load()
+                try:
+                    img = Image.open(io.BytesIO(img_data))
+                    img.load()
+                except Exception as img_err:
+                    raise ValueError(f"Image {idx + 1} failed to load: {img_err}")
                 
                 # Resize immediately (memory critical)
                 img = self._resize_with_padding(img, target_size)
@@ -163,9 +210,10 @@ class SlideshowGenerator:
                 gc.collect()
                 
                 image_paths.append(img_path)
-                logger.info(f"✅ Image {idx + 1} saved")
+                logger.info(f"✅ Image {idx + 1} saved: {img_path}")
                 
             except Exception as e:
+                logger.error(f"Failed to save image {idx + 1}: {e}")
                 raise ValueError(f"Image {idx + 1} failed: {str(e)}")
         
         return image_paths
@@ -207,30 +255,29 @@ class SlideshowGenerator:
             font = None
         
         for idx, img_path in enumerate(image_paths):
-            img = Image.open(img_path)
-            draw = ImageDraw.Draw(img)
-            
-            if idx == 0 and title and font:  # Only first image
-                text = title[:50]  # Limit length
+            try:
+                img = Image.open(img_path)
+                draw = ImageDraw.Draw(img)
                 
-                # Simple centered text
-                x = img.width // 4
-                y = 100
+                if idx == 0 and title and font:
+                    text = title[:50]
+                    x = img.width // 4
+                    y = 100
+                    draw.text((x+2, y+2), text, fill=(0, 0, 0), font=font)
+                    draw.text((x, y), text, fill=(255, 255, 255), font=font)
                 
-                # Shadow
-                draw.text((x+2, y+2), text, fill=(0, 0, 0), font=font)
-                # Main text
-                draw.text((x, y), text, fill=(255, 255, 255), font=font)
-            
-            overlay_path = work_dir / f"overlay_{idx:03d}.jpg"
-            img.save(overlay_path, "JPEG", quality=75)
-            overlay_paths.append(overlay_path)
-            
-            img.close()
-            del img
-            gc.collect()
+                overlay_path = work_dir / f"overlay_{idx:03d}.jpg"
+                img.save(overlay_path, "JPEG", quality=75)
+                overlay_paths.append(overlay_path)
+                
+                img.close()
+                del img
+                gc.collect()
+            except Exception as overlay_err:
+                logger.warning(f"Text overlay failed for image {idx}: {overlay_err}")
+                overlay_paths.append(img_path)  # Use original
         
-        return overlay_paths
+        return overlay_paths if overlay_paths else image_paths
     
     async def _create_video_ffmpeg(
         self,
@@ -238,7 +285,7 @@ class SlideshowGenerator:
         duration: float,
         quality_tier: dict,
         work_dir: Path
-    ) -> Path:
+    ) -> Optional[Path]:
         """Generate video with memory-optimized FFmpeg settings"""
         output_path = work_dir / "output.mp4"
         
@@ -268,35 +315,47 @@ class SlideshowGenerator:
             str(output_path)
         ]
         
-        logger.info(f"🎥 FFmpeg command: {' '.join(cmd[:8])}...")
+        logger.info(f"🎥 Running FFmpeg: {' '.join(cmd[:8])}...")
         
-        process = await asyncio.create_subprocess_exec(
-            *cmd,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE
-        )
-        
-        stdout, stderr = await process.communicate()
-        
-        if process.returncode != 0:
-            error_msg = stderr.decode()[:500]
-            raise Exception(f"FFmpeg failed: {error_msg}")
-        
-        file_size = output_path.stat().st_size / 1024 / 1024
-        logger.info(f"✅ Video: {file_size:.2f} MB")
-        
-        return output_path
+        try:
+            process = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+            
+            stdout, stderr = await process.communicate()
+            
+            if process.returncode != 0:
+                error_msg = stderr.decode()[:1000]
+                logger.error(f"FFmpeg stderr: {error_msg}")
+                raise Exception(f"FFmpeg failed with code {process.returncode}")
+            
+            if not output_path.exists():
+                raise Exception("FFmpeg completed but output file not found")
+            
+            file_size = output_path.stat().st_size / 1024 / 1024
+            logger.info(f"✅ Video created: {file_size:.2f} MB")
+            
+            return output_path
+            
+        except Exception as ffmpeg_err:
+            logger.error(f"FFmpeg execution failed: {ffmpeg_err}")
+            raise
     
     async def _generate_thumbnail(self, first_image: Path, work_dir: Path) -> Path:
         """Generate thumbnail"""
         thumb_path = work_dir / "thumbnail.jpg"
         
-        img = Image.open(first_image)
-        img.thumbnail((640, 360), Image.Resampling.LANCZOS)
-        img.save(thumb_path, "JPEG", quality=75)
-        img.close()
-        
-        return thumb_path
+        try:
+            img = Image.open(first_image)
+            img.thumbnail((640, 360), Image.Resampling.LANCZOS)
+            img.save(thumb_path, "JPEG", quality=75)
+            img.close()
+            return thumb_path
+        except Exception as thumb_err:
+            logger.warning(f"Thumbnail generation failed: {thumb_err}")
+            return first_image  # Return original as fallback
 
 
 # Global instance

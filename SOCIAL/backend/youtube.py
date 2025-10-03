@@ -985,6 +985,9 @@ class YouTubeOAuthConnector:
 # ============================================================================
 # AUTOMATION SCHEDULER
 # ============================================================================
+# ============================================================================
+# AUTOMATION SCHEDULER
+# ============================================================================
 
 class YouTubeAutomationScheduler:
     """YouTube content automation scheduler"""
@@ -1006,10 +1009,8 @@ class YouTubeAutomationScheduler:
     ) -> Dict[str, Any]:
         """Setup YouTube automation for user"""
         try:
-            # Create config object
             config = YouTubeConfig(user_id=user_id, **config_data)
             
-            # Store configuration in memory
             self.active_configs[user_id] = {
                 "youtube_automation": {
                     "config": config,
@@ -1021,7 +1022,6 @@ class YouTubeAutomationScheduler:
                 }
             }
             
-            # Save to database
             if self.database:
                 await self.database.store_automation_config(
                     user_id=user_id,
@@ -1053,25 +1053,9 @@ class YouTubeAutomationScheduler:
         description: str = None,
         video_url: str = None,
         thumbnail_url: str = None,
-        
     ) -> Dict[str, Any]:
-        """
-        Generate and upload YouTube content
-        
-        Args:
-            user_id: User ID
-            credentials_data: OAuth credentials
-            content_type: shorts or videos
-            title: Video title (optional, will be generated if not provided)
-            description: Video description (optional)
-            video_url: URL to video file
-            thumbnail_url: Base64 encoded thumbnail
-            
-        Returns:
-            Dict with upload result
-        """
+        """Generate and upload YouTube content"""
         try:
-            # Generate content using AI if not provided
             if not title or not description:
                 ai_content = await self._generate_video_content(user_id, content_type)
                 if not ai_content.get("success"):
@@ -1083,9 +1067,7 @@ class YouTubeAutomationScheduler:
             else:
                 tags = []
             
-            # Handle video upload if video_url is provided
             if video_url:
-                # Download video temporarily
                 temp_video_path = await self._download_video_temporarily(video_url)
                 
                 if not temp_video_path:
@@ -1094,7 +1076,6 @@ class YouTubeAutomationScheduler:
                         "error": "Failed to download video"
                     }
                 
-                # Upload to YouTube
                 upload_result = await self.youtube_connector.upload_video(
                     credentials_data=credentials_data,
                     video_file_path=temp_video_path,
@@ -1105,13 +1086,12 @@ class YouTubeAutomationScheduler:
                     thumbnail_data=thumbnail_url
                 )
                 
-                # Clean up temp file
                 try:
+                    import os
                     os.unlink(temp_video_path)
                 except Exception as e:
                     logger.warning(f"Failed to delete temp file: {e}")
                 
-                # Update statistics
                 if user_id in self.active_configs:
                     config = self.active_configs[user_id].get("youtube_automation", {})
                     if upload_result.get("success"):
@@ -1148,7 +1128,6 @@ class YouTubeAutomationScheduler:
                     style="engaging"
                 )
             else:
-                # Fallback content generation
                 content_result = {
                     "success": True,
                     "title": f"AI Generated {content_type.title()} Video",
@@ -1167,27 +1146,33 @@ class YouTubeAutomationScheduler:
     
     async def _download_video_temporarily(self, video_url: str) -> Optional[str]:
         """
-        Download video to temporary file for uploading
+        Download video to temporary file or use local file directly
         
         Args:
-            video_url: URL to video file
+            video_url: URL to video file OR local file path
             
         Returns:
-            str: Path to temporary file, or None if failed
+            str: Path to video file, or None if failed
         """
         try:
+            import os
+            
+            # CHECK IF IT'S A LOCAL FILE FIRST
+            if video_url.startswith('/tmp/') or os.path.exists(video_url):
+                logger.info(f"Using local file directly: {video_url}")
+                return video_url
+            
+            # Original download logic for URLs
             logger.info(f"Downloading video from: {video_url}")
             
             async with httpx.AsyncClient(timeout=60.0, follow_redirects=True) as client:
                 response = await client.get(video_url)
                 
                 if response.status_code == 200:
-                    # Create temporary file
                     temp_file = tempfile.NamedTemporaryFile(
                         delete=False,
                         suffix='.mp4'
                     )
-                    
                     temp_file.write(response.content)
                     temp_file.close()
                     
@@ -1253,6 +1238,11 @@ class YouTubeAutomationScheduler:
         except Exception as e:
             logger.error(f"YouTube status check failed: {e}")
             return {"success": False, "error": str(e)}
+
+
+# ============================================================================
+# BACKGROUND SCHEDULER
+# ============================================================================
 
 
     # ============================================================================
@@ -1369,6 +1359,12 @@ class YouTubeBackgroundScheduler:
                 "failed", 
                 str(e)
             )
+
+
+
+
+
+
 
 
 
