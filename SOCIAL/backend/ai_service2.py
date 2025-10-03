@@ -208,11 +208,8 @@ class AIService2:
                 return response.status_code == 200
         except Exception:
             return False
-    # dcdcdc
     
-    
-    # async def generate_youtube_content(
-        async def generate_youtube_content(
+    async def generate_youtube_content(
         self,
         content_type: str = "shorts",
         topic: str = "general",
@@ -307,19 +304,14 @@ Format as JSON:
 }}
 """
             
-            # Use existing _generate_with_primary_service method
             result = await self._generate_with_primary_service(prompt)
             
             if not result.get("success"):
                 return result
             
-            # Parse JSON response
-            import json
             import re
-            
             content_text = result.get("content", "")
             
-            # Extract JSON from markdown code blocks if present
             json_match = re.search(r'```json\s*(\{.*?\})\s*```', content_text, re.DOTALL)
             if json_match:
                 content_text = json_match.group(1)
@@ -327,13 +319,11 @@ Format as JSON:
             try:
                 content = json.loads(content_text)
             except json.JSONDecodeError:
-                # Fallback if JSON parsing fails
                 return {
                     "success": False,
                     "error": "Failed to parse AI response as JSON"
                 }
             
-            # Add product details to description
             final_desc = f"""{content.get('description', '')}
 
 🛒 Product Details:
@@ -361,11 +351,6 @@ Price: ₹{price}
                 "success": False,
                 "error": str(e)
             }
-
-        
-
-
-    
     
     def _create_multilingual_youtube_prompt(
         self,
