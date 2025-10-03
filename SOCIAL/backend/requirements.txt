@@ -50,10 +50,7 @@ google-auth-httplib2==0.2.0
 
 
 # Social Media Content Templates
-beautifulsoup4==4.12.2
-
-
-
+# beautifulsoup4==4.12.2
 
 
 # System Information
@@ -69,3 +66,8 @@ facebook-business==18.0.2
 
 # NEW: Image Processing for Thumbnails
 Pillow==10.4.0
+
+# NEW: For product scraping
+playwright==1.40.0
+beautifulsoup4==4.12.2
+lxml==4.9.3

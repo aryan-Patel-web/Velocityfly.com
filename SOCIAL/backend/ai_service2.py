@@ -208,8 +208,11 @@ class AIService2:
                 return response.status_code == 200
         except Exception:
             return False
+    # dcdcdc
     
-    async def generate_youtube_content(
+    
+    # async def generate_youtube_content(
+        async def generate_youtube_content(
         self,
         content_type: str = "shorts",
         topic: str = "general",
@@ -255,6 +258,114 @@ class AIService2:
         except Exception as e:
             logger.error(f"YouTube content generation failed: {e}")
             return {"success": False, "error": str(e)}
+    
+    async def generate_product_promo_content(
+        self,
+        product_data: Dict,
+        target_audience: str = "young_adults",
+        style: str = "trendy"
+    ) -> Dict:
+        """
+        Generate promotional content for product
+        
+        Args:
+            product_data: Scraped product data
+            target_audience: young_adults, professionals, students
+            style: trendy, professional, casual, energetic
+        """
+        try:
+            product_name = product_data.get("product_name", "")
+            brand = product_data.get("brand", "")
+            price = product_data.get("price", 0)
+            discount = product_data.get("discount", "")
+            colors = product_data.get("colors", [])
+            sizes = product_data.get("sizes", [])
+            
+            prompt = f"""Create promotional content for YouTube Short:
+
+Product: {product_name}
+Brand: {brand}
+Price: ₹{price} {discount}
+Available: {', '.join(colors[:3])} colors, {', '.join(sizes)} sizes
+Target: {target_audience}, Style: {style}
+
+Generate:
+1. Catchy title (max 60 chars) with product name and brand
+2. Engaging description with:
+   - Hook line
+   - Product features
+   - Price and discount highlight
+   - Call-to-action
+   - Product link placeholder: {{{{PRODUCT_URL}}}}
+3. 15 trending hashtags related to product category, style, and audience
+
+Format as JSON:
+{{
+  "title": "...",
+  "description": "...",
+  "hashtags": ["fashion", "trending", ...]
+}}
+"""
+            
+            # Use existing _generate_with_primary_service method
+            result = await self._generate_with_primary_service(prompt)
+            
+            if not result.get("success"):
+                return result
+            
+            # Parse JSON response
+            import json
+            import re
+            
+            content_text = result.get("content", "")
+            
+            # Extract JSON from markdown code blocks if present
+            json_match = re.search(r'```json\s*(\{.*?\})\s*```', content_text, re.DOTALL)
+            if json_match:
+                content_text = json_match.group(1)
+            
+            try:
+                content = json.loads(content_text)
+            except json.JSONDecodeError:
+                # Fallback if JSON parsing fails
+                return {
+                    "success": False,
+                    "error": "Failed to parse AI response as JSON"
+                }
+            
+            # Add product details to description
+            final_desc = f"""{content.get('description', '')}
+
+🛒 Product Details:
+Brand: {brand}
+Price: ₹{price}
+{f'💰 Save {discount}!' if discount else ''}
+{f'Colors: {", ".join(colors[:3])}' if colors else ''}
+{f'Sizes: {", ".join(sizes)}' if sizes else ''}
+
+🔗 Buy Now: {{{{PRODUCT_URL}}}}
+
+{' '.join(['#' + tag for tag in content.get('hashtags', [])[:15]])}
+"""
+            
+            return {
+                "success": True,
+                "title": content.get('title', product_name),
+                "description": final_desc,
+                "hashtags": content.get('hashtags', [])
+            }
+            
+        except Exception as e:
+            logger.error(f"Product content generation failed: {e}")
+            return {
+                "success": False,
+                "error": str(e)
+            }
+
+        
+
+
+    
     
     def _create_multilingual_youtube_prompt(
         self,

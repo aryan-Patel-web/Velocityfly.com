@@ -3338,6 +3338,108 @@ async def check_ffmpeg():
     except Exception as e:
         return {"ffmpeg_installed": False, "error": str(e)}
 
+from YTscrapADS import get_product_scraper
+
+@app.post("/api/product-video/generate")
+async def generate_product_promo_video(request: dict):
+    """
+    Generate promotional video from product URL
+    
+    Request:
+    {
+        "user_id": "...",
+        "product_url": "https://flipkart.com/...",
+        "duration_per_image": 1.5,
+        "manual_title": "",  # Optional override
+        "manual_description": "",  # Optional override
+        "auto_upload": true
+    }
+    """
+    try:
+        user_id = request.get('user_id')
+        product_url = request.get('product_url')
+        
+        if not product_url:
+            raise HTTPException(status_code=400, detail="Product URL required")
+        
+        # Step 1: Scrape product
+        scraper = get_product_scraper()
+        product_data = await scraper.scrape_product(product_url)
+        
+        if not product_data.get('success'):
+            return product_data
+        
+        # Step 2: Generate AI content
+        ai_content = await ai_service.generate_product_promo_content(
+            product_data,
+            target_audience=request.get('target_audience', 'young_adults'),
+            style=request.get('style', 'trendy')
+        )
+        
+        # Step 3: Use manual overrides if provided
+        title = request.get('manual_title') or ai_content['title']
+        description = request.get('manual_description') or ai_content['description']
+        
+        # Replace product URL placeholder
+        description = description.replace('{{PRODUCT_URL}}', product_url)
+        
+        # Step 4: Generate video from product images
+        slideshow_gen = get_slideshow_generator()
+        
+        # Convert images to data URLs (since they're from web)
+        import httpx
+        image_data_urls = []
+        for img_url in product_data['images'][:6]:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(img_url)
+                if response.status_code == 200:
+                    import base64
+                    b64 = base64.b64encode(response.content).decode()
+                    image_data_urls.append(f"data:image/jpeg;base64,{b64}")
+        
+        video_result = await slideshow_gen.generate_slideshow(
+            images=image_data_urls,
+            title=title,
+            duration_per_image=request.get('duration_per_image', 1.5),
+            add_text=True,
+            aspect_ratio="9:16"
+        )
+        
+        if not video_result.get('success'):
+            return video_result
+        
+        # Step 5: Upload to YouTube
+        if request.get('auto_upload', True):
+            credentials = await database_manager.get_youtube_credentials(user_id)
+            
+            if credentials:
+                upload_result = await youtube_scheduler.generate_and_upload_content(
+                    user_id=user_id,
+                    credentials_data=credentials,
+                    content_type="shorts",
+                    title=title,
+                    description=description,
+                    video_url=video_result['local_path']
+                )
+                
+                return {
+                    "success": True,
+                    "video_generated": video_result,
+                    "youtube_upload": upload_result,
+                    "product_data": product_data
+                }
+        
+        return {
+            "success": True,
+            "video_generated": video_result,
+            "product_data": product_data,
+            "ai_content": ai_content
+        }
+        
+    except Exception as e:
+        logger.error(f"Product video generation failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 # Main application runner
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 8000))

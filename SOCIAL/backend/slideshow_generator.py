@@ -53,7 +53,8 @@ class SlideshowGenerator:
         transition: str = "fade",
         add_text: bool = True,
         music_style: str = "upbeat",
-        aspect_ratio: str = "9:16"
+        aspect_ratio: str = "9:16",
+        product_data: Dict = None
     ) -> Dict[str, Any]:
         """Generate slideshow with automatic quality fallback"""
         
@@ -87,13 +88,18 @@ class SlideshowGenerator:
                 if not image_paths:
                     raise Exception("No images were saved")
                 
-                # Step 2: Add text overlays
-                if add_text:
+                # Step 2: Add product overlays if product data provided
+                if product_data:
+                    image_paths = await self._add_product_overlays(
+                        image_paths, product_data, work_dir
+                    )
+                # Step 3: Add text overlays (for regular slideshows)
+                elif add_text:
                     image_paths = await self._add_text_overlays(
                         image_paths, title, language, work_dir
                     )
                 
-                # Step 3: Generate video with FFmpeg
+                # Step 4: Generate video with FFmpeg
                 video_path = await self._create_video_ffmpeg(
                     image_paths,
                     duration_per_image,
@@ -104,7 +110,7 @@ class SlideshowGenerator:
                 if not video_path or not video_path.exists():
                     raise Exception("Video file was not created")
                 
-                # Step 4: Generate thumbnail
+                # Step 5: Generate thumbnail
                 thumbnail_path = await self._generate_thumbnail(image_paths[0], work_dir)
                 
                 # SUCCESS - return result
@@ -275,6 +281,64 @@ class SlideshowGenerator:
                 gc.collect()
             except Exception as overlay_err:
                 logger.warning(f"Text overlay failed for image {idx}: {overlay_err}")
+                overlay_paths.append(img_path)  # Use original
+        
+        return overlay_paths if overlay_paths else image_paths
+    
+    async def _add_product_overlays(
+        self,
+        image_paths: List[Path],
+        product_data: Dict,
+        work_dir: Path
+    ) -> List[Path]:
+        """Add product info overlays to images"""
+        overlay_paths = []
+        
+        try:
+            font_large = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 48)
+            font_small = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 32)
+        except:
+            font_large = font_small = ImageFont.load_default()
+        
+        price = product_data.get("price", 0)
+        discount = product_data.get("discount", "")
+        brand = product_data.get("brand", "")
+        
+        for idx, img_path in enumerate(image_paths):
+            try:
+                img = Image.open(img_path)
+                draw = ImageDraw.Draw(img)
+                
+                # Add brand name at top
+                if brand:
+                    draw.text((50, 50), brand, fill=(255, 255, 255), font=font_large, stroke_width=2, stroke_fill=(0, 0, 0))
+                
+                # Add price at bottom
+                if price:
+                    price_text = f"₹{int(price)}"
+                    if discount:
+                        price_text += f" {discount}"
+                    
+                    text_bbox = draw.textbbox((0, 0), price_text, font=font_large)
+                    text_width = text_bbox[2] - text_bbox[0]
+                    
+                    x = img.width - text_width - 50
+                    y = img.height - 150
+                    
+                    # Price background
+                    draw.rectangle([x-20, y-10, x+text_width+20, y+70], fill=(255, 0, 0))
+                    draw.text((x, y), price_text, fill=(255, 255, 255), font=font_large)
+                
+                overlay_path = work_dir / f"product_{idx:03d}.jpg"
+                img.save(overlay_path, "JPEG", quality=85)
+                overlay_paths.append(overlay_path)
+                
+                img.close()
+                del img
+                gc.collect()
+                
+            except Exception as overlay_err:
+                logger.warning(f"Product overlay failed for image {idx}: {overlay_err}")
                 overlay_paths.append(img_path)  # Use original
         
         return overlay_paths if overlay_paths else image_paths

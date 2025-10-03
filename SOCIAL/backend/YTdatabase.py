@@ -617,6 +617,53 @@ class YouTubeDatabaseManager:
                 "videos_count": 0,
                 "success_rate": 0.0
             }
+    # sdsgbdbdb
+    async def store_product_promo(self, user_id: str, product_data: dict) -> bool:
+        """Store product promotion data"""
+        try:
+            if not self.db:
+                logger.error("Database not connected")
+                return False
+            
+            promo_doc = {
+                "user_id": user_id,
+                "product_data": product_data,
+                "video_id": None,  # Updated after upload
+                "created_at": datetime.now(),
+                "updated_at": datetime.now(),
+                "status": "pending"
+            }
+            
+            result = await self.db.product_promos.insert_one(promo_doc)
+            logger.info(f"Product promo stored with ID: {result.inserted_id}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Failed to store product promo: {e}")
+            return False
+    
+    async def get_product_promos_by_user(self, user_id: str, status: str = None) -> list:
+        """Get product promos for a user"""
+        try:
+            if not self.db:
+                return []
+            
+            query = {"user_id": user_id}
+            if status:
+                query["status"] = status
+            
+            cursor = self.db.product_promos.find(query).sort("created_at", -1)
+            promos = []
+            async for promo in cursor:
+                promos.append(promo)
+            
+            return promos
+            
+        except Exception as e:
+            logger.error(f"Failed to get product promos: {e}")
+            return []
+    
+    
 
     # ============================================================================
     # ANALYTICS
@@ -660,6 +707,7 @@ class YouTubeDatabaseManager:
         except Exception as e:
             logger.error(f"Get channel analytics failed: {e}")
             return None
+    
 
     # ============================================================================
     # SCHEDULED POSTS

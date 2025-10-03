@@ -85,6 +85,15 @@ const [uploadMethod, setUploadMethod] = useState('url'); // Default to URL
 const [imageUrls, setImageUrls] = useState('');
 
 
+const [slideshowTab, setSlideshowTab] = useState('manual'); // NEW: for manual vs product
+const [productUrl, setProductUrl] = useState('');
+const [scrapedProduct, setScrapedProduct] = useState(null);
+const [editableTitle, setEditableTitle] = useState('');
+const [editableDescription, setEditableDescription] = useState('');
+
+
+
+
   const API_BASE = process.env.NODE_ENV === 'production' 
     ? (import.meta.env.VITE_API_URL || 'https://agentic-u5lx.onrender.com')
     : (import.meta.env.VITE_API_URL || 'http://localhost:8000');
@@ -3901,6 +3910,11 @@ onClick={async () => {
         )}
 
 
+
+
+
+
+
 {/* Image Slideshow Tab */}
 {activeTab === 'slideshow' && status?.youtube_connected && (
   <div style={{ 
@@ -3931,645 +3945,367 @@ onClick={async () => {
       </p>
     </div>
 
+    {/* NEW: Slideshow Type Selector */}
+    <div style={{ display: 'flex', gap: '12px', marginBottom: '30px' }}>
+      <button
+        onClick={() => setSlideshowTab('manual')}
+        style={{
+          padding: '12px 24px',
+          background: slideshowTab === 'manual' ? '#FF0000' : '#f0f0f0',
+          color: slideshowTab === 'manual' ? 'white' : '#333',
+          border: 'none',
+          borderRadius: '8px',
+          cursor: 'pointer',
+          fontWeight: '600',
+          fontSize: '16px'
+        }}
+      >
+        📸 Manual Images
+      </button>
+      <button
+        onClick={() => setSlideshowTab('product')}
+        style={{
+          padding: '12px 24px',
+          background: slideshowTab === 'product' ? '#FF0000' : '#f0f0f0',
+          color: slideshowTab === 'product' ? 'white' : '#333',
+          border: 'none',
+          borderRadius: '8px',
+          cursor: 'pointer',
+          fontWeight: '600',
+          fontSize: '16px'
+        }}
+      >
+        🛒 Product URL
+      </button>
+    </div>
 
+    {/* MANUAL IMAGES TAB */}
+    {slideshowTab === 'manual' && (
+      <div>
+        {/* Step 1: Upload Images */}
+        <div style={{ marginBottom: '30px' }}>
+          <h3 style={{ color: '#333', marginBottom: '16px', fontSize: '20px' }}>
+            📸 Step 1: Add Images (2-6)
+          </h3>
+          
+          {/* TAB SELECTOR */}
+          <div style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>
+            <button
+              onClick={() => setUploadMethod('file')}
+              style={{
+                padding: '8px 16px',
+                background: uploadMethod === 'file' ? '#FF0000' : '#f0f0f0',
+                color: uploadMethod === 'file' ? 'white' : '#333',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontWeight: '600'
+              }}
+            >
+              📂 Upload Files
+            </button>
+            <button
+              onClick={() => setUploadMethod('url')}
+              style={{
+                padding: '8px 16px',
+                background: uploadMethod === 'url' ? '#FF0000' : '#f0f0f0',
+                color: uploadMethod === 'url' ? 'white' : '#333',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontWeight: '600'
+              }}
+            >
+              🔗 Use Image URLs
+            </button>
+          </div>
 
-{/* Step 1: Upload Images */}
-    <div style={{ marginBottom: '30px' }}>
-      <h3 style={{ color: '#333', marginBottom: '16px', fontSize: '20px' }}>
-        📸 Step 1: Add Images (2-6)
-      </h3>
-      
-      {/* TAB SELECTOR */}
-      <div style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>
-        <button
-          onClick={() => setUploadMethod('file')}
-          style={{
-            padding: '8px 16px',
-            background: uploadMethod === 'file' ? '#FF0000' : '#f0f0f0',
-            color: uploadMethod === 'file' ? 'white' : '#333',
-            border: 'none',
-            borderRadius: '6px',
-            cursor: 'pointer',
-            fontWeight: '600'
-          }}
-        >
-          📂 Upload Files
-        </button>
-        <button
-          onClick={() => setUploadMethod('url')}
-          style={{
-            padding: '8px 16px',
-            background: uploadMethod === 'url' ? '#FF0000' : '#f0f0f0',
-            color: uploadMethod === 'url' ? 'white' : '#333',
-            border: 'none',
-            borderRadius: '6px',
-            cursor: 'pointer',
-            fontWeight: '600'
-          }}
-        >
-          🔗 Use Image URLs
-        </button>
-      </div>
+          {/* FILE UPLOAD */}
+          {uploadMethod === 'file' && (
+            <input
+              type="file"
+              accept="image/*"
+              multiple
+              onChange={async (e) => {
+                const files = Array.from(e.target.files).slice(0, 6);
+                
+                if (files.length < 2) {
+                  alert('Please upload at least 2 images');
+                  e.target.value = '';
+                  return;
+                }
+                
+                if (files.length > 6) {
+                  alert('Maximum 6 images allowed');
+                  e.target.value = '';
+                  return;
+                }
+                
+                const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+                const invalidFiles = files.filter(f => !validTypes.includes(f.type));
+                
+                if (invalidFiles.length > 0) {
+                  alert('Please upload only JPG, PNG, or WEBP images');
+                  e.target.value = '';
+                  return;
+                }
+                
+                setLoading(true);
+                setError('');
+                
+                try {
+                  const base64Images = await Promise.all(
+                    files.map((file, idx) => new Promise((resolve, reject) => {
+                      if (file.size > 5 * 1024 * 1024) {
+                        reject(new Error(`Image ${idx + 1} is too large (max 5MB)`));
+                        return;
+                      }
+                      
+                      const reader = new FileReader();
+                      
+                      reader.onload = () => {
+                        const result = reader.result;
+                        
+                        if (!result || typeof result !== 'string') {
+                          reject(new Error(`Failed to read image ${idx + 1}`));
+                          return;
+                        }
+                        
+                        if (!result.startsWith('data:image/')) {
+                          reject(new Error(`Image ${idx + 1} is not a valid image format`));
+                          return;
+                        }
+                        
+                        resolve(result);
+                      };
+                      
+                      reader.onerror = () => {
+                        reject(new Error(`Failed to read image ${idx + 1}: ${reader.error?.message || 'Unknown error'}`));
+                      };
+                      
+                      reader.readAsDataURL(file);
+                    }))
+                  );
+                  
+                  setUploadedImages(base64Images);
+                  setError('');
+                  
+                } catch (error) {
+                  setError('Failed to upload images: ' + error.message);
+                  setUploadedImages([]);
+                  e.target.value = '';
+                } finally {
+                  setLoading(false);
+                }
+              }}
+              style={{
+                padding: '12px',
+                width: '100%',
+                marginBottom: '16px',
+                border: '2px dashed #FF0000',
+                borderRadius: '8px',
+                cursor: 'pointer'
+              }}
+            />
+          )}
 
-      {/* FILE UPLOAD */}
-      {uploadMethod === 'file' && (
-        <input
-          type="file"
-          accept="image/*"
-          multiple
-          onChange={async (e) => {
-            const files = Array.from(e.target.files).slice(0, 6);
-            
-            if (files.length < 2) {
-              alert('Please upload at least 2 images');
-              e.target.value = '';
-              return;
-            }
-            
-            if (files.length > 6) {
-              alert('Maximum 6 images allowed');
-              e.target.value = '';
-              return;
-            }
-            
-            const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-            const invalidFiles = files.filter(f => !validTypes.includes(f.type));
-            
-            if (invalidFiles.length > 0) {
-              alert('Please upload only JPG, PNG, or WEBP images');
-              e.target.value = '';
-              return;
-            }
-            
-            setLoading(true);
-            setError('');
-            
-            try {
-              const base64Images = await Promise.all(
-                files.map((file, idx) => new Promise((resolve, reject) => {
-                  if (file.size > 5 * 1024 * 1024) {
-                    reject(new Error(`Image ${idx + 1} is too large (max 5MB)`));
+          {/* URL INPUT */}
+          {uploadMethod === 'url' && (
+            <div>
+              <p style={{ fontSize: '14px', color: '#666', marginBottom: '12px' }}>
+                Enter image URLs (one per line, 2-6 URLs). Try these test URLs:
+              </p>
+              <textarea
+                value={imageUrls}
+                onChange={(e) => setImageUrls(e.target.value)}
+                placeholder="https://picsum.photos/1080/1920?random=1&#x0A;https://picsum.photos/1080/1920?random=2&#x0A;https://picsum.photos/1080/1920?random=3"
+                rows={6}
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  borderRadius: '8px',
+                  border: '2px dashed #FF0000',
+                  fontSize: '14px',
+                  fontFamily: 'monospace'
+                }}
+              />
+              <button
+                onClick={async () => {
+                  const urls = imageUrls.split('\n').filter(u => u.trim());
+                  if (urls.length < 2 || urls.length > 6) {
+                    alert('Enter 2-6 image URLs');
                     return;
                   }
                   
-                  const reader = new FileReader();
+                  setLoading(true);
+                  setError('');
                   
-                  reader.onload = () => {
-                    const result = reader.result;
+                  try {
+                    const base64Images = await Promise.all(
+                      urls.map(async (url, idx) => {
+                        try {
+                          const response = await fetch(url);
+                          if (!response.ok) throw new Error(`Failed to fetch image ${idx + 1}`);
+                          
+                          const blob = await response.blob();
+                          
+                          if (!blob.type.startsWith('image/')) {
+                            throw new Error(`URL ${idx + 1} is not an image`);
+                          }
+                          
+                          return new Promise((resolve, reject) => {
+                            const reader = new FileReader();
+                            reader.onload = () => resolve(reader.result);
+                            reader.onerror = () => reject(new Error(`Failed to convert image ${idx + 1}`));
+                            reader.readAsDataURL(blob);
+                          });
+                        } catch (error) {
+                          throw new Error(`Image ${idx + 1}: ${error.message}`);
+                        }
+                      })
+                    );
                     
-                    if (!result || typeof result !== 'string') {
-                      reject(new Error(`Failed to read image ${idx + 1}`));
-                      return;
-                    }
+                    setUploadedImages(base64Images);
+                    setError('');
+                    alert('Images loaded successfully!');
                     
-                    if (!result.startsWith('data:image/')) {
-                      reject(new Error(`Image ${idx + 1} is not a valid image format`));
-                      return;
-                    }
-                    
-                    console.log(`Image ${idx + 1} loaded:`, {
-                      name: file.name,
-                      size: file.size,
-                      type: file.type,
-                      base64Length: result.length,
-                      base64Preview: result.substring(0, 50)
-                    });
-                    
-                    resolve(result);
-                  };
-                  
-                  reader.onerror = () => {
-                    reject(new Error(`Failed to read image ${idx + 1}: ${reader.error?.message || 'Unknown error'}`));
-                  };
-                  
-                  reader.readAsDataURL(file);
-                }))
-              );
+                  } catch (error) {
+                    setError('Failed to load images: ' + error.message);
+                    alert('Error: ' + error.message);
+                  } finally {
+                    setLoading(false);
+                  }
+                }}
+                disabled={loading}
+                style={{
+                  marginTop: '12px',
+                  padding: '10px 20px',
+                  background: loading ? '#ccc' : '#28a745',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: loading ? 'not-allowed' : 'pointer',
+                  fontWeight: '600'
+                }}
+              >
+                {loading ? '⏳ Loading...' : '📥 Load Images from URLs'}
+              </button>
               
-              console.log('All images loaded successfully:', base64Images.length);
-              setUploadedImages(base64Images);
-              setError('');
+              <div style={{
+                marginTop: '12px',
+                padding: '12px',
+                background: '#e7f3ff',
+                borderRadius: '6px',
+                fontSize: '13px',
+                color: '#004085'
+              }}>
+                💡 <strong>Quick Test:</strong> Use the default URLs in the box above (Picsum placeholder images)
+              </div>
+            </div>
+          )}
+          
+          {uploadedImages.length > 0 && (
+            <div>
+              <div style={{ 
+                display: 'grid', 
+                gridTemplateColumns: 'repeat(3, 1fr)', 
+                gap: '12px',
+                marginBottom: '12px'
+              }}>
+                {uploadedImages.map((img, idx) => (
+                  <div key={idx} style={{ position: 'relative' }}>
+                    <img 
+                      src={img} 
+                      alt={`Upload ${idx + 1}`} 
+                      style={{
+                        width: '100%',
+                        height: '200px',
+                        objectFit: 'cover',
+                        borderRadius: '8px',
+                        border: '2px solid #ddd'
+                      }}
+                    />
+                    <button
+                      onClick={() => {
+                        setUploadedImages(prev => prev.filter((_, i) => i !== idx));
+                      }}
+                      style={{
+                        position: 'absolute',
+                        top: '8px',
+                        right: '8px',
+                        background: '#dc3545',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '50%',
+                        width: '30px',
+                        height: '30px',
+                        cursor: 'pointer',
+                        fontSize: '16px'
+                      }}
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
               
-            } catch (error) {
-              console.error('Image upload error:', error);
-              setError('Failed to upload images: ' + error.message);
-              setUploadedImages([]);
-              e.target.value = '';
-            } finally {
-              setLoading(false);
-            }
-          }}
+              <div style={{
+                padding: '12px',
+                background: '#d4edda',
+                borderRadius: '6px',
+                fontSize: '14px',
+                color: '#155724'
+              }}>
+                ✅ {uploadedImages.length} images uploaded. 
+                {uploadedImages.length < 6 && ` You can add ${6 - uploadedImages.length} more.`}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* YOUR EXISTING STEP 2, STEP 3, CONFIG, GENERATE BUTTON CODE CONTINUES HERE */}
+        {/* Copy all your remaining manual slideshow code from original file */}
+      </div>
+    )}
+
+    {/* PRODUCT URL TAB */}
+    {slideshowTab === 'product' && (
+      <div style={{padding: '30px', background: '#f8f9fa', borderRadius: '12px'}}>
+        <h3 style={{ color: '#333', marginBottom: '16px', fontSize: '22px', fontWeight: '700' }}>
+          🛒 Product Promotion Video
+        </h3>
+        <p style={{ color: '#666', marginBottom: '20px', fontSize: '15px' }}>
+          Paste Flipkart/Amazon product URL to automatically scrape images, price, and details, then generate a promotional video
+        </p>
+        
+        <input
+          type="text"
+          placeholder="https://www.flipkart.com/product/..."
+          value={productUrl}
+          onChange={(e) => setProductUrl(e.target.value)}
           style={{
-            padding: '12px',
             width: '100%',
-            marginBottom: '16px',
-            border: '2px dashed #FF0000',
+            padding: '15px',
+            fontSize: '16px',
+            marginBottom: '15px',
             borderRadius: '8px',
-            cursor: 'pointer'
+            border: '2px solid #ddd'
           }}
         />
-      )}
-
-      {/* URL INPUT */}
-      {uploadMethod === 'url' && (
-        <div>
-          <p style={{ fontSize: '14px', color: '#666', marginBottom: '12px' }}>
-            Enter image URLs (one per line, 2-6 URLs). Try these test URLs:
-          </p>
-          <textarea
-            value={imageUrls}
-            onChange={(e) => setImageUrls(e.target.value)}
-            placeholder="https://picsum.photos/1080/1920?random=1&#x0A;https://picsum.photos/1080/1920?random=2&#x0A;https://picsum.photos/1080/1920?random=3"
-            rows={6}
-            style={{
-              width: '100%',
-              padding: '12px',
-              borderRadius: '8px',
-              border: '2px dashed #FF0000',
-              fontSize: '14px',
-              fontFamily: 'monospace'
-            }}
-          />
-          <button
-            onClick={async () => {
-              const urls = imageUrls.split('\n').filter(u => u.trim());
-              if (urls.length < 2 || urls.length > 6) {
-                alert('Enter 2-6 image URLs');
-                return;
-              }
-              
-              setLoading(true);
-              setError('');
-              
-              try {
-                const base64Images = await Promise.all(
-                  urls.map(async (url, idx) => {
-                    try {
-                      const response = await fetch(url);
-                      if (!response.ok) throw new Error(`Failed to fetch image ${idx + 1}`);
-                      
-                      const blob = await response.blob();
-                      
-                      if (!blob.type.startsWith('image/')) {
-                        throw new Error(`URL ${idx + 1} is not an image`);
-                      }
-                      
-                      return new Promise((resolve, reject) => {
-                        const reader = new FileReader();
-                        reader.onload = () => {
-                          console.log(`URL image ${idx + 1} loaded:`, {
-                            url: url.substring(0, 50),
-                            type: blob.type,
-                            size: blob.size
-                          });
-                          resolve(reader.result);
-                        };
-                        reader.onerror = () => reject(new Error(`Failed to convert image ${idx + 1}`));
-                        reader.readAsDataURL(blob);
-                      });
-                    } catch (error) {
-                      throw new Error(`Image ${idx + 1} (${url.substring(0, 30)}...): ${error.message}`);
-                    }
-                  })
-                );
-                
-                setUploadedImages(base64Images);
-                setError('');
-                alert('Images loaded successfully!');
-                
-              } catch (error) {
-                setError('Failed to load images: ' + error.message);
-                alert('Error: ' + error.message);
-              } finally {
-                setLoading(false);
-              }
-            }}
-            disabled={loading}
-            style={{
-              marginTop: '12px',
-              padding: '10px 20px',
-              background: loading ? '#ccc' : '#28a745',
-              color: 'white',
-              border: 'none',
-              borderRadius: '6px',
-              cursor: loading ? 'not-allowed' : 'pointer',
-              fontWeight: '600'
-            }}
-          >
-            {loading ? '⏳ Loading...' : '📥 Load Images from URLs'}
-          </button>
-          
-          <div style={{
-            marginTop: '12px',
-            padding: '12px',
-            background: '#e7f3ff',
-            borderRadius: '6px',
-            fontSize: '13px',
-            color: '#004085'
-          }}>
-            💡 <strong>Quick Test:</strong> Use the default URLs in the box above (Picsum placeholder images)
-          </div>
-        </div>
-      )}
-      
-      {uploadedImages.length > 0 && (
-        <div>
-          <div style={{ 
-            display: 'grid', 
-            gridTemplateColumns: 'repeat(3, 1fr)', 
-            gap: '12px',
-            marginBottom: '12px'
-          }}>
-            {uploadedImages.map((img, idx) => (
-              <div key={idx} style={{ position: 'relative' }}>
-                <img 
-                  src={img} 
-                  alt={`Upload ${idx + 1}`} 
-                  style={{
-                    width: '100%',
-                    height: '200px',
-                    objectFit: 'cover',
-                    borderRadius: '8px',
-                    border: '2px solid #ddd'
-                  }}
-                />
-                <button
-                  onClick={() => {
-                    setUploadedImages(prev => prev.filter((_, i) => i !== idx));
-                  }}
-                  style={{
-                    position: 'absolute',
-                    top: '8px',
-                    right: '8px',
-                    background: '#dc3545',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '50%',
-                    width: '30px',
-                    height: '30px',
-                    cursor: 'pointer',
-                    fontSize: '16px'
-                  }}
-                >
-                  ×
-                </button>
-              </div>
-            ))}
-          </div>
-          
-          <div style={{
-            padding: '12px',
-            background: '#d4edda',
-            borderRadius: '6px',
-            fontSize: '14px',
-            color: '#155724'
-          }}>
-            ✅ {uploadedImages.length} images uploaded. 
-            {uploadedImages.length < 6 && ` You can add ${6 - uploadedImages.length} more.`}
-          </div>
-        </div>
-      )}
-    </div>
-
-    {/* Step 2: Configuration */}
-    {uploadedImages.length >= 2 && (
-      <div style={{ marginBottom: '30px' }}>
-        <h3 style={{ color: '#333', marginBottom: '16px', fontSize: '20px' }}>
-          ⚙️ Step 2: Customize Your Video
-        </h3>
         
-        <div style={{ 
-          display: 'grid', 
-          gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', 
-          gap: '20px' 
-        }}>
-          <div>
-            <label style={{ 
-              display: 'block', 
-              marginBottom: '8px', 
-              fontWeight: '600', 
-              color: '#333' 
-            }}>
-              Video Title
-            </label>
-            <input
-              type="text"
-              value={contentData.title}
-              onChange={(e) => setContentData(prev => ({...prev, title: e.target.value}))}
-              placeholder="Enter video title..."
-              style={{
-                width: '100%',
-                padding: '12px',
-                borderRadius: '8px',
-                border: '2px solid #ddd',
-                fontSize: '14px'
-              }}
-            />
-          </div>
-
-          <div>
-            <label style={{ 
-              display: 'block', 
-              marginBottom: '8px', 
-              fontWeight: '600', 
-              color: '#333' 
-            }}>
-              Language
-            </label>
-            <select
-              value={contentData.language || 'english'}
-              onChange={(e) => setContentData(prev => ({...prev, language: e.target.value}))}
-              style={{
-                width: '100%',
-                padding: '12px',
-                borderRadius: '8px',
-                border: '2px solid #ddd',
-                fontSize: '14px'
-              }}
-            >
-              <option value="english">English</option>
-              <option value="hindi">हिन्दी (Hindi)</option>
-              <option value="hinglish">Hinglish</option>
-            </select>
-          </div>
-
-          <div>
-            <label style={{ 
-              display: 'block', 
-              marginBottom: '8px', 
-              fontWeight: '600', 
-              color: '#333' 
-            }}>
-              Duration per Image
-            </label>
-            <select
-              value={slideshowConfig.duration_per_image}
-              onChange={(e) => setSlideshowConfig(prev => ({
-                ...prev, 
-                duration_per_image: parseFloat(e.target.value)
-              }))}
-              style={{
-                width: '100%',
-                padding: '12px',
-                borderRadius: '8px',
-                border: '2px solid #ddd',
-                fontSize: '14px'
-              }}
-            >
-              <option value="1">⚡ Fast (1 sec)</option>
-              <option value="2">⏱️ Medium (2 sec)</option>
-              <option value="3">🐌 Slow (3 sec)</option>
-            </select>
-          </div>
-
-          <div>
-            <label style={{ 
-              display: 'block', 
-              marginBottom: '8px', 
-              fontWeight: '600', 
-              color: '#333' 
-            }}>
-              Transition Effect
-            </label>
-            <select
-              value={slideshowConfig.transition}
-              onChange={(e) => setSlideshowConfig(prev => ({...prev, transition: e.target.value}))}
-              style={{
-                width: '100%',
-                padding: '12px',
-                borderRadius: '8px',
-                border: '2px solid #ddd',
-                fontSize: '14px'
-              }}
-            >
-              <option value="fade">🌫️ Fade</option>
-              <option value="slide">➡️ Slide</option>
-              <option value="zoom">🔍 Zoom</option>
-            </select>
-          </div>
-        </div>
-
-        <div style={{ marginTop: '20px' }}>
-          <label style={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            gap: '8px',
-            cursor: 'pointer'
-          }}>
-            <input
-              type="checkbox"
-              checked={slideshowConfig.add_text}
-              onChange={(e) => setSlideshowConfig(prev => ({
-                ...prev, 
-                add_text: e.target.checked
-              }))}
-              style={{ width: '18px', height: '18px' }}
-            />
-            <span style={{ fontSize: '14px', fontWeight: '600', color: '#333' }}>
-              Add title overlay on first image
-            </span>
-          </label>
-        </div>
-      </div>
-    )}
-
-    {/* Step 3: Platform Selection */}
-    {uploadedImages.length >= 2 && contentData.title && (
-      <div style={{ marginBottom: '30px' }}>
-        <h3 style={{ color: '#333', marginBottom: '16px', fontSize: '20px' }}>
-          📱 Step 3: Select Upload Platforms
-        </h3>
-        
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          {[
-            { id: 'youtube_shorts', label: '📺 YouTube Shorts', available: true },
-            { id: 'instagram_reels', label: '📸 Instagram Reels', available: false },
-            { id: 'facebook_ads', label: '📘 Facebook Ads', available: false }
-          ].map(platform => (
-            <label 
-              key={platform.id}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '12px',
-                padding: '12px',
-                background: slideshowConfig.platforms.includes(platform.id) ? '#d4edda' : '#f8f9fa',
-                border: slideshowConfig.platforms.includes(platform.id) ? '2px solid #28a745' : '1px solid #ddd',
-                borderRadius: '8px',
-                cursor: platform.available ? 'pointer' : 'not-allowed',
-                opacity: platform.available ? 1 : 0.6
-              }}
-            >
-              <input
-                type="checkbox"
-                checked={slideshowConfig.platforms.includes(platform.id)}
-                disabled={!platform.available}
-                onChange={(e) => {
-                  const newPlatforms = e.target.checked
-                    ? [...slideshowConfig.platforms, platform.id]
-                    : slideshowConfig.platforms.filter(p => p !== platform.id);
-                  setSlideshowConfig(prev => ({...prev, platforms: newPlatforms}));
-                }}
-                style={{ width: '18px', height: '18px' }}
-              />
-              <span style={{ fontWeight: '600', fontSize: '14px' }}>
-                {platform.label}
-                {!platform.available && ' (Coming Soon)'}
-              </span>
-            </label>
-          ))}
-        </div>
-      </div>
-    )}
-
-
-
-
-
-{/* Generate Button */}
-{uploadedImages.length >= 2 && contentData.title && (
-  <button
-    onClick={async () => {
-      if (!contentData.title.trim()) {
-        alert('Please enter a video title');
-        return;
-      }
-      
-      setGeneratingSlideshow(true);
-      setError('');
-      
-      try {
-        const userData = getUserData();
-        
-        if (!userData?.user_id) {
-          throw new Error('User ID not found');
-        }
-        
-        const response = await fetch(`${API_BASE}/api/slideshow/generate`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({
-            user_id: userData.user_id,
-            images: uploadedImages,
-            title: contentData.title,
-            language: contentData.language || 'english',
-            ...slideshowConfig
-          })
-        });
-        
-        const result = await response.json();
-        
-        if (result.success) {
-          // Show success message with instructions
-          alert(
-            `✅ ${result.message}\n\n` +
-            `${result.note}\n\n` +
-            `⏱️ Estimated time: ${result.estimated_time_seconds} seconds\n\n` +
-            `Your video will appear on your YouTube channel automatically.`
-          );
-          
-          // Reset form
-          setUploadedImages([]);
-          setContentData(prev => ({...prev, title: ''}));
-          setError('');
-          
-          // Optional: Show notification
-          setError(''); // Clear any previous errors
-          
-        } else {
-          throw new Error(result.error || result.message || 'Generation failed');
-        }
-      } catch (error) {
-        console.error('Slideshow error:', error);
-        setError('Request failed: ' + error.message);
-        alert('Error: ' + error.message);
-      } finally {
-        setGeneratingSlideshow(false);
-      }
-    }}
-    disabled={generatingSlideshow}
-    style={{
-      width: '100%',
-      padding: '16px',
-      background: generatingSlideshow ? '#ccc' : '#FF0000',
-      color: 'white',
-      border: 'none',
-      borderRadius: '12px',
-      fontSize: '16px',
-      fontWeight: '700',
-      cursor: generatingSlideshow ? 'not-allowed' : 'pointer',
-      transition: 'background 0.3s ease'
-    }}
-  >
-    {generatingSlideshow ? '⏳ Submitting...' : '🚀 Generate & Upload to YouTube'}
-  </button>
-)}
-
-
-
-
-
-
-
-    {/* Preview & Upload */}
-    {generatedSlideshow && (
-      <div style={{
-        marginTop: '40px',
-        padding: '30px',
-        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-        borderRadius: '16px',
-        color: 'white'
-      }}>
-        <h3 style={{ marginBottom: '20px', fontSize: '24px' }}>
-          ✅ Your Slideshow is Ready!
-        </h3>
-        
-        <div style={{
-          background: 'rgba(255, 255, 255, 0.1)',
-          padding: '20px',
-          borderRadius: '12px',
-          marginBottom: '20px'
-        }}>
-          <p style={{ fontSize: '16px', marginBottom: '10px' }}>
-            📊 Video Details:
-          </p>
-          <ul style={{ fontSize: '14px', paddingLeft: '20px' }}>
-            <li>Duration: {generatedSlideshow.duration} seconds</li>
-            <li>Images: {generatedSlideshow.image_count}</li>
-            <li>Platforms: {slideshowConfig.platforms.length}</li>
-          </ul>
-        </div>
-
-        <video 
-          controls 
-          style={{
-            width: '100%',
-            maxWidth: '400px',
-            borderRadius: '12px',
-            marginBottom: '20px',
-            display: 'block',
-            margin: '0 auto 20px auto'
-          }}
-        >
-          <source src={generatedSlideshow.video_url} type="video/mp4" />
-          Your browser does not support video playback.
-        </video>
-
         <button
           onClick={async () => {
-            if (!confirm(`Upload to ${slideshowConfig.platforms.length} platform(s)?`)) {
+            if (!productUrl.trim()) {
+              alert('Please enter product URL');
               return;
             }
             
-            setLoading(true);
+            setGeneratingSlideshow(true);
+            setError('');
             
             try {
               const userData = getUserData();
-              
-              const response = await fetch(`${API_BASE}/api/slideshow/upload-multi-platform`, {
+              const response = await fetch(`${API_BASE}/api/product-video/generate`, {
                 method: 'POST',
                 headers: {
                   'Content-Type': 'application/json',
@@ -4577,66 +4313,199 @@ onClick={async () => {
                 },
                 body: JSON.stringify({
                   user_id: userData.user_id,
-                  video_path: generatedSlideshow.local_path,
-                  platforms: slideshowConfig.platforms,
-                  metadata: generatedSlideshow.metadata
+                  product_url: productUrl,
+                  auto_upload: false
                 })
               });
               
               const result = await response.json();
               
               if (result.success) {
-                alert(`✅ Uploaded to: ${result.platforms_uploaded.join(', ')}`);
-                
-                setUploadedImages([]);
-                setGeneratedSlideshow(null);
-                setContentData(prev => ({...prev, title: ''}));
+                setScrapedProduct(result.product_data);
+                setEditableTitle(result.ai_content.title);
+                setEditableDescription(result.ai_content.description);
+                alert('Product scraped successfully! Review and edit before uploading.');
               } else {
-                alert('Upload failed: ' + result.error);
+                throw new Error(result.error || 'Failed to scrape product');
               }
             } catch (error) {
-              alert('Upload error: ' + error.message);
+              setError('Scraping failed: ' + error.message);
+              alert('Error: ' + error.message);
             } finally {
-              setLoading(false);
+              setGeneratingSlideshow(false);
             }
           }}
-          disabled={loading}
+          disabled={generatingSlideshow}
           style={{
-            width: '100%',
-            padding: '16px',
-            background: loading ? '#ccc' : '#28a745',
+            padding: '12px 24px',
+            background: generatingSlideshow ? '#ccc' : '#FF0000',
             color: 'white',
             border: 'none',
-            borderRadius: '12px',
-            fontSize: '16px',
-            fontWeight: '700',
-            cursor: loading ? 'not-allowed' : 'pointer'
+            borderRadius: '8px',
+            cursor: generatingSlideshow ? 'not-allowed' : 'pointer',
+            fontWeight: '600',
+            fontSize: '16px'
           }}
         >
-          {loading ? '📤 Uploading...' : `📤 Upload to ${slideshowConfig.platforms.length} Platform(s)`}
+          {generatingSlideshow ? 'Scraping...' : '🔍 Scrape Product'}
         </button>
+        
+        {scrapedProduct && (
+          <div style={{marginTop: '30px', background: 'white', padding: '25px', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)'}}>
+            <h4 style={{ color: '#333', marginBottom: '16px', fontSize: '18px', fontWeight: '700' }}>
+              Product Preview
+            </h4>
+            <p><strong>Name:</strong> {scrapedProduct.product_name}</p>
+            <p><strong>Brand:</strong> {scrapedProduct.brand}</p>
+            <p><strong>Price:</strong> ₹{scrapedProduct.price} {scrapedProduct.discount}</p>
+            
+            <div style={{display: 'flex', gap: '12px', marginTop: '16px', flexWrap: 'wrap'}}>
+              {scrapedProduct.images.slice(0, 3).map((img, idx) => (
+                <img 
+                  key={idx} 
+                  src={img} 
+                  alt={`Product ${idx + 1}`}
+                  style={{
+                    width: '120px', 
+                    height: '120px', 
+                    objectFit: 'cover',
+                    borderRadius: '8px',
+                    border: '2px solid #ddd'
+                  }} 
+                />
+              ))}
+            </div>
+            
+            <div style={{marginTop: '25px'}}>
+              <label style={{display: 'block', marginBottom: '8px', fontWeight: '600', color: '#333'}}>
+                Edit Title:
+              </label>
+              <input
+                type="text"
+                value={editableTitle}
+                onChange={(e) => setEditableTitle(e.target.value)}
+                style={{
+                  width: '100%', 
+                  padding: '12px', 
+                  marginBottom: '20px',
+                  borderRadius: '8px',
+                  border: '2px solid #ddd',
+                  fontSize: '15px'
+                }}
+              />
+              
+              <label style={{display: 'block', marginBottom: '8px', fontWeight: '600', color: '#333'}}>
+                Edit Description:
+              </label>
+              <textarea
+                value={editableDescription}
+                onChange={(e) => setEditableDescription(e.target.value)}
+                rows={8}
+                style={{
+                  width: '100%', 
+                  padding: '12px',
+                  borderRadius: '8px',
+                  border: '2px solid #ddd',
+                  fontSize: '14px',
+                  fontFamily: 'inherit'
+                }}
+              />
+            </div>
+            
+            <button
+              onClick={async () => {
+                setGeneratingSlideshow(true);
+                setError('');
+                try {
+                  const userData = getUserData();
+                  const response = await fetch(`${API_BASE}/api/product-video/generate`, {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                      user_id: userData.user_id,
+                      product_url: productUrl,
+                      manual_title: editableTitle,
+                      manual_description: editableDescription,
+                      auto_upload: true
+                    })
+                  });
+                  
+                  const result = await response.json();
+                  
+                  if (result.success) {
+                    alert('Video uploaded to YouTube successfully!');
+                    setScrapedProduct(null);
+                    setProductUrl('');
+                    setEditableTitle('');
+                    setEditableDescription('');
+                  } else {
+                    throw new Error(result.error || 'Upload failed');
+                  }
+                } catch (error) {
+                  setError('Upload failed: ' + error.message);
+                  alert('Error: ' + error.message);
+                } finally {
+                  setGeneratingSlideshow(false);
+                }
+              }}
+              disabled={generatingSlideshow}
+              style={{
+                width: '100%',
+                padding: '16px',
+                background: generatingSlideshow ? '#ccc' : '#FF0000',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                marginTop: '20px',
+                cursor: generatingSlideshow ? 'not-allowed' : 'pointer',
+                fontWeight: '700',
+                fontSize: '16px'
+              }}
+            >
+              {generatingSlideshow ? '⏳ Generating & Uploading...' : '🚀 Generate & Upload Video'}
+            </button>
+          </div>
+        )}
+        
+        {error && (
+          <div style={{
+            marginTop: '15px',
+            padding: '15px',
+            background: '#f8d7da',
+            border: '1px solid #f5c6cb',
+            borderRadius: '8px',
+            color: '#721c24',
+            fontSize: '14px'
+          }}>
+            ⚠️ {error}
+          </div>
+        )}
       </div>
     )}
 
-    {/* Tips */}
+    {/* Pro Tips Section - Keep at bottom */}
     <div style={{
       marginTop: '30px',
       padding: '20px',
-      background: '#f8f9fa',
+      background: '#e7f3ff',
       borderRadius: '12px',
-      border: '1px solid #ddd'
+      border: '1px solid #bee5eb'
     }}>
-      <h4 style={{ color: '#333', marginBottom: '12px' }}>💡 Pro Tips:</h4>
-      <ul style={{ fontSize: '14px', color: '#666', paddingLeft: '20px' }}>
+      <h4 style={{ color: '#004085', marginBottom: '12px' }}>💡 Pro Tips:</h4>
+      <ul style={{ fontSize: '14px', color: '#004085', lineHeight: '1.8' }}>
         <li>Use high-quality images (1080p recommended)</li>
         <li>Keep consistent aspect ratio for best results</li>
         <li>Add relevant keywords in the title for better reach</li>
         <li>2-second duration works best for Shorts/Reels</li>
-        <li>Total video length: {uploadedImages.length * slideshowConfig.duration_per_image} seconds</li>
+        <li>For products: Ensure clear product images with good lighting</li>
       </ul>
     </div>
   </div>
 )}
+{/* End Image Slideshow Tab */}
 
         {/* Not Connected Message for other tabs */}
         {activeTab !== 'connect' && !status?.youtube_connected && (
