@@ -24,6 +24,8 @@ import sys
 import traceback
 import uuid
 import os
+# Set Playwright cache directory for Render
+os.environ['PLAYWRIGHT_BROWSERS_PATH'] = '/opt/render/project/.playwright'
 import requests
 import base64
 from fastapi.exceptions import RequestValidationError
