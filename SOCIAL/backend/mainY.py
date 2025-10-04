@@ -3490,74 +3490,67 @@ async def check_ffmpeg():
 from YTscrapADS import get_product_scraper
 
 
-
 @app.post("/api/product-video/generate")
 async def generate_product_promo_video(request: dict):
-    """Scrape product and generate AI content"""
+    """Scrape product and return structured data"""
     try:
         user_id = request.get('user_id')
         product_url = request.get('product_url')
         
         if not product_url:
-            raise HTTPException(status_code=400, detail="Product URL required")
+            return {"success": False, "error": "Product URL required"}
         
-        logger.info(f"Product video request for URL: {product_url}")
+        logger.info(f"Scraping: {product_url}")
         
-        # Scrape product
+        # Scrape
         scraper = get_product_scraper()
         product_data = await scraper.scrape_product(product_url)
         
         if not product_data.get('success'):
-            logger.error(f"Scraping failed: {product_data.get('error')}")
-            raise HTTPException(status_code=400, detail=product_data.get('error', 'Scraping failed'))
+            return {"success": False, "error": product_data.get('error', 'Scraping failed')}
         
-        logger.info(f"Product scraped: {product_data.get('product_name', 'Unknown')}")
+        logger.info(f"✅ Scraped: {product_data.get('product_name')}")
         
-        # Generate AI content
-        title = f"{product_data.get('brand', '')} {product_data.get('product_name', 'Product')}"[:100]
+        # Build title
+        title = f"{product_data.get('brand', 'Brand')} {product_data.get('product_name', 'Product')}"
+        title = title[:100]
+        
+        # Build description
         description = f"""🔥 {product_data.get('product_name', 'Product')}
 
-✨ Product Details:
+✨ Details:
 👕 Brand: {product_data.get('brand', 'N/A')}
-💰 Price: ₹{product_data.get('price', 0)}
-{f"💸 Save {product_data.get('discount', '')}" if product_data.get('discount') else ''}
-{f"🎨 Colors: {', '.join(product_data.get('colors', [])[:3])}" if product_data.get('colors') else ''}
-{f"📏 Sizes: {', '.join(product_data.get('sizes', []))}" if product_data.get('sizes') else ''}
-
-🛒 Buy Now: {product_url}
-
-#fashion #trending #shopping #online #india #deals"""
+💰 Price: Rs.{product_data.get('price', 0)} {product_data.get('discount', '')}
+"""
         
-        if ai_service:
-            try:
-                ai_content = await ai_service.generate_product_promo_content(
-                    product_data,
-                    target_audience='general',
-                    style='trendy'
-                )
-                
-                if ai_content.get('success'):
-                    title = ai_content.get('title', title)
-                    description = ai_content.get('description', description)
-                    logger.info("AI content generated successfully")
-            except Exception as e:
-                logger.warning(f"AI generation failed, using fallback: {e}")
+        if product_data.get('colors'):
+            description += f"🎨 Colors: {', '.join(product_data.get('colors', [])[:3])}\n"
         
+        if product_data.get('sizes'):
+            description += f"📏 Sizes: {', '.join(product_data.get('sizes', []))}\n"
+        
+        description += f"\n🛒 Buy: {product_url}\n\n#fashion #shopping #trending"
+        
+        # Return with explicit structure
         return {
             "success": True,
-            "product_data": product_data,
+            "product_data": {
+                "product_name": product_data.get('product_name', 'Product'),
+                "brand": product_data.get('brand', 'Brand'),
+                "price": product_data.get('price', 0),
+                "discount": product_data.get('discount', ''),
+                "colors": product_data.get('colors', []),
+                "sizes": product_data.get('sizes', []),
+                "images": product_data.get('images', [])[:6]
+            },
             "title": title,
             "description": description,
             "images": product_data.get('images', [])[:6]
         }
         
-    except HTTPException:
-        raise
     except Exception as e:
-        logger.error(f"Product video generation failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
+        logger.error(f"Error: {e}")
+        return {"success": False, "error": str(e)}
 @app.post("/api/youtube/generate-slideshow-preview")
 async def generate_slideshow_preview(request: dict):
     """Generate video preview without uploading"""
