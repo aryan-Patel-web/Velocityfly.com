@@ -85,13 +85,12 @@ const [uploadMethod, setUploadMethod] = useState('url'); // Default to URL
 const [imageUrls, setImageUrls] = useState('');
 
 
-const [slideshowTab, setSlideshowTab] = useState('manual'); // NEW: for manual vs product
+const [slideshowTab, setSlideshowTab] = useState('manual');
 const [productUrl, setProductUrl] = useState('');
 const [scrapedProduct, setScrapedProduct] = useState(null);
-const [editableTitle, setEditableTitle] = useState('');
-const [editableDescription, setEditableDescription] = useState('');
-
-
+const [slideshowTitle, setSlideshowTitle] = useState('');
+const [slideshowDescription, setSlideshowDescription] = useState('');
+const [slideshowResult, setSlideshowResult] = useState(null);
 
 
   const API_BASE = process.env.NODE_ENV === 'production' 
@@ -3941,14 +3940,19 @@ onClick={async () => {
     }}>
       <strong>🚀 Transform Images into Viral Videos!</strong>
       <p style={{ margin: '8px 0 0 0', fontSize: '14px' }}>
-        Upload 2-6 images → AI adds transitions & text → Upload to YouTube Shorts, Instagram Reels, Facebook Ads
+        Upload 2-6 images → AI adds transitions & text → Upload to YouTube Shorts
       </p>
     </div>
 
-    {/* NEW: Slideshow Type Selector */}
+    {/* Slideshow Type Selector */}
     <div style={{ display: 'flex', gap: '12px', marginBottom: '30px' }}>
       <button
-        onClick={() => setSlideshowTab('manual')}
+        onClick={() => {
+          setSlideshowTab('manual');
+          setUploadedImages([]);
+          setProductUrl('');
+          setScrapedProduct(null);
+        }}
         style={{
           padding: '12px 24px',
           background: slideshowTab === 'manual' ? '#FF0000' : '#f0f0f0',
@@ -3963,7 +3967,12 @@ onClick={async () => {
         📸 Manual Images
       </button>
       <button
-        onClick={() => setSlideshowTab('product')}
+        onClick={() => {
+          setSlideshowTab('product');
+          setUploadedImages([]);
+          setSlideshowTitle('');
+          setSlideshowDescription('');
+        }}
         style={{
           padding: '12px 24px',
           background: slideshowTab === 'product' ? '#FF0000' : '#f0f0f0',
@@ -3988,7 +3997,6 @@ onClick={async () => {
             📸 Step 1: Add Images (2-6)
           </h3>
           
-          {/* TAB SELECTOR */}
           <div style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>
             <button
               onClick={() => setUploadMethod('file')}
@@ -4020,7 +4028,6 @@ onClick={async () => {
             </button>
           </div>
 
-          {/* FILE UPLOAD */}
           {uploadMethod === 'file' && (
             <input
               type="file"
@@ -4028,72 +4035,24 @@ onClick={async () => {
               multiple
               onChange={async (e) => {
                 const files = Array.from(e.target.files).slice(0, 6);
-                
                 if (files.length < 2) {
                   alert('Please upload at least 2 images');
                   e.target.value = '';
                   return;
                 }
-                
-                if (files.length > 6) {
-                  alert('Maximum 6 images allowed');
-                  e.target.value = '';
-                  return;
-                }
-                
-                const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-                const invalidFiles = files.filter(f => !validTypes.includes(f.type));
-                
-                if (invalidFiles.length > 0) {
-                  alert('Please upload only JPG, PNG, or WEBP images');
-                  e.target.value = '';
-                  return;
-                }
-                
                 setLoading(true);
-                setError('');
-                
                 try {
                   const base64Images = await Promise.all(
-                    files.map((file, idx) => new Promise((resolve, reject) => {
-                      if (file.size > 5 * 1024 * 1024) {
-                        reject(new Error(`Image ${idx + 1} is too large (max 5MB)`));
-                        return;
-                      }
-                      
+                    files.map((file) => new Promise((resolve, reject) => {
                       const reader = new FileReader();
-                      
-                      reader.onload = () => {
-                        const result = reader.result;
-                        
-                        if (!result || typeof result !== 'string') {
-                          reject(new Error(`Failed to read image ${idx + 1}`));
-                          return;
-                        }
-                        
-                        if (!result.startsWith('data:image/')) {
-                          reject(new Error(`Image ${idx + 1} is not a valid image format`));
-                          return;
-                        }
-                        
-                        resolve(result);
-                      };
-                      
-                      reader.onerror = () => {
-                        reject(new Error(`Failed to read image ${idx + 1}: ${reader.error?.message || 'Unknown error'}`));
-                      };
-                      
+                      reader.onload = () => resolve(reader.result);
+                      reader.onerror = () => reject(new Error('Failed to read image'));
                       reader.readAsDataURL(file);
                     }))
                   );
-                  
                   setUploadedImages(base64Images);
-                  setError('');
-                  
                 } catch (error) {
-                  setError('Failed to upload images: ' + error.message);
-                  setUploadedImages([]);
-                  e.target.value = '';
+                  alert('Error: ' + error.message);
                 } finally {
                   setLoading(false);
                 }
@@ -4101,7 +4060,6 @@ onClick={async () => {
               style={{
                 padding: '12px',
                 width: '100%',
-                marginBottom: '16px',
                 border: '2px dashed #FF0000',
                 borderRadius: '8px',
                 cursor: 'pointer'
@@ -4109,24 +4067,19 @@ onClick={async () => {
             />
           )}
 
-          {/* URL INPUT */}
           {uploadMethod === 'url' && (
             <div>
-              <p style={{ fontSize: '14px', color: '#666', marginBottom: '12px' }}>
-                Enter image URLs (one per line, 2-6 URLs). Try these test URLs:
-              </p>
               <textarea
                 value={imageUrls}
                 onChange={(e) => setImageUrls(e.target.value)}
-                placeholder="https://picsum.photos/1080/1920?random=1&#x0A;https://picsum.photos/1080/1920?random=2&#x0A;https://picsum.photos/1080/1920?random=3"
+                placeholder="https://picsum.photos/1080/1920?random=1&#x0A;https://picsum.photos/1080/1920?random=2"
                 rows={6}
                 style={{
                   width: '100%',
                   padding: '12px',
                   borderRadius: '8px',
                   border: '2px dashed #FF0000',
-                  fontSize: '14px',
-                  fontFamily: 'monospace'
+                  fontSize: '14px'
                 }}
               />
               <button
@@ -4136,41 +4089,22 @@ onClick={async () => {
                     alert('Enter 2-6 image URLs');
                     return;
                   }
-                  
                   setLoading(true);
-                  setError('');
-                  
                   try {
                     const base64Images = await Promise.all(
-                      urls.map(async (url, idx) => {
-                        try {
-                          const response = await fetch(url);
-                          if (!response.ok) throw new Error(`Failed to fetch image ${idx + 1}`);
-                          
-                          const blob = await response.blob();
-                          
-                          if (!blob.type.startsWith('image/')) {
-                            throw new Error(`URL ${idx + 1} is not an image`);
-                          }
-                          
-                          return new Promise((resolve, reject) => {
-                            const reader = new FileReader();
-                            reader.onload = () => resolve(reader.result);
-                            reader.onerror = () => reject(new Error(`Failed to convert image ${idx + 1}`));
-                            reader.readAsDataURL(blob);
-                          });
-                        } catch (error) {
-                          throw new Error(`Image ${idx + 1}: ${error.message}`);
-                        }
+                      urls.map(async (url) => {
+                        const response = await fetch(url);
+                        const blob = await response.blob();
+                        return new Promise((resolve) => {
+                          const reader = new FileReader();
+                          reader.onload = () => resolve(reader.result);
+                          reader.readAsDataURL(blob);
+                        });
                       })
                     );
-                    
                     setUploadedImages(base64Images);
-                    setError('');
-                    alert('Images loaded successfully!');
-                    
+                    alert('Images loaded!');
                   } catch (error) {
-                    setError('Failed to load images: ' + error.message);
                     alert('Error: ' + error.message);
                   } finally {
                     setLoading(false);
@@ -4184,34 +4118,17 @@ onClick={async () => {
                   color: 'white',
                   border: 'none',
                   borderRadius: '6px',
-                  cursor: loading ? 'not-allowed' : 'pointer',
-                  fontWeight: '600'
+                  cursor: loading ? 'not-allowed' : 'pointer'
                 }}
               >
-                {loading ? '⏳ Loading...' : '📥 Load Images from URLs'}
+                {loading ? '⏳ Loading...' : '📥 Load Images'}
               </button>
-              
-              <div style={{
-                marginTop: '12px',
-                padding: '12px',
-                background: '#e7f3ff',
-                borderRadius: '6px',
-                fontSize: '13px',
-                color: '#004085'
-              }}>
-                💡 <strong>Quick Test:</strong> Use the default URLs in the box above (Picsum placeholder images)
-              </div>
             </div>
           )}
           
           {uploadedImages.length > 0 && (
-            <div>
-              <div style={{ 
-                display: 'grid', 
-                gridTemplateColumns: 'repeat(3, 1fr)', 
-                gap: '12px',
-                marginBottom: '12px'
-              }}>
+            <div style={{marginTop: '20px'}}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
                 {uploadedImages.map((img, idx) => (
                   <div key={idx} style={{ position: 'relative' }}>
                     <img 
@@ -4221,14 +4138,11 @@ onClick={async () => {
                         width: '100%',
                         height: '200px',
                         objectFit: 'cover',
-                        borderRadius: '8px',
-                        border: '2px solid #ddd'
+                        borderRadius: '8px'
                       }}
                     />
                     <button
-                      onClick={() => {
-                        setUploadedImages(prev => prev.filter((_, i) => i !== idx));
-                      }}
+                      onClick={() => setUploadedImages(prev => prev.filter((_, i) => i !== idx))}
                       style={{
                         position: 'absolute',
                         top: '8px',
@@ -4239,8 +4153,7 @@ onClick={async () => {
                         borderRadius: '50%',
                         width: '30px',
                         height: '30px',
-                        cursor: 'pointer',
-                        fontSize: '16px'
+                        cursor: 'pointer'
                       }}
                     >
                       ×
@@ -4248,34 +4161,244 @@ onClick={async () => {
                   </div>
                 ))}
               </div>
-              
-              <div style={{
-                padding: '12px',
-                background: '#d4edda',
-                borderRadius: '6px',
-                fontSize: '14px',
-                color: '#155724'
-              }}>
-                ✅ {uploadedImages.length} images uploaded. 
-                {uploadedImages.length < 6 && ` You can add ${6 - uploadedImages.length} more.`}
+              <div style={{marginTop: '12px', padding: '12px', background: '#d4edda', borderRadius: '6px'}}>
+                ✅ {uploadedImages.length} images uploaded
               </div>
             </div>
           )}
         </div>
 
-        {/* YOUR EXISTING STEP 2, STEP 3, CONFIG, GENERATE BUTTON CODE CONTINUES HERE */}
-        {/* Copy all your remaining manual slideshow code from original file */}
+        {/* Step 2: Title & Description */}
+        {uploadedImages.length >= 2 && (
+          <div style={{ marginBottom: '30px' }}>
+            <h3 style={{ color: '#333', marginBottom: '16px', fontSize: '20px' }}>
+              ✍️ Step 2: Add Title & Description
+            </h3>
+            
+            <label style={{display: 'block', marginBottom: '8px', fontWeight: '600'}}>
+              Video Title:
+            </label>
+            <div style={{display: 'flex', gap: '10px', marginBottom: '20px'}}>
+              <input
+                type="text"
+                value={slideshowTitle}
+                onChange={(e) => setSlideshowTitle(e.target.value)}
+                placeholder="Enter title or click AI Generate"
+                style={{
+                  flex: 1,
+                  padding: '12px',
+                  borderRadius: '8px',
+                  border: '2px solid #ddd',
+                  fontSize: '15px'
+                }}
+              />
+              <button
+                onClick={async () => {
+                  setLoading(true);
+                  try {
+                    const response = await fetch(`${API_BASE}/api/ai/generate-title`, {
+                      method: 'POST',
+                      headers: {'Content-Type': 'application/json'},
+                      body: JSON.stringify({topic: 'image slideshow', content_type: 'shorts'})
+                    });
+                    const result = await response.json();
+                    if (result.success) setSlideshowTitle(result.title);
+                  } catch (error) {
+                    alert('AI generation failed');
+                  } finally {
+                    setLoading(false);
+                  }
+                }}
+                disabled={loading}
+                style={{
+                  padding: '12px 20px',
+                  background: '#FF0000',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                🤖 AI Generate
+              </button>
+            </div>
+
+            <label style={{display: 'block', marginBottom: '8px', fontWeight: '600'}}>
+              Video Description:
+            </label>
+            <div style={{display: 'flex', gap: '10px'}}>
+              <textarea
+                value={slideshowDescription}
+                onChange={(e) => setSlideshowDescription(e.target.value)}
+                placeholder="Enter description or click AI Generate"
+                rows={4}
+                style={{
+                  flex: 1,
+                  padding: '12px',
+                  borderRadius: '8px',
+                  border: '2px solid #ddd',
+                  fontSize: '14px'
+                }}
+              />
+              <button
+                onClick={async () => {
+                  setLoading(true);
+                  try {
+                    const response = await fetch(`${API_BASE}/api/ai/generate-description`, {
+                      method: 'POST',
+                      headers: {'Content-Type': 'application/json'},
+                      body: JSON.stringify({topic: 'image slideshow', content_type: 'shorts'})
+                    });
+                    const result = await response.json();
+                    if (result.success) setSlideshowDescription(result.description);
+                  } catch (error) {
+                    alert('AI generation failed');
+                  } finally {
+                    setLoading(false);
+                  }
+                }}
+                disabled={loading}
+                style={{
+                  padding: '12px 20px',
+                  background: '#FF0000',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap',
+                  alignSelf: 'flex-start'
+                }}
+              >
+                🤖 AI Generate
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Step 3: Generate & Upload */}
+        {uploadedImages.length >= 2 && slideshowTitle && slideshowDescription && (
+          <div>
+            <h3 style={{ color: '#333', marginBottom: '16px', fontSize: '20px' }}>
+              🚀 Step 3: Generate & Upload
+            </h3>
+            
+            <div style={{display: 'flex', gap: '15px'}}>
+              <button
+                onClick={async () => {
+                  setGeneratingSlideshow(true);
+                  try {
+                    const userData = getUserData();
+                    const response = await fetch(`${API_BASE}/api/youtube/generate-slideshow`, {
+                      method: 'POST',
+                      headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                      },
+                      body: JSON.stringify({
+                        user_id: userData.user_id,
+                        images: uploadedImages,
+                        title: slideshowTitle,
+                        duration_per_image: 2.0
+                      })
+                    });
+                    const result = await response.json();
+                    if (result.success) {
+                      setSlideshowResult(result);
+                      alert('✅ Video generated! Click Upload to YouTube to publish.');
+                    } else {
+                      throw new Error(result.error);
+                    }
+                  } catch (error) {
+                    alert('Error: ' + error.message);
+                  } finally {
+                    setGeneratingSlideshow(false);
+                  }
+                }}
+                disabled={generatingSlideshow}
+                style={{
+                  flex: 1,
+                  padding: '16px',
+                  background: generatingSlideshow ? '#ccc' : '#28a745',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontSize: '16px',
+                  fontWeight: '700',
+                  cursor: generatingSlideshow ? 'not-allowed' : 'pointer'
+                }}
+              >
+                {generatingSlideshow ? '⏳ Generating Video...' : '🎬 Generate Video'}
+              </button>
+
+              {slideshowResult && (
+                <button
+                  onClick={async () => {
+                    setGeneratingSlideshow(true);
+                    try {
+                      const userData = getUserData();
+                      const credentials = await database_manager.get_youtube_credentials(userData.user_id);
+                      const response = await fetch(`${API_BASE}/api/youtube/upload-video`, {
+                        method: 'POST',
+                        headers: {
+                          'Content-Type': 'application/json',
+                          'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify({
+                          user_id: userData.user_id,
+                          video_url: slideshowResult.local_path,
+                          title: slideshowTitle,
+                          description: slideshowDescription,
+                          content_type: 'shorts'
+                        })
+                      });
+                      const result = await response.json();
+                      if (result.success) {
+                        alert('✅ Video uploaded to YouTube!');
+                        // Reset
+                        setUploadedImages([]);
+                        setSlideshowTitle('');
+                        setSlideshowDescription('');
+                        setSlideshowResult(null);
+                      } else {
+                        throw new Error(result.error);
+                      }
+                    } catch (error) {
+                      alert('Upload failed: ' + error.message);
+                    } finally {
+                      setGeneratingSlideshow(false);
+                    }
+                  }}
+                  disabled={generatingSlideshow}
+                  style={{
+                    flex: 1,
+                    padding: '16px',
+                    background: generatingSlideshow ? '#ccc' : '#FF0000',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '8px',
+                    fontSize: '16px',
+                    fontWeight: '700',
+                    cursor: generatingSlideshow ? 'not-allowed' : 'pointer'
+                  }}
+                >
+                  {generatingSlideshow ? '⏳ Uploading...' : '📺 Upload to YouTube'}
+                </button>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     )}
 
-    {/* PRODUCT URL TAB */}
+   {/* PRODUCT URL TAB */}
     {slideshowTab === 'product' && (
       <div style={{padding: '30px', background: '#f8f9fa', borderRadius: '12px'}}>
         <h3 style={{ color: '#333', marginBottom: '16px', fontSize: '22px', fontWeight: '700' }}>
           🛒 Product Promotion Video
         </h3>
         <p style={{ color: '#666', marginBottom: '20px', fontSize: '15px' }}>
-          Paste Flipkart/Amazon product URL to automatically scrape images, price, and details, then generate a promotional video
+          Paste Flipkart/Amazon product URL - Auto-fills title & description, or add manually
         </p>
         
         <input
@@ -4322,9 +4445,9 @@ onClick={async () => {
               
               if (result.success) {
                 setScrapedProduct(result.product_data);
-                setEditableTitle(result.ai_content.title);
-                setEditableDescription(result.ai_content.description);
-                alert('Product scraped successfully! Review and edit before uploading.');
+                setSlideshowTitle(result.ai_content.title);
+                setSlideshowDescription(result.ai_content.description);
+                alert('✅ Product scraped! Review and edit before uploading.');
               } else {
                 throw new Error(result.error || 'Failed to scrape product');
               }
@@ -4378,12 +4501,12 @@ onClick={async () => {
             
             <div style={{marginTop: '25px'}}>
               <label style={{display: 'block', marginBottom: '8px', fontWeight: '600', color: '#333'}}>
-                Edit Title:
+                Edit Title (AI + Manual):
               </label>
               <input
                 type="text"
-                value={editableTitle}
-                onChange={(e) => setEditableTitle(e.target.value)}
+                value={slideshowTitle}
+                onChange={(e) => setSlideshowTitle(e.target.value)}
                 style={{
                   width: '100%', 
                   padding: '12px', 
@@ -4395,11 +4518,11 @@ onClick={async () => {
               />
               
               <label style={{display: 'block', marginBottom: '8px', fontWeight: '600', color: '#333'}}>
-                Edit Description:
+                Edit Description (AI + Manual):
               </label>
               <textarea
-                value={editableDescription}
-                onChange={(e) => setEditableDescription(e.target.value)}
+                value={slideshowDescription}
+                onChange={(e) => setSlideshowDescription(e.target.value)}
                 rows={8}
                 style={{
                   width: '100%', 
@@ -4427,8 +4550,8 @@ onClick={async () => {
                     body: JSON.stringify({
                       user_id: userData.user_id,
                       product_url: productUrl,
-                      manual_title: editableTitle,
-                      manual_description: editableDescription,
+                      manual_title: slideshowTitle,
+                      manual_description: slideshowDescription,
                       auto_upload: true
                     })
                   });
@@ -4436,11 +4559,11 @@ onClick={async () => {
                   const result = await response.json();
                   
                   if (result.success) {
-                    alert('Video uploaded to YouTube successfully!');
+                    alert('✅ Video uploaded to YouTube successfully!');
                     setScrapedProduct(null);
                     setProductUrl('');
-                    setEditableTitle('');
-                    setEditableDescription('');
+                    setSlideshowTitle('');
+                    setSlideshowDescription('');
                   } else {
                     throw new Error(result.error || 'Upload failed');
                   }
@@ -4486,7 +4609,7 @@ onClick={async () => {
       </div>
     )}
 
-    {/* Pro Tips Section - Keep at bottom */}
+    {/* Pro Tips Section */}
     <div style={{
       marginTop: '30px',
       padding: '20px',
