@@ -445,33 +445,18 @@ class YouTubeOAuthConnector:
     # ------------------------------------------------------------------------
     
     # async def upload_video(
-    async def upload_video(
+async def upload_video(
         self,
         credentials_data: Dict,
         video_file_path: str,
         title: str,
         description: str,
         tags: List[str] = None,
-        category_id: str = "22",  # People & Blogs
+        category_id: str = "22",
         privacy_status: str = "public",
         thumbnail_data: str = None
     ) -> Dict[str, Any]:
-        """
-        Upload video to YouTube with optional thumbnail
-        
-        Args:
-            credentials_data: User's OAuth credentials
-            video_file_path: Path to video file
-            title: Video title (max 100 chars)
-            description: Video description
-            tags: List of tags
-            category_id: YouTube category ID
-            privacy_status: private, unlisted, or public
-            thumbnail_data: Base64 encoded thumbnail (data:image/jpeg;base64,...)
-            
-        Returns:
-            Dict with success status, video_id, video_url, and thumbnail_uploaded flag
-        """
+        """Upload video to YouTube with optional thumbnail"""
         try:
             # ===== VALIDATE TITLE =====
             if not title or not title.strip():
@@ -480,12 +465,7 @@ class YouTubeOAuthConnector:
                     "error": "Title is required and cannot be empty"
                 }
             
-            # Clean and truncate title if needed
             title = title.strip()
-            if len(title) > 100:
-                logger.warning(f"Title too long ({len(title)} chars), truncating to 100")
-                title = title[:97] + "..."
-            
             logger.info(f"Starting video upload: {title}")
             
             # ===== RECONSTRUCT CREDENTIALS =====
@@ -498,12 +478,25 @@ class YouTubeOAuthConnector:
                 scopes=credentials_data.get('scopes')
             )
             
-            # Refresh if expired
             if credentials.expired:
                 logger.info("Refreshing expired credentials")
                 credentials.refresh(Request())
             
             youtube = build('youtube', 'v3', credentials=credentials)
+            
+            # ===== CHECK IF YOUTUBE SHORT & ADD TAG BEFORE TRUNCATING =====
+            is_short = self._is_youtube_short(video_file_path)
+            if is_short:
+                if '#Shorts' not in title and '#shorts' not in title.lower():
+                    title = f"{title} #Shorts"
+                logger.info("Detected YouTube Short format")
+            
+            # ===== TRUNCATE TITLE AFTER ADDING #SHORTS =====
+            if len(title) > 100:
+                logger.warning(f"Title too long ({len(title)} chars), truncating to 100")
+                title = title[:97] + "..."
+            
+            logger.info(f"Final title: '{title}' ({len(title)} chars)")
             
             # ===== PREPARE VIDEO METADATA =====
             body = {
@@ -518,16 +511,6 @@ class YouTubeOAuthConnector:
                     'selfDeclaredMadeForKids': False
                 }
             }
-            
-            # ===== CHECK IF YOUTUBE SHORT =====
-            is_short = self._is_youtube_short(video_file_path)
-            if is_short:
-                # Add #Shorts to title if not present
-                if '#Shorts' not in title and '#shorts' not in title.lower():
-                    body['snippet']['title'] = f"{title} #Shorts"
-                logger.info("Detected YouTube Short format")
-            
-            logger.info(f"Final title: '{body['snippet']['title']}' ({len(body['snippet']['title'])} chars)")
             
             # ===== UPLOAD VIDEO =====
             media = MediaFileUpload(
@@ -559,28 +542,22 @@ class YouTubeOAuthConnector:
                             # ===== UPLOAD THUMBNAIL IF PROVIDED =====
                             thumbnail_success = False
                             
-                            # DEBUG: Check what we received
-                            logger.info(f"🔍 THUMBNAIL DEBUG - Data exists: {thumbnail_data is not None}")
                             if thumbnail_data:
                                 logger.info(f"🔍 THUMBNAIL DEBUG - Data length: {len(thumbnail_data)}")
-                                logger.info(f"🔍 THUMBNAIL DEBUG - Data preview: {thumbnail_data[:100]}")
-                                
-                                # NOW try to upload
                                 thumbnail_success = await self._upload_thumbnail(
                                     youtube,
                                     video_id,
                                     thumbnail_data
                                 )
-                                
                                 logger.info(f"📊 Thumbnail upload result: {thumbnail_success}")
                             else:
-                                logger.warning("⚠️ No thumbnail data provided - skipping thumbnail upload")
+                                logger.warning("⚠️ No thumbnail data provided")
                             
                             return {
                                 "success": True,
                                 "video_id": video_id,
                                 "video_url": video_url,
-                                "title": body['snippet']['title'],
+                                "title": title,
                                 "privacy_status": privacy_status,
                                 "thumbnail_uploaded": thumbnail_success
                             }
@@ -591,7 +568,6 @@ class YouTubeOAuthConnector:
                             }
                 
                 except HttpError as e:
-                    # Retry on server errors
                     if e.resp.status in [500, 502, 503, 504]:
                         retry += 1
                         if retry > 5:
@@ -611,6 +587,9 @@ class YouTubeOAuthConnector:
             import traceback
             logger.error(f"Traceback: {traceback.format_exc()}")
             return {"success": False, "error": str(e)}
+
+
+
 
 
 
