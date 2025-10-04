@@ -445,7 +445,7 @@ class YouTubeOAuthConnector:
     # ------------------------------------------------------------------------
     
     # async def upload_video(
-async def upload_video(
+    async def upload_video(
         self,
         credentials_data: Dict,
         video_file_path: str,
@@ -587,6 +587,8 @@ async def upload_video(
             import traceback
             logger.error(f"Traceback: {traceback.format_exc()}")
             return {"success": False, "error": str(e)}
+
+
 
 
 
