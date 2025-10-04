@@ -584,7 +584,7 @@ class ProductScraper:
             p, browser = await self._get_browser()
             page = await browser.new_page()
             
-            await page.goto(url, wait_until='domcontentloaded', timeout=20000)
+            await page.goto(url, wait_until='domcontentloaded', timeout=40000)
             await asyncio.sleep(2)
             
             content = await page.content()
@@ -767,7 +767,7 @@ class ProductScraper:
             p, browser = await self._get_browser()
             page = await browser.new_page()
             
-            await page.goto(url, wait_until='domcontentloaded', timeout=20000)
+            await page.goto(url, wait_until='domcontentloaded', timeout=40000)
             await asyncio.sleep(2)
             
             content = await page.content()
@@ -839,7 +839,7 @@ class ProductScraper:
             p, browser = await self._get_browser()
             page = await browser.new_page()
             
-            await page.goto(url, wait_until='domcontentloaded', timeout=20000)
+            await page.goto(url, wait_until='domcontentloaded', timeout=40000)
             await asyncio.sleep(2)
             
             content = await page.content()
