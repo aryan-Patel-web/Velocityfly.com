@@ -3320,48 +3320,64 @@ async def generate_youtube_content_endpoint(request: dict):
         logger.error(f"YouTube content generation failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+# At the top with other imports
+from YTvideo_services import get_video_service
 
+# In your slideshow preview endpoint
 @app.post("/api/youtube/generate-slideshow-preview")
 async def generate_slideshow_preview(request: dict):
-    """Generate slideshow video and return preview (don't upload yet)"""
     try:
-        user_id = request.get('user_id')
-        images = request.get('images', [])
-        title = request.get('title', 'Video')
-        duration_per_image = request.get('duration_per_image', 2.0)
+        user_id = request.get("user_id")
+        images = request.get("images", [])
+        duration_per_image = request.get("duration_per_image", 2.0)
         
-        if len(images) < 2:
-            raise HTTPException(status_code=400, detail="Need at least 2 images")
+        logger.info(f"🎬 Generating preview for {len(images)} images")
         
-        logger.info(f"Generating preview slideshow for user {user_id}")
+        if not images or len(images) < 2:
+            raise ValueError("Need at least 2 images")
+        
+        # Get video service
+        video_service = get_video_service()
+        
+        if not video_service.ffmpeg_available:
+            return JSONResponse({
+                "success": False,
+                "error": "FFmpeg not available on server. Please upload directly to YouTube instead."
+            }, status_code=503)
         
         # Generate video
         video_path = await video_service.create_slideshow(
             images=images,
             duration_per_image=duration_per_image,
-            output_filename=f"preview_{user_id}_{int(datetime.now().timestamp())}.mp4"
+            output_format='mp4'
         )
         
-        if not video_path or not os.path.exists(video_path):
-            raise HTTPException(status_code=500, detail="Video generation failed")
-        
-        # Convert video to base64 for preview
+        # Read video as base64
         with open(video_path, 'rb') as f:
-            video_bytes = f.read()
-            video_base64 = base64.b64encode(video_bytes).decode('utf-8')
+            video_data = base64.b64encode(f.read()).decode()
         
-        # Clean up temp file
-        os.remove(video_path)
+        # Clean up
+        os.unlink(video_path)
         
-        return {
+        return JSONResponse({
             "success": True,
-            "video_preview": f"data:video/mp4;base64,{video_base64}",
-            "message": "Video generated successfully"
-        }
+            "video_preview": f"data:video/mp4;base64,{video_data}"
+        })
         
     except Exception as e:
-        logger.error(f"Preview generation failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Preview generation failed: {str(e)}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        
+        return JSONResponse({
+            "success": False,
+            "error": f"Preview failed: {str(e)}"
+        }, status_code=500)
+
+
+
+
+
 
 
 @app.post("/api/slideshow/upload-multi-platform")
@@ -3551,50 +3567,7 @@ async def generate_product_promo_video(request: dict):
     except Exception as e:
         logger.error(f"Error: {e}")
         return {"success": False, "error": str(e)}
-@app.post("/api/youtube/generate-slideshow-preview")
-async def generate_slideshow_preview(request: dict):
-    """Generate video preview without uploading"""
-    try:
-        user_id = request.get('user_id')
-        images = request.get('images', [])
-        duration_per_image = request.get('duration_per_image', 2.0)
-        
-        if len(images) < 2:
-            raise HTTPException(status_code=400, detail="Need at least 2 images")
-        
-        logger.info(f"Generating preview for user {user_id}")
-        
-        # Generate video
-        video_path = await video_service.create_slideshow(
-            images=images,
-            duration_per_image=duration_per_image,
-            output_filename=f"preview_{user_id}_{int(datetime.now().timestamp())}.mp4"
-        )
-        
-        if not video_path or not os.path.exists(video_path):
-            raise HTTPException(status_code=500, detail="Video generation failed")
-        
-        logger.info(f"Preview generated: {video_path}")
-        
-        # Convert to base64
-        with open(video_path, 'rb') as f:
-            video_bytes = f.read()
-            video_base64 = base64.b64encode(video_bytes).decode('utf-8')
-        
-        # Cleanup
-        try:
-            os.remove(video_path)
-        except:
-            pass
-        
-        return {
-            "success": True,
-            "video_preview": f"data:video/mp4;base64,{video_base64}"
-        }
-        
-    except Exception as e:
-        logger.error(f"Preview generation failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    
 
 
 # Main application runner
