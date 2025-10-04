@@ -22,6 +22,7 @@ import random
 from pydantic import BaseModel, EmailStr
 import sys
 import traceback
+import httpx
 import uuid
 import os
 # Set Playwright cache directory for Render
@@ -3512,9 +3513,23 @@ async def check_ffmpeg():
 from YTscrapADS import get_product_scraper
 
 
+async def shorten_url(long_url: str) -> str:
+    """Shorten URL using TinyURL (free, no API needed)"""
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                f"http://tinyurl.com/api-create.php?url={long_url}",
+                timeout=10
+            )
+            if response.status_code == 200:
+                return response.text.strip()
+    except Exception as e:
+        logger.error(f"URL shortening failed: {e}")
+    return long_url
+
 @app.post("/api/product-video/generate")
 async def generate_product_promo_video(request: dict):
-    """Scrape product and return structured data"""
+    """Scrape product and return formatted data for YouTube"""
     try:
         user_id = request.get('user_id')
         product_url = request.get('product_url')
@@ -3524,7 +3539,7 @@ async def generate_product_promo_video(request: dict):
         
         logger.info(f"Scraping: {product_url}")
         
-        # Scrape
+        # Scrape product
         scraper = get_product_scraper()
         product_data = await scraper.scrape_product(product_url)
         
@@ -3533,36 +3548,104 @@ async def generate_product_promo_video(request: dict):
         
         logger.info(f"✅ Scraped: {product_data.get('product_name')}")
         
-        # Build title
-        title = f"{product_data.get('brand', 'Brand')} {product_data.get('product_name', 'Product')}"
-        title = title[:100]
+        # Extract data
+        brand = product_data.get('brand', 'Brand')
+        product_name = product_data.get('product_name', 'Product')
+        price = product_data.get('price', 0)
+        original_price = product_data.get('original_price', price)
+        discount = product_data.get('discount', '')
+        colors = product_data.get('colors', [])
+        sizes = product_data.get('sizes', [])
+        rating_count = product_data.get('rating_count', 0)
+        review_count = product_data.get('review_count', 0)
         
-        # Build description
-        description = f"""🔥 {product_data.get('product_name', 'Product')}
+        # Determine category (Men/Women/Unisex)
+        product_lower = product_name.lower()
+        if 'men' in product_lower and 'women' not in product_lower:
+            category = "Men"
+        elif 'women' in product_lower or 'ladies' in product_lower:
+            category = "Women"
+        elif 'kids' in product_lower or 'baby' in product_lower:
+            category = "Kids"
+        else:
+            category = "Unisex"
+        
+        # Calculate discount percentage
+        if original_price and price:
+            discount_pct = int(((original_price - price) / original_price) * 100)
+        else:
+            discount_pct = discount.replace('% OFF', '').replace('%', '').strip() if discount else '0'
+            try:
+                discount_pct = int(discount_pct)
+            except:
+                discount_pct = 0
+        
+        # Build YouTube-optimized title
+        title = f"{brand} {product_name}"
+        if len(title) > 90:  # Leave room for #Shorts
+            title = title[:87] + "..."
+        
+        # Shorten URL
+        short_url = await shorten_url(product_url)
+        
+        # Build formatted description
+        description = f"""{brand.upper()}
+{product_name}
 
-✨ Details:
-👕 Brand: {product_data.get('brand', 'N/A')}
-💰 Price: Rs.{product_data.get('price', 0)} {product_data.get('discount', '')}
+💰 PRICE DETAILS:
+Original: ₹{original_price:,}
+Selling Price: ₹{price:,}
+YOU SAVE: ₹{original_price - price:,} ({discount_pct}% OFF)
+
+👔 BRAND: {brand}
+👥 CATEGORY: {category}
 """
         
-        if product_data.get('colors'):
-            description += f"🎨 Colors: {', '.join(product_data.get('colors', [])[:3])}\n"
+        # Add sizes if available
+        if sizes:
+            size_text = ', '.join(sizes[:12])  # Limit to first 12 sizes
+            description += f"\n📏 SIZES AVAILABLE:\n{size_text}\n"
         
-        if product_data.get('sizes'):
-            description += f"📏 Sizes: {', '.join(product_data.get('sizes', []))}\n"
+        # Add colors if available
+        if colors:
+            color_text = ', '.join(colors[:6])
+            description += f"\n🎨 COLORS:\n{color_text}\n"
         
-        description += f"\n🛒 Buy: {product_url}\n\n#fashion #shopping #trending"
+        # Add ratings if available
+        if rating_count or review_count:
+            description += f"\n⭐ RATINGS:\n{rating_count:,} ratings and {review_count} reviews\n"
         
-        # Return with explicit structure
+        # Add purchase link
+        description += f"\n🛒 BUY NOW 👇\n{short_url}\n"
+        
+        # Add hashtags
+        category_hashtags = {
+            "Men": ["mensfashion", "menstyle", "menswear"],
+            "Women": ["womensfashion", "womenswear", "ladiesfashion"],
+            "Kids": ["kidsfashion", "babyfashion", "kidsclothing"],
+            "Unisex": ["fashion", "style", "trending"]
+        }
+        
+        hashtags = ["shopping", "flipkart", "deals", "india", "fashion"]
+        hashtags.extend(category_hashtags.get(category, []))
+        hashtags.append(brand.lower().replace(" ", ""))
+        
+        description += f"\n{' '.join([f'#{tag}' for tag in hashtags[:15]])}"
+        
+        # Return structured data
         return {
             "success": True,
             "product_data": {
-                "product_name": product_data.get('product_name', 'Product'),
-                "brand": product_data.get('brand', 'Brand'),
-                "price": product_data.get('price', 0),
-                "discount": product_data.get('discount', ''),
-                "colors": product_data.get('colors', []),
-                "sizes": product_data.get('sizes', []),
+                "product_name": product_name,
+                "brand": brand,
+                "price": price,
+                "original_price": original_price,
+                "discount": f"{discount_pct}% OFF",
+                "colors": colors,
+                "sizes": sizes,
+                "category": category,
+                "rating_count": rating_count,
+                "review_count": review_count,
                 "images": product_data.get('images', [])[:6]
             },
             "title": title,
@@ -3572,8 +3655,9 @@ async def generate_product_promo_video(request: dict):
         
     except Exception as e:
         logger.error(f"Error: {e}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
         return {"success": False, "error": str(e)}
-    
 
 
 # Main application runner
