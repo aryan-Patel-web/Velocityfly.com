@@ -4668,42 +4668,41 @@ onClick={async () => {
     </div>
   </div>
 )}
+
 {/* End Image Slideshow Tab */}
 
-{/* Not Connected Message for other tabs */}
-{activeTab !== 'connect' && !status?.youtube_connected && (
-  <div style={{ 
-    background: 'rgba(255, 255, 255, 0.95)', 
-    borderRadius: '20px', 
-    padding: '40px', 
-    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2)', 
-    textAlign: 'center' 
-  }}>
-    <div style={{ fontSize: '64px', marginBottom: '20px' }}>🔗</div>
-    <h3 style={{ color: '#FF0000', marginBottom: '20px' }}>
-      YouTube Not Connected
-    </h3>
-    <p style={{ color: '#666', marginBottom: '30px' }}>
-      Please connect your YouTube channel first to access this feature.
-    </p>
-    <button 
-      onClick={() => setActiveTab('connect')} 
-      style={{ 
-        padding: '12px 24px', 
-        background: '#FF0000', 
-        color: 'white', 
-        border: 'none', 
-        borderRadius: '8px', 
-        cursor: 'pointer', 
-        fontWeight: '600',
-        fontSize: '16px',
-        transition: 'background 0.3s ease'
-      }}
-    >
-      Connect YouTube Channel
-    </button>
-  </div>
-)}
+        {/* Not Connected Message */}
+        {activeTab !== 'connect' && !status?.youtube_connected && (
+          <div style={{ 
+            background: 'rgba(255, 255, 255, 0.95)', 
+            borderRadius: '20px', 
+            padding: '40px', 
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2)', 
+            textAlign: 'center' 
+          }}>
+            <div style={{ fontSize: '64px', marginBottom: '20px' }}>🔗</div>
+            <h3 style={{ color: '#FF0000', marginBottom: '20px' }}>
+              YouTube Not Connected
+            </h3>
+            <p style={{ color: '#666', marginBottom: '30px' }}>
+              Please connect your YouTube channel first.
+            </p>
+            <button 
+              onClick={() => setActiveTab('connect')} 
+              style={{ 
+                padding: '12px 24px', 
+                background: '#FF0000', 
+                color: 'white', 
+                border: 'none', 
+                borderRadius: '8px', 
+                cursor: 'pointer', 
+                fontWeight: '600'
+              }}
+            >
+              Connect YouTube
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
