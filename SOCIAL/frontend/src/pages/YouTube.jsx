@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../quickpage/AuthContext';
-
+const [videoPreview, setVideoPreview] = useState(null);
 const YouTubeAutomation = () => {
   const { user, token, isAuthenticated, debugAuth } = useAuth();
   const [activeTab, setActiveTab] = useState('connect');
@@ -4321,234 +4321,259 @@ onClick={async () => {
       </div>
     )}
 
-    {/* PRODUCT URL TAB */}
-    {slideshowTab === 'product' && (
+{/* PRODUCT URL TAB */}
+{/* PRODUCT URL TAB */}
+{slideshowTab === 'product' && (
+  <div>
+    {/* Step 1: Scrape Product */}
+    <div style={{ marginBottom: '30px' }}>
+      <h3 style={{ color: '#333', marginBottom: '16px', fontSize: '22px', fontWeight: '700' }}>
+        Step 1: Scrape Product
+      </h3>
+      
+      <input
+        type="text"
+        placeholder="https://www.flipkart.com/product/..."
+        value={productUrl}
+        onChange={(e) => setProductUrl(e.target.value)}
+        style={{
+          width: '100%',
+          padding: '15px',
+          fontSize: '16px',
+          marginBottom: '15px',
+          borderRadius: '8px',
+          border: '2px solid #ddd'
+        }}
+      />
+      
+      <button
+        onClick={async () => {
+          if (!productUrl.trim()) {
+            alert('Enter product URL');
+            return;
+          }
+          
+          setLoading(true);
+          setError('');
+          
+          try {
+            const userData = getUserData();
+            const response = await fetch(`${API_BASE}/api/product-video/generate`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+              },
+              body: JSON.stringify({
+                user_id: userData.user_id,
+                product_url: productUrl
+              })
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+              setScrapedProduct(result.product_data);
+              setSlideshowTitle(result.title);
+              setSlideshowDescription(result.description);
+              setUploadedImages(result.images);
+              setVideoPreview(null);
+            } else {
+              throw new Error(result.error);
+            }
+          } catch (error) {
+            setError(error.message);
+            alert('Error: ' + error.message);
+          } finally {
+            setLoading(false);
+          }
+        }}
+        disabled={loading}
+        style={{
+          padding: '14px 28px',
+          background: loading ? '#ccc' : '#FF0000',
+          color: 'white',
+          border: 'none',
+          borderRadius: '8px',
+          cursor: loading ? 'not-allowed' : 'pointer',
+          fontWeight: '700',
+          fontSize: '16px'
+        }}
+      >
+        {loading ? 'Scraping...' : 'Scrape Product'}
+      </button>
+      
+      {error && (
+        <div style={{marginTop: '15px', padding: '15px', background: '#f8d7da', borderRadius: '8px', color: '#721c24'}}>
+          {error}
+        </div>
+      )}
+    </div>
+
+    {/* Step 2: Edit (shown after scraping) */}
+    {scrapedProduct && (
       <div>
-        {/* Step 1: Enter Product URL */}
-        <div style={{ marginBottom: '30px' }}>
-          <h3 style={{ color: '#333', marginBottom: '16px', fontSize: '22px', fontWeight: '700' }}>
-            🛒 Step 1: Enter Product URL
-          </h3>
-          <p style={{ color: '#666', marginBottom: '20px', fontSize: '15px' }}>
-            Paste Flipkart/Amazon product URL - We'll auto-fill details with AI
+        <div style={{marginBottom: '30px', background: '#f8f9fa', padding: '20px', borderRadius: '12px'}}>
+          <h4 style={{fontWeight: '700', marginBottom: '10px'}}>{scrapedProduct.product_name}</h4>
+          <p style={{marginBottom: '10px'}}>
+            <strong>Brand:</strong> {scrapedProduct.brand} | 
+            <strong> Price:</strong> Rs.{scrapedProduct.price} {scrapedProduct.discount}
           </p>
           
+          <div style={{display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', marginTop: '15px'}}>
+            {uploadedImages.slice(0, 6).map((img, idx) => (
+              <img key={idx} src={img} alt="" style={{width: '100%', height: '100px', objectFit: 'cover', borderRadius: '8px'}} />
+            ))}
+          </div>
+        </div>
+
+        <div style={{ marginBottom: '30px' }}>
+          <h3 style={{ color: '#333', marginBottom: '16px', fontSize: '20px' }}>
+            Step 2: Review Details
+          </h3>
+          
+          <label style={{display: 'block', marginBottom: '8px', fontWeight: '600'}}>Title:</label>
           <input
             type="text"
-            placeholder="https://www.flipkart.com/product/..."
-            value={productUrl}
-            onChange={(e) => setProductUrl(e.target.value)}
+            value={slideshowTitle}
+            onChange={(e) => setSlideshowTitle(e.target.value)}
             style={{
-              width: '100%',
-              padding: '15px',
-              fontSize: '16px',
-              marginBottom: '15px',
+              width: '100%', 
+              padding: '12px', 
+              marginBottom: '20px',
               borderRadius: '8px',
-              border: '2px solid #ddd'
+              border: '2px solid #ddd',
+              fontSize: '15px'
             }}
           />
           
-          <button
-            onClick={async () => {
-              if (!productUrl.trim()) {
-                alert('Please enter product URL');
-                return;
-              }
-              
-              setGeneratingSlideshow(true);
-              setError('');
-              
-              try {
-                const userData = getUserData();
-                const response = await fetch(`${API_BASE}/api/product-video/generate`, {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                  },
-                  body: JSON.stringify({
-                    user_id: userData.user_id,
-                    product_url: productUrl
-                  })
-                });
-                
-                const result = await response.json();
-                
-                if (result.success) {
-                  setScrapedProduct(result.product_data);
-                  setSlideshowTitle(result.title || '');
-                  setSlideshowDescription(result.description || '');
-                  setUploadedImages(result.images || []);
-                  alert('✅ Product scraped! Review and edit before uploading.');
-                } else {
-                  throw new Error(result.error || 'Failed to scrape product');
-                }
-              } catch (error) {
-                setError('Scraping failed: ' + error.message);
-                alert('Error: ' + error.message);
-              } finally {
-                setGeneratingSlideshow(false);
-              }
-            }}
-            disabled={generatingSlideshow}
+          <label style={{display: 'block', marginBottom: '8px', fontWeight: '600'}}>Description:</label>
+          <textarea
+            value={slideshowDescription}
+            onChange={(e) => setSlideshowDescription(e.target.value)}
+            rows={10}
             style={{
-              padding: '14px 28px',
-              background: generatingSlideshow ? '#ccc' : '#FF0000',
-              color: 'white',
-              border: 'none',
+              width: '100%',
+              padding: '12px',
               borderRadius: '8px',
-              cursor: generatingSlideshow ? 'not-allowed' : 'pointer',
-              fontWeight: '700',
-              fontSize: '16px'
-            }}
-          >
-            {generatingSlideshow ? '⏳ Scraping...' : '🔍 Scrape Product Details'}
-          </button>
-          
-          {error && (
-            <div style={{
-              marginTop: '15px',
-              padding: '15px',
-              background: '#f8d7da',
-              border: '1px solid #f5c6cb',
-              borderRadius: '8px',
-              color: '#721c24',
+              border: '2px solid #ddd',
               fontSize: '14px'
-            }}>
-              ⚠️ {error}
-            </div>
-          )}
+            }}
+          />
         </div>
 
-        {/* Step 2: Review & Edit (Shows after scraping) */}
-        {scrapedProduct && (
-          <div>
-            <div style={{marginBottom: '30px', background: '#f8f9fa', padding: '25px', borderRadius: '12px'}}>
-              <h4 style={{ color: '#333', marginBottom: '16px', fontSize: '18px', fontWeight: '700' }}>
-                📦 Product Preview
-              </h4>
-              <p><strong>Name:</strong> {scrapedProduct.product_name}</p>
-              <p><strong>Brand:</strong> {scrapedProduct.brand}</p>
-              <p><strong>Price:</strong> ₹{scrapedProduct.price} {scrapedProduct.discount}</p>
-              
-              <div style={{display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginTop: '16px'}}>
-                {uploadedImages.slice(0, 6).map((img, idx) => (
-                  <img 
-                    key={idx} 
-                    src={img} 
-                    alt={`Product ${idx + 1}`}
-                    style={{
-                      width: '100%', 
-                      height: '150px', 
-                      objectFit: 'cover',
-                      borderRadius: '8px',
-                      border: '2px solid #ddd'
-                    }} 
-                  />
-                ))}
-              </div>
-            </div>
+        {/* Step 3: Generate */}
+        {!videoPreview && (
+          <div style={{ marginBottom: '30px' }}>
+            <h3 style={{ color: '#333', marginBottom: '16px', fontSize: '20px' }}>
+              Step 3: Generate Video
+            </h3>
+            
+            <button
+              onClick={async () => {
+                setGeneratingSlideshow(true);
+                try {
+                  const userData = getUserData();
+                  
+                  const imagePromises = uploadedImages.map(async (imgUrl) => {
+                    if (imgUrl.startsWith('data:')) return imgUrl;
+                    const response = await fetch(imgUrl);
+                    const blob = await response.blob();
+                    return new Promise((resolve) => {
+                      const reader = new FileReader();
+                      reader.onloadend = () => resolve(reader.result);
+                      reader.readAsDataURL(blob);
+                    });
+                  });
+                  
+                  const base64Images = await Promise.all(imagePromises);
+                  
+                  const response = await fetch(`${API_BASE}/api/youtube/generate-slideshow-preview`, {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                      user_id: userData.user_id,
+                      images: base64Images,
+                      duration_per_image: 2.0
+                    })
+                  });
+                  
+                  const result = await response.json();
+                  
+                  if (result.success) {
+                    setVideoPreview(result.video_preview);
+                  } else {
+                    throw new Error(result.error);
+                  }
+                } catch (error) {
+                  alert('Error: ' + error.message);
+                } finally {
+                  setGeneratingSlideshow(false);
+                }
+              }}
+              disabled={generatingSlideshow || !slideshowTitle || !slideshowDescription}
+              style={{
+                width: '100%',
+                padding: '16px',
+                background: (generatingSlideshow || !slideshowTitle || !slideshowDescription) ? '#ccc' : '#28a745',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                cursor: (generatingSlideshow || !slideshowTitle || !slideshowDescription) ? 'not-allowed' : 'pointer',
+                fontWeight: '700',
+                fontSize: '16px'
+              }}
+            >
+              {generatingSlideshow ? 'Generating...' : 'Generate Video Preview'}
+            </button>
+          </div>
+        )}
 
-            {/* Step 3: Edit Title & Description */}
-            <div style={{ marginBottom: '30px' }}>
-              <h3 style={{ color: '#333', marginBottom: '16px', fontSize: '20px' }}>
-                ✍️ Step 2: Review & Edit Details
-              </h3>
-              
-              <label style={{display: 'block', marginBottom: '8px', fontWeight: '600', color: '#333'}}>
-                Video Title:
-              </label>
-              <input
-                type="text"
-                value={slideshowTitle}
-                onChange={(e) => setSlideshowTitle(e.target.value)}
-                placeholder="Edit title (AI-generated from product details)"
+        {/* Step 4: Upload */}
+        {videoPreview && (
+          <div style={{ marginBottom: '30px' }}>
+            <h3 style={{ color: '#333', marginBottom: '16px', fontSize: '20px' }}>
+              Step 4: Preview & Upload
+            </h3>
+            
+            <video 
+              src={videoPreview} 
+              controls 
+              style={{
+                width: '100%', 
+                maxHeight: '400px', 
+                borderRadius: '12px',
+                marginBottom: '20px',
+                background: '#000'
+              }}
+            />
+            
+            <div style={{display: 'flex', gap: '12px'}}>
+              <button
+                onClick={() => setVideoPreview(null)}
                 style={{
-                  width: '100%', 
-                  padding: '12px', 
-                  marginBottom: '20px',
+                  flex: 1,
+                  padding: '14px',
+                  background: '#6c757d',
+                  color: 'white',
+                  border: 'none',
                   borderRadius: '8px',
-                  border: '2px solid #ddd',
-                  fontSize: '15px'
+                  fontWeight: '700',
+                  cursor: 'pointer'
                 }}
-              />
-              
-              <label style={{display: 'block', marginBottom: '8px', fontWeight: '600', color: '#333'}}>
-                Video Description (with hashtags):
-              </label>
-              <div style={{display: 'flex', gap: '10px', marginBottom: '10px'}}>
-                <textarea
-                  value={slideshowDescription}
-                  onChange={(e) => setSlideshowDescription(e.target.value)}
-                  placeholder="Edit description (AI-generated with product details & hashtags)"
-                  rows={10}
-                  style={{
-                    flex: 1,
-                    padding: '12px',
-                    borderRadius: '8px',
-                    border: '2px solid #ddd',
-                    fontSize: '14px',
-                    fontFamily: 'inherit'
-                  }}
-                />
-                <button
-                  onClick={async () => {
-                    if (!slideshowTitle) {
-                      alert('Please enter a title first');
-                      return;
-                    }
-                    setLoading(true);
-                    try {
-                      const response = await fetch(`${API_BASE}/api/product-video/generate`, {
-                        method: 'POST',
-                        headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({
-                          user_id: getUserData().user_id,
-                          product_url: productUrl
-                        })
-                      });
-                      const result = await response.json();
-                      if (result.success) {
-                        setSlideshowDescription(result.description);
-                        alert('Description enhanced!');
-                      }
-                    } catch (error) {
-                      alert('AI enhancement failed');
-                    } finally {
-                      setLoading(false);
-                    }
-                  }}
-                  disabled={loading}
-                  style={{
-                    padding: '12px 20px',
-                    background: loading ? '#ccc' : '#FF0000',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '8px',
-                    cursor: loading ? 'not-allowed' : 'pointer',
-                    whiteSpace: 'nowrap',
-                    height: 'fit-content'
-                  }}
-                >
-                  {loading ? '⏳' : '🤖 AI Enhance'}
-                </button>
-              </div>
-            </div>
-
-            {/* Step 4: Generate & Upload */}
-            <div>
-              <h3 style={{ color: '#333', marginBottom: '16px', fontSize: '20px' }}>
-                🚀 Step 3: Generate & Upload Video
-              </h3>
+              >
+                Regenerate
+              </button>
               
               <button
                 onClick={async () => {
                   setGeneratingSlideshow(true);
-                  setError('');
                   try {
                     const userData = getUserData();
                     
-                    // Convert image URLs to base64
                     const imagePromises = uploadedImages.map(async (imgUrl) => {
                       if (imgUrl.startsWith('data:')) return imgUrl;
                       const response = await fetch(imgUrl);
@@ -4580,42 +4605,49 @@ onClick={async () => {
                     const result = await response.json();
                     
                     if (result.success) {
-                      alert('✅ Product video uploaded to YouTube successfully!');
+                      alert('Video uploaded to YouTube!');
                       setScrapedProduct(null);
                       setProductUrl('');
                       setSlideshowTitle('');
                       setSlideshowDescription('');
                       setUploadedImages([]);
+                      setVideoPreview(null);
                     } else {
-                      throw new Error(result.error || 'Upload failed');
+                      throw new Error(result.error);
                     }
                   } catch (error) {
-                    setError('Upload failed: ' + error.message);
-                    alert('Error: ' + error.message);
+                    alert('Upload failed: ' + error.message);
                   } finally {
                     setGeneratingSlideshow(false);
                   }
                 }}
-                disabled={generatingSlideshow || !slideshowTitle || !slideshowDescription}
+                disabled={generatingSlideshow}
                 style={{
-                  width: '100%',
-                  padding: '16px',
-                  background: (generatingSlideshow || !slideshowTitle || !slideshowDescription) ? '#ccc' : '#FF0000',
+                  flex: 2,
+                  padding: '14px',
+                  background: generatingSlideshow ? '#ccc' : '#FF0000',
                   color: 'white',
                   border: 'none',
                   borderRadius: '8px',
-                  cursor: (generatingSlideshow || !slideshowTitle || !slideshowDescription) ? 'not-allowed' : 'pointer',
                   fontWeight: '700',
-                  fontSize: '16px'
+                  cursor: generatingSlideshow ? 'not-allowed' : 'pointer'
                 }}
               >
-                {generatingSlideshow ? '⏳ Generating & Uploading...' : '🚀 Generate & Upload to YouTube'}
+                {generatingSlideshow ? 'Uploading...' : 'Upload to YouTube'}
               </button>
             </div>
           </div>
         )}
       </div>
     )}
+  </div>
+)}
+
+
+
+
+
+
 
     {/* Pro Tips */}
     <div style={{

@@ -3301,6 +3301,67 @@ async def cleanup_temp_files(file_path: str, delay: int = 120):
     except Exception as e:
         logger.warning(f"Cleanup failed: {e}")
 
+@app.post("/api/ai/generate-youtube-content")
+async def generate_youtube_content_endpoint(request: dict):
+    """Generate YouTube content with AI"""
+    try:
+        if not ai_service:
+            raise HTTPException(status_code=503, detail="AI service not available")
+        
+        result = await ai_service.generate_youtube_content(
+            content_type=request.get('content_type', 'shorts'),
+            topic=request.get('topic', 'general'),
+            target_audience=request.get('target_audience', 'general'),
+            duration_seconds=request.get('duration_seconds', 30)
+        )
+        
+        return result
+    except Exception as e:
+        logger.error(f"YouTube content generation failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/youtube/generate-slideshow-preview")
+async def generate_slideshow_preview(request: dict):
+    """Generate slideshow video and return preview (don't upload yet)"""
+    try:
+        user_id = request.get('user_id')
+        images = request.get('images', [])
+        title = request.get('title', 'Video')
+        duration_per_image = request.get('duration_per_image', 2.0)
+        
+        if len(images) < 2:
+            raise HTTPException(status_code=400, detail="Need at least 2 images")
+        
+        logger.info(f"Generating preview slideshow for user {user_id}")
+        
+        # Generate video
+        video_path = await video_service.create_slideshow(
+            images=images,
+            duration_per_image=duration_per_image,
+            output_filename=f"preview_{user_id}_{int(datetime.now().timestamp())}.mp4"
+        )
+        
+        if not video_path or not os.path.exists(video_path):
+            raise HTTPException(status_code=500, detail="Video generation failed")
+        
+        # Convert video to base64 for preview
+        with open(video_path, 'rb') as f:
+            video_bytes = f.read()
+            video_base64 = base64.b64encode(video_bytes).decode('utf-8')
+        
+        # Clean up temp file
+        os.remove(video_path)
+        
+        return {
+            "success": True,
+            "video_preview": f"data:video/mp4;base64,{video_base64}",
+            "message": "Video generated successfully"
+        }
+        
+    except Exception as e:
+        logger.error(f"Preview generation failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/api/slideshow/upload-multi-platform")
@@ -3432,7 +3493,7 @@ from YTscrapADS import get_product_scraper
 
 @app.post("/api/product-video/generate")
 async def generate_product_promo_video(request: dict):
-    """Generate promotional video from product URL"""
+    """Scrape product and generate AI content"""
     try:
         user_id = request.get('user_id')
         product_url = request.get('product_url')
@@ -3442,7 +3503,7 @@ async def generate_product_promo_video(request: dict):
         
         logger.info(f"Product video request for URL: {product_url}")
         
-        # Step 1: Scrape product
+        # Scrape product
         scraper = get_product_scraper()
         product_data = await scraper.scrape_product(product_url)
         
@@ -3452,53 +3513,41 @@ async def generate_product_promo_video(request: dict):
         
         logger.info(f"Product scraped: {product_data.get('product_name', 'Unknown')}")
         
-        # Step 2: Generate AI content
-        title = ""
-        description = ""
-        hashtags = []
-        
-        if ai_service:
-            try:
-                ai_content = await ai_service.generate_product_promo_content(
-                    product_data,
-                    target_audience=request.get('target_audience', 'young_adults'),
-                    style=request.get('style', 'trendy')
-                )
-                
-                if ai_content.get('success'):
-                    title = ai_content.get('title', '')
-                    description = ai_content.get('description', '')
-                    hashtags = ai_content.get('hashtags', [])
-                    logger.info(f"AI content generated successfully")
-                else:
-                    logger.warning(f"AI generation failed: {ai_content.get('error')}")
-            except Exception as ai_error:
-                logger.error(f"AI content generation error: {ai_error}")
-        
-        # Fallback if AI failed
-        if not title or not description:
-            logger.info("Using fallback content generation")
-            title = f"{product_data.get('brand', 'Brand')} {product_data.get('product_name', 'Product')}"[:100]
-            
-            description = f"""🔥 {product_data.get('product_name', 'Product')}
+        # Generate AI content
+        title = f"{product_data.get('brand', '')} {product_data.get('product_name', 'Product')}"[:100]
+        description = f"""🔥 {product_data.get('product_name', 'Product')}
 
 ✨ Product Details:
-Brand: {product_data.get('brand', 'N/A')}
-💰 Price: ₹{product_data.get('price', 0)} {product_data.get('discount', '')}
+👕 Brand: {product_data.get('brand', 'N/A')}
+💰 Price: ₹{product_data.get('price', 0)}
+{f"💸 Save {product_data.get('discount', '')}" if product_data.get('discount') else ''}
 {f"🎨 Colors: {', '.join(product_data.get('colors', [])[:3])}" if product_data.get('colors') else ''}
 {f"📏 Sizes: {', '.join(product_data.get('sizes', []))}" if product_data.get('sizes') else ''}
 
 🛒 Buy Now: {product_url}
 
-#shopping #trending #fashion #online #india"""
+#fashion #trending #shopping #online #india #deals"""
         
-        # Step 3: Return product data with AI-generated content
+        if ai_service:
+            try:
+                ai_content = await ai_service.generate_product_promo_content(
+                    product_data,
+                    target_audience='general',
+                    style='trendy'
+                )
+                
+                if ai_content.get('success'):
+                    title = ai_content.get('title', title)
+                    description = ai_content.get('description', description)
+                    logger.info("AI content generated successfully")
+            except Exception as e:
+                logger.warning(f"AI generation failed, using fallback: {e}")
+        
         return {
             "success": True,
             "product_data": product_data,
-            "title": title[:100],
+            "title": title,
             "description": description,
-            "hashtags": hashtags,
             "images": product_data.get('images', [])[:6]
         }
         
@@ -3506,10 +3555,53 @@ Brand: {product_data.get('brand', 'N/A')}
         raise
     except Exception as e:
         logger.error(f"Product video generation failed: {e}")
-        import traceback
-        logger.error(f"Traceback: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=str(e))
 
+
+@app.post("/api/youtube/generate-slideshow-preview")
+async def generate_slideshow_preview(request: dict):
+    """Generate video preview without uploading"""
+    try:
+        user_id = request.get('user_id')
+        images = request.get('images', [])
+        duration_per_image = request.get('duration_per_image', 2.0)
+        
+        if len(images) < 2:
+            raise HTTPException(status_code=400, detail="Need at least 2 images")
+        
+        logger.info(f"Generating preview for user {user_id}")
+        
+        # Generate video
+        video_path = await video_service.create_slideshow(
+            images=images,
+            duration_per_image=duration_per_image,
+            output_filename=f"preview_{user_id}_{int(datetime.now().timestamp())}.mp4"
+        )
+        
+        if not video_path or not os.path.exists(video_path):
+            raise HTTPException(status_code=500, detail="Video generation failed")
+        
+        logger.info(f"Preview generated: {video_path}")
+        
+        # Convert to base64
+        with open(video_path, 'rb') as f:
+            video_bytes = f.read()
+            video_base64 = base64.b64encode(video_bytes).decode('utf-8')
+        
+        # Cleanup
+        try:
+            os.remove(video_path)
+        except:
+            pass
+        
+        return {
+            "success": True,
+            "video_preview": f"data:video/mp4;base64,{video_base64}"
+        }
+        
+    except Exception as e:
+        logger.error(f"Preview generation failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # Main application runner
