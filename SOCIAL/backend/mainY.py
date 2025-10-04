@@ -3211,7 +3211,93 @@ async def _generate_platform_metadata(title: str, language: str, platforms: List
 
 
 
+@app.post("/api/youtube/generate-slideshow")
+async def generate_youtube_slideshow(request: dict):
+    """
+    Frontend endpoint - generates slideshow and uploads to YouTube
+    Expected from frontend: images, title, description, duration_per_image
+    """
+    try:
+        user_id = request.get('user_id')
+        images = request.get('images', [])
+        title = request.get('title', '')
+        description = request.get('description', '')
+        duration = request.get('duration_per_image', 2.0)
+        
+        logger.info(f"🎬 Slideshow request: {title} ({len(images)} images)")
+        
+        # Validate
+        if not 2 <= len(images) <= 6:
+            raise HTTPException(status_code=400, detail="Upload 2-6 images")
+        
+        if not title or not description:
+            raise HTTPException(status_code=400, detail="Title and description required")
+        
+        # Check YouTube credentials
+        credentials = await database_manager.get_youtube_credentials(user_id)
+        if not credentials:
+            raise HTTPException(status_code=400, detail="YouTube not connected")
+        
+        # Generate slideshow
+        slideshow_gen = get_slideshow_generator()
+        result = await slideshow_gen.generate_slideshow(
+            images=images,
+            title=title,
+            language='english',
+            duration_per_image=duration,
+            transition='fade',
+            add_text=True,
+            aspect_ratio="9:16"
+        )
+        
+        if not result.get('success'):
+            raise HTTPException(status_code=500, detail=result.get('error'))
+        
+        # Upload to YouTube
+        upload_result = await youtube_scheduler.generate_and_upload_content(
+            user_id=user_id,
+            credentials_data=credentials,
+            content_type="shorts",
+            title=title,
+            description=description,
+            video_url=result['local_path']
+        )
+        
+        if upload_result.get('success'):
+            # Clean up after 2 minutes
+            asyncio.create_task(cleanup_temp_files(result['local_path'], delay=120))
+            
+            return {
+                "success": True,
+                "message": "Video uploaded successfully!",
+                "video_id": upload_result.get('video_id'),
+                "video_url": upload_result.get('video_url'),
+                "title": title
+            }
+        else:
+            raise HTTPException(status_code=500, detail=upload_result.get('error'))
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Slideshow generation failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
+
+async def cleanup_temp_files(file_path: str, delay: int = 120):
+    # ... existing cleanup code ...
+    """Clean up temporary slideshow files after delay"""
+    try:
+        await asyncio.sleep(delay)
+        import shutil
+        from pathlib import Path
+        
+        temp_dir = Path(file_path).parent
+        if temp_dir.exists():
+            shutil.rmtree(temp_dir, ignore_errors=True)
+            logger.info(f"🗑️ Cleaned up temp files: {temp_dir}")
+    except Exception as e:
+        logger.warning(f"Cleanup failed: {e}")
 
 
 

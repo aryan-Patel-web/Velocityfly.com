@@ -3988,7 +3988,8 @@ onClick={async () => {
       </button>
     </div>
 
-    {/* MANUAL IMAGES TAB */}
+
+{/* MANUAL IMAGES TAB */}
     {slideshowTab === 'manual' && (
       <div>
         {/* Step 1: Upload Images */}
@@ -4072,7 +4073,7 @@ onClick={async () => {
               <textarea
                 value={imageUrls}
                 onChange={(e) => setImageUrls(e.target.value)}
-                placeholder="https://picsum.photos/1080/1920?random=1&#x0A;https://picsum.photos/1080/1920?random=2"
+                placeholder="https://picsum.photos/1080/1920?random=1&#x0A;https://picsum.photos/1080/1920?random=2&#x0A;https://images.unsplash.com/photo-xxx"
                 rows={6}
                 style={{
                   width: '100%',
@@ -4168,7 +4169,7 @@ onClick={async () => {
           )}
         </div>
 
-        {/* Step 2: Title & Description */}
+        {/* Step 2: Title & Description - ALWAYS SHOW AFTER IMAGES UPLOADED */}
         {uploadedImages.length >= 2 && (
           <div style={{ marginBottom: '30px' }}>
             <h3 style={{ color: '#333', marginBottom: '16px', fontSize: '20px' }}>
@@ -4220,7 +4221,7 @@ onClick={async () => {
                   whiteSpace: 'nowrap'
                 }}
               >
-                🤖 AI Generate
+                🤖 AI
               </button>
             </div>
 
@@ -4270,128 +4271,74 @@ onClick={async () => {
                   alignSelf: 'flex-start'
                 }}
               >
-                🤖 AI Generate
+                🤖 AI
               </button>
             </div>
           </div>
         )}
 
-        {/* Step 3: Generate & Upload */}
+        {/* Step 3: Generate & Upload - SHOW ONLY WHEN EVERYTHING IS READY */}
         {uploadedImages.length >= 2 && slideshowTitle && slideshowDescription && (
           <div>
             <h3 style={{ color: '#333', marginBottom: '16px', fontSize: '20px' }}>
               🚀 Step 3: Generate & Upload
             </h3>
             
-            <div style={{display: 'flex', gap: '15px'}}>
-              <button
-                onClick={async () => {
-                  setGeneratingSlideshow(true);
-                  try {
-                    const userData = getUserData();
-                    const response = await fetch(`${API_BASE}/api/youtube/generate-slideshow`, {
-                      method: 'POST',
-                      headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                      },
-                      body: JSON.stringify({
-                        user_id: userData.user_id,
-                        images: uploadedImages,
-                        title: slideshowTitle,
-                        duration_per_image: 2.0
-                      })
-                    });
-                    const result = await response.json();
-                    if (result.success) {
-                      setSlideshowResult(result);
-                      alert('✅ Video generated! Click Upload to YouTube to publish.');
-                    } else {
-                      throw new Error(result.error);
-                    }
-                  } catch (error) {
-                    alert('Error: ' + error.message);
-                  } finally {
-                    setGeneratingSlideshow(false);
+            <button
+              onClick={async () => {
+                setGeneratingSlideshow(true);
+                try {
+                  const userData = getUserData();
+                  const response = await fetch(`${API_BASE}/api/youtube/generate-slideshow`, {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                      user_id: userData.user_id,
+                      images: uploadedImages,
+                      title: slideshowTitle,
+                      description: slideshowDescription,
+                      duration_per_image: 2.0
+                    })
+                  });
+                  const result = await response.json();
+                  if (result.success) {
+                    alert('✅ Video generated and uploaded to YouTube!');
+                    setUploadedImages([]);
+                    setSlideshowTitle('');
+                    setSlideshowDescription('');
+                  } else {
+                    throw new Error(result.error);
                   }
-                }}
-                disabled={generatingSlideshow}
-                style={{
-                  flex: 1,
-                  padding: '16px',
-                  background: generatingSlideshow ? '#ccc' : '#28a745',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '8px',
-                  fontSize: '16px',
-                  fontWeight: '700',
-                  cursor: generatingSlideshow ? 'not-allowed' : 'pointer'
-                }}
-              >
-                {generatingSlideshow ? '⏳ Generating Video...' : '🎬 Generate Video'}
-              </button>
-
-              {slideshowResult && (
-                <button
-                  onClick={async () => {
-                    setGeneratingSlideshow(true);
-                    try {
-                      const userData = getUserData();
-                      const credentials = await database_manager.get_youtube_credentials(userData.user_id);
-                      const response = await fetch(`${API_BASE}/api/youtube/upload-video`, {
-                        method: 'POST',
-                        headers: {
-                          'Content-Type': 'application/json',
-                          'Authorization': `Bearer ${token}`
-                        },
-                        body: JSON.stringify({
-                          user_id: userData.user_id,
-                          video_url: slideshowResult.local_path,
-                          title: slideshowTitle,
-                          description: slideshowDescription,
-                          content_type: 'shorts'
-                        })
-                      });
-                      const result = await response.json();
-                      if (result.success) {
-                        alert('✅ Video uploaded to YouTube!');
-                        // Reset
-                        setUploadedImages([]);
-                        setSlideshowTitle('');
-                        setSlideshowDescription('');
-                        setSlideshowResult(null);
-                      } else {
-                        throw new Error(result.error);
-                      }
-                    } catch (error) {
-                      alert('Upload failed: ' + error.message);
-                    } finally {
-                      setGeneratingSlideshow(false);
-                    }
-                  }}
-                  disabled={generatingSlideshow}
-                  style={{
-                    flex: 1,
-                    padding: '16px',
-                    background: generatingSlideshow ? '#ccc' : '#FF0000',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '8px',
-                    fontSize: '16px',
-                    fontWeight: '700',
-                    cursor: generatingSlideshow ? 'not-allowed' : 'pointer'
-                  }}
-                >
-                  {generatingSlideshow ? '⏳ Uploading...' : '📺 Upload to YouTube'}
-                </button>
-              )}
-            </div>
+                } catch (error) {
+                  alert('Error: ' + error.message);
+                } finally {
+                  setGeneratingSlideshow(false);
+                }
+              }}
+              disabled={generatingSlideshow}
+              style={{
+                width: '100%',
+                padding: '16px',
+                background: generatingSlideshow ? '#ccc' : '#FF0000',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                fontSize: '16px',
+                fontWeight: '700',
+                cursor: generatingSlideshow ? 'not-allowed' : 'pointer'
+              }}
+            >
+              {generatingSlideshow ? '⏳ Generating & Uploading...' : '🚀 Generate & Upload to YouTube'}
+            </button>
           </div>
         )}
       </div>
     )}
 
-   {/* PRODUCT URL TAB */}
+    {/* PRODUCT URL TAB */}
     {slideshowTab === 'product' && (
       <div style={{padding: '30px', background: '#f8f9fa', borderRadius: '12px'}}>
         <h3 style={{ color: '#333', marginBottom: '16px', fontSize: '22px', fontWeight: '700' }}>
