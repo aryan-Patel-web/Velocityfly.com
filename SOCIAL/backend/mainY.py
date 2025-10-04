@@ -3430,19 +3430,7 @@ from YTscrapADS import get_product_scraper
 
 @app.post("/api/product-video/generate")
 async def generate_product_promo_video(request: dict):
-    """
-    Generate promotional video from product URL
-    
-    Request:
-    {
-        "user_id": "...",
-        "product_url": "https://flipkart.com/...",
-        "duration_per_image": 1.5,
-        "manual_title": "",  # Optional override
-        "manual_description": "",  # Optional override
-        "auto_upload": true
-    }
-    """
+    """Generate promotional video from product URL"""
     try:
         user_id = request.get('user_id')
         product_url = request.get('product_url')
@@ -3450,83 +3438,64 @@ async def generate_product_promo_video(request: dict):
         if not product_url:
             raise HTTPException(status_code=400, detail="Product URL required")
         
+        logger.info(f"Product video request for URL: {product_url}")
+        
         # Step 1: Scrape product
         scraper = get_product_scraper()
         product_data = await scraper.scrape_product(product_url)
         
         if not product_data.get('success'):
-            return product_data
+            logger.error(f"Scraping failed: {product_data.get('error')}")
+            raise HTTPException(status_code=400, detail=product_data.get('error', 'Scraping failed'))
+        
+        logger.info(f"Product scraped: {product_data.get('product_name', 'Unknown')}")
         
         # Step 2: Generate AI content
-        ai_content = await ai_service.generate_product_promo_content(
-            product_data,
-            target_audience=request.get('target_audience', 'young_adults'),
-            style=request.get('style', 'trendy')
-        )
-        
-        # Step 3: Use manual overrides if provided
-        title = request.get('manual_title') or ai_content['title']
-        description = request.get('manual_description') or ai_content['description']
-        
-        # Replace product URL placeholder
-        description = description.replace('{{PRODUCT_URL}}', product_url)
-        
-        # Step 4: Generate video from product images
-        slideshow_gen = get_slideshow_generator()
-        
-        # Convert images to data URLs (since they're from web)
-        import httpx
-        image_data_urls = []
-        for img_url in product_data['images'][:6]:
-            async with httpx.AsyncClient() as client:
-                response = await client.get(img_url)
-                if response.status_code == 200:
-                    import base64
-                    b64 = base64.b64encode(response.content).decode()
-                    image_data_urls.append(f"data:image/jpeg;base64,{b64}")
-        
-        video_result = await slideshow_gen.generate_slideshow(
-            images=image_data_urls,
-            title=title,
-            duration_per_image=request.get('duration_per_image', 1.5),
-            add_text=True,
-            aspect_ratio="9:16"
-        )
-        
-        if not video_result.get('success'):
-            return video_result
-        
-        # Step 5: Upload to YouTube
-        if request.get('auto_upload', True):
-            credentials = await database_manager.get_youtube_credentials(user_id)
-            
-            if credentials:
-                upload_result = await youtube_scheduler.generate_and_upload_content(
-                    user_id=user_id,
-                    credentials_data=credentials,
-                    content_type="shorts",
-                    title=title,
-                    description=description,
-                    video_url=video_result['local_path']
+        if ai_service:
+            try:
+                ai_content = await ai_service.generate_product_promo_content(
+                    product_data,
+                    target_audience=request.get('target_audience', 'young_adults'),
+                    style=request.get('style', 'trendy')
                 )
                 
-                return {
-                    "success": True,
-                    "video_generated": video_result,
-                    "youtube_upload": upload_result,
-                    "product_data": product_data
-                }
+                if ai_content.get('success'):
+                    title = ai_content.get('title', product_data.get('product_name', 'Product Video'))
+                    description = ai_content.get('description', '').replace('{{PRODUCT_URL}}', product_url)
+                else:
+                    logger.warning(f"AI generation failed: {ai_content.get('error')}")
+                    # Fallback to basic title/description
+                    title = f"{product_data.get('product_name', 'Product')} - {product_data.get('brand', 'Brand')}"
+                    description = f"{product_data.get('product_name', 'Product')}\nPrice: ₹{product_data.get('price', 0)}\n\n{product_url}"
+            except Exception as ai_error:
+                logger.error(f"AI content generation error: {ai_error}")
+                # Fallback
+                title = f"{product_data.get('product_name', 'Product')} - {product_data.get('brand', 'Brand')}"
+                description = f"{product_data.get('product_name', 'Product')}\nPrice: ₹{product_data.get('price', 0)}\n\n{product_url}"
+        else:
+            # No AI service - use basic template
+            title = f"{product_data.get('product_name', 'Product')} - {product_data.get('brand', 'Brand')}"
+            description = f"{product_data.get('product_name', 'Product')}\nPrice: ₹{product_data.get('price', 0)}\n\n{product_url}"
         
+        # Step 3: Return product data with AI-generated content for frontend
         return {
             "success": True,
-            "video_generated": video_result,
             "product_data": product_data,
-            "ai_content": ai_content
+            "title": title[:100],  # YouTube title limit
+            "description": description,
+            "images": product_data.get('images', [])[:6]
         }
         
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Product video generation failed: {e}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+
 
 # Main application runner
 if __name__ == "__main__":

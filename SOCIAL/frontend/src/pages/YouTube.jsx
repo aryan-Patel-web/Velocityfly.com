@@ -3912,8 +3912,6 @@ onClick={async () => {
 
 
 
-
-
 {/* Image Slideshow Tab */}
 {activeTab === 'slideshow' && status?.youtube_connected && (
   <div style={{ 
@@ -3952,6 +3950,9 @@ onClick={async () => {
           setUploadedImages([]);
           setProductUrl('');
           setScrapedProduct(null);
+          setSlideshowTitle('');
+          setSlideshowDescription('');
+          setError('');
         }}
         style={{
           padding: '12px 24px',
@@ -3972,6 +3973,9 @@ onClick={async () => {
           setUploadedImages([]);
           setSlideshowTitle('');
           setSlideshowDescription('');
+          setScrapedProduct(null);
+          setProductUrl('');
+          setError('');
         }}
         style={{
           padding: '12px 24px',
@@ -3988,8 +3992,7 @@ onClick={async () => {
       </button>
     </div>
 
-
-{/* MANUAL IMAGES TAB */}
+    {/* MANUAL IMAGES TAB */}
     {slideshowTab === 'manual' && (
       <div>
         {/* Step 1: Upload Images */}
@@ -4073,7 +4076,7 @@ onClick={async () => {
               <textarea
                 value={imageUrls}
                 onChange={(e) => setImageUrls(e.target.value)}
-                placeholder="https://picsum.photos/1080/1920?random=1&#x0A;https://picsum.photos/1080/1920?random=2&#x0A;https://images.unsplash.com/photo-xxx"
+                placeholder="https://picsum.photos/1080/1920?random=1&#x0A;https://picsum.photos/1080/1920?random=2"
                 rows={6}
                 style={{
                   width: '100%',
@@ -4169,7 +4172,7 @@ onClick={async () => {
           )}
         </div>
 
-        {/* Step 2: Title & Description - ALWAYS SHOW AFTER IMAGES UPLOADED */}
+        {/* Step 2: Title & Description */}
         {uploadedImages.length >= 2 && (
           <div style={{ marginBottom: '30px' }}>
             <h3 style={{ color: '#333', marginBottom: '16px', fontSize: '20px' }}>
@@ -4179,105 +4182,41 @@ onClick={async () => {
             <label style={{display: 'block', marginBottom: '8px', fontWeight: '600'}}>
               Video Title:
             </label>
-            <div style={{display: 'flex', gap: '10px', marginBottom: '20px'}}>
-              <input
-                type="text"
-                value={slideshowTitle}
-                onChange={(e) => setSlideshowTitle(e.target.value)}
-                placeholder="Enter title or click AI Generate"
-                style={{
-                  flex: 1,
-                  padding: '12px',
-                  borderRadius: '8px',
-                  border: '2px solid #ddd',
-                  fontSize: '15px'
-                }}
-              />
-              <button
-                onClick={async () => {
-                  setLoading(true);
-                  try {
-                    const response = await fetch(`${API_BASE}/api/ai/generate-title`, {
-                      method: 'POST',
-                      headers: {'Content-Type': 'application/json'},
-                      body: JSON.stringify({topic: 'image slideshow', content_type: 'shorts'})
-                    });
-                    const result = await response.json();
-                    if (result.success) setSlideshowTitle(result.title);
-                  } catch (error) {
-                    alert('AI generation failed');
-                  } finally {
-                    setLoading(false);
-                  }
-                }}
-                disabled={loading}
-                style={{
-                  padding: '12px 20px',
-                  background: '#FF0000',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '8px',
-                  cursor: 'pointer',
-                  whiteSpace: 'nowrap'
-                }}
-              >
-                🤖 AI
-              </button>
-            </div>
+            <input
+              type="text"
+              value={slideshowTitle}
+              onChange={(e) => setSlideshowTitle(e.target.value)}
+              placeholder="Enter an engaging title for your video"
+              style={{
+                width: '100%',
+                padding: '12px',
+                borderRadius: '8px',
+                border: '2px solid #ddd',
+                fontSize: '15px',
+                marginBottom: '20px'
+              }}
+            />
 
             <label style={{display: 'block', marginBottom: '8px', fontWeight: '600'}}>
               Video Description:
             </label>
-            <div style={{display: 'flex', gap: '10px'}}>
-              <textarea
-                value={slideshowDescription}
-                onChange={(e) => setSlideshowDescription(e.target.value)}
-                placeholder="Enter description or click AI Generate"
-                rows={4}
-                style={{
-                  flex: 1,
-                  padding: '12px',
-                  borderRadius: '8px',
-                  border: '2px solid #ddd',
-                  fontSize: '14px'
-                }}
-              />
-              <button
-                onClick={async () => {
-                  setLoading(true);
-                  try {
-                    const response = await fetch(`${API_BASE}/api/ai/generate-description`, {
-                      method: 'POST',
-                      headers: {'Content-Type': 'application/json'},
-                      body: JSON.stringify({topic: 'image slideshow', content_type: 'shorts'})
-                    });
-                    const result = await response.json();
-                    if (result.success) setSlideshowDescription(result.description);
-                  } catch (error) {
-                    alert('AI generation failed');
-                  } finally {
-                    setLoading(false);
-                  }
-                }}
-                disabled={loading}
-                style={{
-                  padding: '12px 20px',
-                  background: '#FF0000',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '8px',
-                  cursor: 'pointer',
-                  whiteSpace: 'nowrap',
-                  alignSelf: 'flex-start'
-                }}
-              >
-                🤖 AI
-              </button>
-            </div>
+            <textarea
+              value={slideshowDescription}
+              onChange={(e) => setSlideshowDescription(e.target.value)}
+              placeholder="Enter a description for your video"
+              rows={4}
+              style={{
+                width: '100%',
+                padding: '12px',
+                borderRadius: '8px',
+                border: '2px solid #ddd',
+                fontSize: '14px'
+              }}
+            />
           </div>
         )}
 
-        {/* Step 3: Generate & Upload - SHOW ONLY WHEN EVERYTHING IS READY */}
+        {/* Step 3: Generate & Upload */}
         {uploadedImages.length >= 2 && slideshowTitle && slideshowDescription && (
           <div>
             <h3 style={{ color: '#333', marginBottom: '16px', fontSize: '20px' }}>
@@ -4345,7 +4284,7 @@ onClick={async () => {
           🛒 Product Promotion Video
         </h3>
         <p style={{ color: '#666', marginBottom: '20px', fontSize: '15px' }}>
-          Paste Flipkart/Amazon product URL - Auto-fills title & description, or add manually
+          Paste Flipkart/Amazon product URL - Auto-fills title & description
         </p>
         
         <input
@@ -4383,8 +4322,7 @@ onClick={async () => {
                 },
                 body: JSON.stringify({
                   user_id: userData.user_id,
-                  product_url: productUrl,
-                  auto_upload: false
+                  product_url: productUrl
                 })
               });
               
@@ -4392,8 +4330,8 @@ onClick={async () => {
               
               if (result.success) {
                 setScrapedProduct(result.product_data);
-                setSlideshowTitle(result.ai_content.title);
-                setSlideshowDescription(result.ai_content.description);
+                setSlideshowTitle(result.title || result.product_data.product_name);
+                setSlideshowDescription(result.description || '');
                 alert('✅ Product scraped! Review and edit before uploading.');
               } else {
                 throw new Error(result.error || 'Failed to scrape product');
@@ -4420,24 +4358,38 @@ onClick={async () => {
           {generatingSlideshow ? 'Scraping...' : '🔍 Scrape Product'}
         </button>
         
+        {error && (
+          <div style={{
+            marginTop: '15px',
+            padding: '15px',
+            background: '#f8d7da',
+            border: '1px solid #f5c6cb',
+            borderRadius: '8px',
+            color: '#721c24',
+            fontSize: '14px'
+          }}>
+            ⚠️ {error}
+          </div>
+        )}
+        
         {scrapedProduct && (
           <div style={{marginTop: '30px', background: 'white', padding: '25px', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)'}}>
             <h4 style={{ color: '#333', marginBottom: '16px', fontSize: '18px', fontWeight: '700' }}>
-              Product Preview
+              📦 Product Preview
             </h4>
             <p><strong>Name:</strong> {scrapedProduct.product_name}</p>
             <p><strong>Brand:</strong> {scrapedProduct.brand}</p>
             <p><strong>Price:</strong> ₹{scrapedProduct.price} {scrapedProduct.discount}</p>
             
-            <div style={{display: 'flex', gap: '12px', marginTop: '16px', flexWrap: 'wrap'}}>
-              {scrapedProduct.images.slice(0, 3).map((img, idx) => (
+            <div style={{display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginTop: '16px'}}>
+              {scrapedProduct.images.slice(0, 6).map((img, idx) => (
                 <img 
                   key={idx} 
                   src={img} 
                   alt={`Product ${idx + 1}`}
                   style={{
-                    width: '120px', 
-                    height: '120px', 
+                    width: '100%', 
+                    height: '150px', 
                     objectFit: 'cover',
                     borderRadius: '8px',
                     border: '2px solid #ddd'
@@ -4448,7 +4400,7 @@ onClick={async () => {
             
             <div style={{marginTop: '25px'}}>
               <label style={{display: 'block', marginBottom: '8px', fontWeight: '600', color: '#333'}}>
-                Edit Title (AI + Manual):
+                Video Title:
               </label>
               <input
                 type="text"
@@ -4465,7 +4417,7 @@ onClick={async () => {
               />
               
               <label style={{display: 'block', marginBottom: '8px', fontWeight: '600', color: '#333'}}>
-                Edit Description (AI + Manual):
+                Video Description:
               </label>
               <textarea
                 value={slideshowDescription}
@@ -4488,7 +4440,21 @@ onClick={async () => {
                 setError('');
                 try {
                   const userData = getUserData();
-                  const response = await fetch(`${API_BASE}/api/product-video/generate`, {
+                  
+                  // Convert image URLs to base64
+                  const imagePromises = scrapedProduct.images.slice(0, 6).map(async (url) => {
+                    const response = await fetch(url);
+                    const blob = await response.blob();
+                    return new Promise((resolve) => {
+                      const reader = new FileReader();
+                      reader.onloadend = () => resolve(reader.result);
+                      reader.readAsDataURL(blob);
+                    });
+                  });
+                  
+                  const base64Images = await Promise.all(imagePromises);
+                  
+                  const response = await fetch(`${API_BASE}/api/youtube/generate-slideshow`, {
                     method: 'POST',
                     headers: {
                       'Content-Type': 'application/json',
@@ -4496,17 +4462,17 @@ onClick={async () => {
                     },
                     body: JSON.stringify({
                       user_id: userData.user_id,
-                      product_url: productUrl,
-                      manual_title: slideshowTitle,
-                      manual_description: slideshowDescription,
-                      auto_upload: true
+                      images: base64Images,
+                      title: slideshowTitle,
+                      description: slideshowDescription,
+                      duration_per_image: 2.0
                     })
                   });
                   
                   const result = await response.json();
                   
                   if (result.success) {
-                    alert('✅ Video uploaded to YouTube successfully!');
+                    alert('✅ Product video uploaded to YouTube successfully!');
                     setScrapedProduct(null);
                     setProductUrl('');
                     setSlideshowTitle('');
@@ -4521,36 +4487,22 @@ onClick={async () => {
                   setGeneratingSlideshow(false);
                 }
               }}
-              disabled={generatingSlideshow}
+              disabled={generatingSlideshow || !slideshowTitle || !slideshowDescription}
               style={{
                 width: '100%',
                 padding: '16px',
-                background: generatingSlideshow ? '#ccc' : '#FF0000',
+                background: (generatingSlideshow || !slideshowTitle || !slideshowDescription) ? '#ccc' : '#FF0000',
                 color: 'white',
                 border: 'none',
                 borderRadius: '8px',
                 marginTop: '20px',
-                cursor: generatingSlideshow ? 'not-allowed' : 'pointer',
+                cursor: (generatingSlideshow || !slideshowTitle || !slideshowDescription) ? 'not-allowed' : 'pointer',
                 fontWeight: '700',
                 fontSize: '16px'
               }}
             >
               {generatingSlideshow ? '⏳ Generating & Uploading...' : '🚀 Generate & Upload Video'}
             </button>
-          </div>
-        )}
-        
-        {error && (
-          <div style={{
-            marginTop: '15px',
-            padding: '15px',
-            background: '#f8d7da',
-            border: '1px solid #f5c6cb',
-            borderRadius: '8px',
-            color: '#721c24',
-            fontSize: '14px'
-          }}>
-            ⚠️ {error}
           </div>
         )}
       </div>
@@ -4577,40 +4529,40 @@ onClick={async () => {
 )}
 {/* End Image Slideshow Tab */}
 
-        {/* Not Connected Message for other tabs */}
-        {activeTab !== 'connect' && !status?.youtube_connected && (
-          <div style={{ 
-            background: 'rgba(255, 255, 255, 0.95)', 
-            borderRadius: '20px', 
-            padding: '40px', 
-            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2)', 
-            textAlign: 'center' 
-          }}>
-            <div style={{ fontSize: '64px', marginBottom: '20px' }}>🔗</div>
-            <h3 style={{ color: '#FF0000', marginBottom: '20px' }}>
-              YouTube Not Connected
-            </h3>
-            <p style={{ color: '#666', marginBottom: '30px' }}>
-              Please connect your YouTube channel first to access this feature.
-            </p>
-            <button 
-              onClick={() => setActiveTab('connect')} 
-              style={{ 
-                padding: '12px 24px', 
-                background: '#FF0000', 
-                color: 'white', 
-                border: 'none', 
-                borderRadius: '8px', 
-                cursor: 'pointer', 
-                fontWeight: '600',
-                fontSize: '16px',
-                transition: 'background 0.3s ease'
-              }}
-            >
-              Connect YouTube Channel
-            </button>
-          </div>
-        )}
+{/* Not Connected Message for other tabs */}
+{activeTab !== 'connect' && !status?.youtube_connected && (
+  <div style={{ 
+    background: 'rgba(255, 255, 255, 0.95)', 
+    borderRadius: '20px', 
+    padding: '40px', 
+    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2)', 
+    textAlign: 'center' 
+  }}>
+    <div style={{ fontSize: '64px', marginBottom: '20px' }}>🔗</div>
+    <h3 style={{ color: '#FF0000', marginBottom: '20px' }}>
+      YouTube Not Connected
+    </h3>
+    <p style={{ color: '#666', marginBottom: '30px' }}>
+      Please connect your YouTube channel first to access this feature.
+    </p>
+    <button 
+      onClick={() => setActiveTab('connect')} 
+      style={{ 
+        padding: '12px 24px', 
+        background: '#FF0000', 
+        color: 'white', 
+        border: 'none', 
+        borderRadius: '8px', 
+        cursor: 'pointer', 
+        fontWeight: '600',
+        fontSize: '16px',
+        transition: 'background 0.3s ease'
+      }}
+    >
+      Connect YouTube Channel
+    </button>
+  </div>
+)}
       </div>
     </div>
   );
