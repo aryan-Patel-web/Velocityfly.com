@@ -3,9 +3,10 @@ import subprocess
 import sys
 
 def main():
+    subprocess.run([sys.executable, "-m", "playwright", "install", "chromium"], check=True)
     # Install Playwright browsers
     # subprocess.run([sys.executable, "-m", "playwright", "install", "chromium"], check=True)
-    subprocess.run([sys.executable, "-m", "playwright", "install", "chromium", "--with-deps"], check=True)
+    # subprocess.run([sys.executable, "-m", "playwright", "install", "chromium", "--with-deps"], check=True)
     print("Playwright browsers installed successfully")
 
 if __name__ == "__main__":
