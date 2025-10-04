@@ -3428,6 +3428,8 @@ async def check_ffmpeg():
 
 from YTscrapADS import get_product_scraper
 
+
+
 @app.post("/api/product-video/generate")
 async def generate_product_promo_video(request: dict):
     """Generate promotional video from product URL"""
@@ -3451,6 +3453,10 @@ async def generate_product_promo_video(request: dict):
         logger.info(f"Product scraped: {product_data.get('product_name', 'Unknown')}")
         
         # Step 2: Generate AI content
+        title = ""
+        description = ""
+        hashtags = []
+        
         if ai_service:
             try:
                 ai_content = await ai_service.generate_product_promo_content(
@@ -3460,29 +3466,39 @@ async def generate_product_promo_video(request: dict):
                 )
                 
                 if ai_content.get('success'):
-                    title = ai_content.get('title', product_data.get('product_name', 'Product Video'))
-                    description = ai_content.get('description', '').replace('{{PRODUCT_URL}}', product_url)
+                    title = ai_content.get('title', '')
+                    description = ai_content.get('description', '')
+                    hashtags = ai_content.get('hashtags', [])
+                    logger.info(f"AI content generated successfully")
                 else:
                     logger.warning(f"AI generation failed: {ai_content.get('error')}")
-                    # Fallback to basic title/description
-                    title = f"{product_data.get('product_name', 'Product')} - {product_data.get('brand', 'Brand')}"
-                    description = f"{product_data.get('product_name', 'Product')}\nPrice: ₹{product_data.get('price', 0)}\n\n{product_url}"
             except Exception as ai_error:
                 logger.error(f"AI content generation error: {ai_error}")
-                # Fallback
-                title = f"{product_data.get('product_name', 'Product')} - {product_data.get('brand', 'Brand')}"
-                description = f"{product_data.get('product_name', 'Product')}\nPrice: ₹{product_data.get('price', 0)}\n\n{product_url}"
-        else:
-            # No AI service - use basic template
-            title = f"{product_data.get('product_name', 'Product')} - {product_data.get('brand', 'Brand')}"
-            description = f"{product_data.get('product_name', 'Product')}\nPrice: ₹{product_data.get('price', 0)}\n\n{product_url}"
         
-        # Step 3: Return product data with AI-generated content for frontend
+        # Fallback if AI failed
+        if not title or not description:
+            logger.info("Using fallback content generation")
+            title = f"{product_data.get('brand', 'Brand')} {product_data.get('product_name', 'Product')}"[:100]
+            
+            description = f"""🔥 {product_data.get('product_name', 'Product')}
+
+✨ Product Details:
+Brand: {product_data.get('brand', 'N/A')}
+💰 Price: ₹{product_data.get('price', 0)} {product_data.get('discount', '')}
+{f"🎨 Colors: {', '.join(product_data.get('colors', [])[:3])}" if product_data.get('colors') else ''}
+{f"📏 Sizes: {', '.join(product_data.get('sizes', []))}" if product_data.get('sizes') else ''}
+
+🛒 Buy Now: {product_url}
+
+#shopping #trending #fashion #online #india"""
+        
+        # Step 3: Return product data with AI-generated content
         return {
             "success": True,
             "product_data": product_data,
-            "title": title[:100],  # YouTube title limit
+            "title": title[:100],
             "description": description,
+            "hashtags": hashtags,
             "images": product_data.get('images', [])[:6]
         }
         
@@ -3493,7 +3509,6 @@ async def generate_product_promo_video(request: dict):
         import traceback
         logger.error(f"Traceback: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=str(e))
-
 
 
 

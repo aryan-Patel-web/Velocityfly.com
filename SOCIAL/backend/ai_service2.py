@@ -262,87 +262,81 @@ class AIService2:
         target_audience: str = "young_adults",
         style: str = "trendy"
     ) -> Dict:
-        """
-        Generate promotional content for product
-        
-        Args:
-            product_data: Scraped product data
-            target_audience: young_adults, professionals, students
-            style: trendy, professional, casual, energetic
-        """
+        """Generate promotional content for product with better error handling"""
         try:
-            product_name = product_data.get("product_name", "")
-            brand = product_data.get("brand", "")
+            product_name = product_data.get("product_name", "Product")
+            brand = product_data.get("brand", "Brand")
             price = product_data.get("price", 0)
             discount = product_data.get("discount", "")
             colors = product_data.get("colors", [])
             sizes = product_data.get("sizes", [])
+            product_url = product_data.get("product_url", "")
             
-            prompt = f"""Create promotional content for YouTube Short:
+            # Detect product category for hashtags
+            category = self._detect_product_category(product_name, product_data.get("description", ""))
+            
+            # Use AI if available
+            if not self.is_mock:
+                prompt = f"""Create promotional content for this product:
 
 Product: {product_name}
 Brand: {brand}
 Price: ₹{price} {discount}
-Available: {', '.join(colors[:3])} colors, {', '.join(sizes)} sizes
-Target: {target_audience}, Style: {style}
+Colors: {', '.join(colors[:3]) if colors else 'Multiple'}
+Sizes: {', '.join(sizes) if sizes else 'Various'}
+Category: {category}
+Target: {target_audience}
 
-Generate:
-1. Catchy title (max 60 chars) with product name and brand
-2. Engaging description with:
-   - Hook line
-   - Product features
-   - Price and discount highlight
-   - Call-to-action
-   - Product link placeholder: {{{{PRODUCT_URL}}}}
-3. 15 trending hashtags related to product category, style, and audience
+Generate ONLY these 3 items (plain text, no JSON):
+1. Title (max 80 chars): Brand + Product name + key feature
+2. Description (200 words): Engaging description with price, features, CTA
+3. Hashtags (15 tags): Mix of #{category} #brand #style #target_audience
 
-Format as JSON:
-{{
-  "title": "...",
-  "description": "...",
-  "hashtags": ["fashion", "trending", ...]
-}}
-"""
-            
-            result = await self._generate_with_primary_service(prompt)
-            
-            if not result.get("success"):
-                return result
-            
-            import re
-            content_text = result.get("content", "")
-            
-            json_match = re.search(r'```json\s*(\{.*?\})\s*```', content_text, re.DOTALL)
-            if json_match:
-                content_text = json_match.group(1)
-            
-            try:
-                content = json.loads(content_text)
-            except json.JSONDecodeError:
-                return {
-                    "success": False,
-                    "error": "Failed to parse AI response as JSON"
-                }
-            
-            final_desc = f"""{content.get('description', '')}
+Format:
+TITLE: your title here
+DESCRIPTION: your description here
+HASHTAGS: #tag1 #tag2 #tag3"""
 
-🛒 Product Details:
-Brand: {brand}
-Price: ₹{price}
-{f'💰 Save {discount}!' if discount else ''}
-{f'Colors: {", ".join(colors[:3])}' if colors else ''}
-{f'Sizes: {", ".join(sizes)}' if sizes else ''}
+                result = await self._generate_with_primary_service(prompt)
+                
+                if result.get("success"):
+                    content = result.get("content", "")
+                    parsed = self._parse_product_content(content)
+                    
+                    if parsed.get("title"):
+                        # Add product URL to description
+                        description = parsed["description"]
+                        description += f"\n\n🛒 Buy Now: {product_url}\n\n"
+                        description += " ".join(parsed["hashtags"][:20])
+                        
+                        return {
+                            "success": True,
+                            "title": parsed["title"][:100],
+                            "description": description,
+                            "hashtags": parsed["hashtags"]
+                        }
+            
+            # Fallback content generation
+            hashtags = self._generate_category_hashtags(category, brand, target_audience)
+            
+            title = f"{brand} {product_name}"[:100]
+            
+            description = f"""🔥 {brand} {product_name}
 
-🔗 Buy Now: {{{{PRODUCT_URL}}}}
+✨ Product Details:
+💰 Price: ₹{price} {discount}
+{f'🎨 Colors: {", ".join(colors[:3])}' if colors else ''}
+{f'📏 Sizes: {", ".join(sizes)}' if sizes else ''}
 
-{' '.join(['#' + tag for tag in content.get('hashtags', [])[:15]])}
-"""
+🛒 Buy Now: {product_url}
+
+{' '.join(hashtags[:20])}"""
             
             return {
                 "success": True,
-                "title": content.get('title', product_name),
-                "description": final_desc,
-                "hashtags": content.get('hashtags', [])
+                "title": title,
+                "description": description,
+                "hashtags": hashtags
             }
             
         except Exception as e:
@@ -351,6 +345,97 @@ Price: ₹{price}
                 "success": False,
                 "error": str(e)
             }
+    
+    def _parse_product_content(self, content: str) -> Dict:
+        """Parse AI-generated product content"""
+        try:
+            lines = content.strip().split('\n')
+            result = {"title": "", "description": "", "hashtags": []}
+            
+            current_section = None
+            section_content = []
+            
+            for line in lines:
+                line = line.strip()
+                if line.startswith('TITLE:'):
+                    if current_section:
+                        result[current_section] = '\n'.join(section_content).strip()
+                    current_section = 'title'
+                    section_content = [line[6:].strip()]
+                elif line.startswith('DESCRIPTION:'):
+                    if current_section:
+                        result[current_section] = '\n'.join(section_content).strip()
+                    current_section = 'description'
+                    section_content = [line[12:].strip()]
+                elif line.startswith('HASHTAGS:'):
+                    if current_section:
+                        result[current_section] = '\n'.join(section_content).strip()
+                    tags_text = line[9:].strip()
+                    result['hashtags'] = [tag.strip() for tag in tags_text.split() if tag.startswith('#')]
+                    current_section = None
+                elif current_section and line:
+                    section_content.append(line)
+            
+            if current_section and current_section != 'hashtags':
+                result[current_section] = '\n'.join(section_content).strip()
+            
+            return result
+        except Exception as e:
+            logger.error(f"Parse product content failed: {e}")
+            return {"title": "", "description": "", "hashtags": []}
+    
+    def _detect_product_category(self, product_name: str, description: str) -> str:
+        """Detect product category from name/description"""
+        text = (product_name + " " + description).lower()
+        
+        if any(word in text for word in ["tshirt", "shirt", "dress", "jeans", "trouser", "saree", "kurta"]):
+            if any(word in text for word in ["men", "man", "male", "boys"]):
+                return "mens_fashion"
+            elif any(word in text for word in ["women", "woman", "female", "girls", "ladies"]):
+                return "womens_fashion"
+            elif any(word in text for word in ["kids", "children", "baby"]):
+                return "kids_fashion"
+            return "fashion"
+        
+        elif any(word in text for word in ["mobile", "phone", "laptop", "tablet", "headphone", "electronic"]):
+            return "electronics"
+        
+        elif any(word in text for word in ["book", "novel", "magazine"]):
+            return "books"
+        
+        elif any(word in text for word in ["shoe", "sneaker", "sandal", "footwear"]):
+            return "footwear"
+        
+        elif any(word in text for word in ["watch", "ring", "necklace", "jewelry"]):
+            return "accessories"
+        
+        elif any(word in text for word in ["food", "snack", "spice", "grocery"]):
+            return "food"
+        
+        return "general"
+    
+    def _generate_category_hashtags(self, category: str, brand: str, audience: str) -> list:
+        """Generate hashtags based on category"""
+        base_tags = ["trending", "viral", "shopping", "online", "india"]
+        
+        category_tags = {
+            "mens_fashion": ["mensfashion", "menstyle", "menswear", "fashion", "ootd", "style"],
+            "womens_fashion": ["womensfashion", "womenstyle", "womenswear", "fashion", "ootd", "style"],
+            "kids_fashion": ["kidsfashion", "kidswear", "babyfashion", "parenting", "kids"],
+            "fashion": ["fashion", "style", "ootd", "clothing", "apparels"],
+            "electronics": ["tech", "gadgets", "electronics", "mobile", "technology"],
+            "footwear": ["shoes", "footwear", "sneakers", "fashion", "style"],
+            "accessories": ["accessories", "jewelry", "fashion", "style"],
+            "food": ["food", "grocery", "cooking", "foodie", "kitchen"],
+            "books": ["books", "reading", "bookstagram", "booklover"],
+            "general": ["shopping", "deals", "offers", "sale"]
+        }
+        
+        tags = base_tags + category_tags.get(category, category_tags["general"])
+        tags.append(brand.lower().replace(" ", ""))
+        tags.append(audience.lower().replace(" ", ""))
+        
+        return [f"#{tag}" for tag in tags[:20]]
     
     def _create_multilingual_youtube_prompt(
         self,
