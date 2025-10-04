@@ -3331,18 +3331,26 @@ async def generate_slideshow_preview(request: dict):
         images = request.get("images", [])
         duration_per_image = request.get("duration_per_image", 2.0)
         
+        # DEBUG LOGGING
         logger.info(f"🎬 Generating preview for {len(images)} images")
+        if images:
+            logger.info(f"📊 First image preview: {images[0][:50] if isinstance(images[0], str) else 'Invalid'}")
+        else:
+            logger.error("❌ No images received in request")
+            logger.error(f"📋 Full request: {request}")
         
-        if not images or len(images) < 2:
-            raise ValueError("Need at least 2 images")
+        # CHANGED: Allow 1 image minimum
+        if not images or len(images) < 1:
+            raise ValueError("Need at least 1 image")
         
         # Get video service
+        from YTvideo_services import get_video_service
         video_service = get_video_service()
         
         if not video_service.ffmpeg_available:
             return JSONResponse({
                 "success": False,
-                "error": "FFmpeg not available on server. Please upload directly to YouTube instead."
+                "error": "FFmpeg not available. Please upload directly to YouTube."
             }, status_code=503)
         
         # Generate video
@@ -3352,11 +3360,11 @@ async def generate_slideshow_preview(request: dict):
             output_format='mp4'
         )
         
-        # Read video as base64
+        # Read as base64
         with open(video_path, 'rb') as f:
             video_data = base64.b64encode(f.read()).decode()
         
-        # Clean up
+        # Cleanup
         os.unlink(video_path)
         
         return JSONResponse({
@@ -3373,8 +3381,6 @@ async def generate_slideshow_preview(request: dict):
             "success": False,
             "error": f"Preview failed: {str(e)}"
         }, status_code=500)
-
-
 
 
 
