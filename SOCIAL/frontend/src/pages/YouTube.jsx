@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../quickpage/AuthContext';
-const [videoPreview, setVideoPreview] = useState(null);
+
 const YouTubeAutomation = () => {
+  const [videoPreview, setVideoPreview] = useState(null);
   const { user, token, isAuthenticated, debugAuth } = useAuth();
   const [activeTab, setActiveTab] = useState('connect');
   const [loading, setLoading] = useState(false);
