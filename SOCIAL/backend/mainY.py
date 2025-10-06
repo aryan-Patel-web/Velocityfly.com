@@ -3537,14 +3537,38 @@ async def generate_product_promo_video(request: dict):
         if not product_url:
             return {"success": False, "error": "Product URL required"}
         
-        logger.info(f"Scraping: {product_url}")
+        logger.info(f"🔍 Scraping: {product_url}")
         
         # Scrape product
         scraper = get_product_scraper()
         product_data = await scraper.scrape_product(product_url)
         
+        # Handle scraping failure with detailed error
         if not product_data.get('success'):
-            return {"success": False, "error": product_data.get('error', 'Scraping failed')}
+            error_msg = product_data.get('error', 'Scraping failed')
+            logger.error(f"❌ Scraping failed: {error_msg}")
+            
+            # Return error but with empty product structure so UI doesn't break
+            return {
+                "success": False,
+                "error": error_msg,
+                "product_data": {
+                    "product_name": "",
+                    "brand": "Brand",
+                    "price": 0,
+                    "original_price": 0,
+                    "discount": "0% OFF",
+                    "colors": [],
+                    "sizes": [],
+                    "category": "Unisex",
+                    "rating_count": 0,
+                    "review_count": 0,
+                    "images": []
+                },
+                "title": "",
+                "description": "",
+                "images": []
+            }
         
         logger.info(f"✅ Scraped: {product_data.get('product_name')}")
         
@@ -3558,6 +3582,31 @@ async def generate_product_promo_video(request: dict):
         sizes = product_data.get('sizes', [])
         rating_count = product_data.get('rating_count', 0)
         review_count = product_data.get('review_count', 0)
+        images = product_data.get('images', [])
+        
+        # Validate we have minimum required data
+        if not images or len(images) < 1:
+            logger.error("❌ No images found")
+            return {
+                "success": False,
+                "error": "No product images found. Try a different URL or use manual image upload.",
+                "product_data": {
+                    "product_name": product_name,
+                    "brand": brand,
+                    "price": price,
+                    "original_price": original_price,
+                    "discount": discount,
+                    "colors": colors,
+                    "sizes": sizes,
+                    "category": "Unisex",
+                    "rating_count": rating_count,
+                    "review_count": review_count,
+                    "images": []
+                },
+                "title": f"{brand} {product_name}",
+                "description": "",
+                "images": []
+            }
         
         # Determine category (Men/Women/Unisex)
         product_lower = product_name.lower()
@@ -3571,18 +3620,19 @@ async def generate_product_promo_video(request: dict):
             category = "Unisex"
         
         # Calculate discount percentage
-        if original_price and price:
+        if original_price and price and original_price > price:
             discount_pct = int(((original_price - price) / original_price) * 100)
         else:
-            discount_pct = discount.replace('% OFF', '').replace('%', '').strip() if discount else '0'
-            try:
-                discount_pct = int(discount_pct)
-            except:
-                discount_pct = 0
+            discount_pct = 0
+            if discount:
+                try:
+                    discount_pct = int(''.join(filter(str.isdigit, discount)))
+                except:
+                    pass
         
         # Build YouTube-optimized title
         title = f"{brand} {product_name}"
-        if len(title) > 90:  # Leave room for #Shorts
+        if len(title) > 90:
             title = title[:87] + "..."
         
         # Shorten URL
@@ -3595,7 +3645,7 @@ async def generate_product_promo_video(request: dict):
 💰 PRICE DETAILS:
 Original: ₹{original_price:,}
 Selling Price: ₹{price:,}
-YOU SAVE: ₹{original_price - price:,} ({discount_pct}% OFF)
+YOU SAVE: ₹{int(original_price - price):,} ({discount_pct}% OFF)
 
 👔 BRAND: {brand}
 👥 CATEGORY: {category}
@@ -3603,7 +3653,7 @@ YOU SAVE: ₹{original_price - price:,} ({discount_pct}% OFF)
         
         # Add sizes if available
         if sizes:
-            size_text = ', '.join(sizes[:12])  # Limit to first 12 sizes
+            size_text = ', '.join(sizes[:12])
             description += f"\n📏 SIZES AVAILABLE:\n{size_text}\n"
         
         # Add colors if available
@@ -3612,8 +3662,11 @@ YOU SAVE: ₹{original_price - price:,} ({discount_pct}% OFF)
             description += f"\n🎨 COLORS:\n{color_text}\n"
         
         # Add ratings if available
-        if rating_count or review_count:
-            description += f"\n⭐ RATINGS:\n{rating_count:,} ratings and {review_count} reviews\n"
+        if rating_count > 0:
+            description += f"\n⭐ RATINGS:\n{rating_count:,} ratings"
+            if review_count > 0:
+                description += f" and {review_count} reviews"
+            description += "\n"
         
         # Add purchase link
         description += f"\n🛒 BUY NOW 👇\n{short_url}\n"
@@ -3626,11 +3679,17 @@ YOU SAVE: ₹{original_price - price:,} ({discount_pct}% OFF)
             "Unisex": ["fashion", "style", "trending"]
         }
         
-        hashtags = ["shopping", "flipkart", "deals", "india", "fashion"]
+        hashtags = ["shopping", "deals", "india", "fashion"]
         hashtags.extend(category_hashtags.get(category, []))
-        hashtags.append(brand.lower().replace(" ", ""))
+        
+        # Add brand hashtag (clean it up)
+        brand_tag = brand.lower().replace(" ", "").replace("-", "")
+        if brand_tag:
+            hashtags.append(brand_tag)
         
         description += f"\n{' '.join([f'#{tag}' for tag in hashtags[:15]])}"
+        
+        logger.info(f"✅ Generated: {len(images)} images, title: {len(title)} chars")
         
         # Return structured data
         return {
@@ -3646,18 +3705,42 @@ YOU SAVE: ₹{original_price - price:,} ({discount_pct}% OFF)
                 "category": category,
                 "rating_count": rating_count,
                 "review_count": review_count,
-                "images": product_data.get('images', [])[:6]
+                "images": images[:6]
             },
             "title": title,
             "description": description,
-            "images": product_data.get('images', [])[:6]
+            "images": images[:6]
         }
         
     except Exception as e:
-        logger.error(f"Error: {e}")
+        logger.error(f"❌ Error: {e}")
         import traceback
         logger.error(f"Traceback: {traceback.format_exc()}")
-        return {"success": False, "error": str(e)}
+        
+        return {
+            "success": False,
+            "error": f"Internal error: {str(e)[:200]}",
+            "product_data": {
+                "product_name": "",
+                "brand": "Brand",
+                "price": 0,
+                "original_price": 0,
+                "discount": "0% OFF",
+                "colors": [],
+                "sizes": [],
+                "category": "Unisex",
+                "rating_count": 0,
+                "review_count": 0,
+                "images": []
+            },
+            "title": "",
+            "description": "",
+            "images": []
+        }
+
+
+
+
 
 
 # Main application runner
