@@ -369,6 +369,12 @@ class UniversalProductScraper:
         logger.info(f"Extracted {len(images)} images from Flipkart")
         return images[:8]
     
+
+
+
+
+
+    
     async def _extract_flipkart_sizes(self, soup) -> List[str]:
         """Extract sizes"""
         sizes = []

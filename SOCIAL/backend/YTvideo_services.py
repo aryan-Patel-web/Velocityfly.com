@@ -1,6 +1,6 @@
 """
 Video Generation Service for YouTube Slideshows
-Fixed: Proper image format conversion to prevent FFmpeg errors
+Fixed: Timeout protection + proper image format conversion
 """
 
 import os
@@ -8,7 +8,6 @@ import logging
 import tempfile
 import base64
 from typing import List
-import subprocess
 import asyncio
 import httpx
 from PIL import Image
@@ -17,7 +16,7 @@ import io
 logger = logging.getLogger(__name__)
 
 class VideoService:
-    """Video generation service with proper image format handling"""
+    """Video generation service with timeout protection and image conversion"""
     
     def __init__(self):
         self.ffmpeg_available = self._check_ffmpeg()
@@ -37,7 +36,7 @@ class VideoService:
         duration_per_image: float = 2.0,
         output_format: str = 'mp4'
     ) -> str:
-        """Create video slideshow from images with proper format conversion"""
+        """Create video with TIMEOUT protection and proper image conversion"""
         
         if not self.ffmpeg_available:
             raise RuntimeError("FFmpeg not installed on server")
@@ -53,7 +52,7 @@ class VideoService:
         image_files = []
         
         try:
-            # Process and convert each image
+            # Process and convert each image to proper JPEG
             for i, img_source in enumerate(images):
                 img_path = os.path.join(temp_dir, f"img_{i:03d}.jpg")
                 
@@ -75,7 +74,7 @@ class VideoService:
                 shutil.copy(image_files[0], duplicate_path)
                 image_files.append(duplicate_path)
             
-            # Create filelist for FFmpeg
+            # Create filelist for FFmpeg concat
             filelist_path = os.path.join(temp_dir, 'filelist.txt')
             with open(filelist_path, 'w') as f:
                 for img_file in image_files:
@@ -87,37 +86,55 @@ class VideoService:
             output_path = os.path.join(temp_dir, f"slideshow.{output_format}")
             total_duration = len(image_files) * duration_per_image
             
-            # FFmpeg command using concat demuxer
+            # FFmpeg command with optimized settings
             cmd = [
                 'ffmpeg',
                 '-f', 'concat',
                 '-safe', '0',
                 '-i', filelist_path,
-                '-vf', 'scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2,setsar=1',
+                '-vf', 'scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2',
                 '-c:v', 'libx264',
-                '-preset', 'medium',
-                '-crf', '23',
+                '-preset', 'ultrafast',  # Fast encoding for server
+                '-crf', '28',
                 '-pix_fmt', 'yuv420p',
-                '-movflags', '+faststart',
+                '-t', str(total_duration),
                 '-y',
                 output_path
             ]
             
-            logger.info(f"🎬 Creating {total_duration}s video from {len(image_files)} images")
+            logger.info(f"🎬 Creating {total_duration}s video from {len(image_files)} images...")
             
-            process = await asyncio.create_subprocess_exec(
-                *cmd,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-                cwd=temp_dir
-            )
-            
-            stdout, stderr = await process.communicate()
+            try:
+                # CRITICAL: Create process with timeout
+                process = await asyncio.wait_for(
+                    asyncio.create_subprocess_exec(
+                        *cmd,
+                        stdout=asyncio.subprocess.PIPE,
+                        stderr=asyncio.subprocess.PIPE,
+                        cwd=temp_dir
+                    ),
+                    timeout=30  # 30 seconds to start
+                )
+                
+                # Wait for completion with timeout
+                stdout, stderr = await asyncio.wait_for(
+                    process.communicate(),
+                    timeout=90  # 90 seconds max for video generation
+                )
+                
+            except asyncio.TimeoutError:
+                logger.error("❌ FFmpeg TIMEOUT - killing process")
+                try:
+                    process.kill()
+                    await process.wait()
+                except:
+                    pass
+                raise RuntimeError("Video generation timed out after 90 seconds")
             
             if process.returncode != 0:
-                error_msg = stderr.decode() if stderr else "Unknown FFmpeg error"
-                logger.error(f"FFmpeg error: {error_msg[:500]}")
-                raise RuntimeError(f"FFmpeg failed: {error_msg[:200]}")
+                error_msg = stderr.decode()[:500] if stderr else "Unknown FFmpeg error"
+                logger.error(f"❌ FFmpeg failed: {error_msg}")
+                raise RuntimeError(f"FFmpeg error: {error_msg}")
             
             if not os.path.exists(output_path):
                 raise RuntimeError("Video file was not created")
@@ -132,10 +149,17 @@ class VideoService:
         except Exception as e:
             logger.error(f"Slideshow creation failed: {e}")
             raise
+        finally:
+            # Cleanup temp image files (keep output video)
+            for img_file in image_files:
+                try:
+                    os.unlink(img_file)
+                except Exception:
+                    pass
     
     async def _process_and_convert_image(self, source: str, output_path: str) -> bool:
         """
-        Process image from any source and convert to proper JPEG format
+        Process image from any source and convert to proper JPEG
         Handles: Base64, URLs, local files, GIF, PNG, WebP, JPEG
         """
         try:
@@ -191,7 +215,7 @@ class VideoService:
     async def _convert_to_jpeg(self, img_bytes: bytes, output_path: str) -> bool:
         """
         Convert any image format to proper JPEG
-        Handles: GIF, PNG, WebP, JPEG, transparency, etc.
+        Handles: GIF, PNG, WebP, JPEG, transparency
         """
         try:
             # Validate size
