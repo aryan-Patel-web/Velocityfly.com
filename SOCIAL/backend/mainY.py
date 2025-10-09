@@ -26,6 +26,8 @@ import traceback
 import httpx
 import uuid
 import os
+from fastapi import Form
+
 import shutil
 # Set Playwright cache directory for Render
 os.environ['PLAYWRIGHT_BROWSERS_PATH'] = '/opt/render/project/.playwright'
