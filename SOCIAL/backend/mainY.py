@@ -650,57 +650,66 @@ async def cleanup_services():
         logger.error(f"Service cleanup failed: {e}")
 
 
+import httpx
 import re
 from urllib.parse import urlparse, parse_qs
 
 async def download_google_drive_video(drive_url: str, user_id: str) -> str:
-    """Download video from Google Drive and return local path"""
+    """
+    Download video from Google Drive and return local temp path.
+    Supports:
+    - https://drive.google.com/file/d/FILE_ID/view
+    - https://drive.google.com/open?id=FILE_ID
+    """
     try:
-        # Extract file ID from Google Drive URL
+        # Extract file ID from various Google Drive URL formats
         file_id = None
         
-        # Pattern 1: https://drive.google.com/file/d/FILE_ID/view
-        match = re.search(r'/file/d/([^/]+)', drive_url)
+        # Pattern 1: /file/d/FILE_ID/
+        match = re.search(r'/file/d/([a-zA-Z0-9_-]+)', drive_url)
         if match:
             file_id = match.group(1)
         
-        # Pattern 2: https://drive.google.com/open?id=FILE_ID
+        # Pattern 2: ?id=FILE_ID
         if not file_id:
             parsed = urlparse(drive_url)
             params = parse_qs(parsed.query)
             file_id = params.get('id', [None])[0]
         
         if not file_id:
-            raise ValueError("Could not extract file ID from Google Drive URL")
+            raise ValueError("Cannot extract file ID from Google Drive URL")
         
-        logger.info(f"Downloading Google Drive file: {file_id}")
+        logger.info(f"📥 Downloading Google Drive file: {file_id}")
         
-        # Direct download URL
+        # Create download URL (direct download)
         download_url = f"https://drive.google.com/uc?export=download&id={file_id}"
         
         # Create temp directory
         temp_dir = Path(f"/tmp/uploads/{user_id}")
         temp_dir.mkdir(parents=True, exist_ok=True)
         
-        file_path = temp_dir / f"gdrive_{int(datetime.now().timestamp())}.mp4"
+        timestamp = int(datetime.now().timestamp())
+        file_path = temp_dir / f"gdrive_{timestamp}.mp4"
         
-        # Download with progress
-        async with httpx.AsyncClient(timeout=300.0) as client:
-            async with client.stream('GET', download_url, follow_redirects=True) as response:
-                if response.status_code != 200:
-                    raise Exception(f"Download failed: {response.status_code}")
-                
-                with file_path.open('wb') as f:
-                    async for chunk in response.aiter_bytes(chunk_size=8192):
-                        f.write(chunk)
+        # Download with timeout
+        async with httpx.AsyncClient(timeout=300.0, follow_redirects=True) as client:
+            response = await client.get(download_url)
+            
+            if response.status_code != 200:
+                raise Exception(f"Download failed with status {response.status_code}")
+            
+            # Save file
+            with file_path.open('wb') as f:
+                f.write(response.content)
         
-        logger.info(f"Google Drive video downloaded: {file_path}")
+        file_size = file_path.stat().st_size
+        logger.info(f"✅ Google Drive video downloaded: {file_path} ({file_size} bytes)")
+        
         return str(file_path)
         
     except Exception as e:
-        logger.error(f"Google Drive download failed: {e}")
+        logger.error(f"❌ Google Drive download failed: {str(e)}")
         raise Exception(f"Failed to download from Google Drive: {str(e)}")
-
 
 # Initialize FastAPI app
 @asynccontextmanager
@@ -745,27 +754,30 @@ app.add_middleware(
 # Exception handler for validation errors
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
-    """Custom handler for 422 validation errors with detailed logging"""
-    
-    # Log the detailed error for debugging
-    logger.error(f"=== 422 VALIDATION ERROR ===")
+    logger.error("=== 422 VALIDATION ERROR ===")
     logger.error(f"Request URL: {request.url}")
     logger.error(f"Request method: {request.method}")
-    logger.error(f"Request headers: {dict(request.headers)}")
     logger.error(f"Validation errors: {exc.errors()}")
-    logger.error(f"Request body received: {exc.body}")
-    logger.error(f"================================")
     
-    # Return detailed error response for debugging
+    # ✅ SAFE: Don't try to log/serialize FormData or UploadFile
+    try:
+        if hasattr(exc, 'body') and exc.body:
+            if isinstance(exc.body, (str, dict, list)):
+                logger.error(f"Request body: {exc.body}")
+            else:
+                logger.error(f"Request body type: {type(exc.body).__name__}")
+    except Exception as body_error:
+        logger.error(f"Could not log body: {body_error}")
+    
+    logger.error("================================")
+    
     return JSONResponse(
         status_code=422,
         content={
             "success": False,
-            "error": "Validation failed - check request format",
+            "error": "Validation error",
             "details": exc.errors(),
-            "request_body_received": exc.body,
-            "expected_format": "Check API documentation",
-            "timestamp": datetime.now().isoformat()
+            "message": "Please check your request format"
         }
     )
 
@@ -1714,56 +1726,75 @@ async def youtube_upload_video(request: dict):
 @app.post("/api/youtube/upload-video-file")
 async def upload_video_file(
     video: UploadFile = File(...),
-    user_id: str = Header(...)
+    user_id: str = Form(...)  # ✅ FIXED - now accepts form data
 ):
-    """Upload video file and return temporary URL"""
+    """Upload video file and return temporary path for thumbnail generation"""
     try:
-        logger.info(f"Receiving video upload from user: {user_id}")
+        logger.info(f"📤 Receiving video upload from user: {user_id}")
         
-        # Validate file
+        # Validate file type
         if not video.content_type.startswith('video/'):
-            raise HTTPException(status_code=400, detail="File must be a video")
+            raise HTTPException(
+                status_code=400, 
+                detail="File must be a video (MP4, AVI, MOV, etc.)"
+            )
         
-        # Create temp directory for user
+        # File size check (500MB max)
+        content = await video.read()
+        file_size = len(content)
+        
+        if file_size > 500 * 1024 * 1024:  # 500MB
+            raise HTTPException(
+                status_code=400,
+                detail="File too large. Maximum 500MB allowed."
+            )
+        
+        # Create user-specific temp directory
         temp_dir = Path(f"/tmp/uploads/{user_id}")
         temp_dir.mkdir(parents=True, exist_ok=True)
         
-        # Save file with unique name
-        file_path = temp_dir / f"{int(datetime.now().timestamp())}_{video.filename}"
+        # Save with timestamp to avoid conflicts
+        timestamp = int(datetime.now().timestamp())
+        safe_filename = f"{timestamp}_{video.filename}"
+        file_path = temp_dir / safe_filename
         
-        with file_path.open("wb") as buffer:
-            shutil.copyfileobj(video.file, buffer)
+        # Write file
+        with file_path.open("wb") as f:
+            f.write(content)
         
-        logger.info(f"Video saved: {file_path}")
+        logger.info(f"✅ Video saved: {file_path} ({file_size} bytes)")
         
         return {
             "success": True,
             "video_url": str(file_path),
-            "file_size": file_path.stat().st_size,
-            "message": "Video uploaded successfully"
+            "file_size": file_size,
+            "filename": safe_filename,
+            "message": "Video uploaded successfully. Ready for thumbnail generation."
         }
         
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Video upload failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"❌ Video upload failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
     
-
 @app.post("/api/youtube/fetch-video-info")
 async def fetch_youtube_video_info(request: dict):
-    """Fetch info for existing YouTube video to update thumbnail"""
+    """Fetch existing YouTube video info to update thumbnail"""
     try:
         user_id = request.get('user_id')
         video_url = request.get('video_url')
         
         if not user_id or not video_url:
-            raise HTTPException(status_code=400, detail="Missing required fields")
+            raise HTTPException(status_code=400, detail="user_id and video_url required")
         
         # Extract video ID from URL
         video_id = None
         patterns = [
-            r'youtube\.com/watch\?v=([^&]+)',
-            r'youtu\.be/([^?]+)',
-            r'youtube\.com/embed/([^?]+)'
+            r'youtube\.com/watch\?v=([a-zA-Z0-9_-]+)',
+            r'youtu\.be/([a-zA-Z0-9_-]+)',
+            r'youtube\.com/embed/([a-zA-Z0-9_-]+)',
+            r'youtube\.com/v/([a-zA-Z0-9_-]+)'
         ]
         
         for pattern in patterns:
@@ -1773,46 +1804,62 @@ async def fetch_youtube_video_info(request: dict):
                 break
         
         if not video_id:
-            raise HTTPException(status_code=400, detail="Invalid YouTube URL")
+            raise HTTPException(status_code=400, detail="Invalid YouTube URL format")
         
-        logger.info(f"Fetching info for video: {video_id}")
+        logger.info(f"🔍 Fetching info for video ID: {video_id}")
         
-        # Get YouTube service
+        # Get authenticated YouTube service
         youtube_service = await youtube_connector.get_authenticated_service(user_id)
         if not youtube_service:
-            raise HTTPException(status_code=400, detail="YouTube not connected")
+            raise HTTPException(status_code=400, detail="YouTube not connected. Please connect your account first.")
         
         # Fetch video details
-        video_response = youtube_service.videos().list(
-            part="snippet,status",
-            id=video_id
-        ).execute()
+        try:
+            video_response = youtube_service.videos().list(
+                part="snippet,status",
+                id=video_id
+            ).execute()
+        except Exception as api_error:
+            logger.error(f"YouTube API error: {api_error}")
+            raise HTTPException(status_code=400, detail=f"YouTube API error: {str(api_error)}")
         
         if not video_response.get('items'):
-            raise HTTPException(status_code=404, detail="Video not found or not yours")
+            raise HTTPException(
+                status_code=404, 
+                detail="Video not found. Make sure this video belongs to your channel."
+            )
         
         video = video_response['items'][0]
+        snippet = video['snippet']
         
         # Verify ownership
         credentials = await database_manager.get_youtube_credentials(user_id)
-        channel_id = credentials['channel_info']['channel_id']
+        user_channel_id = credentials.get('channel_info', {}).get('channel_id')
+        video_channel_id = snippet.get('channelId')
         
-        if video['snippet']['channelId'] != channel_id:
-            raise HTTPException(status_code=403, detail="You can only edit your own videos")
+        if user_channel_id != video_channel_id:
+            raise HTTPException(
+                status_code=403, 
+                detail="Access denied. You can only edit videos from your own channel."
+            )
+        
+        logger.info(f"✅ Video info fetched: {snippet['title']}")
         
         return {
             "success": True,
             "video_id": video_id,
-            "title": video['snippet']['title'],
-            "description": video['snippet']['description'],
-            "current_thumbnail": video['snippet']['thumbnails']['high']['url'],
-            "message": "Video info fetched successfully"
+            "title": snippet['title'],
+            "description": snippet.get('description', ''),
+            "current_thumbnail": snippet['thumbnails']['high']['url'],
+            "channel_title": snippet['channelTitle'],
+            "published_at": snippet['publishedAt'],
+            "message": "Video info loaded. Now generate new thumbnails."
         }
         
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Fetch video info failed: {e}")
+        logger.error(f"❌ Fetch video info failed: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -1892,7 +1939,93 @@ async def schedule_video_upload(request: dict):
 
 
 
-
+@app.post("/api/youtube/generate-thumbnails")
+async def generate_video_thumbnails(request: dict):
+    """
+    Generate 3 AI thumbnails based on:
+    1. Video file (extract frames)
+    2. Title and description (text-based generation)
+    """
+    try:
+        user_id = request.get('user_id')
+        video_url = request.get('video_url')
+        title = request.get('title', 'Untitled Video')
+        description = request.get('description', '')
+        
+        if not user_id:
+            raise HTTPException(status_code=400, detail="user_id required")
+        
+        if not video_url:
+            raise HTTPException(status_code=400, detail="video_url required")
+        
+        logger.info(f"🎨 Generating thumbnails for: {title}")
+        
+        # Handle different video sources
+        local_video_path = None
+        
+        # 1. Google Drive URL
+        if 'drive.google.com' in video_url:
+            logger.info("Processing Google Drive URL")
+            local_video_path = await download_google_drive_video(video_url, user_id)
+        
+        # 2. Local uploaded file
+        elif video_url.startswith('/tmp/'):
+            logger.info("Using local uploaded file")
+            local_video_path = video_url
+        
+        # 3. Direct .mp4 URL
+        else:
+            logger.info("Downloading from direct URL")
+            # Download temporarily
+            temp_dir = Path(f"/tmp/uploads/{user_id}")
+            temp_dir.mkdir(parents=True, exist_ok=True)
+            
+            timestamp = int(datetime.now().timestamp())
+            local_video_path = str(temp_dir / f"temp_{timestamp}.mp4")
+            
+            async with httpx.AsyncClient(timeout=120.0) as client:
+                response = await client.get(video_url, follow_redirects=True)
+                with open(local_video_path, 'wb') as f:
+                    f.write(response.content)
+        
+        # Generate thumbnails using AI service
+        thumbnail_prompt = f"YouTube thumbnail for: {title}. {description[:100]}"
+        
+        thumbnails = []
+        for i in range(3):
+            try:
+                # Call your existing AI thumbnail generation
+                thumbnail_url = await ai_service.generate_youtube_thumbnail(
+                    prompt=f"{thumbnail_prompt} - Style {i+1}",
+                    user_id=user_id
+                )
+                
+                if thumbnail_url:
+                    thumbnails.append({
+                        "id": f"thumb_{i+1}",
+                        "url": thumbnail_url,
+                        "style": f"Style {i+1}"
+                    })
+            except Exception as thumb_error:
+                logger.warning(f"Thumbnail {i+1} generation failed: {thumb_error}")
+        
+        if not thumbnails:
+            raise Exception("Failed to generate any thumbnails")
+        
+        logger.info(f"✅ Generated {len(thumbnails)} thumbnails")
+        
+        return {
+            "success": True,
+            "thumbnails": thumbnails,
+            "video_path": local_video_path,
+            "message": f"Generated {len(thumbnails)} thumbnails"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Thumbnail generation failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 

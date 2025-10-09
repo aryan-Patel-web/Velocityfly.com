@@ -41,6 +41,12 @@ const [contentData, setContentData] = useState({
   const [selectedThumbnail, setSelectedThumbnail] = useState(null);
   const [generatingThumbnails, setGeneratingThumbnails] = useState(false);
 
+// const [uploadProgress, setUploadProgress] = useState(0);
+const [uploadMode, setUploadMode] = useState('new'); // 'new' or 'update'
+const [existingVideoUrl, setExistingVideoUrl] = useState('');
+const [thumbnails, setThumbnails] = useState([]);
+// const [selectedThumbnail, setSelectedThumbnail] = useState(null);
+// const [generatingThumbnails, setGeneratingThumbnails] = useState(false);
 
 // NEW: Scheduling states
 const [scheduleMode, setScheduleMode] = useState(false);
@@ -57,6 +63,10 @@ const [autoReplyConfig, setAutoReplyConfig] = useState({
   filter_spam: true,
   max_replies_per_hour: 10
 });
+
+
+
+
 const [replyText, setReplyText] = useState('');
 // Video selection states
 const [userVideos, setUserVideos] = useState([]);
@@ -2095,125 +2105,177 @@ useEffect(() => {
       }}
     />
 
-    {/* NEW: File Upload & URL Options */}
-    <div style={{ marginTop: '12px' }}>
-      <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-        {/* Manual File Upload */}
-        <label style={{
-          padding: '10px 16px',
-          background: '#28a745',
-          color: 'white',
-          borderRadius: '6px',
-          cursor: 'pointer',
-          fontSize: '13px',
-          fontWeight: '600'
-        }}>
-          📂 Upload File
-          <input
-            type="file"
-            accept="video/mp4,video/*"
-            style={{ display: 'none' }}
-            onChange={async (e) => {
-              const file = e.target.files[0];
-              if (!file) return;
-              
-              if (file.size > 500 * 1024 * 1024) {
-                alert('File too large! Max 500MB');
-                return;
+
+
+{/* Video Source Options */}
+<div style={{
+  marginTop: '16px',
+  padding: '16px',
+  background: '#f8f9fa',
+  borderRadius: '8px',
+  border: '1px solid #dee2e6'
+}}>
+  <div style={{
+    display: 'flex',
+    gap: '12px',
+    flexWrap: 'wrap',
+    alignItems: 'center'
+  }}>
+    {/* Manual File Upload */}
+    <label style={{
+      padding: '12px 20px',
+      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+      color: 'white',
+      borderRadius: '8px',
+      cursor: 'pointer',
+      fontSize: '14px',
+      fontWeight: '600',
+      display: 'flex',
+      alignItems: 'center',
+      gap: '8px',
+      transition: 'transform 0.2s',
+      boxShadow: '0 4px 6px rgba(102, 126, 234, 0.4)'
+    }}
+    onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
+    onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+    >
+      📂 Upload Video File
+      <input
+        type="file"
+        accept="video/mp4,video/avi,video/mov,video/*"
+        style={{ display: 'none' }}
+        onChange={async (e) => {
+          const file = e.target.files?.[0];
+          if (!file) return;
+          
+          // Validate file size (500MB max)
+          const maxSize = 500 * 1024 * 1024;
+          if (file.size > maxSize) {
+            alert(`❌ File too large! Maximum size is 500MB.\nYour file: ${(file.size / 1024 / 1024).toFixed(2)}MB`);
+            return;
+          }
+          
+          setLoading(true);
+          setUploadProgress(0);
+          
+          try {
+            const formData = new FormData();
+            formData.append('video', file);
+            formData.append('user_id', user.user_id);
+            
+            // Use XMLHttpRequest for progress tracking
+            const xhr = new XMLHttpRequest();
+            
+            // Track upload progress
+            xhr.upload.addEventListener('progress', (e) => {
+              if (e.lengthComputable) {
+                const percent = Math.round((e.loaded / e.total) * 100);
+                setUploadProgress(percent);
               }
-              
-              setLoading(true);
+            });
+            
+            // Handle completion
+            xhr.addEventListener('load', () => {
+              if (xhr.status === 200) {
+                const response = JSON.parse(xhr.responseText);
+                if (response.success) {
+                  setContentData(prev => ({
+                    ...prev,
+                    video_url: response.video_url
+                  }));
+                  alert(`✅ Video uploaded successfully!\n\nSize: ${(response.file_size / 1024 / 1024).toFixed(2)}MB\n\nNext: Click "🎨 Generate Thumbnails"`);
+                } else {
+                  alert('❌ Upload failed: ' + (response.message || 'Unknown error'));
+                }
+              } else {
+                alert(`❌ Upload failed: ${xhr.statusText}`);
+              }
+              setLoading(false);
               setUploadProgress(0);
-              
-              try {
-                const formData = new FormData();
-                formData.append('video', file);
-                formData.append('user_id', user.user_id);
-                
-                const xhr = new XMLHttpRequest();
-                
-                xhr.upload.addEventListener('progress', (e) => {
-                  if (e.lengthComputable) {
-                    const percent = Math.round((e.loaded / e.total) * 100);
-                    setUploadProgress(percent);
-                  }
-                });
-                
-                xhr.addEventListener('load', () => {
-                  if (xhr.status === 200) {
-                    const response = JSON.parse(xhr.responseText);
-                    setContentData(prev => ({
-                      ...prev,
-                      video_url: response.video_url,
-                      video_file_uploaded: true
-                    }));
-                    alert('✅ Video uploaded! Click "Generate Thumbnails" next.');
-                  } else {
-                    alert('Upload failed: ' + xhr.statusText);
-                  }
-                  setLoading(false);
-                  setUploadProgress(0);
-                });
-                
-                xhr.open('POST', `${API_BASE}/api/youtube/upload-video-file`);
-                xhr.setRequestHeader('Authorization', `Bearer ${token}`);
-                xhr.send(formData);
-                
-              } catch (error) {
-                alert('Upload failed: ' + error.message);
-                setLoading(false);
-                setUploadProgress(0);
-              }
-            }}
-          />
-        </label>
+            });
+            
+            // Handle errors
+            xhr.addEventListener('error', () => {
+              alert('❌ Upload failed: Network error');
+              setLoading(false);
+              setUploadProgress(0);
+            });
+            
+            // Send request
+            xhr.open('POST', `${API_BASE}/api/youtube/upload-video-file`);
+            xhr.setRequestHeader('Authorization', `Bearer ${localStorage.getItem('token')}`);
+            xhr.send(formData);
+            
+          } catch (error) {
+            console.error('Upload error:', error);
+            alert('❌ Upload failed: ' + error.message);
+            setLoading(false);
+            setUploadProgress(0);
+          }
+        }}
+      />
+    </label>
 
-        {/* Upload Progress */}
-        {uploadProgress > 0 && (
-          <div style={{
-            flex: 1,
-            background: '#e0e0e0',
-            borderRadius: '10px',
-            height: '20px',
-            position: 'relative',
-            overflow: 'hidden'
-          }}>
-            <div style={{
-              width: `${uploadProgress}%`,
-              height: '100%',
-              background: 'linear-gradient(90deg, #4CAF50, #8BC34A)',
-              transition: 'width 0.3s ease'
-            }} />
-            <span style={{
-              position: 'absolute',
-              top: '50%',
-              left: '50%',
-              transform: 'translate(-50%, -50%)',
-              fontSize: '11px',
-              fontWeight: '600',
-              color: '#333'
-            }}>
-              {uploadProgress}%
-            </span>
-          </div>
-        )}
-      </div>
-
-      {/* URL Type Helper Text */}
+    {/* Upload Progress Bar */}
+    {uploadProgress > 0 && (
       <div style={{
-        marginTop: '8px',
-        fontSize: '11px',
-        color: '#666',
-        display: 'flex',
-        flexWrap: 'wrap',
-        gap: '8px'
+        flex: '1 1 300px',
+        background: '#e9ecef',
+        borderRadius: '20px',
+        height: '32px',
+        position: 'relative',
+        overflow: 'hidden',
+        boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.1)'
       }}>
-        <span>✅ .mp4 URL</span>
-        <span>✅ Google Drive</span>
-        <span>✅ Your YouTube Video</span>
-        <span>✅ Manual Upload</span>
+        <div style={{
+          width: `${uploadProgress}%`,
+          height: '100%',
+          background: 'linear-gradient(90deg, #4CAF50, #8BC34A)',
+          transition: 'width 0.3s ease',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center'
+        }}>
+          <span style={{
+            color: 'white',
+            fontWeight: '700',
+            fontSize: '14px',
+            textShadow: '0 1px 2px rgba(0,0,0,0.3)'
+          }}>
+            {uploadProgress}%
+          </span>
+        </div>
       </div>
-    </div>
+    )}
+  </div>
+
+  {/* Supported Formats Info */}
+  <div style={{
+    marginTop: '12px',
+    display: 'flex',
+    gap: '12px',
+    flexWrap: 'wrap',
+    fontSize: '12px',
+    color: '#6c757d'
+  }}>
+    <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+      ✅ <strong>.mp4 URL</strong>
+    </span>
+    <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+      ✅ <strong>Google Drive</strong>
+    </span>
+    <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+      ✅ <strong>Manual Upload</strong>
+    </span>
+    <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+      ✅ <strong>Max: 500MB</strong>
+    </span>
+  </div>
+</div>
+
+
+
+
 
     <label style={{ 
       display: 'block', 
@@ -2240,82 +2302,117 @@ useEffect(() => {
     />
   </div>
 
+
+
+
+
 {/* NEW: Upload Mode Toggle */}
+{/* Upload Mode Selection */}
 <div style={{
-  marginTop: '20px',
-  padding: '16px',
-  background: '#f8f9fa',
-  borderRadius: '8px',
-  border: '2px solid #007bff'
+  marginTop: '24px',
+  padding: '20px',
+  background: 'linear-gradient(135deg, #667eea15 0%, #764ba215 100%)',
+  borderRadius: '12px',
+  border: '2px solid #667eea'
 }}>
-  <h4 style={{ marginBottom: '12px', color: '#007bff' }}>
-    📹 Video Upload Mode
+  <h4 style={{
+    marginBottom: '16px',
+    color: '#667eea',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    fontSize: '16px'
+  }}>
+    <span>📹</span> Video Upload Mode
   </h4>
   
   <div style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>
     <button
       onClick={() => {
-        setVideoUploadMode('new');
-        setExistingVideoId('');
+        setUploadMode('new');
+        setExistingVideoUrl('');
+        setThumbnails([]);
+        setSelectedThumbnail(null);
       }}
       style={{
         flex: 1,
-        padding: '12px',
-        background: videoUploadMode === 'new' ? '#007bff' : 'white',
-        color: videoUploadMode === 'new' ? 'white' : '#007bff',
-        border: '2px solid #007bff',
-        borderRadius: '6px',
+        padding: '14px',
+        background: uploadMode === 'new' ? '#667eea' : 'white',
+        color: uploadMode === 'new' ? 'white' : '#667eea',
+        border: '2px solid #667eea',
+        borderRadius: '8px',
         fontWeight: '600',
-        cursor: 'pointer'
+        cursor: 'pointer',
+        transition: 'all 0.3s',
+        fontSize: '14px'
       }}
     >
       🆕 Upload New Video
     </button>
     
     <button
-      onClick={() => setVideoUploadMode('update')}
+      onClick={() => {
+        setUploadMode('update');
+        setContentData(prev => ({ ...prev, video_url: '' }));
+        setThumbnails([]);
+        setSelectedThumbnail(null);
+      }}
       style={{
         flex: 1,
-        padding: '12px',
-        background: videoUploadMode === 'update' ? '#007bff' : 'white',
-        color: videoUploadMode === 'update' ? 'white' : '#007bff',
-        border: '2px solid #007bff',
-        borderRadius: '6px',
+        padding: '14px',
+        background: uploadMode === 'update' ? '#667eea' : 'white',
+        color: uploadMode === 'update' ? 'white' : '#667eea',
+        border: '2px solid #667eea',
+        borderRadius: '8px',
         fontWeight: '600',
-        cursor: 'pointer'
+        cursor: 'pointer',
+        transition: 'all 0.3s',
+        fontSize: '14px'
       }}
     >
-      🔄 Update Existing Video Thumbnail
+      🔄 Update Existing Thumbnail
     </button>
   </div>
 
-  {videoUploadMode === 'update' && (
-    <div>
+  {/* Update Mode - YouTube URL Input */}
+  {uploadMode === 'update' && (
+    <div style={{
+      padding: '16px',
+      background: 'white',
+      borderRadius: '8px',
+      border: '1px solid #dee2e6'
+    }}>
       <label style={{
         display: 'block',
         marginBottom: '8px',
         fontWeight: '600',
-        color: '#333'
+        color: '#495057',
+        fontSize: '14px'
       }}>
-        Paste Your YouTube Video URL:
+        📺 Your YouTube Video URL:
       </label>
       <input
         type="text"
-        value={existingVideoId}
-        onChange={(e) => setExistingVideoId(e.target.value)}
-        placeholder="https://youtube.com/watch?v=VIDEO_ID"
+        value={existingVideoUrl}
+        onChange={(e) => setExistingVideoUrl(e.target.value)}
+        placeholder="https://youtube.com/watch?v=YOUR_VIDEO_ID"
         style={{
           width: '100%',
-          padding: '10px',
+          padding: '12px',
           borderRadius: '6px',
-          border: '2px solid #007bff',
-          fontSize: '14px'
+          border: '2px solid #ced4da',
+          fontSize: '14px',
+          outline: 'none',
+          transition: 'border-color 0.3s'
         }}
+        onFocus={(e) => e.target.style.borderColor = '#667eea'}
+        onBlur={(e) => e.target.style.borderColor = '#ced4da'}
       />
+      
       <button
         onClick={async () => {
-          if (!existingVideoId) {
-            alert('Please paste YouTube video URL');
+          if (!existingVideoUrl.trim()) {
+            alert('⚠️ Please paste your YouTube video URL');
             return;
           }
           
@@ -2325,11 +2422,11 @@ useEffect(() => {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
               },
               body: JSON.stringify({
                 user_id: user.user_id,
-                video_url: existingVideoId
+                video_url: existingVideoUrl
               })
             });
             
@@ -2340,31 +2437,34 @@ useEffect(() => {
                 ...prev,
                 title: result.title,
                 description: result.description,
-                video_url: existingVideoId
+                video_url: existingVideoUrl
               }));
-              alert('✅ Video info loaded! Now generate thumbnails.');
+              alert(`✅ Video info loaded!\n\nTitle: ${result.title}\n\nNext: Click "🎨 Generate Thumbnails"`);
             } else {
-              alert('Error: ' + result.error);
+              alert('❌ Error: ' + (result.message || result.error || 'Failed to fetch video info'));
             }
           } catch (error) {
-            alert('Failed to fetch video info: ' + error.message);
+            console.error('Fetch error:', error);
+            alert('❌ Network error: ' + error.message);
           } finally {
             setLoading(false);
           }
         }}
-        disabled={loading}
+        disabled={loading || !existingVideoUrl.trim()}
         style={{
           marginTop: '12px',
-          padding: '10px 20px',
-          background: loading ? '#ccc' : '#28a745',
+          width: '100%',
+          padding: '12px',
+          background: loading || !existingVideoUrl.trim() ? '#ccc' : '#28a745',
           color: 'white',
           border: 'none',
           borderRadius: '6px',
-          cursor: loading ? 'not-allowed' : 'pointer',
-          fontWeight: '600'
+          cursor: loading || !existingVideoUrl.trim() ? 'not-allowed' : 'pointer',
+          fontWeight: '600',
+          fontSize: '14px'
         }}
       >
-        {loading ? 'Loading...' : '🔍 Fetch Video Info'}
+        {loading ? '⏳ Loading...' : '🔍 Fetch Video Info'}
       </button>
     </div>
   )}
@@ -2372,28 +2472,172 @@ useEffect(() => {
 
 
 
-                {/* NEW: AI Thumbnail Generator */}
-                <div style={{ marginBottom: '20px' }}>
-                  <button 
-                    onClick={generateThumbnails}
-                    disabled={generatingThumbnails || !contentData.video_url || !contentData.title}
-                    style={{
-                      width: '100%',
-                      padding: '12px',
-                      background: generatingThumbnails ? '#ccc' : '#FF6600',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '8px',
-                      fontSize: '14px',
-                      fontWeight: '600',
-                      cursor: generatingThumbnails ? 'not-allowed' : 'pointer',
-                      marginBottom: '16px',
-                      transition: 'background 0.3s ease'
-                    }}
-                  >
-                    {generatingThumbnails ? '🎨 Generating Thumbnails...' : '🎨 Generate AI Thumbnails'}
-                  </button>
-                </div>
+{/* Generate Thumbnails Button - THE FIX! */}
+<button
+  onClick={async () => {
+    // Validation
+    if (!contentData.title?.trim()) {
+      alert('⚠️ Please enter a video title first!');
+      return;
+    }
+    
+    if (!contentData.video_url?.trim()) {
+      alert('⚠️ Please provide a video URL or upload a file first!');
+      return;
+    }
+    
+    setGeneratingThumbnails(true);
+    setThumbnails([]);
+    setSelectedThumbnail(null);
+    
+    try {
+      console.log('🎨 Starting thumbnail generation...');
+      console.log('Video URL:', contentData.video_url);
+      console.log('Title:', contentData.title);
+      
+      const response = await fetch(`${API_BASE}/api/youtube/generate-thumbnails`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({
+          user_id: user.user_id,
+          video_url: contentData.video_url,
+          title: contentData.title,
+          description: contentData.description || ''
+        })
+      });
+      
+      const result = await response.json();
+      console.log('Thumbnail response:', result);
+      
+      if (result.success && result.thumbnails?.length > 0) {
+        setThumbnails(result.thumbnails);
+        alert(`✅ Generated ${result.thumbnails.length} thumbnails!\n\nSelect one and click "Upload to YouTube"`);
+      } else {
+        alert('❌ No thumbnails generated. Error: ' + (result.message || 'Unknown error'));
+      }
+      
+    } catch (error) {
+      console.error('Thumbnail generation error:', error);
+      alert('❌ Thumbnail generation failed:\n' + error.message);
+    } finally {
+      setGeneratingThumbnails(false);
+    }
+  }}
+  disabled={generatingThumbnails || !contentData.title || !contentData.video_url}
+  style={{
+    width: '100%',
+    padding: '16px',
+    background: (generatingThumbnails || !contentData.title || !contentData.video_url) 
+      ? '#ccc' 
+      : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+    color: 'white',
+    border: 'none',
+    borderRadius: '10px',
+    fontSize: '16px',
+    fontWeight: '700',
+    cursor: (generatingThumbnails || !contentData.title || !contentData.video_url) 
+      ? 'not-allowed' 
+      : 'pointer',
+    boxShadow: '0 4px 15px rgba(102, 126, 234, 0.4)',
+    transition: 'all 0.3s',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '10px'
+  }}
+>
+  {generatingThumbnails ? (
+    <>
+      <span className="spinner" style={{
+        border: '3px solid rgba(255,255,255,0.3)',
+        borderTop: '3px solid white',
+        borderRadius: '50%',
+        width: '20px',
+        height: '20px',
+        animation: 'spin 1s linear infinite'
+      }} />
+      Generating Thumbnails...
+    </>
+  ) : (
+    <>🎨 Generate AI Thumbnails</>
+  )}
+</button>
+
+{/* Add spinner animation */}
+<style>{`
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+`}</style>
+
+{/* Display Generated Thumbnails */}
+{thumbnails.length > 0 && (
+  <div style={{
+    marginTop: '24px',
+    padding: '20px',
+    background: '#f8f9fa',
+    borderRadius: '12px',
+    border: '2px solid #28a745'
+  }}>
+    <h4 style={{
+      marginBottom: '16px',
+      color: '#28a745',
+      display: 'flex',
+      alignItems: 'center',
+      gap: '8px'
+    }}>
+      ✅ Select Your Thumbnail:
+    </h4>
+    
+    <div style={{
+      display: 'grid',
+      gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+      gap: '16px'
+    }}>
+      {thumbnails.map((thumb, index) => (
+        <div
+          key={thumb.id}
+          onClick={() => setSelectedThumbnail(thumb)}
+          style={{
+            border: selectedThumbnail?.id === thumb.id 
+              ? '4px solid #28a745' 
+              : '2px solid #dee2e6',
+            borderRadius: '8px',
+            overflow: 'hidden',
+            cursor: 'pointer',
+            transition: 'all 0.3s',
+            background: 'white',
+            transform: selectedThumbnail?.id === thumb.id ? 'scale(1.05)' : 'scale(1)'
+          }}
+        >
+          <img 
+            src={thumb.url} 
+            alt={`Thumbnail ${index + 1}`}
+            style={{
+              width: '100%',
+              height: '150px',
+              objectFit: 'cover'
+            }}
+          />
+          <div style={{
+            padding: '8px',
+            textAlign: 'center',
+            background: selectedThumbnail?.id === thumb.id ? '#28a745' : 'white',
+            color: selectedThumbnail?.id === thumb.id ? 'white' : '#333',
+            fontWeight: '600',
+            fontSize: '12px'
+          }}>
+            {selectedThumbnail?.id === thumb.id ? '✅ Selected' : `Option ${index + 1}`}
+          </div>
+        </div>
+      ))}
+    </div>
+  </div>
+)}
 
 
 
@@ -2439,6 +2683,8 @@ useEffect(() => {
               display: 'block'
             }}
           />
+
+
           <div style={{ 
             fontSize: '11px', 
             marginTop: '8px',
@@ -2446,10 +2692,12 @@ useEffect(() => {
             justifyContent: 'space-between',
             alignItems: 'center'
           }}>
+
             <span style={{ fontWeight: '600' }}>
               {selectedThumbnail?.variation === thumb.variation ? '✓ ' : ''}
               Option {thumb.variation}
             </span>
+
             <span style={{ 
               background: thumb.ctr_score > 70 ? '#28a745' : '#ffc107',
               color: 'white',
@@ -2474,6 +2722,9 @@ useEffect(() => {
         </div>
       ))}
     </div>
+
+
+
     
     {/* Selected Thumbnail Indicator */}
     {selectedThumbnail && (
@@ -2510,7 +2761,97 @@ useEffect(() => {
 
 
 
-
+{/* Final Upload/Update Button */}
+{selectedThumbnail && (
+  <button
+    onClick={async () => {
+      if (!selectedThumbnail) {
+        alert('⚠️ Please select a thumbnail first!');
+        return;
+      }
+      
+      setLoading(true);
+      
+      try {
+        const uploadData = {
+          user_id: user.user_id,
+          title: contentData.title,
+          description: contentData.description || '',
+          video_url: contentData.video_url,
+          thumbnail_url: selectedThumbnail.url,
+          privacy_status: 'public',
+          tags: contentData.tags || [],
+          video_mode: uploadMode, // 'new' or 'update'
+          content_type: 'video'
+        };
+        
+        console.log('Uploading with data:', uploadData);
+        
+        const response = await fetch(`${API_BASE}/api/youtube/upload`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          },
+          body: JSON.stringify(uploadData)
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+          if (uploadMode === 'update') {
+            alert(`✅ Thumbnail updated successfully!\n\nYour video thumbnail has been changed.`);
+          } else {
+            alert(`✅ Video uploaded successfully!\n\nVideo ID: ${result.video_id || 'N/A'}\n\nCheck your YouTube channel!`);
+          }
+          
+          // Reset form
+          setContentData({
+            title: '',
+            description: '',
+            video_url: '',
+            tags: []
+          });
+          setThumbnails([]);
+          setSelectedThumbnail(null);
+          setExistingVideoUrl('');
+          
+        } else {
+          alert('❌ Upload failed:\n' + (result.message || result.error || 'Unknown error'));
+        }
+        
+      } catch (error) {
+        console.error('Upload error:', error);
+        alert('❌ Upload failed:\n' + error.message);
+      } finally {
+        setLoading(false);
+      }
+    }}
+    disabled={loading || !selectedThumbnail}
+    style={{
+      width: '100%',
+      padding: '18px',
+      background: loading || !selectedThumbnail 
+        ? '#ccc' 
+        : uploadMode === 'update'
+        ? 'linear-gradient(135deg, #FF6B6B, #FF8E53)'
+        : 'linear-gradient(135deg, #56CCF2, #2F80ED)',
+      color: 'white',
+      border: 'none',
+      borderRadius: '10px',
+      fontSize: '17px',
+      fontWeight: '700',
+      cursor: loading || !selectedThumbnail ? 'not-allowed' : 'pointer',
+      marginTop: '20px',
+      boxShadow: '0 6px 20px rgba(47, 128, 237, 0.4)',
+      transition: 'all 0.3s'
+    }}
+  >
+    {loading ? '⏳ Processing...' : 
+     uploadMode === 'update' ? '🔄 Update Thumbnail on YouTube' : 
+     '📤 Upload Video to YouTube'}
+  </button>
+)}
 
 
 
@@ -2563,6 +2904,11 @@ useEffect(() => {
    videoUploadMode === 'update' ? '🔄 Update Thumbnail Only' : 
    '📤 Upload to YouTube'}
 </button>
+
+
+
+
+
 
 
 
@@ -4546,6 +4892,9 @@ onClick={async () => {
             </div>
           </div>
         )}
+
+
+
 
         {/* Step 3: Generate & Upload */}
         {uploadedImages.length >= 2 && slideshowTitle && slideshowDescription && (
