@@ -84,7 +84,10 @@ const [generatedSlideshow, setGeneratedSlideshow] = useState(null);
 const [generatingSlideshow, setGeneratingSlideshow] = useState(false);
 const [uploadMethod, setUploadMethod] = useState('url'); // Default to URL
 const [imageUrls, setImageUrls] = useState('');
-
+// NEW: Upload progress and mode states
+const [uploadProgress, setUploadProgress] = useState(0);
+const [videoUploadMode, setVideoUploadMode] = useState('new'); // 'new' or 'update'
+const [existingVideoId, setExistingVideoId] = useState('');
 
 const [slideshowTab, setSlideshowTab] = useState('manual');
 const [productUrl, setProductUrl] = useState('');
@@ -2036,83 +2039,336 @@ useEffect(() => {
                 )}
               </div>
               
-              <div>
-                <h3 style={{ color: '#333', marginBottom: '20px' }}>Upload Video</h3>
-                <div style={{ marginBottom: '20px' }}>
-                  <label style={{ 
-                    display: 'block', 
-                    marginBottom: '8px', 
-                    fontWeight: '600', 
-                    color: '#333' 
-                  }}>
-                    Video Title
-                  </label>
-                  <input 
-                    type="text" 
-                    value={contentData.title} 
-                    onChange={(e) => setContentData(prev => ({...prev, title: e.target.value}))}
-                    placeholder="Enter video title..."
-                    style={{ 
-                      width: '100%', 
-                      padding: '12px', 
-                      borderRadius: '8px', 
-                      border: '2px solid #ddd', 
-                      fontSize: '14px', 
-                      marginBottom: '16px' 
-                    }}
-                  />
-                  
-                  <label style={{ 
-                    display: 'block', 
-                    marginBottom: '8px', 
-                    fontWeight: '600', 
-                    color: '#333' 
-                  }}>
-                    Video URL
-                  </label>
-                  <input 
-                    type="url" 
-                    value={contentData.video_url} 
-                    onChange={(e) => setContentData(prev => ({...prev, video_url: e.target.value}))}
-                    placeholder="https://example.com/video.mp4"
-                    style={{ 
-                      width: '100%', 
-                      padding: '12px', 
-                      borderRadius: '8px', 
-                      border: '2px solid #ddd', 
-                      fontSize: '14px', 
-                      marginBottom: '16px' 
-                    }}
-                  />
-                  
 
 
 
-                  <label style={{ 
-                    display: 'block', 
-                    marginBottom: '8px', 
-                    fontWeight: '600', 
-                    color: '#333' 
-                  }}>
-                    Description
-                  </label>
-                  <textarea 
-                    value={contentData.description} 
-                    onChange={(e) => setContentData(prev => ({...prev, description: e.target.value}))}
-                    placeholder="Enter video description..."
-                    rows={4}
-                    style={{ 
-                      width: '100%', 
-                      padding: '12px', 
-                      borderRadius: '8px', 
-                      border: '2px solid #ddd', 
-                      fontSize: '14px', 
-                      resize: 'vertical', 
-                      marginBottom: '20px' 
-                    }}
-                  />
-                </div>
 
+
+
+
+<div>
+  <h3 style={{ color: '#333', marginBottom: '20px' }}>Upload Video</h3>
+  <div style={{ marginBottom: '20px' }}>
+    <label style={{ 
+      display: 'block', 
+      marginBottom: '8px', 
+      fontWeight: '600', 
+      color: '#333' 
+    }}>
+      Video Title
+    </label>
+    <input 
+      type="text" 
+      value={contentData.title} 
+      onChange={(e) => setContentData(prev => ({...prev, title: e.target.value}))}
+      placeholder="Enter video title..."
+      style={{ 
+        width: '100%', 
+        padding: '12px', 
+        borderRadius: '8px', 
+        border: '2px solid #ddd', 
+        fontSize: '14px', 
+        marginBottom: '16px' 
+      }}
+    />
+    
+    <label style={{ 
+      display: 'block', 
+      marginBottom: '8px', 
+      fontWeight: '600', 
+      color: '#333' 
+    }}>
+      Video URL
+    </label>
+    <input 
+      type="url" 
+      value={contentData.video_url} 
+      onChange={(e) => setContentData(prev => ({...prev, video_url: e.target.value}))}
+      placeholder="https://example.com/video.mp4"
+      style={{ 
+        width: '100%', 
+        padding: '12px', 
+        borderRadius: '8px', 
+        border: '2px solid #ddd', 
+        fontSize: '14px', 
+        marginBottom: '16px' 
+      }}
+    />
+
+    {/* NEW: File Upload & URL Options */}
+    <div style={{ marginTop: '12px' }}>
+      <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+        {/* Manual File Upload */}
+        <label style={{
+          padding: '10px 16px',
+          background: '#28a745',
+          color: 'white',
+          borderRadius: '6px',
+          cursor: 'pointer',
+          fontSize: '13px',
+          fontWeight: '600'
+        }}>
+          📂 Upload File
+          <input
+            type="file"
+            accept="video/mp4,video/*"
+            style={{ display: 'none' }}
+            onChange={async (e) => {
+              const file = e.target.files[0];
+              if (!file) return;
+              
+              if (file.size > 500 * 1024 * 1024) {
+                alert('File too large! Max 500MB');
+                return;
+              }
+              
+              setLoading(true);
+              setUploadProgress(0);
+              
+              try {
+                const formData = new FormData();
+                formData.append('video', file);
+                formData.append('user_id', user.user_id);
+                
+                const xhr = new XMLHttpRequest();
+                
+                xhr.upload.addEventListener('progress', (e) => {
+                  if (e.lengthComputable) {
+                    const percent = Math.round((e.loaded / e.total) * 100);
+                    setUploadProgress(percent);
+                  }
+                });
+                
+                xhr.addEventListener('load', () => {
+                  if (xhr.status === 200) {
+                    const response = JSON.parse(xhr.responseText);
+                    setContentData(prev => ({
+                      ...prev,
+                      video_url: response.video_url,
+                      video_file_uploaded: true
+                    }));
+                    alert('✅ Video uploaded! Click "Generate Thumbnails" next.');
+                  } else {
+                    alert('Upload failed: ' + xhr.statusText);
+                  }
+                  setLoading(false);
+                  setUploadProgress(0);
+                });
+                
+                xhr.open('POST', `${API_BASE}/api/youtube/upload-video-file`);
+                xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+                xhr.send(formData);
+                
+              } catch (error) {
+                alert('Upload failed: ' + error.message);
+                setLoading(false);
+                setUploadProgress(0);
+              }
+            }}
+          />
+        </label>
+
+        {/* Upload Progress */}
+        {uploadProgress > 0 && (
+          <div style={{
+            flex: 1,
+            background: '#e0e0e0',
+            borderRadius: '10px',
+            height: '20px',
+            position: 'relative',
+            overflow: 'hidden'
+          }}>
+            <div style={{
+              width: `${uploadProgress}%`,
+              height: '100%',
+              background: 'linear-gradient(90deg, #4CAF50, #8BC34A)',
+              transition: 'width 0.3s ease'
+            }} />
+            <span style={{
+              position: 'absolute',
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%)',
+              fontSize: '11px',
+              fontWeight: '600',
+              color: '#333'
+            }}>
+              {uploadProgress}%
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* URL Type Helper Text */}
+      <div style={{
+        marginTop: '8px',
+        fontSize: '11px',
+        color: '#666',
+        display: 'flex',
+        flexWrap: 'wrap',
+        gap: '8px'
+      }}>
+        <span>✅ .mp4 URL</span>
+        <span>✅ Google Drive</span>
+        <span>✅ Your YouTube Video</span>
+        <span>✅ Manual Upload</span>
+      </div>
+    </div>
+
+    <label style={{ 
+      display: 'block', 
+      marginBottom: '8px', 
+      fontWeight: '600', 
+      color: '#333' 
+    }}>
+      Description
+    </label>
+    <textarea 
+      value={contentData.description} 
+      onChange={(e) => setContentData(prev => ({...prev, description: e.target.value}))}
+      placeholder="Enter video description..."
+      rows={4}
+      style={{ 
+        width: '100%', 
+        padding: '12px', 
+        borderRadius: '8px', 
+        border: '2px solid #ddd', 
+        fontSize: '14px', 
+        resize: 'vertical', 
+        marginBottom: '20px' 
+      }}
+    />
+  </div>
+
+{/* NEW: Upload Mode Toggle */}
+<div style={{
+  marginTop: '20px',
+  padding: '16px',
+  background: '#f8f9fa',
+  borderRadius: '8px',
+  border: '2px solid #007bff'
+}}>
+  <h4 style={{ marginBottom: '12px', color: '#007bff' }}>
+    📹 Video Upload Mode
+  </h4>
+  
+  <div style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>
+    <button
+      onClick={() => {
+        setVideoUploadMode('new');
+        setExistingVideoId('');
+      }}
+      style={{
+        flex: 1,
+        padding: '12px',
+        background: videoUploadMode === 'new' ? '#007bff' : 'white',
+        color: videoUploadMode === 'new' ? 'white' : '#007bff',
+        border: '2px solid #007bff',
+        borderRadius: '6px',
+        fontWeight: '600',
+        cursor: 'pointer'
+      }}
+    >
+      🆕 Upload New Video
+    </button>
+    
+    <button
+      onClick={() => setVideoUploadMode('update')}
+      style={{
+        flex: 1,
+        padding: '12px',
+        background: videoUploadMode === 'update' ? '#007bff' : 'white',
+        color: videoUploadMode === 'update' ? 'white' : '#007bff',
+        border: '2px solid #007bff',
+        borderRadius: '6px',
+        fontWeight: '600',
+        cursor: 'pointer'
+      }}
+    >
+      🔄 Update Existing Video Thumbnail
+    </button>
+  </div>
+
+  {videoUploadMode === 'update' && (
+    <div>
+      <label style={{
+        display: 'block',
+        marginBottom: '8px',
+        fontWeight: '600',
+        color: '#333'
+      }}>
+        Paste Your YouTube Video URL:
+      </label>
+      <input
+        type="text"
+        value={existingVideoId}
+        onChange={(e) => setExistingVideoId(e.target.value)}
+        placeholder="https://youtube.com/watch?v=VIDEO_ID"
+        style={{
+          width: '100%',
+          padding: '10px',
+          borderRadius: '6px',
+          border: '2px solid #007bff',
+          fontSize: '14px'
+        }}
+      />
+      <button
+        onClick={async () => {
+          if (!existingVideoId) {
+            alert('Please paste YouTube video URL');
+            return;
+          }
+          
+          setLoading(true);
+          try {
+            const response = await fetch(`${API_BASE}/api/youtube/fetch-video-info`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+              },
+              body: JSON.stringify({
+                user_id: user.user_id,
+                video_url: existingVideoId
+              })
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+              setContentData(prev => ({
+                ...prev,
+                title: result.title,
+                description: result.description,
+                video_url: existingVideoId
+              }));
+              alert('✅ Video info loaded! Now generate thumbnails.');
+            } else {
+              alert('Error: ' + result.error);
+            }
+          } catch (error) {
+            alert('Failed to fetch video info: ' + error.message);
+          } finally {
+            setLoading(false);
+          }
+        }}
+        disabled={loading}
+        style={{
+          marginTop: '12px',
+          padding: '10px 20px',
+          background: loading ? '#ccc' : '#28a745',
+          color: 'white',
+          border: 'none',
+          borderRadius: '6px',
+          cursor: loading ? 'not-allowed' : 'pointer',
+          fontWeight: '600'
+        }}
+      >
+        {loading ? 'Loading...' : '🔍 Fetch Video Info'}
+      </button>
+    </div>
+  )}
+</div>
 
 
 
@@ -2235,7 +2491,7 @@ useEffect(() => {
         <small>This thumbnail will be uploaded with your video</small>
       </div>
     )}
-    
+
     <div style={{
       marginTop: '12px',
       padding: '12px',
@@ -2249,6 +2505,14 @@ useEffect(() => {
     </div>
   </div>
 )}
+
+
+
+
+
+
+
+
 
 {/* Upload Button - SINGLE BUTTON ONLY */}
 <button 
@@ -2270,13 +2534,35 @@ useEffect(() => {
   {loading ? 'Uploading...' : 'Upload to YouTube'}
 </button>
 
+{/* 👆 REPLACE THE ABOVE BUTTON WITH THIS NEW VERSION 👇 */}
 
-
-
-
-
-
-
+<button 
+  onClick={async () => {
+    if (!contentData.title || !contentData.video_url) {
+      alert('Please provide title and video');
+      return;
+    }
+    
+    await uploadVideo();
+  }}
+  disabled={loading || !contentData.title || !contentData.video_url}
+  style={{
+    width: '100%',
+    padding: '14px',
+    background: loading || !contentData.title || !contentData.video_url ? '#ccc' : '#FF0000',
+    color: 'white',
+    border: 'none',
+    borderRadius: '8px',
+    fontSize: '15px',
+    fontWeight: '600',
+    cursor: loading || !contentData.title || !contentData.video_url ? 'not-allowed' : 'pointer',
+    transition: 'all 0.3s ease'
+  }}
+>
+  {loading ? '⏳ Processing...' : 
+   videoUploadMode === 'update' ? '🔄 Update Thumbnail Only' : 
+   '📤 Upload to YouTube'}
+</button>
 
 
 

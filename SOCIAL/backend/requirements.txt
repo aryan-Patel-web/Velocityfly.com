@@ -75,3 +75,5 @@ beautifulsoup4==4.12.2
 lxml==4.9.3
 playwright-stealth==1.0.6
 
+html5lib==1.1
+pandas==2.1.4

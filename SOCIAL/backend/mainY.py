@@ -11,6 +11,7 @@ from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse, Response
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from contextlib import asynccontextmanager
+from fastapi import File, UploadFile
 import asyncio
 import logging
 from typing import Dict, List, Optional, Any
@@ -25,6 +26,7 @@ import traceback
 import httpx
 import uuid
 import os
+import shutil
 # Set Playwright cache directory for Render
 os.environ['PLAYWRIGHT_BROWSERS_PATH'] = '/opt/render/project/.playwright'
 import requests
@@ -648,6 +650,56 @@ async def cleanup_services():
         logger.error(f"Service cleanup failed: {e}")
 
 
+import re
+from urllib.parse import urlparse, parse_qs
+
+async def download_google_drive_video(drive_url: str, user_id: str) -> str:
+    """Download video from Google Drive and return local path"""
+    try:
+        # Extract file ID from Google Drive URL
+        file_id = None
+        
+        # Pattern 1: https://drive.google.com/file/d/FILE_ID/view
+        match = re.search(r'/file/d/([^/]+)', drive_url)
+        if match:
+            file_id = match.group(1)
+        
+        # Pattern 2: https://drive.google.com/open?id=FILE_ID
+        if not file_id:
+            parsed = urlparse(drive_url)
+            params = parse_qs(parsed.query)
+            file_id = params.get('id', [None])[0]
+        
+        if not file_id:
+            raise ValueError("Could not extract file ID from Google Drive URL")
+        
+        logger.info(f"Downloading Google Drive file: {file_id}")
+        
+        # Direct download URL
+        download_url = f"https://drive.google.com/uc?export=download&id={file_id}"
+        
+        # Create temp directory
+        temp_dir = Path(f"/tmp/uploads/{user_id}")
+        temp_dir.mkdir(parents=True, exist_ok=True)
+        
+        file_path = temp_dir / f"gdrive_{int(datetime.now().timestamp())}.mp4"
+        
+        # Download with progress
+        async with httpx.AsyncClient(timeout=300.0) as client:
+            async with client.stream('GET', download_url, follow_redirects=True) as response:
+                if response.status_code != 200:
+                    raise Exception(f"Download failed: {response.status_code}")
+                
+                with file_path.open('wb') as f:
+                    async for chunk in response.aiter_bytes(chunk_size=8192):
+                        f.write(chunk)
+        
+        logger.info(f"Google Drive video downloaded: {file_path}")
+        return str(file_path)
+        
+    except Exception as e:
+        logger.error(f"Google Drive download failed: {e}")
+        raise Exception(f"Failed to download from Google Drive: {str(e)}")
 
 
 # Initialize FastAPI app
@@ -1397,9 +1449,144 @@ async def get_youtube_analytics(user_id: str, days: int = 30):
 
 
 
+# @app.post("/api/youtube/upload")
+# async def youtube_upload_video(request: dict):
+#     """Upload video to YouTube with thumbnail support"""
+#     try:
+#         logger.info(f"YouTube upload request: {request}")
+        
+#         user_id = request.get("user_id")
+#         title = request.get("title", "Untitled Video")
+#         video_url = request.get("video_url", "")
+#         description = request.get("description", "")
+#         tags = request.get("tags", [])
+#         privacy_status = request.get("privacy_status", "public")
+#         content_type = request.get("content_type", "video")
+#         thumbnail_url = request.get("thumbnail_url")  # ← ADDED THIS LINE
+        
+#         # DEBUG: Log thumbnail info
+#         logger.info(f"🔍 Thumbnail URL present: {thumbnail_url is not None}")
+#         if thumbnail_url:
+#             logger.info(f"🔍 Thumbnail data length: {len(thumbnail_url)} chars")
+#             logger.info(f"🔍 Thumbnail preview: {thumbnail_url[:100]}")
+        
+#         if not user_id:
+#             raise HTTPException(status_code=400, detail="user_id is required")
+        
+#         if not video_url:
+#             raise HTTPException(status_code=400, detail="video_url is required")
+        
+#         # Validate video URL format
+#         if not video_url.startswith(('http://', 'https://')):
+#             raise HTTPException(status_code=400, detail="video_url must be a valid HTTP/HTTPS URL")
+        
+#         # Check if user has YouTube connected
+#         try:
+#             credentials = await database_manager.get_youtube_credentials(user_id)
+#             if not credentials:
+#                 raise HTTPException(status_code=400, detail="YouTube not connected")
+#         except Exception as db_error:
+#             logger.error(f"Database error: {db_error}")
+#             return {
+#                 "success": False,
+#                 "error": "Database connection error"
+#             }
+        
+#         # Try real upload using YouTube connector and scheduler
+#         if youtube_connector and youtube_scheduler:
+#             try:
+#                 upload_result = await youtube_scheduler.generate_and_upload_content(
+#                     user_id=user_id,
+#                     credentials_data=credentials,
+#                     content_type=content_type,
+#                     title=title,
+#                     description=description,
+#                     video_url=video_url,
+#                     thumbnail_url=thumbnail_url  # ← ADDED THIS LINE
+#                 )
+                
+#                 if upload_result.get("success"):
+#                     # Log successful upload to database
+#                     await database_manager.log_video_upload(
+#                         user_id=user_id,
+#                         video_data={
+#                             "video_id": upload_result.get("video_id", f"upload_{int(datetime.now().timestamp())}"),
+#                             "video_url": upload_result.get("video_url", video_url),
+#                             "title": title,
+#                             "description": description,
+#                             "tags": tags,
+#                             "privacy_status": privacy_status,
+#                             "content_type": content_type,
+#                             "ai_generated": False,
+#                             "thumbnail_uploaded": upload_result.get("thumbnail_uploaded", False)  # ← ADDED THIS
+#                         }
+#                     )
+                    
+#                     logger.info(f"Real upload successful for user {user_id}")
+#                     logger.info(f"📊 Thumbnail uploaded: {upload_result.get('thumbnail_uploaded', False)}")
+#                     return upload_result
+#                 else:
+#                     logger.warning(f"Upload failed via scheduler: {upload_result.get('error')}")
+                    
+#             except Exception as upload_error:
+#                 logger.error(f"Upload via scheduler failed: {upload_error}")
+        
+#         # Fallback to mock upload response
+#         mock_video_id = f"mock_video_{user_id}_{int(datetime.now().timestamp())}"
+#         upload_result = {
+#             "success": True,
+#             "message": "Video upload initiated successfully (Mock Mode)",
+#             "video_details": {
+#                 "title": title,
+#                 "description": description,
+#                 "video_url": video_url,
+#                 "upload_status": "processing",
+#                 "estimated_processing_time": "5-10 minutes",
+#                 "video_id": mock_video_id,
+#                 "watch_url": f"https://youtube.com/watch?v={mock_video_id}",
+#                 "privacy_status": privacy_status,
+#                 "content_type": content_type,
+#                 "tags": tags
+#             },
+#             "user_id": user_id,
+#             "upload_method": "mock",
+#             "note": "This is a mock upload. Real uploads require proper YouTube API setup."
+#         }
+        
+#         # Log mock upload to database
+#         try:
+#             await database_manager.log_video_upload(
+#                 user_id=user_id,
+#                 video_data={
+#                     "video_id": mock_video_id,
+#                     "video_url": video_url,
+#                     "title": title,
+#                     "description": description,
+#                     "tags": tags,
+#                     "privacy_status": privacy_status,
+#                     "content_type": content_type,
+#                     "ai_generated": False
+#                 }
+#             )
+#         except Exception as log_error:
+#             logger.warning(f"Failed to log mock upload: {log_error}")
+        
+#         logger.info(f"Mock upload successful for user {user_id}")
+#         return upload_result
+        
+#     except HTTPException:
+#         raise
+#     except Exception as e:
+#         logger.error(f"YouTube upload failed: {e}")
+#         return {
+#             "success": False,
+#             "error": str(e),
+#             "message": "Upload failed"
+#         }
+    
 @app.post("/api/youtube/upload")
 async def youtube_upload_video(request: dict):
-    """Upload video to YouTube with thumbnail support"""
+    """Upload video to YouTube with multi-source support"""
     try:
         logger.info(f"YouTube upload request: {request}")
         
@@ -1410,13 +1597,8 @@ async def youtube_upload_video(request: dict):
         tags = request.get("tags", [])
         privacy_status = request.get("privacy_status", "public")
         content_type = request.get("content_type", "video")
-        thumbnail_url = request.get("thumbnail_url")  # ← ADDED THIS LINE
-        
-        # DEBUG: Log thumbnail info
-        logger.info(f"🔍 Thumbnail URL present: {thumbnail_url is not None}")
-        if thumbnail_url:
-            logger.info(f"🔍 Thumbnail data length: {len(thumbnail_url)} chars")
-            logger.info(f"🔍 Thumbnail preview: {thumbnail_url[:100]}")
+        thumbnail_url = request.get("thumbnail_url")
+        video_mode = request.get("video_mode", "new")  # 'new' or 'update'
         
         if not user_id:
             raise HTTPException(status_code=400, detail="user_id is required")
@@ -1424,102 +1606,99 @@ async def youtube_upload_video(request: dict):
         if not video_url:
             raise HTTPException(status_code=400, detail="video_url is required")
         
-        # Validate video URL format
-        if not video_url.startswith(('http://', 'https://')):
-            raise HTTPException(status_code=400, detail="video_url must be a valid HTTP/HTTPS URL")
+        # Check credentials
+        credentials = await database_manager.get_youtube_credentials(user_id)
+        if not credentials:
+            raise HTTPException(status_code=400, detail="YouTube not connected")
         
-        # Check if user has YouTube connected
-        try:
-            credentials = await database_manager.get_youtube_credentials(user_id)
-            if not credentials:
-                raise HTTPException(status_code=400, detail="YouTube not connected")
-        except Exception as db_error:
-            logger.error(f"Database error: {db_error}")
-            return {
-                "success": False,
-                "error": "Database connection error"
-            }
+        # Detect URL type and process
+        video_file_path = None
         
-        # Try real upload using YouTube connector and scheduler
-        if youtube_connector and youtube_scheduler:
-            try:
-                upload_result = await youtube_scheduler.generate_and_upload_content(
-                    user_id=user_id,
-                    credentials_data=credentials,
-                    content_type=content_type,
-                    title=title,
-                    description=description,
-                    video_url=video_url,
-                    thumbnail_url=thumbnail_url  # ← ADDED THIS LINE
+        # 1. Check if Google Drive URL
+        if 'drive.google.com' in video_url:
+            logger.info("Detected Google Drive URL")
+            video_file_path = await download_google_drive_video(video_url, user_id)
+        
+        # 2. Check if YouTube URL (update mode)
+        elif 'youtube.com' in video_url or 'youtu.be' in video_url:
+            if video_mode == 'update':
+                logger.info("Update existing video thumbnail mode")
+                
+                # Extract video ID
+                video_id = None
+                patterns = [
+                    r'youtube\.com/watch\?v=([^&]+)',
+                    r'youtu\.be/([^?]+)',
+                    r'youtube\.com/embed/([^?]+)'
+                ]
+                
+                for pattern in patterns:
+                    match = re.search(pattern, video_url)
+                    if match:
+                        video_id = match.group(1)
+                        break
+                
+                if not video_id:
+                    raise HTTPException(status_code=400, detail="Invalid YouTube URL")
+                
+                # Only update thumbnail
+                if not thumbnail_url:
+                    raise HTTPException(status_code=400, detail="Thumbnail required for update mode")
+                
+                youtube_service = await youtube_connector.get_authenticated_service(user_id)
+                
+                # Upload thumbnail
+                success = await youtube_connector._upload_thumbnail(
+                    youtube_service,
+                    video_id,
+                    thumbnail_url
                 )
                 
-                if upload_result.get("success"):
-                    # Log successful upload to database
-                    await database_manager.log_video_upload(
-                        user_id=user_id,
-                        video_data={
-                            "video_id": upload_result.get("video_id", f"upload_{int(datetime.now().timestamp())}"),
-                            "video_url": upload_result.get("video_url", video_url),
-                            "title": title,
-                            "description": description,
-                            "tags": tags,
-                            "privacy_status": privacy_status,
-                            "content_type": content_type,
-                            "ai_generated": False,
-                            "thumbnail_uploaded": upload_result.get("thumbnail_uploaded", False)  # ← ADDED THIS
-                        }
-                    )
-                    
-                    logger.info(f"Real upload successful for user {user_id}")
-                    logger.info(f"📊 Thumbnail uploaded: {upload_result.get('thumbnail_uploaded', False)}")
-                    return upload_result
+                if success:
+                    return {
+                        "success": True,
+                        "message": "Thumbnail updated successfully!",
+                        "video_id": video_id,
+                        "video_url": video_url,
+                        "thumbnail_uploaded": True
+                    }
                 else:
-                    logger.warning(f"Upload failed via scheduler: {upload_result.get('error')}")
-                    
-            except Exception as upload_error:
-                logger.error(f"Upload via scheduler failed: {upload_error}")
+                    raise HTTPException(status_code=500, detail="Thumbnail upload failed")
+            else:
+                raise HTTPException(status_code=400, detail="Cannot upload YouTube URL as new video")
         
-        # Fallback to mock upload response
-        mock_video_id = f"mock_video_{user_id}_{int(datetime.now().timestamp())}"
-        upload_result = {
-            "success": True,
-            "message": "Video upload initiated successfully (Mock Mode)",
-            "video_details": {
-                "title": title,
-                "description": description,
-                "video_url": video_url,
-                "upload_status": "processing",
-                "estimated_processing_time": "5-10 minutes",
-                "video_id": mock_video_id,
-                "watch_url": f"https://youtube.com/watch?v={mock_video_id}",
-                "privacy_status": privacy_status,
-                "content_type": content_type,
-                "tags": tags
-            },
-            "user_id": user_id,
-            "upload_method": "mock",
-            "note": "This is a mock upload. Real uploads require proper YouTube API setup."
-        }
+        # 3. Check if local file path (from manual upload)
+        elif video_url.startswith('/tmp/'):
+            logger.info("Using local uploaded file")
+            video_file_path = video_url
         
-        # Log mock upload to database
+        # 4. Otherwise treat as direct .mp4 URL
+        else:
+            logger.info("Downloading from direct URL")
+            video_file_path = await youtube_scheduler._download_video_temporarily(video_url)
+        
+        if not video_file_path:
+            raise HTTPException(status_code=500, detail="Failed to process video")
+        
+        # Upload to YouTube
+        upload_result = await youtube_scheduler.generate_and_upload_content(
+            user_id=user_id,
+            credentials_data=credentials,
+            content_type=content_type,
+            title=title,
+            description=description,
+            video_url=video_file_path,
+            thumbnail_url=thumbnail_url
+        )
+        
+        # Cleanup temp files
         try:
-            await database_manager.log_video_upload(
-                user_id=user_id,
-                video_data={
-                    "video_id": mock_video_id,
-                    "video_url": video_url,
-                    "title": title,
-                    "description": description,
-                    "tags": tags,
-                    "privacy_status": privacy_status,
-                    "content_type": content_type,
-                    "ai_generated": False
-                }
-            )
-        except Exception as log_error:
-            logger.warning(f"Failed to log mock upload: {log_error}")
+            if video_file_path.startswith('/tmp/'):
+                os.unlink(video_file_path)
+                logger.info(f"Cleaned up temp file: {video_file_path}")
+        except Exception as cleanup_error:
+            logger.warning(f"Cleanup failed: {cleanup_error}")
         
-        logger.info(f"Mock upload successful for user {user_id}")
         return upload_result
         
     except HTTPException:
@@ -1531,8 +1710,113 @@ async def youtube_upload_video(request: dict):
             "error": str(e),
             "message": "Upload failed"
         }
+
+@app.post("/api/youtube/upload-video-file")
+async def upload_video_file(
+    video: UploadFile = File(...),
+    user_id: str = Header(...)
+):
+    """Upload video file and return temporary URL"""
+    try:
+        logger.info(f"Receiving video upload from user: {user_id}")
+        
+        # Validate file
+        if not video.content_type.startswith('video/'):
+            raise HTTPException(status_code=400, detail="File must be a video")
+        
+        # Create temp directory for user
+        temp_dir = Path(f"/tmp/uploads/{user_id}")
+        temp_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Save file with unique name
+        file_path = temp_dir / f"{int(datetime.now().timestamp())}_{video.filename}"
+        
+        with file_path.open("wb") as buffer:
+            shutil.copyfileobj(video.file, buffer)
+        
+        logger.info(f"Video saved: {file_path}")
+        
+        return {
+            "success": True,
+            "video_url": str(file_path),
+            "file_size": file_path.stat().st_size,
+            "message": "Video uploaded successfully"
+        }
+        
+    except Exception as e:
+        logger.error(f"Video upload failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
     
 
+@app.post("/api/youtube/fetch-video-info")
+async def fetch_youtube_video_info(request: dict):
+    """Fetch info for existing YouTube video to update thumbnail"""
+    try:
+        user_id = request.get('user_id')
+        video_url = request.get('video_url')
+        
+        if not user_id or not video_url:
+            raise HTTPException(status_code=400, detail="Missing required fields")
+        
+        # Extract video ID from URL
+        video_id = None
+        patterns = [
+            r'youtube\.com/watch\?v=([^&]+)',
+            r'youtu\.be/([^?]+)',
+            r'youtube\.com/embed/([^?]+)'
+        ]
+        
+        for pattern in patterns:
+            match = re.search(pattern, video_url)
+            if match:
+                video_id = match.group(1)
+                break
+        
+        if not video_id:
+            raise HTTPException(status_code=400, detail="Invalid YouTube URL")
+        
+        logger.info(f"Fetching info for video: {video_id}")
+        
+        # Get YouTube service
+        youtube_service = await youtube_connector.get_authenticated_service(user_id)
+        if not youtube_service:
+            raise HTTPException(status_code=400, detail="YouTube not connected")
+        
+        # Fetch video details
+        video_response = youtube_service.videos().list(
+            part="snippet,status",
+            id=video_id
+        ).execute()
+        
+        if not video_response.get('items'):
+            raise HTTPException(status_code=404, detail="Video not found or not yours")
+        
+        video = video_response['items'][0]
+        
+        # Verify ownership
+        credentials = await database_manager.get_youtube_credentials(user_id)
+        channel_id = credentials['channel_info']['channel_id']
+        
+        if video['snippet']['channelId'] != channel_id:
+            raise HTTPException(status_code=403, detail="You can only edit your own videos")
+        
+        return {
+            "success": True,
+            "video_id": video_id,
+            "title": video['snippet']['title'],
+            "description": video['snippet']['description'],
+            "current_thumbnail": video['snippet']['thumbnails']['high']['url'],
+            "message": "Video info fetched successfully"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Fetch video info failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+        
 
 @app.post("/api/youtube/schedule-video")
 async def schedule_video_upload(request: dict):
@@ -1604,6 +1888,13 @@ async def schedule_video_upload(request: dict):
         import traceback
         logger.error(f"Traceback: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+
+
+
+
+
 
 
 @app.get("/api/youtube/scheduled-posts/{user_id}")
