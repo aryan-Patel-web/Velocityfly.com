@@ -2046,18 +2046,24 @@ async def schedule_video_upload(request: dict):
         logger.error(f"Traceback: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=str(e))
 
+
+
+
+
+
 @app.post("/api/youtube/generate-thumbnails")
 async def generate_video_thumbnails(request: dict):
     """
     Generate 3 AI thumbnails based on:
-    1. Video file (extract frames) - for uploaded files
-    2. Title and description (text-based) - for all sources including YouTube URLs
+    1. Video file frames (extract from video) - PRIORITY METHOD
+    2. AI-generated images (if available)
+    3. Fallback colored PNG thumbnails (if AI unavailable)
     
     Supports:
     - Local uploaded files
     - Google Drive URLs
     - Direct .mp4 URLs
-    - YouTube URLs (for update mode)
+    - YouTube URLs (for update mode - title-based only)
     """
     try:
         # Extract parameters
@@ -2082,26 +2088,25 @@ async def generate_video_thumbnails(request: dict):
         logger.info("="*60)
         
         # ============================================================
-        # DETECT VIDEO SOURCE
+        # DETECT VIDEO SOURCE AND DOWNLOAD IF NEEDED
         # ============================================================
         local_video_path = None
         is_youtube_url = False
         
-        # 1️⃣ YOUTUBE URL (for update mode)
+        # 1️⃣ YOUTUBE URL (for update mode - no download)
         if 'youtube.com' in video_url or 'youtu.be' in video_url:
-            logger.info("✅ YouTube URL detected - generating thumbnails from title/description only")
+            logger.info("✅ YouTube URL detected - will use title-based generation only")
             is_youtube_url = True
-            local_video_path = None  # Don't need to download YouTube videos
+            local_video_path = None
         
         # 2️⃣ GOOGLE DRIVE URL
         elif 'drive.google.com' in video_url:
             logger.info("✅ Google Drive URL detected")
             try:
                 local_video_path = await download_google_drive_video(video_url, user_id)
-                logger.info(f"✅ Downloaded: {local_video_path}")
+                logger.info(f"✅ Downloaded from Google Drive: {local_video_path}")
             except Exception as drive_error:
                 logger.error(f"❌ Google Drive download failed: {drive_error}")
-                # Continue anyway with title-based generation
                 local_video_path = None
         
         # 3️⃣ LOCAL FILE
@@ -2115,7 +2120,7 @@ async def generate_video_thumbnails(request: dict):
         
         # 4️⃣ DIRECT .MP4 URL
         else:
-            logger.info("✅ Direct .mp4 URL")
+            logger.info("✅ Direct .mp4 URL - downloading...")
             try:
                 temp_dir = Path(f"/tmp/uploads/{user_id}")
                 temp_dir.mkdir(parents=True, exist_ok=True)
@@ -2139,92 +2144,141 @@ async def generate_video_thumbnails(request: dict):
                 local_video_path = None
         
         # ============================================================
-        # GENERATE THUMBNAILS
+        # METHOD 1: EXTRACT FRAMES FROM VIDEO (PRIORITY)
         # ============================================================
-        
-        thumbnail_prompt = f"YouTube thumbnail for: {title}. {description[:150]}"
         thumbnails = []
         
-        # Check if AI service has thumbnail generation method
-        has_ai_thumbnails = (
-            ai_service and 
-            hasattr(ai_service, 'generate_youtube_thumbnail')
-        )
-        
-        if has_ai_thumbnails:
-            logger.info("✅ Using AI service for thumbnail generation")
-            
-            # Generate 3 AI thumbnails
-            for i in range(3):
-                try:
-                    thumbnail_url = await ai_service.generate_youtube_thumbnail(
-                        prompt=f"{thumbnail_prompt} - Style {i+1}: {'Bold' if i==0 else 'Colorful' if i==1 else 'Minimalist'}",
-                        user_id=user_id
-                    )
+        if local_video_path and os.path.exists(local_video_path):
+            logger.info("🎬 METHOD 1: Extracting frames from video file")
+            try:
+                frame_thumbnails = await extract_video_frames_as_thumbnails(
+                    local_video_path, 
+                    title, 
+                    num_frames=3
+                )
+                
+                if frame_thumbnails and len(frame_thumbnails) > 0:
+                    thumbnails.extend(frame_thumbnails)
+                    logger.info(f"✅ Extracted {len(frame_thumbnails)} video frame thumbnails")
+                else:
+                    logger.warning("⚠️ Frame extraction returned no thumbnails")
                     
-                    if thumbnail_url:
-                        thumbnails.append({
-                            "id": f"thumb_{i+1}",
-                            "url": thumbnail_url,
-                            "style": f"Style {i+1}"
-                        })
-                        logger.info(f"✅ Generated thumbnail {i+1}")
-                    
-                except Exception as thumb_error:
-                    logger.warning(f"⚠️ Thumbnail {i+1} generation failed: {thumb_error}")
-        
+            except Exception as frame_error:
+                logger.warning(f"⚠️ Frame extraction failed: {frame_error}")
+                import traceback
+                logger.error(f"Frame extraction traceback: {traceback.format_exc()}")
         else:
-            logger.warning("⚠️ AI service thumbnail generation not available - using fallback")
+            logger.info("⏭️ Skipping frame extraction - no local video file available")
         
         # ============================================================
-        # FALLBACK: MOCK THUMBNAILS
+        # METHOD 2: AI-GENERATED THUMBNAILS (if frames failed)
         # ============================================================
         
-        if len(thumbnails) == 0:
-            logger.info("🎨 Generating fallback mock thumbnails")
+        if len(thumbnails) < 3:
+            logger.info(f"🎨 METHOD 2: Generating AI thumbnails (have {len(thumbnails)}, need 3)")
             
-            # Create 3 different colored mock thumbnails
-            colors = [
-                ('#FF0000', 'white', 'Bold Red'),      # YouTube red
-                ('#00A8E8', 'white', 'Cool Blue'),     # Sky blue
-                ('#FFA500', 'black', 'Vibrant Orange') # Orange
-            ]
+            has_ai_thumbnails = (
+                ai_service and 
+                hasattr(ai_service, 'generate_youtube_thumbnail')
+            )
             
-            for i, (bg_color, text_color, style_name) in enumerate(colors):
-                # Create base64 SVG thumbnail
-                svg_content = f'''<svg width="1280" height="720" xmlns="http://www.w3.org/2000/svg">
-                    <rect width="1280" height="720" fill="{bg_color}"/>
-                    <text x="50%" y="50%" font-family="Arial, sans-serif" font-size="60" font-weight="bold" 
-                          fill="{text_color}" text-anchor="middle" dominant-baseline="middle">
-                        {title[:30]}
-                    </text>
-                    <text x="50%" y="90%" font-family="Arial, sans-serif" font-size="24" 
-                          fill="{text_color}" text-anchor="middle" opacity="0.8">
-                        {style_name}
-                    </text>
-                </svg>'''
+            if has_ai_thumbnails:
+                logger.info("✅ AI service available - generating thumbnails")
                 
-                # Convert to base64
-                import base64
-                svg_base64 = base64.b64encode(svg_content.encode()).decode()
-                thumbnail_data_url = f"data:image/svg+xml;base64,{svg_base64}"
-                
-                thumbnails.append({
-                    "id": f"thumb_{i+1}",
-                    "url": thumbnail_data_url,
-                    "style": style_name
-                })
-                
-                logger.info(f"✅ Created fallback thumbnail {i+1}: {style_name}")
+                for i in range(3 - len(thumbnails)):
+                    try:
+                        thumbnail_url = await ai_service.generate_youtube_thumbnail(
+                            prompt=f"YouTube thumbnail for: {title}. {description[:100]} - Style {i+1}",
+                            user_id=user_id
+                        )
+                        
+                        if thumbnail_url:
+                            thumbnails.append({
+                                "id": f"ai_thumb_{i+1}",
+                                "url": thumbnail_url,
+                                "style": f"AI Style {i+1}"
+                            })
+                            logger.info(f"✅ Generated AI thumbnail {i+1}")
+                        
+                    except Exception as ai_error:
+                        logger.warning(f"⚠️ AI thumbnail {i+1} failed: {ai_error}")
+            else:
+                logger.info("⏭️ AI service not available - skipping AI generation")
         
         # ============================================================
-        # RETURN RESULTS
+        # METHOD 3: FALLBACK PNG THUMBNAILS (if both failed)
+        # ============================================================
+        
+        if len(thumbnails) < 3:
+            logger.info(f"🎨 METHOD 3: Creating fallback PNG thumbnails (have {len(thumbnails)}, need 3)")
+            
+            try:
+                from PIL import Image, ImageDraw, ImageFont
+                import io
+                
+                colors = [
+                    ('#FF0000', 'white', 'Bold Red'),
+                    ('#00A8E8', 'white', 'Cool Blue'),
+                    ('#FFA500', 'black', 'Vibrant Orange')
+                ]
+                
+                for i in range(3 - len(thumbnails)):
+                    bg_color, text_color, style_name = colors[i % len(colors)]
+                    
+                    # Create PNG image
+                    img = Image.new('RGB', (1280, 720), bg_color)
+                    draw = ImageDraw.Draw(img)
+                    
+                    # Try to load font
+                    try:
+                        font_title = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 60)
+                        font_subtitle = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 24)
+                    except:
+                        font_title = ImageFont.load_default()
+                        font_subtitle = ImageFont.load_default()
+                    
+                    # Draw title (centered)
+                    title_text = title[:30]
+                    text_bbox = draw.textbbox((0, 0), title_text, font=font_title)
+                    text_width = text_bbox[2] - text_bbox[0]
+                    text_height = text_bbox[3] - text_bbox[1]
+                    text_x = (1280 - text_width) // 2
+                    text_y = (720 - text_height) // 2
+                    
+                    draw.text((text_x, text_y), title_text, fill=text_color, font=font_title)
+                    
+                    # Draw style name at bottom
+                    style_bbox = draw.textbbox((0, 0), style_name, font=font_subtitle)
+                    style_width = style_bbox[2] - style_bbox[0]
+                    style_x = (1280 - style_width) // 2
+                    style_y = 720 - 80
+                    
+                    draw.text((style_x, style_y), style_name, fill=text_color, font=font_subtitle)
+                    
+                    # Convert to base64 PNG
+                    buffer = io.BytesIO()
+                    img.save(buffer, format='PNG', quality=95)
+                    img_base64 = base64.b64encode(buffer.getvalue()).decode()
+                    
+                    thumbnails.append({
+                        "id": f"fallback_{i+1}",
+                        "url": f"data:image/png;base64,{img_base64}",
+                        "style": style_name
+                    })
+                    
+                    logger.info(f"✅ Created fallback PNG thumbnail: {style_name}")
+                    
+            except Exception as fallback_error:
+                logger.error(f"❌ Fallback thumbnail creation failed: {fallback_error}")
+        
+        # ============================================================
+        # VALIDATE AND RETURN RESULTS
         # ============================================================
         
         if len(thumbnails) == 0:
             raise HTTPException(
                 status_code=500, 
-                detail="Failed to generate any thumbnails. Please try again."
+                detail="Failed to generate any thumbnails using all methods. Please try again."
             )
         
         logger.info(f"✅ Successfully generated {len(thumbnails)} thumbnails")
@@ -2235,7 +2289,11 @@ async def generate_video_thumbnails(request: dict):
             "video_path": local_video_path,
             "message": f"Generated {len(thumbnails)} thumbnails",
             "source_type": "youtube_url" if is_youtube_url else "video_file",
-            "ai_generated": has_ai_thumbnails
+            "generation_methods": {
+                "video_frames": any('frame_' in t['id'] for t in thumbnails),
+                "ai_generated": any('ai_thumb_' in t['id'] for t in thumbnails),
+                "fallback": any('fallback_' in t['id'] for t in thumbnails)
+            }
         }
         
     except HTTPException:
@@ -2250,6 +2308,152 @@ async def generate_video_thumbnails(request: dict):
             status_code=500, 
             detail=f"Thumbnail generation failed: {str(e)}"
         )
+
+
+# ============================================================
+# HELPER FUNCTION: Extract Video Frames
+# ============================================================
+
+async def extract_video_frames_as_thumbnails(
+    video_path: str, 
+    title: str, 
+    num_frames: int = 3
+) -> list:
+    """
+    Extract interesting frames from video and create thumbnails with text overlay
+    
+    Args:
+        video_path: Path to video file
+        title: Video title to overlay on frames
+        num_frames: Number of frames to extract (default 3)
+        
+    Returns:
+        list: List of thumbnail dicts with base64 PNG data
+    """
+    try:
+        import cv2
+        import numpy as np
+        from PIL import Image, ImageDraw, ImageFont
+        import io
+        
+        logger.info(f"🎬 Extracting {num_frames} frames from: {video_path}")
+        
+        # Open video
+        cap = cv2.VideoCapture(video_path)
+        
+        if not cap.isOpened():
+            raise Exception(f"Failed to open video file: {video_path}")
+        
+        # Get video properties
+        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        duration = total_frames / fps if fps > 0 else 0
+        
+        logger.info(f"📊 Video: {total_frames} frames, {fps:.1f} fps, {duration:.1f}s")
+        
+        if total_frames < num_frames:
+            logger.warning(f"⚠️ Video has only {total_frames} frames, adjusting")
+            num_frames = max(1, total_frames)
+        
+        # Select frames at different positions (avoid first/last 10%)
+        start_frame = int(total_frames * 0.1)
+        end_frame = int(total_frames * 0.9)
+        
+        if end_frame <= start_frame:
+            # Very short video
+            start_frame = 0
+            end_frame = total_frames - 1
+        
+        frame_positions = np.linspace(start_frame, end_frame, num_frames, dtype=int)
+        
+        thumbnails = []
+        
+        for i, frame_pos in enumerate(frame_positions):
+            try:
+                # Seek to frame
+                cap.set(cv2.CAP_PROP_POS_FRAMES, frame_pos)
+                ret, frame = cap.read()
+                
+                if not ret:
+                    logger.warning(f"⚠️ Failed to read frame at position {frame_pos}")
+                    continue
+                
+                # Convert BGR to RGB
+                frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                
+                # Convert to PIL Image
+                pil_image = Image.fromarray(frame_rgb)
+                
+                # Resize to YouTube thumbnail size (1280x720)
+                pil_image = pil_image.resize((1280, 720), Image.LANCZOS)
+                
+                # Add text overlay
+                draw = ImageDraw.Draw(pil_image)
+                
+                # Try to use a nice font
+                try:
+                    font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 70)
+                except:
+                    try:
+                        font = ImageFont.truetype("arial.ttf", 70)
+                    except:
+                        font = ImageFont.load_default()
+                
+                # Prepare title text
+                title_text = title[:40]  # Limit to 40 chars
+                
+                # Get text size
+                text_bbox = draw.textbbox((0, 0), title_text, font=font)
+                text_width = text_bbox[2] - text_bbox[0]
+                text_height = text_bbox[3] - text_bbox[1]
+                
+                # Position text at bottom center
+                text_x = (1280 - text_width) // 2
+                text_y = 720 - text_height - 50
+                
+                # Draw semi-transparent black background
+                padding = 20
+                draw.rectangle(
+                    [(text_x - padding, text_y - padding), 
+                     (text_x + text_width + padding, text_y + text_height + padding)],
+                    fill=(0, 0, 0, 200)
+                )
+                
+                # Draw white text
+                draw.text((text_x, text_y), title_text, fill=(255, 255, 255), font=font)
+                
+                # Convert to base64 PNG
+                buffer = io.BytesIO()
+                pil_image.save(buffer, format='PNG', quality=95)
+                img_base64 = base64.b64encode(buffer.getvalue()).decode()
+                
+                thumbnails.append({
+                    "id": f"frame_{i+1}",
+                    "url": f"data:image/png;base64,{img_base64}",
+                    "style": f"Frame {i+1}",
+                    "frame_number": int(frame_pos),
+                    "timestamp": f"{frame_pos/fps:.1f}s" if fps > 0 else f"Frame {frame_pos}"
+                })
+                
+                logger.info(f"✅ Extracted frame {i+1}/{num_frames} at {frame_pos/fps:.1f}s")
+                
+            except Exception as frame_error:
+                logger.error(f"❌ Failed to process frame {i+1}: {frame_error}")
+                continue
+        
+        cap.release()
+        
+        if len(thumbnails) == 0:
+            raise Exception("No frames could be extracted from video")
+        
+        logger.info(f"✅ Successfully extracted {len(thumbnails)} video frame thumbnails")
+        return thumbnails
+        
+    except Exception as e:
+        logger.error(f"❌ Video frame extraction failed: {str(e)}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        return []
 
 
 # @app.get("/api/youtube/scheduled-posts/{user_id}")
@@ -2723,7 +2927,60 @@ async def test_mongodb():
 
 
 
-
+@app.post("/api/youtube/upload-thumbnail-image")
+async def upload_thumbnail_image(
+    image: UploadFile = File(...),
+    user_id: str = Form(...)
+):
+    """
+    Upload custom thumbnail image from gallery/file manager
+    Resizes to 1280x720 for YouTube
+    """
+    try:
+        logger.info(f"🖼️ Receiving thumbnail upload from user: {user_id}")
+        
+        # Validate file type
+        if not image.content_type.startswith('image/'):
+            raise HTTPException(
+                status_code=400,
+                detail="File must be an image (PNG, JPG, JPEG)"
+            )
+        
+        # Read image
+        image_data = await image.read()
+        
+        # Open with PIL
+        img = Image.open(io.BytesIO(image_data))
+        
+        # Convert to RGB if necessary
+        if img.mode in ('RGBA', 'LA', 'P'):
+            background = Image.new('RGB', img.size, (255, 255, 255))
+            if img.mode == 'P':
+                img = img.convert('RGBA')
+            background.paste(img, mask=img.split()[-1] if img.mode in ('RGBA', 'LA') else None)
+            img = background
+        
+        # ✅ RESIZE TO YOUTUBE DIMENSIONS (1280x720)
+        img = img.resize((1280, 720), Image.LANCZOS)
+        
+        # Convert to base64 PNG
+        buffer = io.BytesIO()
+        img.save(buffer, format='PNG', quality=95)
+        img_base64 = base64.b64encode(buffer.getvalue()).decode()
+        
+        logger.info(f"✅ Thumbnail uploaded and resized: {len(img_base64)} chars")
+        
+        return {
+            "success": True,
+            "thumbnail_url": f"data:image/png;base64,{img_base64}",
+            "size": len(img_base64),
+            "dimensions": "1280x720",
+            "message": "Thumbnail uploaded and resized successfully"
+        }
+        
+    except Exception as e:
+        logger.error(f"❌ Thumbnail upload failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # Example API endpoint modification for scheduling

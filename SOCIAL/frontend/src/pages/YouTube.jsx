@@ -2498,6 +2498,91 @@ if (result.success) {
   )}
 </div>
 
+{/* relgfjeo'rg */}
+{/* Manual Thumbnail Upload */}
+<div style={{marginTop: '16px'}}>
+  <label style={{
+    display: 'block',
+    width: '100%',
+    padding: '14px',
+    background: 'linear-gradient(135deg, #FF6B6B, #FF8E53)',
+    color: 'white',
+    textAlign: 'center',
+    borderRadius: '8px',
+    cursor: 'pointer',
+    fontWeight: '700',
+    fontSize: '15px',
+    transition: 'transform 0.2s'
+  }}
+  onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
+  onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+  >
+    🖼️ Upload Custom Thumbnail from Gallery
+    <input
+      type="file"
+      accept="image/*"
+      style={{ display: 'none' }}
+      onChange={async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        
+        setLoading(true);
+        try {
+          const formData = new FormData();
+          formData.append('image', file);
+          formData.append('user_id', user.user_id);
+          
+          const response = await fetch(`${API_BASE}/api/youtube/upload-thumbnail-image`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('token')}`
+            },
+            body: formData
+          });
+          
+          const result = await response.json();
+          
+          if (result.success) {
+            // Add to thumbnails array
+            setThumbnails([{
+              id: 'custom_upload',
+              url: result.thumbnail_url,
+              style: 'Custom Upload'
+            }]);
+            
+            // Auto-select it
+            setSelectedThumbnail({
+              id: 'custom_upload',
+              url: result.thumbnail_url,
+              style: 'Custom Upload'
+            });
+            
+            alert('✅ Custom thumbnail uploaded and resized to 1280x720!');
+          } else {
+            alert('❌ Upload failed: ' + result.error);
+          }
+        } catch (error) {
+          alert('❌ Upload error: ' + error.message);
+        } finally {
+          setLoading(false);
+        }
+      }}
+    />
+  </label>
+  <div style={{
+    marginTop: '8px',
+    fontSize: '12px',
+    color: '#666',
+    textAlign: 'center'
+  }}>
+    Upload your own thumbnail • Auto-resized to 1280x720 • PNG/JPG supported
+  </div>
+</div>
+
+{/* sdewsgvewgvwe */}
+
+
+
 
 
 {/* Generate Thumbnails Button - THE FIX! */}
