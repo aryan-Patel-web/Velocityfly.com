@@ -2326,52 +2326,70 @@ useEffect(() => {
     <span>📹</span> Video Upload Mode
   </h4>
   
-  <div style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>
-    <button
-      onClick={() => {
-        setUploadMode('new');
-        setExistingVideoUrl('');
-        setThumbnails([]);
-        setSelectedThumbnail(null);
-      }}
-      style={{
-        flex: 1,
-        padding: '14px',
-        background: uploadMode === 'new' ? '#667eea' : 'white',
-        color: uploadMode === 'new' ? 'white' : '#667eea',
-        border: '2px solid #667eea',
-        borderRadius: '8px',
-        fontWeight: '600',
-        cursor: 'pointer',
-        transition: 'all 0.3s',
-        fontSize: '14px'
-      }}
-    >
-      🆕 Upload New Video
-    </button>
+
+
+
+<div style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>
+  {/* NEW VIDEO MODE */}
+  <button
+    onClick={() => {
+      setUploadMode('new');
+      setExistingVideoUrl('');
+      setContentData(prev => ({
+        ...prev,
+        video_url: '',
+        title: '',
+        description: ''
+      }));
+      setThumbnails([]);
+      setSelectedThumbnail(null);
+    }}
+    style={{
+      flex: 1,
+      padding: '14px',
+      background: uploadMode === 'new' ? '#667eea' : 'white',
+      color: uploadMode === 'new' ? 'white' : '#667eea',
+      border: '2px solid #667eea',
+      borderRadius: '8px',
+      fontWeight: '600',
+      cursor: 'pointer',
+      transition: 'all 0.3s',
+      fontSize: '14px'
+    }}
+  >
+    🆕 Upload New Video
+  </button>
     
-    <button
-      onClick={() => {
-        setUploadMode('update');
-        setContentData(prev => ({ ...prev, video_url: '' }));
-        setThumbnails([]);
-        setSelectedThumbnail(null);
-      }}
-      style={{
-        flex: 1,
-        padding: '14px',
-        background: uploadMode === 'update' ? '#667eea' : 'white',
-        color: uploadMode === 'update' ? 'white' : '#667eea',
-        border: '2px solid #667eea',
-        borderRadius: '8px',
-        fontWeight: '600',
-        cursor: 'pointer',
-        transition: 'all 0.3s',
-        fontSize: '14px'
-      }}
-    >
-      🔄 Update Existing Thumbnail
-    </button>
+
+
+<button
+  onClick={() => {
+    setUploadMode('update');
+    setExistingVideoUrl('');  // ✅ ADDED: Reset YouTube URL input
+    setContentData(prev => ({ 
+      ...prev, 
+      video_url: '',
+      title: '',
+      description: ''
+    }));
+    setThumbnails([]);
+    setSelectedThumbnail(null);
+  }}
+  style={{
+    flex: 1,
+    padding: '14px',
+    background: uploadMode === 'update' ? '#667eea' : 'white',
+    color: uploadMode === 'update' ? 'white' : '#667eea',
+    border: '2px solid #667eea',
+    borderRadius: '8px',
+    fontWeight: '600',
+    cursor: 'pointer',
+    transition: 'all 0.3s',
+    fontSize: '14px'
+  }}
+>
+  🔄 Update Existing Thumbnail
+</button>
   </div>
 
   {/* Update Mode - YouTube URL Input */}
@@ -2432,13 +2450,23 @@ useEffect(() => {
             
             const result = await response.json();
             
-            if (result.success) {
-              setContentData(prev => ({
-                ...prev,
-                title: result.title,
-                description: result.description,
-                video_url: existingVideoUrl
-              }));
+
+
+
+if (result.success) {
+  setContentData(prev => ({
+    ...prev,
+    title: result.title,
+    description: result.description,
+    video_url: existingVideoUrl  // ✅ This is the YouTube URL
+  }));
+  
+  setUploadMode('update');  // ✅ CRITICAL: Set mode to 'update'
+  
+  console.log('✅ Video info loaded');
+  console.log('📹 Mode set to: update');
+
+
               alert(`✅ Video info loaded!\n\nTitle: ${result.title}\n\nNext: Click "🎨 Generate Thumbnails"`);
             } else {
               alert('❌ Error: ' + (result.message || result.error || 'Failed to fetch video info'));
@@ -2773,17 +2801,20 @@ useEffect(() => {
       setLoading(true);
       
       try {
-        const uploadData = {
-          user_id: user.user_id,
-          title: contentData.title,
-          description: contentData.description || '',
-          video_url: contentData.video_url,
-          thumbnail_url: selectedThumbnail.url,
-          privacy_status: 'public',
-          tags: contentData.tags || [],
-          video_mode: uploadMode, // 'new' or 'update'
-          content_type: 'video'
-        };
+const uploadData = {
+  user_id: user.user_id,
+  title: contentData.title,
+  description: contentData.description || '',
+  video_url: contentData.video_url,
+  thumbnail_url: selectedThumbnail?.url || null,
+  privacy_status: 'public',
+  tags: contentData.tags || [],
+  video_mode: uploadMode,  // ✅ CRITICAL: This tells backend if update or new
+  content_type: contentData.content_type || 'shorts'
+};
+
+console.log('📤 Upload Data:', uploadData);
+console.log('📤 Upload Mode:', uploadMode);
         
         console.log('Uploading with data:', uploadData);
         

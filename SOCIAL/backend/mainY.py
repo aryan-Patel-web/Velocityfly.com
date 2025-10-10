@@ -1600,50 +1600,78 @@ async def get_youtube_analytics(user_id: str, days: int = 30):
     
 @app.post("/api/youtube/upload")
 async def youtube_upload_video(request: dict):
-    """Upload video to YouTube with multi-source support"""
+    """
+    Upload video to YouTube with multi-source support
+    Supports: Google Drive, YouTube URL (update mode), local file, direct .mp4 URL
+    """
     try:
-        logger.info(f"YouTube upload request: {request}")
+        # ✅ DEBUG LOGGING
+        logger.info("="*60)
+        logger.info("📤 UPLOAD REQUEST RECEIVED")
+        logger.info(f"📦 Request Keys: {list(request.keys())}")
+        logger.info(f"📹 Video Mode: {request.get('video_mode', 'NOT SET')}")
+        logger.info(f"📹 Video URL Type: {request.get('video_url', '')[:60]}...")
+        logger.info(f"🎨 Thumbnail: {'YES' if request.get('thumbnail_url') else 'NO'}")
+        logger.info("="*60)
         
+        # Extract parameters
         user_id = request.get("user_id")
         title = request.get("title", "Untitled Video")
         video_url = request.get("video_url", "")
         description = request.get("description", "")
         tags = request.get("tags", [])
         privacy_status = request.get("privacy_status", "public")
-        content_type = request.get("content_type", "video")
+        content_type = request.get("content_type", "shorts")
         thumbnail_url = request.get("thumbnail_url")
         video_mode = request.get("video_mode", "new")  # 'new' or 'update'
         
+        # Validation
         if not user_id:
             raise HTTPException(status_code=400, detail="user_id is required")
         
         if not video_url:
             raise HTTPException(status_code=400, detail="video_url is required")
         
+        if not title or not title.strip():
+            raise HTTPException(status_code=400, detail="title is required")
+        
         # Check credentials
         credentials = await database_manager.get_youtube_credentials(user_id)
         if not credentials:
             raise HTTPException(status_code=400, detail="YouTube not connected")
         
-        # Detect URL type and process
+        # ============================================================
+        # DETECT VIDEO SOURCE AND PROCESS
+        # ============================================================
         video_file_path = None
         
-        # 1. Check if Google Drive URL
+        # 1️⃣ GOOGLE DRIVE URL
         if 'drive.google.com' in video_url:
-            logger.info("Detected Google Drive URL")
-            video_file_path = await download_google_drive_video(video_url, user_id)
+            logger.info("✅ Source: Google Drive URL")
+            try:
+                video_file_path = await download_google_drive_video(video_url, user_id)
+                logger.info(f"✅ Downloaded from Google Drive: {video_file_path}")
+            except Exception as drive_error:
+                logger.error(f"❌ Google Drive download failed: {drive_error}")
+                raise HTTPException(
+                    status_code=400, 
+                    detail=f"Failed to download from Google Drive: {str(drive_error)}"
+                )
         
-        # 2. Check if YouTube URL (update mode)
-        elif 'youtube.com' in video_url or 'youtu.be' in video_url:
+        # 2️⃣ YOUTUBE URL (UPDATE MODE ONLY)
+        elif ('youtube.com' in video_url or 'youtu.be' in video_url):
+            logger.info(f"✅ Source: YouTube URL (Mode: {video_mode})")
+            
             if video_mode == 'update':
-                logger.info("Update existing video thumbnail mode")
+                logger.info("🔄 UPDATE MODE: Updating existing video thumbnail")
                 
                 # Extract video ID
                 video_id = None
                 patterns = [
-                    r'youtube\.com/watch\?v=([^&]+)',
-                    r'youtu\.be/([^?]+)',
-                    r'youtube\.com/embed/([^?]+)'
+                    r'youtube\.com/watch\?v=([a-zA-Z0-9_-]+)',
+                    r'youtu\.be/([a-zA-Z0-9_-]+)',
+                    r'youtube\.com/embed/([a-zA-Z0-9_-]+)',
+                    r'youtube\.com/v/([a-zA-Z0-9_-]+)'
                 ]
                 
                 for pattern in patterns:
@@ -1653,77 +1681,157 @@ async def youtube_upload_video(request: dict):
                         break
                 
                 if not video_id:
-                    raise HTTPException(status_code=400, detail="Invalid YouTube URL")
+                    raise HTTPException(
+                        status_code=400, 
+                        detail="Invalid YouTube URL format. Example: https://youtube.com/watch?v=VIDEO_ID"
+                    )
                 
-                # Only update thumbnail
+                logger.info(f"📹 Extracted Video ID: {video_id}")
+                
+                # Thumbnail is required for update mode
                 if not thumbnail_url:
-                    raise HTTPException(status_code=400, detail="Thumbnail required for update mode")
+                    raise HTTPException(
+                        status_code=400, 
+                        detail="Thumbnail required for update mode. Please generate thumbnails first."
+                    )
                 
+                # Get authenticated YouTube service
                 youtube_service = await youtube_connector.get_authenticated_service(user_id)
                 
-                # Upload thumbnail
-                success = await youtube_connector._upload_thumbnail(
-                    youtube_service,
-                    video_id,
-                    thumbnail_url
-                )
+                if not youtube_service:
+                    raise HTTPException(
+                        status_code=400, 
+                        detail="Failed to authenticate with YouTube"
+                    )
                 
-                if success:
-                    return {
-                        "success": True,
-                        "message": "Thumbnail updated successfully!",
-                        "video_id": video_id,
-                        "video_url": video_url,
-                        "thumbnail_uploaded": True
-                    }
-                else:
-                    raise HTTPException(status_code=500, detail="Thumbnail upload failed")
+                # Upload thumbnail to existing video
+                try:
+                    success = await youtube_connector._upload_thumbnail(
+                        youtube_service,
+                        video_id,
+                        thumbnail_url
+                    )
+                    
+                    if success:
+                        logger.info(f"✅ Thumbnail updated for video: {video_id}")
+                        return {
+                            "success": True,
+                            "message": "Thumbnail updated successfully!",
+                            "video_id": video_id,
+                            "video_url": video_url,
+                            "thumbnail_uploaded": True,
+                            "mode": "update"
+                        }
+                    else:
+                        raise HTTPException(
+                            status_code=500, 
+                            detail="Thumbnail upload failed. Check if video exists and you have permission."
+                        )
+                        
+                except Exception as thumb_error:
+                    logger.error(f"❌ Thumbnail upload error: {thumb_error}")
+                    raise HTTPException(
+                        status_code=500, 
+                        detail=f"Thumbnail upload failed: {str(thumb_error)}"
+                    )
+            
             else:
-                raise HTTPException(status_code=400, detail="Cannot upload YouTube URL as new video")
+                # NEW MODE with YouTube URL = ERROR
+                logger.error("❌ Cannot upload YouTube URL as new video")
+                raise HTTPException(
+                    status_code=400, 
+                    detail="Cannot upload a YouTube URL as a new video. Switch to 'Update Existing Thumbnail' mode to update thumbnails on existing videos."
+                )
         
-        # 3. Check if local file path (from manual upload)
+        # 3️⃣ LOCAL FILE (from manual upload)
         elif video_url.startswith('/tmp/'):
-            logger.info("Using local uploaded file")
+            logger.info("✅ Source: Local uploaded file")
             video_file_path = video_url
+            
+            # Verify file exists
+            if not os.path.exists(video_file_path):
+                raise HTTPException(
+                    status_code=400, 
+                    detail="Uploaded file not found. Please upload again."
+                )
         
-        # 4. Otherwise treat as direct .mp4 URL
+        # 4️⃣ DIRECT .MP4 URL
         else:
-            logger.info("Downloading from direct URL")
-            video_file_path = await youtube_scheduler._download_video_temporarily(video_url)
+            logger.info("✅ Source: Direct .mp4 URL")
+            
+            # Validate URL format
+            if not video_url.startswith(('http://', 'https://')):
+                raise HTTPException(
+                    status_code=400, 
+                    detail="Invalid video URL. Must be HTTP/HTTPS URL or Google Drive link."
+                )
+            
+            try:
+                video_file_path = await youtube_scheduler._download_video_temporarily(video_url)
+                logger.info(f"✅ Downloaded from URL: {video_file_path}")
+            except Exception as download_error:
+                logger.error(f"❌ URL download failed: {download_error}")
+                raise HTTPException(
+                    status_code=400, 
+                    detail=f"Failed to download video: {str(download_error)}"
+                )
+        
+        # ============================================================
+        # UPLOAD TO YOUTUBE (NEW VIDEO)
+        # ============================================================
         
         if not video_file_path:
-            raise HTTPException(status_code=500, detail="Failed to process video")
+            raise HTTPException(
+                status_code=500, 
+                detail="Failed to process video. No valid video file path."
+            )
         
-        # Upload to YouTube
+        logger.info(f"📤 Uploading to YouTube: {video_file_path}")
+        
+        # Upload video
         upload_result = await youtube_scheduler.generate_and_upload_content(
             user_id=user_id,
             credentials_data=credentials,
             content_type=content_type,
-            title=title,
-            description=description,
+            title=title.strip(),
+            description=description.strip(),
             video_url=video_file_path,
             thumbnail_url=thumbnail_url
         )
         
-        # Cleanup temp files
+        # ============================================================
+        # CLEANUP TEMPORARY FILES
+        # ============================================================
         try:
-            if video_file_path.startswith('/tmp/'):
-                os.unlink(video_file_path)
-                logger.info(f"Cleaned up temp file: {video_file_path}")
+            if video_file_path and video_file_path.startswith('/tmp/'):
+                if os.path.exists(video_file_path):
+                    os.unlink(video_file_path)
+                    logger.info(f"🗑️ Cleaned up temp file: {video_file_path}")
         except Exception as cleanup_error:
-            logger.warning(f"Cleanup failed: {cleanup_error}")
+            logger.warning(f"⚠️ Cleanup failed (non-critical): {cleanup_error}")
         
+        logger.info(f"✅ Upload complete: {upload_result.get('success', False)}")
         return upload_result
         
-    except HTTPException:
+    except HTTPException as http_err:
+        logger.error(f"❌ HTTP Exception: {http_err.detail}")
         raise
+        
     except Exception as e:
-        logger.error(f"YouTube upload failed: {e}")
+        logger.error(f"❌ Upload failed: {str(e)}")
+        import traceback
+        logger.error(f"Traceback:\n{traceback.format_exc()}")
+        
         return {
             "success": False,
             "error": str(e),
-            "message": "Upload failed"
+            "message": f"Upload failed: {str(e)}",
+            "video_mode": request.get('video_mode', 'unknown'),
+            "video_url_type": "youtube" if 'youtube' in request.get('video_url', '') else "other"
         }
+
+
+
 
 @app.post("/api/youtube/upload-video-file")
 async def upload_video_file(
@@ -1938,148 +2046,260 @@ async def schedule_video_upload(request: dict):
         logger.error(f"Traceback: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=str(e))
 
-
-
-
 @app.post("/api/youtube/generate-thumbnails")
 async def generate_video_thumbnails(request: dict):
     """
     Generate 3 AI thumbnails based on:
-    1. Video file (extract frames)
-    2. Title and description (text-based generation)
+    1. Video file (extract frames) - for uploaded files
+    2. Title and description (text-based) - for all sources including YouTube URLs
+    
+    Supports:
+    - Local uploaded files
+    - Google Drive URLs
+    - Direct .mp4 URLs
+    - YouTube URLs (for update mode)
     """
     try:
+        # Extract parameters
         user_id = request.get('user_id')
         video_url = request.get('video_url')
         title = request.get('title', 'Untitled Video')
         description = request.get('description', '')
         
+        # Validation
         if not user_id:
             raise HTTPException(status_code=400, detail="user_id required")
         
         if not video_url:
             raise HTTPException(status_code=400, detail="video_url required")
         
+        if not title or not title.strip():
+            raise HTTPException(status_code=400, detail="title required")
+        
+        logger.info("="*60)
         logger.info(f"🎨 Generating thumbnails for: {title}")
+        logger.info(f"📹 Video URL: {video_url[:60]}...")
+        logger.info("="*60)
         
-        # Handle different video sources
+        # ============================================================
+        # DETECT VIDEO SOURCE
+        # ============================================================
         local_video_path = None
+        is_youtube_url = False
         
-        # 1. Google Drive URL
-        if 'drive.google.com' in video_url:
-            logger.info("Processing Google Drive URL")
-            local_video_path = await download_google_drive_video(video_url, user_id)
+        # 1️⃣ YOUTUBE URL (for update mode)
+        if 'youtube.com' in video_url or 'youtu.be' in video_url:
+            logger.info("✅ YouTube URL detected - generating thumbnails from title/description only")
+            is_youtube_url = True
+            local_video_path = None  # Don't need to download YouTube videos
         
-        # 2. Local uploaded file
-        elif video_url.startswith('/tmp/'):
-            logger.info("Using local uploaded file")
-            local_video_path = video_url
-        
-        # 3. Direct .mp4 URL
-        else:
-            logger.info("Downloading from direct URL")
-            # Download temporarily
-            temp_dir = Path(f"/tmp/uploads/{user_id}")
-            temp_dir.mkdir(parents=True, exist_ok=True)
-            
-            timestamp = int(datetime.now().timestamp())
-            local_video_path = str(temp_dir / f"temp_{timestamp}.mp4")
-            
-            async with httpx.AsyncClient(timeout=120.0) as client:
-                response = await client.get(video_url, follow_redirects=True)
-                with open(local_video_path, 'wb') as f:
-                    f.write(response.content)
-        
-        # Generate thumbnails using AI service
-        thumbnail_prompt = f"YouTube thumbnail for: {title}. {description[:100]}"
-        
-        thumbnails = []
-        for i in range(3):
+        # 2️⃣ GOOGLE DRIVE URL
+        elif 'drive.google.com' in video_url:
+            logger.info("✅ Google Drive URL detected")
             try:
-                # Call your existing AI thumbnail generation
-                thumbnail_url = await ai_service.generate_youtube_thumbnail(
-                    prompt=f"{thumbnail_prompt} - Style {i+1}",
-                    user_id=user_id
-                )
+                local_video_path = await download_google_drive_video(video_url, user_id)
+                logger.info(f"✅ Downloaded: {local_video_path}")
+            except Exception as drive_error:
+                logger.error(f"❌ Google Drive download failed: {drive_error}")
+                # Continue anyway with title-based generation
+                local_video_path = None
+        
+        # 3️⃣ LOCAL FILE
+        elif video_url.startswith('/tmp/'):
+            logger.info("✅ Local uploaded file")
+            local_video_path = video_url
+            
+            if not os.path.exists(local_video_path):
+                logger.warning(f"⚠️ Local file not found: {local_video_path}")
+                local_video_path = None
+        
+        # 4️⃣ DIRECT .MP4 URL
+        else:
+            logger.info("✅ Direct .mp4 URL")
+            try:
+                temp_dir = Path(f"/tmp/uploads/{user_id}")
+                temp_dir.mkdir(parents=True, exist_ok=True)
                 
-                if thumbnail_url:
-                    thumbnails.append({
-                        "id": f"thumb_{i+1}",
-                        "url": thumbnail_url,
-                        "style": f"Style {i+1}"
-                    })
-            except Exception as thumb_error:
-                logger.warning(f"Thumbnail {i+1} generation failed: {thumb_error}")
+                timestamp = int(datetime.now().timestamp())
+                local_video_path = str(temp_dir / f"temp_{timestamp}.mp4")
+                
+                async with httpx.AsyncClient(timeout=120.0, follow_redirects=True) as client:
+                    response = await client.get(video_url)
+                    
+                    if response.status_code != 200:
+                        raise Exception(f"Download failed: HTTP {response.status_code}")
+                    
+                    with open(local_video_path, 'wb') as f:
+                        f.write(response.content)
+                
+                logger.info(f"✅ Downloaded to: {local_video_path}")
+                
+            except Exception as download_error:
+                logger.warning(f"⚠️ Download failed: {download_error}")
+                local_video_path = None
         
-        if not thumbnails:
-            raise Exception("Failed to generate any thumbnails")
+        # ============================================================
+        # GENERATE THUMBNAILS
+        # ============================================================
         
-        logger.info(f"✅ Generated {len(thumbnails)} thumbnails")
+        thumbnail_prompt = f"YouTube thumbnail for: {title}. {description[:150]}"
+        thumbnails = []
+        
+        # Check if AI service has thumbnail generation method
+        has_ai_thumbnails = (
+            ai_service and 
+            hasattr(ai_service, 'generate_youtube_thumbnail')
+        )
+        
+        if has_ai_thumbnails:
+            logger.info("✅ Using AI service for thumbnail generation")
+            
+            # Generate 3 AI thumbnails
+            for i in range(3):
+                try:
+                    thumbnail_url = await ai_service.generate_youtube_thumbnail(
+                        prompt=f"{thumbnail_prompt} - Style {i+1}: {'Bold' if i==0 else 'Colorful' if i==1 else 'Minimalist'}",
+                        user_id=user_id
+                    )
+                    
+                    if thumbnail_url:
+                        thumbnails.append({
+                            "id": f"thumb_{i+1}",
+                            "url": thumbnail_url,
+                            "style": f"Style {i+1}"
+                        })
+                        logger.info(f"✅ Generated thumbnail {i+1}")
+                    
+                except Exception as thumb_error:
+                    logger.warning(f"⚠️ Thumbnail {i+1} generation failed: {thumb_error}")
+        
+        else:
+            logger.warning("⚠️ AI service thumbnail generation not available - using fallback")
+        
+        # ============================================================
+        # FALLBACK: MOCK THUMBNAILS
+        # ============================================================
+        
+        if len(thumbnails) == 0:
+            logger.info("🎨 Generating fallback mock thumbnails")
+            
+            # Create 3 different colored mock thumbnails
+            colors = [
+                ('#FF0000', 'white', 'Bold Red'),      # YouTube red
+                ('#00A8E8', 'white', 'Cool Blue'),     # Sky blue
+                ('#FFA500', 'black', 'Vibrant Orange') # Orange
+            ]
+            
+            for i, (bg_color, text_color, style_name) in enumerate(colors):
+                # Create base64 SVG thumbnail
+                svg_content = f'''<svg width="1280" height="720" xmlns="http://www.w3.org/2000/svg">
+                    <rect width="1280" height="720" fill="{bg_color}"/>
+                    <text x="50%" y="50%" font-family="Arial, sans-serif" font-size="60" font-weight="bold" 
+                          fill="{text_color}" text-anchor="middle" dominant-baseline="middle">
+                        {title[:30]}
+                    </text>
+                    <text x="50%" y="90%" font-family="Arial, sans-serif" font-size="24" 
+                          fill="{text_color}" text-anchor="middle" opacity="0.8">
+                        {style_name}
+                    </text>
+                </svg>'''
+                
+                # Convert to base64
+                import base64
+                svg_base64 = base64.b64encode(svg_content.encode()).decode()
+                thumbnail_data_url = f"data:image/svg+xml;base64,{svg_base64}"
+                
+                thumbnails.append({
+                    "id": f"thumb_{i+1}",
+                    "url": thumbnail_data_url,
+                    "style": style_name
+                })
+                
+                logger.info(f"✅ Created fallback thumbnail {i+1}: {style_name}")
+        
+        # ============================================================
+        # RETURN RESULTS
+        # ============================================================
+        
+        if len(thumbnails) == 0:
+            raise HTTPException(
+                status_code=500, 
+                detail="Failed to generate any thumbnails. Please try again."
+            )
+        
+        logger.info(f"✅ Successfully generated {len(thumbnails)} thumbnails")
         
         return {
             "success": True,
             "thumbnails": thumbnails,
             "video_path": local_video_path,
-            "message": f"Generated {len(thumbnails)} thumbnails"
+            "message": f"Generated {len(thumbnails)} thumbnails",
+            "source_type": "youtube_url" if is_youtube_url else "video_file",
+            "ai_generated": has_ai_thumbnails
         }
         
     except HTTPException:
         raise
+        
     except Exception as e:
         logger.error(f"❌ Thumbnail generation failed: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-
-
-@app.get("/api/youtube/scheduled-posts/{user_id}")
-async def get_scheduled_posts(user_id: str, status: str = None):
-    """Get scheduled posts for a user"""
-    try:
-        if not database_manager:
-            return {
-                "success": False,
-                "error": "Database not available",
-                "scheduled_posts": [],
-                "count": 0
-            }
-        
-        posts = await database_manager.get_scheduled_posts_by_user(user_id, status)
-        
-        # Format posts for frontend
-        formatted_posts = []
-        for post in posts:
-            try:
-                formatted_posts.append({
-                    "id": str(post["_id"]),
-                    "title": post.get("video_data", {}).get("title", "Untitled"),
-                    "video_url": post.get("video_data", {}).get("video_url", ""),
-                    "scheduled_for": post["scheduled_for"].isoformat() if post.get("scheduled_for") else None,
-                    "status": post.get("status", "unknown"),
-                    "created_at": post["created_at"].isoformat() if post.get("created_at") else None,
-                    "execution_attempts": post.get("execution_attempts", 0),
-                    "last_error": post.get("last_error")
-                })
-            except Exception as format_error:
-                logger.warning(f"Failed to format post {post.get('_id')}: {format_error}")
-                continue
-        
-        return {
-            "success": True,
-            "scheduled_posts": formatted_posts,
-            "count": len(formatted_posts)
-        }
-        
-    except Exception as e:
-        logger.error(f"Get scheduled posts failed: {e}")
         import traceback
-        logger.error(f"Traceback: {traceback.format_exc()}")
-        return {
-            "success": False,
-            "error": str(e),
-            "scheduled_posts": [],
-            "count": 0
-        }
+        logger.error(f"Traceback:\n{traceback.format_exc()}")
+        
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Thumbnail generation failed: {str(e)}"
+        )
+
+
+# @app.get("/api/youtube/scheduled-posts/{user_id}")
+# async def get_scheduled_posts(user_id: str, status: str = None):
+#     """Get scheduled posts for a user"""
+#     try:
+#         if not database_manager:
+#             return {
+#                 "success": False,
+#                 "error": "Database not available",
+#                 "scheduled_posts": [],
+#                 "count": 0
+#             }
+        
+#         posts = await database_manager.get_scheduled_posts_by_user(user_id, status)
+        
+#         # Format posts for frontend
+#         formatted_posts = []
+#         for post in posts:
+#             try:
+#                 formatted_posts.append({
+#                     "id": str(post["_id"]),
+#                     "title": post.get("video_data", {}).get("title", "Untitled"),
+#                     "video_url": post.get("video_data", {}).get("video_url", ""),
+#                     "scheduled_for": post["scheduled_for"].isoformat() if post.get("scheduled_for") else None,
+#                     "status": post.get("status", "unknown"),
+#                     "created_at": post["created_at"].isoformat() if post.get("created_at") else None,
+#                     "execution_attempts": post.get("execution_attempts", 0),
+#                     "last_error": post.get("last_error")
+#                 })
+#             except Exception as format_error:
+#                 logger.warning(f"Failed to format post {post.get('_id')}: {format_error}")
+#                 continue
+        
+#         return {
+#             "success": True,
+#             "scheduled_posts": formatted_posts,
+#             "count": len(formatted_posts)
+#         }
+        
+#     except Exception as e:
+#         logger.error(f"Get scheduled posts failed: {e}")
+#         import traceback
+#         logger.error(f"Traceback: {traceback.format_exc()}")
+#         return {
+#             "success": False,
+#             "error": str(e),
+#             "scheduled_posts": [],
+#             "count": 0
+#         }
 
 
 @app.delete("/api/youtube/scheduled-post/{post_id}")
