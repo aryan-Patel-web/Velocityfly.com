@@ -308,53 +308,6 @@ body: JSON.stringify({
 
 
 
-const generateThumbnails = useCallback(async () => {
-  if (!contentData.video_url || !contentData.title) {
-    setError('Video URL and title required for thumbnail generation');
-    return;
-  }
-  
-  setGeneratingThumbnails(true);
-  setError('');
-  
-  try {
-    const response = await fetch(`${API_BASE}/api/ai/generate-thumbnails`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
-      body: JSON.stringify({
-        video_url: contentData.video_url,
-        video_title: contentData.title,
-        style: 'indian'
-      })
-    });
-    
-    const result = await response.json();
-    
-    console.log('🎨 Thumbnail Generation Result:', result); // ← ADD THIS DEBUG LOG
-    
-    if (result.success && result.thumbnails) {
-      setThumbnailOptions(result.thumbnails);
-      setSelectedThumbnail(result.thumbnails[0]); // Auto-select first
-      console.log('✅ Selected thumbnail:', result.thumbnails[0]); // ← ADD THIS
-      setError('');
-    } else {
-      setError(result.error || 'Thumbnail generation failed');
-    }
-  } catch (error) {
-    setError('Thumbnail generation failed: ' + error.message);
-  } finally {
-    setGeneratingThumbnails(false);
-  }
-}, [contentData.video_url, contentData.title, token, API_BASE]);
-
-
-
-
-
-
 
 const uploadVideo = useCallback(async () => {
   if (!token) {
@@ -2500,6 +2453,7 @@ if (result.success) {
 
 {/* relgfjeo'rg */}
 {/* Manual Thumbnail Upload */}
+{/* ✅ MANUAL THUMBNAIL UPLOAD FROM GALLERY */}
 <div style={{marginTop: '16px'}}>
   <label style={{
     display: 'block',
@@ -2512,7 +2466,8 @@ if (result.success) {
     cursor: 'pointer',
     fontWeight: '700',
     fontSize: '15px',
-    transition: 'transform 0.2s'
+    transition: 'transform 0.2s',
+    border: 'none'
   }}
   onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
   onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
@@ -2544,22 +2499,19 @@ if (result.success) {
           
           if (result.success) {
             // Add to thumbnails array
-            setThumbnails([{
+            const customThumbnail = {
               id: 'custom_upload',
               url: result.thumbnail_url,
-              style: 'Custom Upload'
-            }]);
+              style: 'Custom Upload',
+              ctr_optimized: false
+            };
             
-            // Auto-select it
-            setSelectedThumbnail({
-              id: 'custom_upload',
-              url: result.thumbnail_url,
-              style: 'Custom Upload'
-            });
+            setThumbnails([customThumbnail]);
+            setSelectedThumbnail(customThumbnail);
             
             alert('✅ Custom thumbnail uploaded and resized to 1280x720!');
           } else {
-            alert('❌ Upload failed: ' + result.error);
+            alert('❌ Upload failed: ' + (result.error || 'Unknown error'));
           }
         } catch (error) {
           alert('❌ Upload error: ' + error.message);
@@ -2688,6 +2640,7 @@ if (result.success) {
 `}</style>
 
 {/* Display Generated Thumbnails */}
+{/* ✅ DISPLAY GENERATED THUMBNAILS - KEEP THIS */}
 {thumbnails.length > 0 && (
   <div style={{
     marginTop: '24px',
@@ -2745,6 +2698,7 @@ if (result.success) {
             fontSize: '12px'
           }}>
             {selectedThumbnail?.id === thumb.id ? '✅ Selected' : `Option ${index + 1}`}
+            {thumb.ctr_optimized && <div style={{fontSize: '10px', marginTop: '4px'}}>🔥 CTR Optimized</div>}
           </div>
         </div>
       ))}
