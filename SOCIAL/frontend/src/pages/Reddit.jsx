@@ -1211,4 +1211,6 @@ const RedditAutomation = () => {
   );
 };
 
-export default RedditAutomation;
+
+
+export default Reddit;
