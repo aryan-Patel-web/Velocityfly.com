@@ -1,350 +1,185 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../quickpage/AuthContext';
 
-// Replace process.env with conditional import for Vite or fallback
-const API_BASE_URL =
-  (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_URL)
-    ? import.meta.env.VITE_API_URL
-    : (typeof process !== 'undefined' && process.env && process.env.REACT_APP_API_URL)
-      ? process.env.REACT_APP_API_URL
-      : 'https://agentic-u5lx.onrender.com';
+const DOMAIN_CONFIGS = { 
+  education: { icon: '🎓', description: 'Educational services', sampleBusiness: 'JEE coaching institute' }, 
+  restaurant: { icon: '🍽️', description: 'Food & restaurants', sampleBusiness: 'Traditional Indian restaurant' }, 
+  tech: { icon: '💻', description: 'Technology & programming', sampleBusiness: 'AI automation platform' }, 
+  health: { icon: '💚', description: 'Health & wellness', sampleBusiness: 'Fitness coaching center' }, 
+  business: { icon: '💼', description: 'Business & entrepreneurship', sampleBusiness: 'Business consulting firm' } 
+};
 
-class ErrorBoundary extends React.Component {
-  constructor(props) {
-    super(props);
-    this.state = { hasError: false };
-  }
-  
-  static getDerivedStateFromError(error) {
-    return { hasError: true };
-  }
-  
-  componentDidCatch(error, errorInfo) {
-    console.error('Error Boundary caught an error:', error, errorInfo);
-  }
-  
-  render() {
-    if (this.state.hasError) {
-      return <div style={{ padding: '20px', textAlign: 'center' }}>
-        <h2>Something went wrong.</h2>
-        <button onClick={() => this.setState({ hasError: false })}>Try again</button>
-      </div>;
-    }
-    return this.props.children;
-  }
-}
+const TARGET_AUDIENCES = { 
+  'indian_students': { label: 'Indian Students', icon: '🎓' }, 
+  'food_lovers': { label: 'Food Lovers', icon: '🍕' }, 
+  'tech_professionals': { label: 'Tech Professionals', icon: '💻' }, 
+  'health_conscious': { label: 'Health Conscious', icon: '💚' }, 
+  'entrepreneurs': { label: 'Entrepreneurs', icon: '💼' }, 
+  'general_users': { label: 'General Users', icon: '👥' } 
+};
+
+const CONTENT_STYLES = { 
+  'engaging': 'Engaging & Interactive', 
+  'informative': 'Informative & Educational', 
+  'promotional': 'Promotional & Marketing', 
+  'helpful': 'Helpful & Supportive', 
+  'casual': 'Casual & Friendly', 
+  'professional': 'Professional & Formal' 
+};
 
 const RedditAutomation = () => {
   const { user, makeAuthenticatedRequest, updateUser } = useAuth();
+  
   const [activeTab, setActiveTab] = useState('setup');
   const [loading, setLoading] = useState(false);
   const [notifications, setNotifications] = useState([]);
-  const [backendConnected, setBackendConnected] = useState(false);
+  
   const [redditConnected, setRedditConnected] = useState(false);
   const [redditUsername, setRedditUsername] = useState('');
-  const [connectionError, setConnectionError] = useState('');
   
-  const [userProfile, setUserProfile] = useState({
-    domain: 'tech',
-    businessType: 'AI automation platform',
-    businessDescription: 'We help businesses automate their social media presence',
-    targetAudience: 'tech_professionals',
-    contentStyle: 'engaging',
-    isConfigured: false
+  const [userProfile, setUserProfile] = useState({ 
+    domain: 'tech', 
+    businessType: 'AI automation platform', 
+    businessDescription: 'We help businesses automate their Reddit presence', 
+    targetAudience: 'tech_professionals', 
+    contentStyle: 'engaging', 
+    isConfigured: false 
   });
-
-  const [manualPost, setManualPost] = useState({
+  
+  const [postForm, setPostForm] = useState({ 
     subreddit: 'test',
-    title: '',
-    content: '',
-    isGenerating: false
+    title: '', 
+    content: '', 
+    language: 'en',
+    contentType: 'text',
+    isGenerating: false 
   });
 
-  const [autoPostConfig, setAutoPostConfig] = useState({
-    enabled: false,
-    postsPerDay: 3,
-    postingTimes: [],
-    subreddits: ['test']
+  const [questionForm, setQuestionForm] = useState({
+    subreddits: 'AskReddit,explainlikeimfive,NoStupidQuestions,india',
+    keywords: 'help,how,what,why,study,learn',
+    limit: 10
   });
 
-  const [performanceData, setPerformanceData] = useState({
-    postsToday: 0,
-    totalKarma: 0,
-    successRate: 95
+  const [questions, setQuestions] = useState([]);
+  
+  const [performanceData, setPerformanceData] = useState({ 
+    postsToday: 0, 
+    totalEngagement: 0, 
+    successRate: 95,
+    questionsFound: 0
   });
-
-  const domainConfigs = {
-    education: { 
-      subreddits: ['test', 'IndianStudents', 'learnprogramming', 'programming'], 
-      sampleBusiness: 'JEE coaching institute', 
-      icon: '🎓', 
-      description: 'Educational services' 
-    },
-    restaurant: { 
-      subreddits: ['test', 'IndianFood', 'food', 'cooking'], 
-      sampleBusiness: 'Traditional Indian restaurant', 
-      icon: '🍽️', 
-      description: 'Food & restaurants' 
-    },
-    tech: { 
-      subreddits: ['test', 'developersIndia', 'learnprogramming', 'programming'], 
-      sampleBusiness: 'AI automation platform', 
-      icon: '💻', 
-      description: 'Technology & programming' 
-    },
-    health: { 
-      subreddits: ['test', 'fitness', 'nutrition', 'bodyweightfitness'], 
-      sampleBusiness: 'Fitness coaching center', 
-      icon: '💚', 
-      description: 'Health & wellness' 
-    },
-    business: { 
-      subreddits: ['test', 'entrepreneur', 'smallbusiness', 'startups'], 
-      sampleBusiness: 'Business consulting firm', 
-      icon: '💼', 
-      description: 'Business & entrepreneurship' 
-    }
-  };
-
-  const targetAudienceOptions = {
-    'indian_students': { label: 'Indian Students', icon: '🎓' },
-    'food_lovers': { label: 'Food Lovers', icon: '🍕' },
-    'tech_professionals': { label: 'Tech Professionals', icon: '💻' },
-    'health_conscious': { label: 'Health Conscious', icon: '💚' },
-    'entrepreneurs': { label: 'Entrepreneurs', icon: '💼' },
-    'general_users': { label: 'General Users', icon: '👥' }
-  };
-
-  const contentStyleOptions = {
-    'engaging': 'Engaging & Interactive',
-    'informative': 'Informative & Educational', 
-    'promotional': 'Promotional & Marketing',
-    'helpful': 'Helpful & Supportive',
-    'casual': 'Casual & Friendly',
-    'professional': 'Professional & Formal'
-  };
 
   const showNotification = useCallback((message, type = 'success') => {
-    const notification = { 
-      id: `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      message, 
-      type 
-    };
+    const notification = { id: Date.now(), message, type };
     setNotifications(prev => [...prev, notification]);
-    setTimeout(() => {
-      setNotifications(prev => prev.filter(n => n.id !== notification.id));
-    }, 5000);
+    setTimeout(() => setNotifications(prev => prev.filter(n => n.id !== notification.id)), 5000);
   }, []);
 
-
-
-
-// TEMPORARY DEBUG - Add this after your state declarations
-useEffect(() => {
-  console.log('=== REDDIT STATE DEBUG ===');
-  console.log('redditConnected:', redditConnected);
-  console.log('redditUsername:', redditUsername);
-  console.log('user:', user);
-  console.log('makeAuthenticatedRequest available:', !!makeAuthenticatedRequest);
-  
-  // Check URL parameters
-  const urlParams = new URLSearchParams(window.location.search);
-  console.log('URL params:');
-  console.log('- reddit_connected:', urlParams.get('reddit_connected'));
-  console.log('- username:', urlParams.get('username'));
-  console.log('- error:', urlParams.get('error'));
-}, [redditConnected, redditUsername, user, makeAuthenticatedRequest]);
-
-
-// Initialize app state - FIXED VERSION
-// Initialize app state - FIXED VERSION
-// Initialize app state - FIXED VERSION
-useEffect(() => {
-  const initApp = async () => {
-    // Only run for authenticated users
-    if (!user?.email || user.email.includes('mock')) {
-      console.log('Skipping init - no user or mock user');
-      return;
-    }
-
-    // Prevent multiple initializations with timestamp
-    const initKey = `reddit_init_${user.email}`;
-    const lastInit = localStorage.getItem(initKey);
-    const now = Date.now();
+  useEffect(() => {
+    if (!user?.email) return;
     
-    // Only allow re-init if more than 30 seconds have passed
-    if (lastInit && (now - parseInt(lastInit)) < 30000) {
-      console.log('Skipping init - too recent:', new Date(parseInt(lastInit)));
-      return;
-    }
+    const initKey = `reddit_init_${user.email}`;
+    if (localStorage.getItem(initKey)) return;
+    localStorage.setItem(initKey, 'true');
 
-    try {
-      console.log('🚀 Initializing Reddit Auto component for user:', user.email);
-      localStorage.setItem(initKey, now.toString());
-
-      // Handle OAuth callback first
+    const checkRedditConnection = async () => {
       const urlParams = new URLSearchParams(window.location.search);
-      const redditConnectedParam = urlParams.get('reddit_connected');
-      const usernameParam = urlParams.get('username');
-      const errorParam = urlParams.get('error');
+      const redditConnected = urlParams.get('reddit_connected');
+      const username = urlParams.get('username');
+      const error = urlParams.get('error');
 
-      if (errorParam) {
-        console.error('OAuth error:', errorParam);
-        showNotification(`Connection failed: ${errorParam}`, 'error');
-        window.history.replaceState({}, '', window.location.pathname);
+      if (error) { 
+        showNotification(`Connection failed: ${error}`, 'error'); 
+        window.history.replaceState({}, '', window.location.pathname); 
+        return; 
+      }
+
+      if (redditConnected === 'true' && username) {
+        setRedditConnected(true); 
+        setRedditUsername(username);
+        updateUser({ reddit_connected: true, reddit_username: username });
+        showNotification(`Reddit connected! Welcome u/${username}!`, 'success');
+        window.history.replaceState({}, '', window.location.pathname); 
         return;
       }
 
-      if (redditConnectedParam === 'true' && usernameParam) {
-        console.log('✅ Reddit OAuth success:', { username: usernameParam });
-        setRedditUsername(usernameParam);
-        setRedditConnected(true);
-        updateUser({
-          reddit_connected: true,
-          reddit_username: usernameParam
-        });
-        showNotification(`Reddit connected! Welcome u/${usernameParam}!`, 'success');
-        window.history.replaceState({}, '', window.location.pathname);
-        return;
-      }
-
-      // Check existing Reddit connection status
-      console.log('Checking existing Reddit connection...');
       try {
         const response = await makeAuthenticatedRequest('/api/reddit/connection-status');
-        console.log('Connection check response status:', response.status);
         const result = await response.json();
-        console.log('Connection check result:', result);
         
-        if (result.success && result.connected && result.reddit_username) {
-          setRedditConnected(true);
-          setRedditUsername(result.reddit_username);
-          updateUser({
-            reddit_connected: true,
-            reddit_username: result.reddit_username
-          });
-          console.log('✅ Existing Reddit connection verified:', result.reddit_username);
-        } else {
-          setRedditConnected(false);
-          setRedditUsername('');
-          console.log('❌ No Reddit connection found');
+        if (result.success && result.connected) {
+          setRedditConnected(true); 
+          setRedditUsername(result.reddit_username || result.username);
         }
-      } catch (error) {
-        console.error('Failed to check Reddit connection:', error);
-        setRedditConnected(false);
-        setRedditUsername('');
+      } catch (error) { 
+        console.error('Failed to check Reddit connection:', error); 
       }
 
-      // Load saved profile
-      // ... rest of your profile loading code
-      
-    } catch (error) {
-      console.error('App initialization failed:', error);
-      showNotification('App initialization failed', 'error');
-    }
-  };
-
-  // Only initialize when user email is available and hasn't been initialized recently
-  if (user?.email && !user.email.includes('mock')) {
-    initApp();
-  }
-}, [user?.email]); // ONLY depend on user.email
-
-
-
-
-
-
-
-
-
-  const saveUserProfile = useCallback(() => {
-    try {
-      const profileToSave = { ...userProfile, isConfigured: true };
-      localStorage.setItem('redditUserProfile', JSON.stringify(profileToSave));
-      setUserProfile(profileToSave);
-      showNotification('Profile saved successfully!', 'success');
-      
-      const domainConfig = domainConfigs[profileToSave.domain];
-      if (domainConfig) {
-        setAutoPostConfig(prev => ({
-          ...prev,
-          subreddits: domainConfig.subreddits.slice(0, 3)
-        }));
+      try {
+        const savedProfile = localStorage.getItem(`redditUserProfile_${user.email}`);
+        if (savedProfile) { 
+          const profile = JSON.parse(savedProfile); 
+          setUserProfile(profile); 
+        }
+      } catch (error) { 
+        console.error('Error loading profile:', error); 
       }
-    } catch (error) {
-      showNotification('Failed to save profile', 'error');
-    }
-  }, [userProfile, showNotification]);
+    };
+
+    checkRedditConnection();
+  }, [user, makeAuthenticatedRequest, updateUser, showNotification]);
 
   const handleRedditConnect = useCallback(async () => {
     try {
       setLoading(true);
       showNotification('Connecting to Reddit...', 'info');
       
-      console.log('🔗 Starting Reddit OAuth for user:', user?.email);
-
       const response = await makeAuthenticatedRequest('/api/oauth/reddit/authorize');
       const result = await response.json();
       
       if (result.success && result.redirect_url) {
-        console.log('✅ Redirecting to Reddit OAuth:', result.redirect_url);
         window.location.href = result.redirect_url;
-      } else {
-        console.error('❌ OAuth authorization failed:', result);
-        showNotification(result.error || 'Failed to start Reddit authorization', 'error');
+      } else { 
+        showNotification(result.error || 'Failed to start Reddit authorization', 'error'); 
       }
-    } catch (error) {
-      console.error('❌ Connection error:', error);
-      showNotification('Connection failed: ' + error.message, 'error');
-    } finally {
-      setLoading(false);
-    }
-  }, [makeAuthenticatedRequest, user, showNotification]);
-
-
-
-
-
-
-
-  const testConnection = useCallback(async () => {
-    try {
-      setLoading(true);
-      const response = await makeAuthenticatedRequest('/api/reddit/test-connection');
-      const result = await response.json();
-      
-      if (result.success) {
-        showNotification(`Connection test successful for ${result.username}!`, 'success');
-      } else {
-        showNotification('Connection test failed: ' + result.error, 'error');
-      }
-    } catch (error) {
-      showNotification('Test failed: ' + error.message, 'error');
-    } finally {
-      setLoading(false);
+    } catch (error) { 
+      showNotification(`Connection failed: ${error.message}`, 'error'); 
+    } finally { 
+      setLoading(false); 
     }
   }, [makeAuthenticatedRequest, showNotification]);
 
-  const generateContent = useCallback(async () => {
-    if (!userProfile.businessType) {
-      showNotification('Please configure your profile first', 'error');
-      return;
+  const saveUserProfile = useCallback(() => {
+    try {
+      const profileToSave = { ...userProfile, isConfigured: true };
+      localStorage.setItem(`redditUserProfile_${user.email}`, JSON.stringify(profileToSave));
+      setUserProfile(profileToSave);
+      showNotification('Profile saved successfully!', 'success');
+    } catch (error) { 
+      showNotification('Failed to save profile', 'error'); 
+    }
+  }, [userProfile, user?.email, showNotification]);
+
+  const generateRedditContent = useCallback(async () => {
+    if (!userProfile.businessType) { 
+      showNotification('Please configure your profile first', 'error'); 
+      return; 
     }
 
     try {
-      setManualPost(prev => ({ ...prev, isGenerating: true }));
-      showNotification('Generating content with REAL AI...', 'info');
+      setPostForm(prev => ({ ...prev, isGenerating: true }));
+      showNotification('Generating Reddit content with AI...', 'info');
       
       const response = await makeAuthenticatedRequest('/api/automation/test-auto-post', {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          platform: 'reddit',
           domain: userProfile.domain,
           business_type: userProfile.businessType,
           business_description: userProfile.businessDescription,
           target_audience: userProfile.targetAudience,
-          language: userProfile.language,
-          subreddits: [manualPost.subreddit],
           content_style: userProfile.contentStyle
         })
       });
@@ -352,1214 +187,1033 @@ useEffect(() => {
       const result = await response.json();
 
       if (result.success) {
-        setManualPost(prev => ({
+        setPostForm(prev => ({
           ...prev,
-          title: result.post_details?.title || 'Generated Title',
-          content: result.content_preview
+          title: result.title || '',
+          content: result.content_preview || result.content || ''
         }));
-        showNotification(`Content generated using ${result.ai_service}!`, 'success');
-      } else {
-        showNotification(result.error || 'AI content generation failed', 'error');
+        showNotification(`Content generated! Human authenticity: ${result.human_score || 95}%`, 'success');
+      } else { 
+        showNotification(result.error || 'Content generation failed', 'error'); 
       }
-    } catch (error) {
-      showNotification('AI generation failed: ' + error.message, 'error');
-    } finally {
-      setManualPost(prev => ({ ...prev, isGenerating: false }));
+    } catch (error) { 
+      showNotification('AI generation failed: ' + error.message, 'error'); 
+    } finally { 
+      setPostForm(prev => ({ ...prev, isGenerating: false })); 
     }
-  }, [userProfile, manualPost.subreddit, makeAuthenticatedRequest, showNotification]);
+  }, [makeAuthenticatedRequest, showNotification, userProfile]);
 
-  const handleManualPost = useCallback(async (e) => {
+  const publishRedditPost = useCallback(async (e) => {
     e.preventDefault();
-    
-    if (!manualPost.title || !manualPost.content) {
-      showNotification('Please enter both title and content', 'error');
-      return;
+    if (!postForm.title || !postForm.content) { 
+      showNotification('Please add both title and content', 'error'); 
+      return; 
+    }
+    if (!redditConnected) { 
+      showNotification('Please connect your Reddit account first', 'error'); 
+      return; 
     }
 
-    if (!redditConnected) {
-      showNotification('Please connect your Reddit account first', 'error');
+    try {
+      setLoading(true);
+      showNotification('Publishing to Reddit...', 'info');
+      
+      const response = await makeAuthenticatedRequest('/api/reddit/post', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          subreddit: postForm.subreddit,
+          title: postForm.title,
+          content: postForm.content,
+          language: postForm.language,
+          contentType: postForm.contentType
+        })
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        showNotification('Posted successfully to r/' + postForm.subreddit + '!', 'success');
+        if (result.post_url) { 
+          showNotification(`View post: ${result.post_url}`, 'info'); 
+        }
+        
+        setPerformanceData(prev => ({ ...prev, postsToday: prev.postsToday + 1 }));
+        setPostForm({ 
+          subreddit: 'test',
+          title: '', 
+          content: '', 
+          language: 'en',
+          contentType: 'text',
+          isGenerating: false 
+        });
+      } else { 
+        showNotification(result.error || 'Publishing failed', 'error'); 
+      }
+    } catch (error) { 
+      showNotification('Publishing failed: ' + error.message, 'error'); 
+    } finally { 
+      setLoading(false); 
+    }
+  }, [postForm, redditConnected, makeAuthenticatedRequest, showNotification]);
+
+  const findQuestions = useCallback(async () => {
+    if (!questionForm.subreddits || !questionForm.keywords) {
+      showNotification('Please enter subreddits and keywords', 'error');
       return;
     }
 
     try {
       setLoading(true);
-      showNotification('Posting to Reddit...', 'info');
+      showNotification('Searching for questions...', 'info');
       
-      const response = await makeAuthenticatedRequest('/api/reddit/post', {
+      const response = await makeAuthenticatedRequest('/api/reddit/questions', {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          subreddit: manualPost.subreddit,
-          title: manualPost.title,
-          content: manualPost.content,
-          contentType: 'text'
+          subreddits: questionForm.subreddits,
+          keywords: questionForm.keywords,
+          limit: questionForm.limit
         })
       });
-      
+
       const result = await response.json();
-      
+
       if (result.success) {
-        showNotification(`Post created successfully as ${redditUsername}!`, 'success');
-        if (result.post_url) {
-          showNotification(`View post: ${result.post_url}`, 'info');
-        }
-        
-        setPerformanceData(prev => ({
-          ...prev,
-          postsToday: prev.postsToday + 1
-        }));
-        
-        setManualPost({
-          subreddit: 'test',
-          title: '',
-          content: '',
-          isGenerating: false
-        });
+        setQuestions(result.questions || []);
+        setPerformanceData(prev => ({ ...prev, questionsFound: result.questions?.length || 0 }));
+        showNotification(`Found ${result.questions?.length || 0} questions!`, 'success');
       } else {
-        showNotification(result.error || 'Posting failed', 'error');
+        showNotification(result.error || 'Search failed', 'error');
       }
     } catch (error) {
-      showNotification('Posting failed: ' + error.message, 'error');
+      showNotification('Search failed: ' + error.message, 'error');
     } finally {
       setLoading(false);
     }
-  }, [manualPost, makeAuthenticatedRequest, redditUsername, redditConnected, showNotification]);
-
-
-
-
-
-const startAutoPosting = useCallback(async () => {
-  if (!userProfile.isConfigured) {
-    showNotification('Please configure your profile first', 'error');
-    setActiveTab('setup');
-    return;
-  }
-
-  if (!redditConnected) {
-    showNotification('Please connect your Reddit account first', 'error');
-    return;
-  }
-
-  try {
-    setLoading(true);
-    showNotification('Setting up REAL automation...', 'info');
-    
-    const config = {
-      domain: userProfile.domain,
-      business_type: userProfile.businessType,
-      business_description: userProfile.businessDescription,
-      target_audience: userProfile.targetAudience,
-      language: userProfile.language,
-      subreddits: autoPostConfig.subreddits,
-      posts_per_day: autoPostConfig.postsPerDay,
-      posting_times: autoPostConfig.postingTimes,
-      content_style: userProfile.contentStyle
-    };
-    
-    // Enhanced debugging
-    console.log('🔍 SENDING TO BACKEND:');
-    console.log('posting_times:', config.posting_times);
-    console.log('posts_per_day:', config.posts_per_day);
-    console.log('subreddits:', config.subreddits);
-    
-    // Validate posting times before sending
-    if (!config.posting_times || config.posting_times.length === 0) {
-      showNotification('Please add at least one posting time in the Schedule tab', 'error');
-      setActiveTab('schedule');
-      return;
-    }
-    
-    // Validate time format
-    const timePattern = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
-    const invalidTimes = config.posting_times.filter(time => !timePattern.test(time));
-    if (invalidTimes.length > 0) {
-      showNotification(`Invalid time format: ${invalidTimes.join(', ')}. Use HH:MM format.`, 'error');
-      return;
-    }
-    
-    const response = await makeAuthenticatedRequest('/api/automation/setup-auto-posting', {
-      method: 'POST',
-      body: JSON.stringify(config)
-    });
-    
-    const result = await response.json();
-    
-    // Enhanced response handling
-    if (result.success) {
-      setAutoPostConfig(prev => ({ ...prev, enabled: true }));
-      showNotification(`Auto-posting started for ${redditUsername}!`, 'success');
-      
-      // Show the actual times being used
-      if (result.posting_times_used && result.posting_times_used.length > 0) {
-        showNotification(`Using times: ${result.posting_times_used.join(', ')}`, 'info');
-      }
-      
-      if (result.next_post_time) {
-        showNotification(`Next post: ${result.next_post_time}`, 'info');
-      }
-      
-      // Debug log the successful setup
-      console.log('✅ Automation setup successful:', result);
-      
-    } else {
-      // Enhanced error handling
-      console.error('❌ Automation setup failed:', result);
-      
-      if (result.error === "No posting times provided") {
-        showNotification('No posting times found. Please set times in Schedule tab first.', 'error');
-        setActiveTab('schedule');
-      } else if (result.error === "Reddit account not connected") {
-        showNotification('Reddit connection lost. Please reconnect.', 'error');
-        setRedditConnected(false);
-      } else {
-        showNotification(result.error || 'Automation setup failed', 'error');
-      }
-    }
-    
-  } catch (error) {
-    console.error('❌ Setup request failed:', error);
-    
-    if (error.name === 'TypeError' && error.message.includes('fetch')) {
-      showNotification('Network error. Please check your connection.', 'error');
-    } else {
-      showNotification('Setup failed: ' + error.message, 'error');
-    }
-    
-  } finally {
-    setLoading(false);
-  }
-}, [userProfile, redditConnected, autoPostConfig, makeAuthenticatedRequest, redditUsername, showNotification, setActiveTab, setRedditConnected]);
-
-
-
-
-
-
-const addTestTime = async () => {
-  try {
-    const response = await makeAuthenticatedRequest('/api/debug/add-test-time', {
-      method: 'POST'
-    });
-    const result = await response.json();
-    
-    if (result.success) {
-      setAutoPostConfig(prev => ({
-        ...prev,
-        postingTimes: result.all_times || [...prev.postingTimes, result.test_time].sort()
-      }));
-      showNotification(result.message || 'Test time added (+2 minutes)', 'success');
-    } else {
-      showNotification(result.error || 'Failed to add test time', 'error');
-    }
-  } catch (error) {
-    showNotification('Failed to add test time: ' + error.message, 'error');
-  }
-};
-
-
-
-// {/* Add this section after the existing "Add Test Time" button */}
-// <div style={{ marginTop: '20px', padding: '20px', backgroundColor: '#f8f9fa', borderRadius: '12px' }}>
-//   <h5 style={{ marginBottom: '16px', color: '#374151' }}>Debug Tools</h5>
-//   <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-    
-//     {/* Check Scheduler Status Button */}
-//     <button
-//       onClick={async () => {
-//         try {
-//           const response = await makeAuthenticatedRequest('/api/debug/scheduler-active-configs');
-//           const result = await response.json();
-//           console.log('Scheduler Status:', result);
-//           if (result.success) {
-//             showNotification(
-//               `Scheduler has ${result.scheduler_has_user ? result.posting_times.length : 0} times for you`, 
-//               'info'
-//             );
-//           } else {
-//             showNotification(result.error, 'error');
-//           }
-//         } catch (error) {
-//           showNotification('Failed to check scheduler: ' + error.message, 'error');
-//         }
-//       }}
-//       style={{
-//         padding: '10px 16px',
-//         backgroundColor: '#3b82f6',
-//         color: 'white',
-//         border: 'none',
-//         borderRadius: '8px',
-//         fontSize: '14px',
-//         cursor: 'pointer'
-//       }}
-//     >
-//       Check Scheduler Status
-//     </button>
-
-//     {/* Trigger Immediate Post Button */}
-//     <button
-//       onClick={async () => {
-//         if (!redditConnected) {
-//           showNotification('Reddit not connected', 'error');
-//           return;
-//         }
-//         try {
-//           setLoading(true);
-//           showNotification('Triggering immediate test post...', 'info');
-//           const response = await makeAuthenticatedRequest('/api/debug/trigger-immediate-post', {
-//             method: 'POST'
-//           });
-//           const result = await response.json();
-          
-//           if (result.success) {
-//             showNotification('Test post successful!', 'success');
-//             console.log('Post result:', result);
-//           } else {
-//             showNotification(result.error || 'Test post failed', 'error');
-//           }
-//         } catch (error) {
-//           showNotification('Test post failed: ' + error.message, 'error');
-//         } finally {
-//           setLoading(false);
-//         }
-//       }}
-//       disabled={loading || !redditConnected}
-//       style={{
-//         padding: '10px 16px',
-//         backgroundColor: loading || !redditConnected ? '#9ca3af' : '#10b981',
-//         color: 'white',
-//         border: 'none',
-//         borderRadius: '8px',
-//         fontSize: '14px',
-//         cursor: loading || !redditConnected ? 'not-allowed' : 'pointer'
-//       }}
-//     >
-//       {loading ? 'Posting...' : 'Test Post Now'}
-//     </button>
-
-//     {/* Current Schedule Button */}
-//     <button
-//       onClick={async () => {
-//         try {
-//           const response = await makeAuthenticatedRequest('/api/debug/current-schedule');
-//           const result = await response.json();
-//           console.log('Current Schedule:', result);
-//           if (result.success) {
-//             const times = result.debug_info.configured_posting_times;
-//             showNotification(
-//               `Current time: ${result.debug_info.current_time}. Configured times: ${times.length}`, 
-//               'info'
-//             );
-//           }
-//         } catch (error) {
-//           showNotification('Failed to check schedule: ' + error.message, 'error');
-//         }
-//       }}
-//       style={{
-//         padding: '10px 16px',
-//         backgroundColor: '#f59e0b',
-//         color: 'white',
-//         border: 'none',
-//         borderRadius: '8px',
-//         fontSize: '14px',
-//         cursor: 'pointer'
-//       }}
-//     >
-//       Check Current Schedule
-//     </button>
-//   </div>
-  
-//   <div style={{ 
-//     fontSize: '12px', 
-//     color: '#6b7280', 
-//     marginTop: '12px',
-//     fontStyle: 'italic'
-//   }}>
-//     Use these tools to debug why scheduled posting isn't working. Check browser console for detailed logs.
-//   </div>
-// </div>
-
-
-
-
-
+  }, [questionForm, makeAuthenticatedRequest, showNotification]);
 
   return (
-    <div style={{ 
-      fontFamily: 'system-ui, -apple-system, sans-serif',
+    <div style={{
       minHeight: '100vh',
-      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-      display: 'flex'
+      background: 'linear-gradient(135deg, #FF4500 0%, #FF8717 100%)',
+      padding: '20px'
     }}>
       {/* Notifications */}
-      <div style={{ position: 'fixed', top: '20px', right: '20px', zIndex: 10000, display: 'flex', flexDirection: 'column', gap: '10px', maxWidth: '400px' }}>
-        {notifications.map(notification => (
-          <div 
-            key={notification.id}
-            style={{
-              padding: '16px 20px',
-              borderRadius: '12px',
-              backdropFilter: 'blur(10px)',
-              color: 'white',
-              fontWeight: '500',
-              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
-              background: notification.type === 'success' ? 'rgba(34, 197, 94, 0.9)' :
-                         notification.type === 'error' ? 'rgba(239, 68, 68, 0.9)' :
-                         'rgba(59, 130, 246, 0.9)',
-              borderLeft: `4px solid ${notification.type === 'success' ? '#22c55e' : notification.type === 'error' ? '#ef4444' : '#3b82f6'}`,
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              gap: '12px'
-            }}
-          >
-            <span>{notification.message}</span>
-            <button 
-              onClick={() => setNotifications(prev => prev.filter(n => n.id !== notification.id))}
-              style={{ background: 'none', border: 'none', color: 'white', fontSize: '18px', cursor: 'pointer', padding: '4px' }}
-            >
-              ×
-            </button>
+      <div style={{
+        position: 'fixed',
+        top: '20px',
+        right: '20px',
+        zIndex: 1000,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '10px',
+        maxWidth: '400px'
+      }}>
+        {notifications.map(notif => (
+          <div key={notif.id} style={{
+            background: notif.type === 'success' ? '#00C851' : notif.type === 'error' ? '#ff4444' : '#33b5e5',
+            color: 'white',
+            padding: '16px 20px',
+            borderRadius: '12px',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+            fontSize: '15px',
+            fontWeight: '500'
+          }}>
+            {notif.message}
           </div>
         ))}
       </div>
 
-      {/* Loading Overlay */}
-      {loading && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0, 0, 0, 0.7)', backdropFilter: 'blur(5px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 9999 }}>
-          <div style={{ background: 'white', padding: '40px', borderRadius: '16px', textAlign: 'center', boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)' }}>
-            <div style={{ border: '4px solid #f3f3f3', borderTop: '4px solid #667eea', borderRadius: '50%', width: '40px', height: '40px', animation: 'spin 1s linear infinite', margin: '0 auto' }}></div>
-            <p style={{ marginTop: '16px', color: '#666' }}>Processing...</p>
-          </div>
-        </div>
-      )}
-
-      {/* Sidebar */}
-      <div style={{ width: '280px', background: 'rgba(255, 255, 255, 0.95)', backdropFilter: 'blur(10px)', height: '100vh', position: 'fixed', display: 'flex', flexDirection: 'column', boxShadow: '2px 0 20px rgba(0, 0, 0, 0.1)' }}>
-        <div style={{ padding: '32px 24px', borderBottom: '1px solid rgba(0, 0, 0, 0.1)', textAlign: 'center', background: 'linear-gradient(135deg, #667eea, #764ba2)' }}>
-          <h2 style={{ fontSize: '24px', fontWeight: '700', color: 'white', margin: 0, marginBottom: '4px' }}>Reddit Auto</h2>
-          <div style={{ fontSize: '14px', color: 'rgba(255, 255, 255, 0.9)', fontWeight: '500' }}>Welcome, {user?.name}</div>
-        </div>
-        
-        <nav style={{ flex: 1, padding: '24px 16px' }}>
-          {[
-            { id: 'setup', icon: '⚙️', label: 'Setup' },
-            { id: 'manual', icon: '✍️', label: 'Manual Post' },
-            { id: 'schedule', icon: '📅', label: 'Schedule' },
-            { id: 'status', icon: '📈', label: 'Status' }
-          ].map(tab => (
-            <button 
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              style={{
-                width: '100%',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '12px',
-                padding: '16px 20px',
-                border: 'none',
-                background: activeTab === tab.id ? 'linear-gradient(135deg, #667eea, #764ba2)' : 'none',
-                color: activeTab === tab.id ? 'white' : '#666',
-                textAlign: 'left',
-                borderRadius: '12px',
-                cursor: 'pointer',
-                marginBottom: '8px',
-                fontSize: '16px',
-                transform: activeTab === tab.id ? 'translateX(4px)' : 'none',
-                boxShadow: activeTab === tab.id ? '0 4px 15px rgba(102, 126, 234, 0.4)' : 'none'
-              }}
-            >
-              <span>{tab.icon}</span>
-              <span>{tab.label}</span>
-            </button>
-          ))}
-        </nav>
-
-
-        
-
-
-
-
-
-
-
-
-{/* Reddit Connection Section - No Mock Data */}
-        <div style={{ 
-          padding: '20px 24px', 
-          borderTop: '1px solid rgba(0, 0, 0, 0.05)',
-          background: 'linear-gradient(135deg, rgba(255,255,255,0.1), rgba(240,240,255,0.05))',
-          backdropFilter: 'blur(10px)'
+      {/* Header */}
+      <div style={{
+        background: 'rgba(255, 255, 255, 0.95)',
+        borderRadius: '20px',
+        padding: '30px',
+        marginBottom: '20px',
+        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2)'
+      }}>
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '20px'
         }}>
-          {redditConnected ? (
-            <div>
-              {/* Connected Status Card */}
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '12px',
-                padding: '16px 20px',
-                borderRadius: '12px',
-                fontSize: '15px',
-                fontWeight: '600',
-                background: 'linear-gradient(135deg, rgba(34, 197, 94, 0.15), rgba(16, 185, 129, 0.1))',
-                color: '#047857',
-                border: '2px solid rgba(34, 197, 94, 0.3)',
-                boxShadow: '0 4px 20px rgba(34, 197, 94, 0.15)',
-                marginBottom: '12px'
-              }}>
-                <div style={{
-                  width: '12px',
-                  height: '12px',
-                  background: 'linear-gradient(135deg, #22c55e, #16a34a)',
-                  borderRadius: '50%',
-                  boxShadow: '0 0 8px rgba(34, 197, 94, 0.5)',
-                  animation: 'pulse 2s infinite'
-                }}></div>
-                <span style={{ 
-                  fontSize: '16px',
-                  textShadow: '0 1px 2px rgba(0,0,0,0.1)'
-                }}>✅ Reddit Connected</span>
-              </div>
-              
-              {/* Real Username Display */}
-              {redditUsername && (
-                <div style={{ 
-                  fontSize: '13px', 
-                  color: '#059669',
-                  fontWeight: '500',
-                  margin: '0 0 16px 32px',
-                  fontFamily: 'monospace',
-                  background: 'rgba(34, 197, 94, 0.08)',
-                  padding: '6px 12px',
-                  borderRadius: '20px',
-                  display: 'inline-block'
-                }}>
-                  u/{redditUsername}
-                </div>
-              )}
-              
-              {/* Test Connection Button */}
-              <button 
-                onClick={testConnection}
-                disabled={loading}
-                style={{
-                  width: '100%',
-                  padding: '12px 16px',
-                  fontSize: '13px',
-                  fontWeight: '600',
-                  background: loading ? 
-                    'linear-gradient(135deg, #d1d5db, #9ca3af)' : 
-                    'linear-gradient(135deg, #22c55e, #16a34a)',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '10px',
-                  cursor: loading ? 'not-allowed' : 'pointer',
-                  boxShadow: loading ? 
-                    'none' : 
-                    '0 4px 15px rgba(34, 197, 94, 0.3)',
-                  transform: loading ? 'none' : 'translateY(0)',
-                  transition: 'all 0.3s ease',
-                  textShadow: '0 1px 2px rgba(0,0,0,0.2)'
-                }}
-                onMouseOver={(e) => {
-                  if (!loading) {
-                    e.target.style.transform = 'translateY(-1px)';
-                    e.target.style.boxShadow = '0 6px 20px rgba(34, 197, 94, 0.4)';
-                  }
-                }}
-                onMouseOut={(e) => {
-                  if (!loading) {
-                    e.target.style.transform = 'translateY(0)';
-                    e.target.style.boxShadow = '0 4px 15px rgba(34, 197, 94, 0.3)';
-                  }
-                }}
-              >
-                {loading ? 'Testing...' : '🔍 Test Connection'}
-              </button>
-            </div>
-          ) : (
-            <div>
-              {/* Disconnected Status Card */}
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '12px',
-                padding: '16px 20px',
-                borderRadius: '12px',
-                fontSize: '15px',
-                fontWeight: '600',
-                background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(220, 38, 38, 0.1))',
-                color: '#dc2626',
-                border: '2px solid rgba(239, 68, 68, 0.3)',
-                boxShadow: '0 4px 20px rgba(239, 68, 68, 0.15)',
-                marginBottom: '12px'
-              }}>
-                <div style={{
-                  width: '12px',
-                  height: '12px',
-                  background: 'linear-gradient(135deg, #ef4444, #dc2626)',
-                  borderRadius: '50%',
-                  boxShadow: '0 0 8px rgba(239, 68, 68, 0.5)',
-                  animation: 'pulse 2s infinite'
-                }}></div>
-                <span style={{ 
-                  fontSize: '16px',
-                  textShadow: '0 1px 2px rgba(0,0,0,0.1)'
-                }}>❌ Reddit Not Connected</span>
-              </div>
-              
-              {/* Connection Required Message */}
-              <div style={{
-                fontSize: '12px',
-                color: '#dc2626',
-                textAlign: 'center',
-                marginBottom: '16px',
-                padding: '8px 12px',
-                background: 'rgba(239, 68, 68, 0.08)',
-                borderRadius: '8px',
-                border: '1px dashed rgba(239, 68, 68, 0.3)'
-              }}>
-                🔐 One-time Reddit authorization required
-              </div>
-              
-              {/* Connect Button - Extra Highlighted */}
-              <button 
-                onClick={handleRedditConnect} 
-                disabled={loading}
-                style={{
-                  width: '100%',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '12px',
-                  padding: '16px 20px',
-                  fontSize: '16px',
-                  fontWeight: '700',
-                  background: loading ? 
-                    'linear-gradient(135deg, #d1d5db, #9ca3af)' : 
-                    'linear-gradient(135deg, #ef4444, #dc2626)',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '12px',
-                  cursor: loading ? 'not-allowed' : 'pointer',
-                  boxShadow: loading ? 
-                    'none' : 
-                    '0 6px 25px rgba(239, 68, 68, 0.4)',
-                  transform: loading ? 'none' : 'translateY(0)',
-                  transition: 'all 0.3s ease',
-                  textShadow: '0 1px 2px rgba(0,0,0,0.3)',
-                  position: 'relative',
-                  overflow: 'hidden'
-                }}
-                onMouseOver={(e) => {
-                  if (!loading) {
-                    e.target.style.transform = 'translateY(-2px) scale(1.02)';
-                    e.target.style.boxShadow = '0 8px 30px rgba(239, 68, 68, 0.5)';
-                  }
-                }}
-                onMouseOut={(e) => {
-                  if (!loading) {
-                    e.target.style.transform = 'translateY(0) scale(1)';
-                    e.target.style.boxShadow = '0 6px 25px rgba(239, 68, 68, 0.4)';
-                  }
-                }}
-              >
-                {/* Animated Glow Effect */}
-                <div style={{
-                  position: 'absolute',
-                  top: 0,
-                  left: '-100%',
-                  width: '100%',
-                  height: '100%',
-                  background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent)',
-                  animation: loading ? 'none' : 'shimmer 3s infinite',
-                  zIndex: 1
-                }}></div>
-                
-                <span style={{ fontSize: '20px', zIndex: 2 }}>🔗</span>
-                <span style={{ zIndex: 2 }}>
-                  {loading ? 'Connecting...' : 'Connect Reddit Account'}
-                </span>
-              </button>
-              
-              {/* Help Text */}
-              <div style={{
-                fontSize: '11px',
-                color: '#6b7280',
-                textAlign: 'center',
-                marginTop: '10px',
-                lineHeight: '1.4'
-              }}>
-                Safe OAuth connection • No password required
-              </div>
+          <div>
+            <h1 style={{
+              margin: 0,
+              fontSize: '32px',
+              fontWeight: '700',
+              background: 'linear-gradient(135deg, #FF4500, #FF8717)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent'
+            }}>
+              🤖 Reddit Automation
+            </h1>
+            <p style={{
+              margin: '8px 0 0 0',
+              color: '#666',
+              fontSize: '16px'
+            }}>
+              {user?.name ? `Welcome, ${user.name}!` : 'Automate your Reddit presence'}
+            </p>
+          </div>
+
+          {redditConnected && (
+            <div style={{
+              background: 'linear-gradient(135deg, #FF4500, #FF8717)',
+              color: 'white',
+              padding: '12px 24px',
+              borderRadius: '12px',
+              fontWeight: '600',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}>
+              ✅ Connected: u/{redditUsername}
             </div>
           )}
         </div>
       </div>
 
-      {/* Main Content */}
+      {/* Tab Navigation */}
+      <div style={{
+        background: 'rgba(255, 255, 255, 0.95)',
+        borderRadius: '20px',
+        padding: '20px',
+        marginBottom: '20px',
+        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2)',
+        display: 'flex',
+        gap: '10px',
+        flexWrap: 'wrap'
+      }}>
+        {[
+          { id: 'setup', label: '⚙️ Setup' },
+          { id: 'profile', label: '👤 Profile' },
+          { id: 'create', label: '✍️ Create Post' },
+          { id: 'questions', label: '❓ Find Questions' },
+          { id: 'analytics', label: '📊 Analytics' }
+        ].map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            style={{
+              flex: '1',
+              minWidth: '140px',
+              padding: '16px 24px',
+              background: activeTab === tab.id 
+                ? 'linear-gradient(135deg, #FF4500, #FF8717)' 
+                : 'transparent',
+              color: activeTab === tab.id ? 'white' : '#666',
+              border: activeTab === tab.id ? 'none' : '2px solid #ddd',
+              borderRadius: '12px',
+              fontSize: '16px',
+              fontWeight: '600',
+              cursor: 'pointer',
+              transition: 'all 0.2s'
+            }}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
 
+      {/* Content Area */}
+      <div>
+        {/* Setup Tab */}
+        {activeTab === 'setup' && (
+          <div style={{
+            background: 'rgba(255, 255, 255, 0.95)',
+            borderRadius: '20px',
+            padding: '40px',
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2)'
+          }}>
+            <h2 style={{
+              color: '#FF4500',
+              marginBottom: '30px',
+              fontSize: '28px',
+              fontWeight: '700'
+            }}>
+              Reddit Connection Setup
+            </h2>
 
+            {!redditConnected ? (
+              <div>
+                <div style={{
+                  background: '#fff3cd',
+                  border: '1px solid #ffc107',
+                  borderRadius: '12px',
+                  padding: '20px',
+                  marginBottom: '30px'
+                }}>
+                  <p style={{ margin: 0, color: '#856404', fontSize: '16px' }}>
+                    ⚠️ Connect your Reddit account to start automating your posts
+                  </p>
+                </div>
 
+                <button
+                  onClick={handleRedditConnect}
+                  disabled={loading}
+                  style={{
+                    background: 'linear-gradient(135deg, #FF4500, #FF8717)',
+                    padding: '18px 48px',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '12px',
+                    fontSize: '18px',
+                    fontWeight: '700',
+                    cursor: loading ? 'not-allowed' : 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px',
+                    margin: '0 auto'
+                  }}
+                >
+                  {loading ? '⏳ Connecting...' : '🤖 Connect Reddit Account'}
+                </button>
 
-      
-      <div style={{ flex: 1, marginLeft: '280px', background: 'rgba(255, 255, 255, 0.1)', backdropFilter: 'blur(10px)' }}>
-        <header style={{ padding: '32px 40px', background: 'rgba(255, 255, 255, 0.95)', backdropFilter: 'blur(10px)', borderBottom: '1px solid rgba(0, 0, 0, 0.1)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div>
-            <h1 style={{ fontSize: '32px', fontWeight: '700', color: '#333', marginBottom: '8px' }}>Reddit Automation Dashboard</h1>
-            <p style={{ fontSize: '16px', color: '#666' }}>AI-powered Reddit automation for {redditUsername || user?.name || 'your account'}</p>
-            <div style={{ fontSize: '12px', color: '#95a5a6', display: 'flex', alignItems: 'center', gap: '8px', marginTop: '8px' }}>
-              Status: {backendConnected ? 'Live Backend' : 'Offline'}
-            </div>
+                <div style={{
+                  marginTop: '40px',
+                  padding: '24px',
+                  background: '#f8f9fa',
+                  borderRadius: '12px'
+                }}>
+                  <h3 style={{ color: '#FF4500', marginBottom: '16px' }}>
+                    What you'll get:
+                  </h3>
+                  <ul style={{ margin: 0, paddingLeft: '24px', color: '#333', lineHeight: '1.8' }}>
+                    <li>AI-powered content generation for Reddit</li>
+                    <li>Auto-generate engaging posts and comments</li>
+                    <li>Find and answer questions in your niche</li>
+                    <li>Schedule and automate posts</li>
+                    <li>Track performance analytics</li>
+                  </ul>
+                </div>
+              </div>
+            ) : (
+              <div>
+                <div style={{
+                  background: '#d4edda',
+                  border: '1px solid #c3e6cb',
+                  borderRadius: '12px',
+                  padding: '20px',
+                  marginBottom: '20px'
+                }}>
+                  <p style={{ margin: 0, color: '#155724', fontSize: '16px' }}>
+                    ✅ Reddit connected successfully as u/{redditUsername}
+                  </p>
+                </div>
+
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+                  gap: '20px',
+                  marginTop: '30px'
+                }}>
+                  <div style={{
+                    background: 'linear-gradient(135deg, #FF4500, #FF8717)',
+                    borderRadius: '16px',
+                    padding: '24px',
+                    color: 'white',
+                    textAlign: 'center'
+                  }}>
+                    <div style={{ fontSize: '48px', marginBottom: '12px' }}>🤖</div>
+                    <div style={{ fontSize: '18px', fontWeight: '600' }}>Ready to Post</div>
+                    <div style={{ fontSize: '14px', opacity: 0.9, marginTop: '8px' }}>
+                      Start creating amazing content
+                    </div>
+                  </div>
+
+                  <div style={{
+                    background: 'linear-gradient(135deg, #FF8717, #FFA500)',
+                    borderRadius: '16px',
+                    padding: '24px',
+                    color: 'white',
+                    textAlign: 'center'
+                  }}>
+                    <div style={{ fontSize: '48px', marginBottom: '12px' }}>🤖</div>
+                    <div style={{ fontSize: '18px', fontWeight: '600' }}>AI Powered</div>
+                    <div style={{ fontSize: '14px', opacity: 0.9, marginTop: '8px' }}>
+                      Generate posts automatically
+                    </div>
+                  </div>
+
+                  <div style={{
+                    background: 'linear-gradient(135deg, #667eea, #764ba2)',
+                    borderRadius: '16px',
+                    padding: '24px',
+                    color: 'white',
+                    textAlign: 'center'
+                  }}>
+                    <div style={{ fontSize: '48px', marginBottom: '12px' }}>📊</div>
+                    <div style={{ fontSize: '18px', fontWeight: '600' }}>Analytics</div>
+                    <div style={{ fontSize: '14px', opacity: 0.9, marginTop: '8px' }}>
+                      Track your performance
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
-          
-          <div>
-            {userProfile.isConfigured && (
-              <button 
-                onClick={startAutoPosting}
-                disabled={loading || !redditConnected}
+        )}
+
+        {/* Profile Tab */}
+        {activeTab === 'profile' && (
+          <div style={{
+            background: 'rgba(255, 255, 255, 0.95)',
+            borderRadius: '20px',
+            padding: '40px',
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2)'
+          }}>
+            <h2 style={{
+              color: '#FF4500',
+              marginBottom: '30px',
+              fontSize: '28px',
+              fontWeight: '700'
+            }}>
+              Configure Your Profile
+            </h2>
+
+            <div style={{ marginBottom: '24px' }}>
+              <label style={{
+                display: 'block',
+                marginBottom: '12px',
+                color: '#333',
+                fontWeight: '600',
+                fontSize: '16px'
+              }}>
+                Business Domain
+              </label>
+              <select
+                value={userProfile.domain}
+                onChange={(e) => setUserProfile(prev => ({ ...prev, domain: e.target.value }))}
                 style={{
+                  width: '100%',
+                  padding: '16px',
+                  borderRadius: '12px',
+                  border: '2px solid #ddd',
+                  fontSize: '16px',
+                  background: 'white'
+                }}
+              >
+                {Object.entries(DOMAIN_CONFIGS).map(([key, config]) => (
+                  <option key={key} value={key}>
+                    {config.icon} {config.description}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div style={{ marginBottom: '24px' }}>
+              <label style={{
+                display: 'block',
+                marginBottom: '12px',
+                color: '#333',
+                fontWeight: '600',
+                fontSize: '16px'
+              }}>
+                Business Type
+              </label>
+              <input
+                type="text"
+                value={userProfile.businessType}
+                onChange={(e) => setUserProfile(prev => ({ ...prev, businessType: e.target.value }))}
+                placeholder="e.g., AI automation platform"
+                style={{
+                  width: '100%',
+                  padding: '16px',
+                  borderRadius: '12px',
+                  border: '2px solid #ddd',
+                  fontSize: '16px'
+                }}
+              />
+            </div>
+
+            <div style={{ marginBottom: '24px' }}>
+              <label style={{
+                display: 'block',
+                marginBottom: '12px',
+                color: '#333',
+                fontWeight: '600',
+                fontSize: '16px'
+              }}>
+                Business Description
+              </label>
+              <textarea
+                value={userProfile.businessDescription}
+                onChange={(e) => setUserProfile(prev => ({ ...prev, businessDescription: e.target.value }))}
+                placeholder="Describe your business..."
+                rows="4"
+                style={{
+                  width: '100%',
+                  padding: '16px',
+                  borderRadius: '12px',
+                  border: '2px solid #ddd',
+                  fontSize: '16px',
+                  fontFamily: 'inherit',
+                  resize: 'vertical'
+                }}
+              />
+            </div>
+
+            <div style={{ marginBottom: '24px' }}>
+              <label style={{
+                display: 'block',
+                marginBottom: '12px',
+                color: '#333',
+                fontWeight: '600',
+                fontSize: '16px'
+              }}>
+                Target Audience
+              </label>
+              <select
+                value={userProfile.targetAudience}
+                onChange={(e) => setUserProfile(prev => ({ ...prev, targetAudience: e.target.value }))}
+                style={{
+                  width: '100%',
+                  padding: '16px',
+                  borderRadius: '12px',
+                  border: '2px solid #ddd',
+                  fontSize: '16px',
+                  background: 'white'
+                }}
+              >
+                {Object.entries(TARGET_AUDIENCES).map(([key, audience]) => (
+                  <option key={key} value={key}>
+                    {audience.icon} {audience.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div style={{ marginBottom: '32px' }}>
+              <label style={{
+                display: 'block',
+                marginBottom: '12px',
+                color: '#333',
+                fontWeight: '600',
+                fontSize: '16px'
+              }}>
+                Content Style
+              </label>
+              <select
+                value={userProfile.contentStyle}
+                onChange={(e) => setUserProfile(prev => ({ ...prev, contentStyle: e.target.value }))}
+                style={{
+                  width: '100%',
+                  padding: '16px',
+                  borderRadius: '12px',
+                  border: '2px solid #ddd',
+                  fontSize: '16px',
+                  background: 'white'
+                }}
+              >
+                {Object.entries(CONTENT_STYLES).map(([key, style]) => (
+                  <option key={key} value={key}>
+                    {style}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <button
+              onClick={saveUserProfile}
+              style={{
+                background: 'linear-gradient(135deg, #FF4500, #FF8717)',
+                padding: '18px 48px',
+                color: 'white',
+                border: 'none',
+                borderRadius: '12px',
+                fontSize: '18px',
+                fontWeight: '700',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+                margin: '0 auto'
+              }}
+            >
+              💾 Save Profile
+            </button>
+          </div>
+        )}
+
+        {/* Create Post Tab */}
+        {activeTab === 'create' && (
+          <div style={{
+            background: 'rgba(255, 255, 255, 0.95)',
+            borderRadius: '20px',
+            padding: '40px',
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2)'
+          }}>
+            <h2 style={{
+              color: '#FF4500',
+              marginBottom: '30px',
+              fontSize: '28px',
+              fontWeight: '700'
+            }}>
+              Create Reddit Post
+            </h2>
+
+            {!redditConnected && (
+              <div style={{
+                background: '#f8d7da',
+                border: '1px solid #f5c6cb',
+                borderRadius: '12px',
+                padding: '20px',
+                marginBottom: '30px'
+              }}>
+                <p style={{ margin: 0, color: '#721c24', fontSize: '16px' }}>
+                  ❌ Please connect Reddit first to create posts
+                </p>
+              </div>
+            )}
+
+            <form onSubmit={publishRedditPost}>
+              <div style={{ marginBottom: '24px' }}>
+                <label style={{
+                  display: 'block',
+                  marginBottom: '12px',
+                  color: '#333',
+                  fontWeight: '600',
+                  fontSize: '16px'
+                }}>
+                  Subreddit
+                </label>
+                <input
+                  type="text"
+                  value={postForm.subreddit}
+                  onChange={(e) => setPostForm(prev => ({ ...prev, subreddit: e.target.value }))}
+                  placeholder="e.g., test, AskReddit"
+                  style={{
+                    width: '100%',
+                    padding: '16px',
+                    borderRadius: '12px',
+                    border: '2px solid #ddd',
+                    fontSize: '16px'
+                  }}
+                />
+              </div>
+
+              <div style={{ marginBottom: '24px' }}>
+                <label style={{
+                  display: 'block',
+                  marginBottom: '12px',
+                  color: '#333',
+                  fontWeight: '600',
+                  fontSize: '16px'
+                }}>
+                  Post Title
+                </label>
+                <input
+                  type="text"
+                  value={postForm.title}
+                  onChange={(e) => setPostForm(prev => ({ ...prev, title: e.target.value }))}
+                  placeholder="Enter your post title..."
+                  style={{
+                    width: '100%',
+                    padding: '16px',
+                    borderRadius: '12px',
+                    border: '2px solid #ddd',
+                    fontSize: '16px'
+                  }}
+                />
+              </div>
+
+              <div style={{ marginBottom: '24px' }}>
+                <label style={{
+                  display: 'block',
+                  marginBottom: '12px',
+                  color: '#333',
+                  fontWeight: '600',
+                  fontSize: '16px'
+                }}>
+                  Post Content
+                </label>
+                <textarea
+                  value={postForm.content}
+                  onChange={(e) => setPostForm(prev => ({ ...prev, content: e.target.value }))}
+                  placeholder="Write your Reddit post..."
+                  rows="8"
+                  style={{
+                    width: '100%',
+                    padding: '16px',
+                    borderRadius: '12px',
+                    border: '2px solid #ddd',
+                    fontSize: '16px',
+                    fontFamily: 'inherit',
+                    resize: 'vertical'
+                  }}
+                />
+              </div>
+
+
+              
+
+              <div style={{ marginBottom: '24px' }}>
+                <button
+                  type="button"
+                  onClick={generateRedditContent}
+                  disabled={postForm.isGenerating || !userProfile.isConfigured}
+                  style={{
+                    background: 'linear-gradient(135deg, #667eea, #764ba2)',
+                    padding: '16px 32px',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '12px',
+                    fontSize: '16px',
+                    fontWeight: '700',
+                    cursor: (postForm.isGenerating || !userProfile.isConfigured) ? 'not-allowed' : 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    width: '100%',
+                    justifyContent: 'center'
+                  }}
+                >
+                  {postForm.isGenerating ? '⏳ Generating...' : '🤖 Generate Content with AI'}
+                </button>
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading || !postForm.title || !postForm.content || !redditConnected}
+                style={{
+                  background: 'linear-gradient(135deg, #FF4500, #FF8717)',
+                  padding: '20px 48px',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '12px',
+                  fontSize: '18px',
+                  fontWeight: '700',
+                  cursor: (loading || !postForm.title || !postForm.content || !redditConnected) ? 'not-allowed' : 'pointer',
                   display: 'flex',
                   alignItems: 'center',
                   gap: '12px',
-                  padding: '16px 32px',
-                  border: 'none',
-                  borderRadius: '12px',
-                  fontSize: '16px',
-                  fontWeight: '600',
-                  cursor: loading || !redditConnected ? 'not-allowed' : 'pointer',
-                  background: loading || !redditConnected ? '#bdc3c7' : 'linear-gradient(135deg, #667eea, #764ba2)',
-                  color: 'white',
-                  boxShadow: '0 4px 15px rgba(102, 126, 234, 0.3)'
+                  margin: '0 auto'
                 }}
               >
-                <span>🚀</span>
-                <span>Start Auto-Post</span>
+                {loading ? '⏳ Publishing...' : '📤 Publish to Reddit'}
               </button>
-            )}
+            </form>
           </div>
-        </header>
+        )}
 
-        {/* Tab Content */}
-        <div style={{ padding: '32px 40px' }}>
-          <div style={{ background: 'rgba(255, 255, 255, 0.95)', backdropFilter: 'blur(10px)', borderRadius: '20px', padding: '32px', boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)', border: '1px solid rgba(255, 255, 255, 0.2)', maxWidth: '1000px', margin: '0 auto' }}>
-            
-            {activeTab === 'setup' && (
-              <div>
-                <h2 style={{ fontSize: '28px', fontWeight: '700', color: '#333', marginBottom: '32px' }}>Profile Configuration</h2>
-                
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '20px' }}>
-                  <label style={{ fontSize: '14px', fontWeight: '600', color: '#374151' }}>Business Domain</label>
-                  <select 
-                    value={userProfile.domain}
-                    onChange={(e) => {
-                      const domain = e.target.value;
-                      const config = domainConfigs[domain];
-                      setUserProfile(prev => ({
-                        ...prev,
-                        domain,
-                        businessType: config?.sampleBusiness || prev.businessType
-                      }));
-                    }}
-                    style={{ padding: '12px 16px', border: '2px solid rgba(0, 0, 0, 0.1)', borderRadius: '10px', fontSize: '14px', background: 'white' }}
-                  >
-                    {Object.entries(domainConfigs).map(([key, config]) => (
-                      <option key={key} value={key}>
-                        {config.icon} {config.description}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+        {/* Find Questions Tab */}
+        {activeTab === 'questions' && (
+          <div style={{
+            background: 'rgba(255, 255, 255, 0.95)',
+            borderRadius: '20px',
+            padding: '40px',
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2)'
+          }}>
+            <h2 style={{
+              color: '#FF4500',
+              marginBottom: '30px',
+              fontSize: '28px',
+              fontWeight: '700'
+            }}>
+              Find Questions to Answer
+            </h2>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '20px' }}>
-                  <label style={{ fontSize: '14px', fontWeight: '600', color: '#374151' }}>Business Type</label>
-                  <input
-                    type="text"
-                    value={userProfile.businessType}
-                    onChange={(e) => setUserProfile(prev => ({ ...prev, businessType: e.target.value }))}
-                    placeholder={domainConfigs[userProfile.domain]?.sampleBusiness}
-                    style={{ padding: '12px 16px', border: '2px solid rgba(0, 0, 0, 0.1)', borderRadius: '10px', fontSize: '14px', background: 'white' }}
-                  />
-                </div>
-
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '20px' }}>
-                  <label style={{ fontSize: '14px', fontWeight: '600', color: '#374151' }}>Business Description</label>
-                  <textarea
-                    value={userProfile.businessDescription}
-                    onChange={(e) => setUserProfile(prev => ({ ...prev, businessDescription: e.target.value }))}
-                    placeholder="Describe your business or service..."
-                    rows="3"
-                    style={{ padding: '12px 16px', border: '2px solid rgba(0, 0, 0, 0.1)', borderRadius: '10px', fontSize: '14px', background: 'white', resize: 'vertical' }}
-                  />
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '20px' }}>
-                    <label style={{ fontSize: '14px', fontWeight: '600', color: '#374151' }}>Target Audience</label>
-                    <select 
-                      value={userProfile.targetAudience}
-                      onChange={(e) => setUserProfile(prev => ({ ...prev, targetAudience: e.target.value }))}
-                      style={{ padding: '12px 16px', border: '2px solid rgba(0, 0, 0, 0.1)', borderRadius: '10px', fontSize: '14px', background: 'white' }}
-                    >
-                      {Object.entries(targetAudienceOptions).map(([key, option]) => (
-                        <option key={key} value={key}>
-                          {option.icon} {option.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '20px' }}>
-                    <label style={{ fontSize: '14px', fontWeight: '600', color: '#374151' }}>Content Style</label>
-                    <select 
-                      value={userProfile.contentStyle}
-                      onChange={(e) => setUserProfile(prev => ({ ...prev, contentStyle: e.target.value }))}
-                      style={{ padding: '12px 16px', border: '2px solid rgba(0, 0, 0, 0.1)', borderRadius: '10px', fontSize: '14px', background: 'white' }}
-                    >
-                      {Object.entries(contentStyleOptions).map(([key, style]) => (
-                        <option key={key} value={key}>
-                          {style}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                <div style={{ textAlign: 'center', marginTop: '32px' }}>
-                  <button 
-                    onClick={saveUserProfile}
-                    disabled={!userProfile.businessType}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '12px',
-                      padding: '16px 32px',
-                      border: 'none',
-                      borderRadius: '12px',
-                      fontSize: '16px',
-                      fontWeight: '600',
-                      cursor: userProfile.businessType ? 'pointer' : 'not-allowed',
-                      background: userProfile.businessType ? 'linear-gradient(135deg, #667eea, #764ba2)' : '#bdc3c7',
-                      color: 'white',
-                      boxShadow: '0 4px 15px rgba(102, 126, 234, 0.3)',
-                      margin: '0 auto'
-                    }}
-                  >
-                    Save Configuration
-                  </button>
-                </div>
-
-                {userProfile.isConfigured && (
-                  <div style={{
-                    marginTop: '20px',
-                    padding: '15px',
-                    backgroundColor: '#d4edda',
-                    borderRadius: '12px',
-                    border: '1px solid #c3e6cb'
-                  }}>
-                    <div style={{ color: '#155724', fontWeight: 'bold', marginBottom: '5px' }}>
-                      Profile Configured Successfully
-                    </div>
-                    <div style={{ color: '#155724', fontSize: '14px' }}>
-                      Ready for manual posting and automation setup.
-                    </div>
-                  </div>
-                )}
+            {!redditConnected && (
+              <div style={{
+                background: '#f8d7da',
+                border: '1px solid #f5c6cb',
+                borderRadius: '12px',
+                padding: '20px',
+                marginBottom: '30px'
+              }}>
+                <p style={{ margin: 0, color: '#721c24', fontSize: '16px' }}>
+                  ❌ Please connect Reddit first to find questions
+                </p>
               </div>
             )}
 
-            {/* Manual Post Tab */}
-            {activeTab === 'manual' && (
-              <div>
-                <h2 style={{ fontSize: '28px', fontWeight: '700', color: '#333', marginBottom: '32px' }}>Manual Posting with AI</h2>
-                
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '20px', marginBottom: '20px', alignItems: 'end' }}>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    <label style={{ fontSize: '14px', fontWeight: '600', color: '#374151' }}>Subreddit</label>
-                    <select
-                      value={manualPost.subreddit}
-                      onChange={(e) => setManualPost(prev => ({ ...prev, subreddit: e.target.value }))}
-                      style={{ padding: '12px 16px', border: '2px solid rgba(0, 0, 0, 0.1)', borderRadius: '10px', fontSize: '14px', background: 'white' }}
-                    >
-                      {domainConfigs[userProfile.domain]?.subreddits.map(sub => (
-                        <option key={sub} value={sub}>r/{sub}</option>
-                      ))}
-                    </select>
-                  </div>
+            <div style={{ marginBottom: '24px' }}>
+              <label style={{
+                display: 'block',
+                marginBottom: '12px',
+                color: '#333',
+                fontWeight: '600',
+                fontSize: '16px'
+              }}>
+                Subreddits (comma-separated)
+              </label>
+              <input
+                type="text"
+                value={questionForm.subreddits}
+                onChange={(e) => setQuestionForm(prev => ({ ...prev, subreddits: e.target.value }))}
+                placeholder="e.g., AskReddit,explainlikeimfive,india"
+                style={{
+                  width: '100%',
+                  padding: '16px',
+                  borderRadius: '12px',
+                  border: '2px solid #ddd',
+                  fontSize: '16px'
+                }}
+              />
+            </div>
 
-                  <button 
-                    onClick={generateContent}
-                    disabled={manualPost.isGenerating || !userProfile.isConfigured}
-                    style={{
-                      padding: '16px 32px',
-                      border: 'none',
-                      borderRadius: '12px',
-                      fontSize: '16px',
-                      fontWeight: '600',
-                      cursor: (manualPost.isGenerating || !userProfile.isConfigured) ? 'not-allowed' : 'pointer',
-                      background: (manualPost.isGenerating || !userProfile.isConfigured) ? '#bdc3c7' : 'linear-gradient(135deg, #667eea, #764ba2)',
-                      color: 'white',
-                      boxShadow: '0 4px 15px rgba(102, 126, 234, 0.3)'
-                    }}
-                  >
-                    {manualPost.isGenerating ? 'Generating...' : 'Generate with AI'}
-                  </button>
-                </div>
+            <div style={{ marginBottom: '24px' }}>
+              <label style={{
+                display: 'block',
+                marginBottom: '12px',
+                color: '#333',
+                fontWeight: '600',
+                fontSize: '16px'
+              }}>
+                Keywords (comma-separated)
+              </label>
+              <input
+                type="text"
+                value={questionForm.keywords}
+                onChange={(e) => setQuestionForm(prev => ({ ...prev, keywords: e.target.value }))}
+                placeholder="e.g., help,how,what,why"
+                style={{
+                  width: '100%',
+                  padding: '16px',
+                  borderRadius: '12px',
+                  border: '2px solid #ddd',
+                  fontSize: '16px'
+                }}
+              />
+            </div>
 
-                <form onSubmit={handleManualPost}>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '20px' }}>
-                    <label style={{ fontSize: '14px', fontWeight: '600', color: '#374151' }}>Post Title</label>
-                    <input
-                      type="text"
-                      value={manualPost.title}
-                      onChange={(e) => setManualPost(prev => ({ ...prev, title: e.target.value }))}
-                      placeholder="Enter your post title..."
-                      style={{ padding: '12px 16px', border: '2px solid rgba(0, 0, 0, 0.1)', borderRadius: '10px', fontSize: '14px', background: 'white' }}
-                      required
-                    />
-                  </div>
+            <div style={{ marginBottom: '24px' }}>
+              <label style={{
+                display: 'block',
+                marginBottom: '12px',
+                color: '#333',
+                fontWeight: '600',
+                fontSize: '16px'
+              }}>
+                Limit
+              </label>
+              <input
+                type="number"
+                value={questionForm.limit}
+                onChange={(e) => setQuestionForm(prev => ({ ...prev, limit: parseInt(e.target.value) || 10 }))}
+                min="1"
+                max="50"
+                style={{
+                  width: '100%',
+                  padding: '16px',
+                  borderRadius: '12px',
+                  border: '2px solid #ddd',
+                  fontSize: '16px'
+                }}
+              />
+            </div>
 
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '20px' }}>
-                    <label style={{ fontSize: '14px', fontWeight: '600', color: '#374151' }}>Post Content</label>
-                    <textarea
-                      value={manualPost.content}
-                      onChange={(e) => setManualPost(prev => ({ ...prev, content: e.target.value }))}
-                      placeholder="Enter your post content..."
-                      rows="8"
-                      style={{ padding: '12px 16px', border: '2px solid rgba(0, 0, 0, 0.1)', borderRadius: '10px', fontSize: '14px', background: 'white', resize: 'vertical' }}
-                      required
-                    />
-                  </div>
+            <button
+              onClick={findQuestions}
+              disabled={loading || !redditConnected}
+              style={{
+                background: 'linear-gradient(135deg, #FF4500, #FF8717)',
+                padding: '18px 48px',
+                color: 'white',
+                border: 'none',
+                borderRadius: '12px',
+                fontSize: '18px',
+                fontWeight: '700',
+                cursor: (loading || !redditConnected) ? 'not-allowed' : 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+                margin: '0 auto 30px auto'
+              }}
+            >
+              {loading ? '⏳ Searching...' : '🔍 Find Questions'}
+            </button>
 
-                  <div style={{ textAlign: 'center' }}>
-                    <button 
-                      type="submit" 
-                      disabled={loading || !redditConnected || !manualPost.title || !manualPost.content}
-                      style={{
-                        padding: '16px 32px',
-                        border: 'none',
-                        borderRadius: '12px',
-                        fontSize: '16px',
-                        fontWeight: '600',
-                        cursor: (loading || !redditConnected || !manualPost.title || !manualPost.content) ? 'not-allowed' : 'pointer',
-                        background: (loading || !redditConnected || !manualPost.title || !manualPost.content) ? '#bdc3c7' : 'linear-gradient(135deg, #34d399, #10b981)',
-                        color: 'white',
-                        boxShadow: '0 4px 15px rgba(52, 211, 153, 0.3)'
-                      }}
-                    >
-                      {loading ? 'Posting...' : `Post as ${redditUsername || user?.name || 'Reddit User'}`}
-                    </button>
-                  </div>
-                </form>
-              </div>
-            )}
-
-            {/* Schedule Tab */}
-            {activeTab === 'schedule' && (
-              <div>
-                <h2 style={{ fontSize: '28px', fontWeight: '700', color: '#333', marginBottom: '32px' }}>Auto-Post Schedule</h2>
-                
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '20px' }}>
-                  <label style={{ fontSize: '14px', fontWeight: '600', color: '#374151' }}>Posts Per Day</label>
-                  <input
-                    type="number"
-                    min="1"
-                    max="10"
-                    value={autoPostConfig.postsPerDay}
-                    onChange={(e) => setAutoPostConfig(prev => ({ ...prev, postsPerDay: parseInt(e.target.value) || 1 }))}
-                    style={{ padding: '12px 16px', border: '2px solid rgba(0, 0, 0, 0.1)', borderRadius: '10px', fontSize: '14px', background: 'white', width: '200px' }}
-                  />
-                </div>
-
-                <div style={{ marginBottom: '24px' }}>
-                  <h4 style={{ marginBottom: '16px' }}>Posting Times</h4>
-                  <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
-
-
-
-<input
-  type="time"
-  onChange={(e) => {
-    if (e.target.value && !autoPostConfig.postingTimes.includes(e.target.value)) {
-      setAutoPostConfig(prev => ({
-        ...prev,
-        postingTimes: [...prev.postingTimes, e.target.value].sort()
-      }));
-      showNotification(`Added posting time: ${e.target.value}`, 'success');
-      
-      // Debug log
-      console.log('Time added to config:', e.target.value);
-      console.log('Current posting times:', [...autoPostConfig.postingTimes, e.target.value]);
-    }
-  }}
-  style={{ padding: '12px 16px', border: '2px solid rgba(0, 0, 0, 0.1)', borderRadius: '10px', fontSize: '14px' }}
-/>
-
-{/* Quick time buttons */}
-<div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', margin: '16px 0' }}>
-  {['09:00', '12:00', '15:00', '18:00', '21:00'].map(time => (
-    <button
-      key={time}
-      onClick={() => {
-        if (!autoPostConfig.postingTimes.includes(time)) {
-          setAutoPostConfig(prev => ({
-            ...prev,
-            postingTimes: [...prev.postingTimes, time].sort()
-          }));
-          showNotification(`Added ${time}`, 'success');
-        }
-      }}
-      style={{
-        padding: '8px 16px',
-        backgroundColor: autoPostConfig.postingTimes.includes(time) ? '#22c55e' : '#f3f4f6',
-        color: autoPostConfig.postingTimes.includes(time) ? 'white' : '#374151',
-        border: 'none',
-        borderRadius: '20px',
-        fontSize: '14px',
-        cursor: 'pointer'
-      }}
-    >
-      {time}
-    </button>
-  ))}
-</div>
-
-
-
-                    <button
-                      onClick={addTestTime}
-                      type="button"
-                      style={{
-                        padding: '10px 16px',
-                        backgroundColor: '#f59e0b',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '8px',
-                        fontSize: '14px',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      Add Test Time (+2min)
-                      <button
-  onClick={() => {
-    console.log('autoPostConfig.postingTimes:', autoPostConfig.postingTimes);
-    showNotification(`Times: ${autoPostConfig.postingTimes.join(', ') || 'None'}`, 'info');
-  }}
-  style={{
-    padding: '8px 12px',
-    backgroundColor: '#3b82f6',
-    color: 'white',
-    border: 'none',
-    borderRadius: '6px',
-    fontSize: '12px',
-    cursor: 'pointer',
-    marginLeft: '12px'
-  }}
->
-  Debug Times
-</button>
-                    </button>
-                  </div>
-
-
-
-                  {autoPostConfig.postingTimes.length > 0 && (
-                    <div>
-                      <h5 style={{ marginTop: '20px', marginBottom: '12px' }}>
-                        Scheduled Times ({autoPostConfig.postingTimes.length})
-                      </h5>
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                        {autoPostConfig.postingTimes.map(time => (
-                          <div 
-                            key={time} 
-                            style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '8px',
-                              padding: '6px 12px',
-                              background: 'white',
-                              border: '1px solid rgba(34, 197, 94, 0.3)',
-                              borderRadius: '16px',
-                              color: '#16a34a',
-                              fontSize: '14px',
-                              fontWeight: '500'
-                            }}
-                          >
-                            <span>{time}</span>
-                            <button 
-                              onClick={() => setAutoPostConfig(prev => ({
-                                ...prev,
-                                postingTimes: prev.postingTimes.filter(t => t !== time)
-                              }))}
-                              style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: '16px', cursor: 'pointer' }}
-                            >
-                              ×
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                <div>
-                  <h4 style={{ marginBottom: '16px' }}>Target Subreddits</h4>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '12px' }}>
-                    {(domainConfigs[userProfile.domain]?.subreddits || ['test']).map(sub => (
-                      <label 
-                        key={sub} 
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '8px',
-                          padding: '12px 16px',
-                          background: 'white',
-                          border: '2px solid #e5e7eb',
-                          borderRadius: '8px',
-                          cursor: 'pointer'
-                        }}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={autoPostConfig.subreddits.includes(sub)}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setAutoPostConfig(prev => ({ ...prev, subreddits: [...prev.subreddits, sub] }));
-                            } else {
-                              setAutoPostConfig(prev => ({ ...prev, subreddits: prev.subreddits.filter(s => s !== sub) }));
-                            }
-                          }}
-                        />
-                        <span>r/{sub}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Status Tab */}
-            {activeTab === 'status' && (
-              <div>
-                <h2 style={{ fontSize: '28px', fontWeight: '700', color: '#333', marginBottom: '32px' }}>System Status & Analytics</h2>
-                
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px', marginBottom: '30px' }}>
-                  <div style={{ background: 'white', borderRadius: '12px', padding: '20px', boxShadow: '0 4px 12px rgba(0, 0, 0, 0.05)' }}>
-                    <h3 style={{ marginTop: 0 }}>Reddit Connection</h3>
-                    <div style={{
-                      padding: '4px 12px',
-                      borderRadius: '20px',
-                      fontSize: '12px',
-                      fontWeight: 'bold',
-                      backgroundColor: redditConnected ? '#d4edda' : '#f8d7da',
-                      color: redditConnected ? '#155724' : '#721c24',
-                      display: 'inline-block'
-                    }}>
-                      {redditConnected ? 'Connected' : 'Disconnected'}
-                    </div>
-                    {redditUsername && (
-                      <p style={{ margin: '10px 0 0 0', color: '#666' }}>
-                        Connected as: u/{redditUsername}
-                      </p>
-                    )}
-                  </div>
-
-                  <div style={{ background: 'white', borderRadius: '12px', padding: '20px', boxShadow: '0 4px 12px rgba(0, 0, 0, 0.05)' }}>
-                    <h3 style={{ marginTop: 0 }}>Profile Status</h3>
-                    <div style={{
-                      padding: '4px 12px',
-                      borderRadius: '20px',
-                      fontSize: '12px',
-                      fontWeight: 'bold',
-                      backgroundColor: userProfile.isConfigured ? '#d4edda' : '#f8d7da',
-                      color: userProfile.isConfigured ? '#155724' : '#721c24',
-                      display: 'inline-block'
-                    }}>
-                      {userProfile.isConfigured ? 'Configured' : 'Not Configured'}
-                    </div>
-                    {userProfile.isConfigured && (
-                      <p style={{ margin: '10px 0 0 0', color: '#666' }}>
-                        Domain: {userProfile.domain}
-                      </p>
-                    )}
-                  </div>
-
-                  <div style={{ background: 'white', borderRadius: '12px', padding: '20px', boxShadow: '0 4px 12px rgba(0, 0, 0, 0.05)' }}>
-                    <h3 style={{ marginTop: 0 }}>Automation Status</h3>
-                    <div style={{
-                      padding: '4px 12px',
-                      borderRadius: '20px',
-                      fontSize: '12px',
-                      fontWeight: 'bold',
-                      backgroundColor: autoPostConfig.enabled ? '#d4edda' : '#f8d7da',
-                      color: autoPostConfig.enabled ? '#155724' : '#721c24',
-                      display: 'inline-block'
-                    }}>
-                      {autoPostConfig.enabled ? 'Active' : 'Inactive'}
-                    </div>
-                    {autoPostConfig.enabled && (
-                      <p style={{ margin: '10px 0 0 0', color: '#666' }}>
-                        {autoPostConfig.postsPerDay} posts/day, {autoPostConfig.postingTimes.length} time slots
-                      </p>
-                    )}
-                  </div>
-                </div>
-
-                <div style={{ 
-                  padding: '20px', 
-                  backgroundColor: '#f8f9fa', 
-                  borderRadius: '12px'
+            {questions.length > 0 && (
+              <div style={{
+                marginTop: '30px'
+              }}>
+                <h3 style={{
+                  color: '#FF4500',
+                  marginBottom: '20px',
+                  fontSize: '22px',
+                  fontWeight: '600'
                 }}>
-                  <h3 style={{ marginTop: 0 }}>Performance Metrics</h3>
-                  <div style={{ 
-                    display: 'grid', 
-                    gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', 
-                    gap: '20px',
-                    textAlign: 'center'
-                  }}>
-                    <div>
-                      <div style={{ fontSize: '32px', fontWeight: 'bold', marginBottom: '8px', color: '#22c55e' }}>
-                        {performanceData.postsToday}
-                      </div>
-                      <div style={{ fontSize: '14px', color: '#6b7280', fontWeight: '500' }}>Posts Today</div>
+                  Found {questions.length} Questions:
+                </h3>
+                <div style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '16px'
+                }}>
+                  {questions.map((question, index) => (
+                    <div key={index} style={{
+                      background: '#f8f9fa',
+                      padding: '20px',
+                      borderRadius: '12px',
+                      border: '2px solid #ddd'
+                    }}>
+                      <h4 style={{
+                        margin: '0 0 8px 0',
+                        color: '#FF4500',
+                        fontSize: '18px',
+                        fontWeight: '600'
+                      }}>
+                        {question.title || 'Question ' + (index + 1)}
+                      </h4>
+                      <p style={{
+                        margin: '0 0 12px 0',
+                        color: '#666',
+                        fontSize: '14px'
+                      }}>
+                        r/{question.subreddit || 'unknown'} • {question.score || 0} points
+                      </p>
+                      {question.url && (
+                        <a
+                          href={question.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{
+                            color: '#FF4500',
+                            textDecoration: 'none',
+                            fontWeight: '600',
+                            fontSize: '14px'
+                          }}
+                        >
+                          View on Reddit →
+                        </a>
+                      )}
                     </div>
-                    <div>
-                      <div style={{ fontSize: '32px', fontWeight: 'bold', marginBottom: '8px', color: '#3b82f6' }}>
-                        {performanceData.totalKarma}
-                      </div>
-                      <div style={{ fontSize: '14px', color: '#6b7280', fontWeight: '500' }}>Total Karma</div>
-                    </div>
-                    <div>
-                      <div style={{ fontSize: '32px', fontWeight: 'bold', marginBottom: '8px', color: '#f59e0b' }}>
-                        {performanceData.successRate}%
-                      </div>
-                      <div style={{ fontSize: '14px', color: '#6b7280', fontWeight: '500' }}>Success Rate</div>
-                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Analytics Tab */}
+        {activeTab === 'analytics' && (
+          <div style={{
+            background: 'rgba(255, 255, 255, 0.95)',
+            borderRadius: '20px',
+            padding: '40px',
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2)'
+          }}>
+            <h2 style={{
+              color: '#FF4500',
+              marginBottom: '30px',
+              fontSize: '28px',
+              fontWeight: '700'
+            }}>
+              Analytics & Performance
+            </h2>
+
+            {!redditConnected && (
+              <div style={{
+                background: '#f8d7da',
+                border: '1px solid #f5c6cb',
+                borderRadius: '12px',
+                padding: '20px',
+                marginBottom: '30px'
+              }}>
+                <p style={{ margin: 0, color: '#721c24', fontSize: '16px' }}>
+                  ❌ Connect Reddit to view analytics
+                </p>
+              </div>
+            )}
+
+            {redditConnected && (
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+                gap: '20px'
+              }}>
+                <div style={{
+                  background: 'linear-gradient(135deg, #FF4500, #FF8717)',
+                  borderRadius: '16px',
+                  padding: '24px',
+                  color: 'white',
+                  textAlign: 'center'
+                }}>
+                  <div style={{ fontSize: '48px', fontWeight: 'bold', marginBottom: '12px' }}>
+                    {performanceData.postsToday}
+                  </div>
+                  <div style={{ fontSize: '16px', opacity: 0.9 }}>
+                    Posts Today
+                  </div>
+                </div>
+
+                <div style={{
+                  background: 'linear-gradient(135deg, #FF8717, #FFA500)',
+                  borderRadius: '16px',
+                  padding: '24px',
+                  color: 'white',
+                  textAlign: 'center'
+                }}>
+                  <div style={{ fontSize: '48px', fontWeight: 'bold', marginBottom: '12px' }}>
+                    {performanceData.totalEngagement}
+                  </div>
+                  <div style={{ fontSize: '16px', opacity: 0.9 }}>
+                    Total Karma
+                  </div>
+                </div>
+
+                <div style={{
+                  background: 'linear-gradient(135deg, #667eea, #764ba2)',
+                  borderRadius: '16px',
+                  padding: '24px',
+                  color: 'white',
+                  textAlign: 'center'
+                }}>
+                  <div style={{ fontSize: '48px', fontWeight: 'bold', marginBottom: '12px' }}>
+                    {performanceData.successRate}%
+                  </div>
+                  <div style={{ fontSize: '16px', opacity: 0.9 }}>
+                    Success Rate
+                  </div>
+                </div>
+
+                <div style={{
+                  background: 'linear-gradient(135deg, #00C851, #00A047)',
+                  borderRadius: '16px',
+                  padding: '24px',
+                  color: 'white',
+                  textAlign: 'center'
+                }}>
+                  <div style={{ fontSize: '48px', fontWeight: 'bold', marginBottom: '12px' }}>
+                    {performanceData.questionsFound}
+                  </div>
+                  <div style={{ fontSize: '16px', opacity: 0.9 }}>
+                    Questions Found
                   </div>
                 </div>
               </div>
             )}
 
+            <div style={{
+              marginTop: '30px',
+              background: '#e8f5e8',
+              borderRadius: '12px',
+              padding: '24px'
+            }}>
+              <h3 style={{ color: '#FF4500', marginBottom: '16px' }}>
+                Tips for Better Engagement on Reddit
+              </h3>
+              <ul style={{ margin: 0, paddingLeft: '24px', color: '#333', lineHeight: '1.8' }}>
+                <li>Post in relevant subreddits with active communities</li>
+                <li>Use descriptive, engaging titles</li>
+                <li>Provide value - don't just self-promote</li>
+                <li>Engage authentically with commenters</li>
+                <li>Follow subreddit rules and reddiquette</li>
+                <li>Post during peak activity hours</li>
+              </ul>
+            </div>
           </div>
-        </div>
+        )}
       </div>
-
-      <style>{`
-        @keyframes spin {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
-        }
-      `}</style>
     </div>
   );
-}
+};
 
-export default function App() {
-  return (
-    <ErrorBoundary>
-      <RedditAutomation />
-    </ErrorBoundary>
-  );
-}
+
+
+export default Reddit;
