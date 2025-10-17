@@ -15,6 +15,7 @@ const FacebookAutomation = () => {
   const [activeTab, setActiveTab] = useState('setup');
   const [loading, setLoading] = useState(false);
   const [notifications, setNotifications] = useState([]);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   
   const [facebookConnected, setFacebookConnected] = useState(false);
   const [facebookUsername, setFacebookUsername] = useState('');
@@ -307,158 +308,170 @@ const FacebookAutomation = () => {
   };
 
   return (
-    <div style={{ fontFamily: "'Inter', 'SF Pro Display', system-ui, -apple-system, sans-serif", minHeight: '100vh', background: 'linear-gradient(135deg, #1877f2 0%, #0c63e4 100%)', display: 'flex', position: 'relative', overflow: 'hidden' }}>
+    <div className="fb-automation-container">
       
-      {/* Animated Background Particles */}
-      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, opacity: 0.15, pointerEvents: 'none' }}>
-        {[...Array(20)].map((_, i) => (
-          <div key={i} style={{ position: 'absolute', width: `${Math.random() * 100 + 50}px`, height: `${Math.random() * 100 + 50}px`, borderRadius: '50%', background: 'rgba(255, 255, 255, 0.1)', top: `${Math.random() * 100}%`, left: `${Math.random() * 100}%`, animation: `float ${Math.random() * 10 + 10}s ease-in-out infinite`, animationDelay: `${Math.random() * 5}s` }} />
-        ))}
-      </div>
+      {/* Mobile Menu Toggle */}
+      <button 
+        className="mobile-menu-btn"
+        onClick={() => setSidebarOpen(!sidebarOpen)}
+        aria-label="Toggle menu"
+      >
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
 
       {/* Notifications */}
-      <div style={{ position: 'fixed', top: '24px', right: '24px', zIndex: 10000, display: 'flex', flexDirection: 'column', gap: '12px', maxWidth: '420px' }}>
+      <div className="notifications-container">
         {notifications.map(notification => (
-          <div key={notification.id} style={{ padding: '18px 24px', borderRadius: '16px', backdropFilter: 'blur(20px)', color: 'white', fontWeight: '600', boxShadow: '0 12px 40px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.1)', background: notification.type === 'success' ? 'linear-gradient(135deg, #10b981, #059669)' : notification.type === 'error' ? 'linear-gradient(135deg, #ef4444, #dc2626)' : 'linear-gradient(135deg, #3b82f6, #2563eb)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px', fontSize: '15px', animation: 'slideInRight 0.4s ease-out', transform: 'translateX(0)' }}>
+          <div key={notification.id} className={`notification notification-${notification.type}`}>
             <span>{notification.message}</span>
-            <button onClick={() => setNotifications(prev => prev.filter(n => n.id !== notification.id))} style={{ background: 'rgba(255, 255, 255, 0.2)', border: 'none', color: 'white', fontSize: '20px', cursor: 'pointer', padding: '4px 8px', borderRadius: '8px', transition: 'all 0.2s', lineHeight: 1 }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.3)'} onMouseLeave={e => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.2)'}>×</button>
+            <button onClick={() => setNotifications(prev => prev.filter(n => n.id !== notification.id))} className="notification-close">×</button>
           </div>
         ))}
       </div>
 
       {/* Loading Overlay */}
       {loading && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0, 0, 0, 0.75)', backdropFilter: 'blur(12px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 9999, animation: 'fadeIn 0.3s ease-out' }}>
-          <div style={{ background: 'white', padding: '48px 60px', borderRadius: '24px', textAlign: 'center', boxShadow: '0 20px 60px rgba(0, 0, 0, 0.4)', animation: 'scaleIn 0.3s ease-out' }}>
-            <div style={{ position: 'relative', width: '64px', height: '64px', margin: '0 auto' }}>
-              <div style={{ border: '5px solid #f3f4f6', borderRadius: '50%', width: '64px', height: '64px', position: 'absolute' }}></div>
-              <div style={{ border: '5px solid #1877f2', borderTop: '5px solid transparent', borderRadius: '50%', width: '64px', height: '64px', animation: 'spin 1s linear infinite', position: 'absolute' }}></div>
+        <div className="loading-overlay">
+          <div className="loading-content">
+            <div className="spinner-container">
+              <div className="spinner-bg"></div>
+              <div className="spinner"></div>
             </div>
-            <p style={{ marginTop: '24px', color: '#1f2937', fontSize: '17px', fontWeight: '600', letterSpacing: '-0.01em' }}>Processing Facebook request...</p>
+            <p className="loading-text">Processing Facebook request...</p>
           </div>
         </div>
       )}
 
+      {/* Sidebar Overlay for Mobile */}
+      {sidebarOpen && <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)}></div>}
+
       {/* Sidebar */}
-      <div style={{ width: '340px', background: 'rgba(255, 255, 255, 0.98)', backdropFilter: 'blur(20px)', height: '100vh', position: 'fixed', display: 'flex', flexDirection: 'column', boxShadow: '6px 0 40px rgba(0, 0, 0, 0.12)', borderRight: '1px solid rgba(255, 255, 255, 0.3)', zIndex: 100 }}>
+      <div className={`sidebar ${sidebarOpen ? 'sidebar-open' : ''}`}>
         
-        <div style={{ padding: '40px 32px', borderBottom: '1px solid rgba(0, 0, 0, 0.08)', background: 'linear-gradient(135deg, #1877f2, #0c63e4)', position: 'relative', overflow: 'hidden' }}>
-          <div style={{ position: 'absolute', top: '-50%', right: '-20%', width: '200px', height: '200px', borderRadius: '50%', background: 'rgba(255, 255, 255, 0.1)', filter: 'blur(40px)' }}></div>
-          <div style={{ position: 'relative', zIndex: 1 }}>
-            <div style={{ fontSize: '48px', marginBottom: '16px', textAlign: 'center' }}>📘</div>
-            <h2 style={{ fontSize: '28px', fontWeight: '800', color: 'white', margin: 0, marginBottom: '8px', textAlign: 'center', letterSpacing: '-0.02em' }}>Facebook Studio</h2>
-            <div style={{ fontSize: '14px', color: 'rgba(255, 255, 255, 0.95)', fontWeight: '500', textAlign: 'center' }}>AI-Powered Social Media</div>
-            <div style={{ fontSize: '13px', color: 'rgba(255, 255, 255, 0.85)', marginTop: '8px', textAlign: 'center', background: 'rgba(255, 255, 255, 0.15)', padding: '6px 12px', borderRadius: '20px', display: 'inline-block', width: '100%' }}>👋 {user?.name}</div>
+        <div className="sidebar-header">
+          <div className="header-decoration"></div>
+          <div className="header-content">
+            <div className="header-icon">📘</div>
+            <h2 className="header-title">Facebook Studio</h2>
+            <div className="header-subtitle">AI-Powered Social Media</div>
+            <div className="header-user">👋 {user?.name}</div>
           </div>
         </div>
-        
-        <nav style={{ flex: 1, padding: '24px 20px', overflowY: 'auto' }}>
-          {[
-            { id: 'setup', icon: '⚙️', label: 'Profile Setup', desc: 'Configure AI settings', gradient: 'linear-gradient(135deg, #667eea, #764ba2)' },
-            { id: 'manual', icon: '✍️', label: 'Manual Post', desc: 'Create & post now', gradient: 'linear-gradient(135deg, #f093fb, #f5576c)' },
-            { id: 'schedule', icon: '📅', label: 'Auto Schedule', desc: 'Set posting times', gradient: 'linear-gradient(135deg, #4facfe, #00f2fe)' },
-            { id: 'status', icon: '📊', label: 'Analytics', desc: 'Performance metrics', gradient: 'linear-gradient(135deg, #43e97b, #38f9d7)' }
-          ].map(tab => (
-            <button key={tab.id} onClick={() => setActiveTab(tab.id)} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '16px', padding: '18px 20px', border: 'none', background: activeTab === tab.id ? tab.gradient : 'transparent', color: activeTab === tab.id ? 'white' : '#64748b', textAlign: 'left', borderRadius: '16px', cursor: 'pointer', marginBottom: '10px', fontSize: '15px', transform: activeTab === tab.id ? 'translateX(8px)' : 'translateX(0)', boxShadow: activeTab === tab.id ? '0 8px 24px rgba(24, 119, 242, 0.35)' : 'none', transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)', fontWeight: activeTab === tab.id ? '600' : '500' }} onMouseEnter={e => { if (activeTab !== tab.id) { e.currentTarget.style.background = 'rgba(24, 119, 242, 0.06)'; e.currentTarget.style.transform = 'translateX(4px)'; } }} onMouseLeave={e => { if (activeTab !== tab.id) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.transform = 'translateX(0)'; } }}>
-              <span style={{ fontSize: '24px', transition: 'transform 0.3s' }}>{tab.icon}</span>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: '600', fontSize: '15px', marginBottom: '2px' }}>{tab.label}</div>
-                <div style={{ fontSize: '12px', opacity: 0.85 }}>{tab.desc}</div>
-              </div>
-            </button>
-          ))}
-        </nav>
 
-        {/* Connection Status */}
-        <div style={{ padding: '24px 20px', borderTop: '1px solid rgba(0, 0, 0, 0.06)' }}>
-          <h3 style={{ fontSize: '14px', fontWeight: '700', color: '#64748b', marginBottom: '16px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Connection Status</h3>
-          <div style={{ padding: '20px', background: facebookConnected ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(5, 150, 105, 0.05))' : 'linear-gradient(135deg, rgba(239, 68, 68, 0.1), rgba(220, 38, 38, 0.05))', borderRadius: '16px', border: `2px solid ${facebookConnected ? 'rgba(16, 185, 129, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`, position: 'relative', overflow: 'hidden' }}>
+        {/* Connection Status - Positioned at Top */}
+        <div className="connection-section">
+          <h3 className="connection-title">CONNECTION STATUS</h3>
+          <div className={`connection-card ${facebookConnected ? 'connected' : 'disconnected'}`}>
             {facebookConnected ? (
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
-                  <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#10b981', boxShadow: '0 0 0 4px rgba(16, 185, 129, 0.2)', animation: 'pulse 2s ease-in-out infinite' }}></div>
-                  <span style={{ fontSize: '15px', fontWeight: '700', color: '#047857' }}>Connected</span>
+              <div className="connection-content">
+                <div className="status-badge status-connected">
+                  <div className="status-dot"></div>
+                  <span>Connected</span>
                 </div>
-                {facebookUsername && <div style={{ fontSize: '14px', color: '#065f46', marginBottom: '16px', fontWeight: '600', background: 'rgba(16, 185, 129, 0.15)', padding: '8px 12px', borderRadius: '10px', display: 'inline-block' }}>@{facebookUsername}</div>}
+                {facebookUsername && <div className="username-badge">@{facebookUsername}</div>}
                 {facebookPages && facebookPages.length > 0 && (
-                  <div style={{ marginBottom: '16px' }}>
-                    <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '8px', fontWeight: '600' }}>{facebookPages.length} Pages Connected:</div>
+                  <div className="pages-info">
+                    <div className="pages-count">{facebookPages.length} Pages Connected</div>
                     {facebookPages.slice(0, 2).map(page => (
-                      <div key={page.id} style={{ fontSize: '11px', color: '#4b5563', margin: '4px 0', background: 'rgba(59, 130, 246, 0.1)', padding: '4px 10px', borderRadius: '12px', display: 'inline-block', marginRight: '6px', fontWeight: '500' }}>📄 {page.name}</div>
+                      <div key={page.id} className="page-badge">📄 {page.name}</div>
                     ))}
-                    {facebookPages.length > 2 && <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '4px' }}>+{facebookPages.length - 2} more</div>}
+                    {facebookPages.length > 2 && <div className="pages-more">+{facebookPages.length - 2} more</div>}
                   </div>
                 )}
-                <button onClick={testConnection} disabled={loading} style={{ width: '100%', padding: '12px', fontSize: '14px', fontWeight: '700', background: loading ? '#d1d5db' : 'linear-gradient(135deg, #10b981, #059669)', color: 'white', border: 'none', borderRadius: '12px', cursor: loading ? 'not-allowed' : 'pointer', transition: 'all 0.3s', boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)' }} onMouseEnter={e => !loading && (e.currentTarget.style.transform = 'translateY(-2px)')} onMouseLeave={e => !loading && (e.currentTarget.style.transform = 'translateY(0)')}>
+                <button onClick={testConnection} disabled={loading} className="connection-btn test-btn">
                   {loading ? 'Testing...' : '✓ Test Connection'}
                 </button>
               </div>
             ) : (
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
-                  <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#ef4444', animation: 'pulse 2s ease-in-out infinite' }}></div>
-                  <span style={{ fontSize: '15px', fontWeight: '700', color: '#dc2626' }}>Not Connected</span>
+              <div className="connection-content">
+                <div className="status-badge status-disconnected">
+                  <div className="status-dot"></div>
+                  <span>Not Connected</span>
                 </div>
-                <p style={{ fontSize: '13px', color: '#7f1d1d', marginBottom: '16px', lineHeight: 1.5 }}>Connect your Facebook account to start automating your social media presence</p>
-                <button onClick={handleConnect} disabled={loading} style={{ width: '100%', padding: '12px', fontSize: '14px', fontWeight: '700', background: loading ? '#d1d5db' : 'linear-gradient(135deg, #1877f2, #0c63e4)', color: 'white', border: 'none', borderRadius: '12px', cursor: loading ? 'not-allowed' : 'pointer', transition: 'all 0.3s', boxShadow: '0 4px 12px rgba(24, 119, 242, 0.3)' }} onMouseEnter={e => !loading && (e.currentTarget.style.transform = 'translateY(-2px)')} onMouseLeave={e => !loading && (e.currentTarget.style.transform = 'translateY(0)')}>
+                <p className="connection-message">Connect your Facebook account to start automating your social media presence</p>
+                <button onClick={handleConnect} disabled={loading} className="connection-btn connect-btn">
                   {loading ? 'Connecting...' : '📘 Connect Facebook'}
                 </button>
               </div>
             )}
           </div>
         </div>
+        
+        {/* Navigation */}
+        <nav className="sidebar-nav">
+          {[
+            { id: 'setup', icon: '⚙️', label: 'Profile Setup', desc: 'Configure AI settings' },
+            { id: 'manual', icon: '✍️', label: 'Manual Post', desc: 'Create & post now' },
+            { id: 'schedule', icon: '📅', label: 'Auto Schedule', desc: 'Set posting times' },
+            { id: 'status', icon: '📊', label: 'Analytics', desc: 'Performance metrics' }
+          ].map(tab => (
+            <button 
+              key={tab.id} 
+              onClick={() => { 
+                setActiveTab(tab.id); 
+                if (window.innerWidth < 768) setSidebarOpen(false); 
+              }} 
+              className={`nav-btn ${activeTab === tab.id ? 'nav-btn-active' : ''}`}
+            >
+              <span className="nav-icon">{tab.icon}</span>
+              <div className="nav-content">
+                <div className="nav-label">{tab.label}</div>
+                <div className="nav-desc">{tab.desc}</div>
+              </div>
+            </button>
+          ))}
+        </nav>
       </div>
 
       {/* Main Content */}
-      <div style={{ flex: 1, marginLeft: '340px', minHeight: '100vh', position: 'relative', zIndex: 1 }}>
+      <div className="main-content">
         
-        <header style={{ padding: '40px 48px', background: 'rgba(255, 255, 255, 0.98)', backdropFilter: 'blur(20px)', borderBottom: '1px solid rgba(0, 0, 0, 0.08)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, zIndex: 50, boxShadow: '0 4px 16px rgba(0, 0, 0, 0.04)' }}>
-          <div>
-            <h1 style={{ fontSize: '36px', fontWeight: '800', background: 'linear-gradient(135deg, #1877f2, #0c63e4)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', marginBottom: '8px', letterSpacing: '-0.02em' }}>Facebook Automation</h1>
-            <p style={{ fontSize: '17px', color: '#64748b', margin: 0, fontWeight: '500' }}>AI-powered content creation and scheduling for Facebook</p>
+        <header className="main-header">
+          <div className="header-text">
+            <h1 className="main-title">Facebook Automation</h1>
+            <p className="main-subtitle">AI-powered content creation and scheduling for Facebook</p>
           </div>
           
-          <div style={{ display: 'flex', gap: '16px' }}>
-            {userProfile.isConfigured && (
-              <button onClick={startAutomation} disabled={loading || !facebookConnected} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px 32px', border: 'none', borderRadius: '14px', fontSize: '16px', fontWeight: '700', cursor: loading || !facebookConnected ? 'not-allowed' : 'pointer', background: loading || !facebookConnected ? 'linear-gradient(135deg, #cbd5e1, #94a3b8)' : 'linear-gradient(135deg, #1877f2, #0c63e4)', color: 'white', boxShadow: '0 8px 24px rgba(24, 119, 242, 0.35)', transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)' }} onMouseEnter={e => { if (!loading && facebookConnected) e.currentTarget.style.transform = 'translateY(-2px)'; }} onMouseLeave={e => { if (!loading && facebookConnected) e.currentTarget.style.transform = 'translateY(0)'; }}>
-                <span style={{ fontSize: '20px' }}>🚀</span>
-                <span>Start Automation</span>
-              </button>
-            )}
-          </div>
+          {userProfile.isConfigured && (
+            <button 
+              onClick={startAutomation} 
+              disabled={loading || !facebookConnected} 
+              className="start-automation-btn"
+            >
+              <span className="btn-icon">🚀</span>
+              <span className="btn-text">Start Automation</span>
+            </button>
+          )}
         </header>
 
         {/* Tab Content */}
-        <div style={{ padding: '48px' }}>
-          <div style={{ background: 'white', borderRadius: '28px', padding: '48px', boxShadow: '0 20px 60px rgba(0, 0, 0, 0.08), 0 0 1px rgba(0, 0, 0, 0.05)', maxWidth: '1400px', margin: '0 auto', position: 'relative', overflow: 'hidden' }}>
-            
-            <div style={{ position: 'absolute', top: '-100px', right: '-100px', width: '300px', height: '300px', borderRadius: '50%', background: 'linear-gradient(135deg, rgba(24, 119, 242, 0.05), rgba(12, 99, 228, 0.05))', filter: 'blur(60px)', pointerEvents: 'none' }}></div>
+        <div className="tab-container">
+          <div className="tab-content">
             
             {/* Setup Tab */}
             {activeTab === 'setup' && (
-              <div style={{ position: 'relative', zIndex: 1 }}>
-                <div style={{ textAlign: 'center', marginBottom: '48px' }}>
-                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: '12px', background: 'linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1))', padding: '12px 24px', borderRadius: '20px', marginBottom: '16px' }}>
-                    <span style={{ fontSize: '24px' }}>⚙️</span>
-                    <span style={{ fontSize: '14px', fontWeight: '700', color: '#667eea', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Configuration</span>
-                  </div>
-                  <h2 style={{ fontSize: '40px', fontWeight: '800', color: '#1f2937', marginBottom: '16px', letterSpacing: '-0.02em' }}>AI Profile Configuration</h2>
-                  <p style={{ fontSize: '17px', color: '#64748b', maxWidth: '600px', margin: '0 auto' }}>Configure your business profile to generate authentic, engaging Facebook content</p>
+              <div className="tab-pane">
+                <div className="section-header">
+                  <div className="section-badge">⚙️ Configuration</div>
+                  <h2 className="section-title">AI Profile Configuration</h2>
+                  <p className="section-desc">Configure your business profile to generate authentic, engaging Facebook content</p>
                 </div>
                 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '28px', marginBottom: '28px' }}>
-                  <div>
-                    <label style={{ display: 'block', fontSize: '15px', fontWeight: '700', color: '#374151', marginBottom: '12px', letterSpacing: '-0.01em' }}>Business Domain</label>
-                    <select value={userProfile.domain} onChange={(e) => { const domain = e.target.value; const config = DOMAIN_CONFIGS[domain]; setUserProfile(prev => ({ ...prev, domain, businessType: config?.sampleBusiness || prev.businessType })); }} style={{ width: '100%', padding: '16px 20px', border: '2px solid #e5e7eb', borderRadius: '14px', fontSize: '16px', background: 'white', fontWeight: '500', cursor: 'pointer', transition: 'all 0.3s', outline: 'none' }} onFocus={e => e.target.style.borderColor = '#1877f2'} onBlur={e => e.target.style.borderColor = '#e5e7eb'}>
+                <div className="form-grid">
+                  <div className="form-group">
+                    <label className="form-label">Business Domain</label>
+                    <select value={userProfile.domain} onChange={(e) => { const domain = e.target.value; const config = DOMAIN_CONFIGS[domain]; setUserProfile(prev => ({ ...prev, domain, businessType: config?.sampleBusiness || prev.businessType })); }} className="form-select">
                       {Object.entries(DOMAIN_CONFIGS).map(([key, config]) => (
                         <option key={key} value={key}>{config.icon} {config.description}</option>
                       ))}
                     </select>
                   </div>
 
-                  <div>
-                    <label style={{ display: 'block', fontSize: '15px', fontWeight: '700', color: '#374151', marginBottom: '12px', letterSpacing: '-0.01em' }}>Content Style</label>
-                    <select value={userProfile.contentStyle} onChange={(e) => setUserProfile(prev => ({ ...prev, contentStyle: e.target.value }))} style={{ width: '100%', padding: '16px 20px', border: '2px solid #e5e7eb', borderRadius: '14px', fontSize: '16px', background: 'white', fontWeight: '500', cursor: 'pointer', transition: 'all 0.3s', outline: 'none' }} onFocus={e => e.target.style.borderColor = '#1877f2'} onBlur={e => e.target.style.borderColor = '#e5e7eb'}>
+                  <div className="form-group">
+                    <label className="form-label">Content Style</label>
+                    <select value={userProfile.contentStyle} onChange={(e) => setUserProfile(prev => ({ ...prev, contentStyle: e.target.value }))} className="form-select">
                       {Object.entries(CONTENT_STYLES).map(([key, style]) => (
                         <option key={key} value={key}>{style}</option>
                       ))}
@@ -466,39 +479,39 @@ const FacebookAutomation = () => {
                   </div>
                 </div>
 
-                <div style={{ marginBottom: '28px' }}>
-                  <label style={{ display: 'block', fontSize: '15px', fontWeight: '700', color: '#374151', marginBottom: '12px', letterSpacing: '-0.01em' }}>Business Type</label>
-                  <input type="text" value={userProfile.businessType} onChange={(e) => setUserProfile(prev => ({ ...prev, businessType: e.target.value }))} placeholder={DOMAIN_CONFIGS[userProfile.domain]?.sampleBusiness} style={{ width: '100%', padding: '16px 20px', border: '2px solid #e5e7eb', borderRadius: '14px', fontSize: '16px', background: 'white', fontWeight: '500', transition: 'all 0.3s', outline: 'none' }} onFocus={e => e.target.style.borderColor = '#1877f2'} onBlur={e => e.target.style.borderColor = '#e5e7eb'} />
+                <div className="form-group">
+                  <label className="form-label">Business Type</label>
+                  <input type="text" value={userProfile.businessType} onChange={(e) => setUserProfile(prev => ({ ...prev, businessType: e.target.value }))} placeholder={DOMAIN_CONFIGS[userProfile.domain]?.sampleBusiness} className="form-input" />
                 </div>
 
-                <div style={{ marginBottom: '28px' }}>
-                  <label style={{ display: 'block', fontSize: '15px', fontWeight: '700', color: '#374151', marginBottom: '12px', letterSpacing: '-0.01em' }}>Business Description</label>
-                  <textarea value={userProfile.businessDescription} onChange={(e) => setUserProfile(prev => ({ ...prev, businessDescription: e.target.value }))} placeholder="Describe your business, services, and unique value proposition..." rows="4" style={{ width: '100%', padding: '16px 20px', border: '2px solid #e5e7eb', borderRadius: '14px', fontSize: '16px', background: 'white', resize: 'vertical', fontWeight: '500', lineHeight: 1.6, transition: 'all 0.3s', outline: 'none' }} onFocus={e => e.target.style.borderColor = '#1877f2'} onBlur={e => e.target.style.borderColor = '#e5e7eb'} />
+                <div className="form-group">
+                  <label className="form-label">Business Description</label>
+                  <textarea value={userProfile.businessDescription} onChange={(e) => setUserProfile(prev => ({ ...prev, businessDescription: e.target.value }))} placeholder="Describe your business, services, and unique value proposition..." rows="4" className="form-textarea" />
                 </div>
 
-                <div style={{ marginBottom: '40px' }}>
-                  <label style={{ display: 'block', fontSize: '15px', fontWeight: '700', color: '#374151', marginBottom: '12px', letterSpacing: '-0.01em' }}>Target Audience</label>
-                  <select value={userProfile.targetAudience} onChange={(e) => setUserProfile(prev => ({ ...prev, targetAudience: e.target.value }))} style={{ width: '100%', padding: '16px 20px', border: '2px solid #e5e7eb', borderRadius: '14px', fontSize: '16px', background: 'white', fontWeight: '500', cursor: 'pointer', transition: 'all 0.3s', outline: 'none' }} onFocus={e => e.target.style.borderColor = '#1877f2'} onBlur={e => e.target.style.borderColor = '#e5e7eb'}>
+                <div className="form-group">
+                  <label className="form-label">Target Audience</label>
+                  <select value={userProfile.targetAudience} onChange={(e) => setUserProfile(prev => ({ ...prev, targetAudience: e.target.value }))} className="form-select">
                     {Object.entries(TARGET_AUDIENCES).map(([key, option]) => (
                       <option key={key} value={key}>{option.icon} {option.label}</option>
                     ))}
                   </select>
                 </div>
 
-                <div style={{ textAlign: 'center' }}>
-                  <button onClick={saveUserProfile} disabled={!userProfile.businessType} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '12px', padding: '20px 48px', border: 'none', borderRadius: '16px', fontSize: '18px', fontWeight: '700', cursor: userProfile.businessType ? 'pointer' : 'not-allowed', background: userProfile.businessType ? 'linear-gradient(135deg, #1877f2, #0c63e4)' : 'linear-gradient(135deg, #cbd5e1, #94a3b8)', color: 'white', boxShadow: userProfile.businessType ? '0 8px 24px rgba(24, 119, 242, 0.35)' : 'none', transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)' }} onMouseEnter={e => userProfile.businessType && (e.currentTarget.style.transform = 'translateY(-2px)')} onMouseLeave={e => userProfile.businessType && (e.currentTarget.style.transform = 'translateY(0)')}>
-                    <span style={{ fontSize: '20px' }}>✅</span>
-                    <span>Save Configuration</span>
+                <div className="form-actions">
+                  <button onClick={saveUserProfile} disabled={!userProfile.businessType} className="primary-btn">
+                    <span className="btn-icon">✅</span>
+                    <span className="btn-text">Save Configuration</span>
                   </button>
                 </div>
 
                 {userProfile.isConfigured && (
-                  <div style={{ marginTop: '32px', padding: '24px', background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(5, 150, 105, 0.05))', borderRadius: '20px', border: '2px solid rgba(16, 185, 129, 0.3)', animation: 'fadeInUp 0.5s ease-out' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
-                      <span style={{ fontSize: '28px' }}>✓</span>
-                      <span style={{ color: '#065f46', fontWeight: '700', fontSize: '20px' }}>Profile Configured Successfully!</span>
+                  <div className="success-message">
+                    <div className="success-icon">✓</div>
+                    <div className="success-content">
+                      <div className="success-title">Profile Configured Successfully!</div>
+                      <div className="success-text">AI is ready for human-like content generation on Facebook.</div>
                     </div>
-                    <div style={{ color: '#059669', fontSize: '16px', marginLeft: '40px' }}>AI is ready for human-like content generation on Facebook.</div>
                   </div>
                 )}
               </div>
@@ -506,38 +519,35 @@ const FacebookAutomation = () => {
 
             {/* Manual Post Tab */}
             {activeTab === 'manual' && (
-              <div style={{ position: 'relative', zIndex: 1 }}>
-                <div style={{ textAlign: 'center', marginBottom: '48px' }}>
-                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: '12px', background: 'linear-gradient(135deg, rgba(245, 87, 108, 0.1), rgba(240, 147, 251, 0.1))', padding: '12px 24px', borderRadius: '20px', marginBottom: '16px' }}>
-                    <span style={{ fontSize: '24px' }}>✍️</span>
-                    <span style={{ fontSize: '14px', fontWeight: '700', color: '#f5576c', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Content Creation</span>
-                  </div>
-                  <h2 style={{ fontSize: '40px', fontWeight: '800', color: '#1f2937', marginBottom: '16px', letterSpacing: '-0.02em' }}>Create & Post with AI</h2>
-                  <p style={{ fontSize: '17px', color: '#64748b', maxWidth: '600px', margin: '0 auto' }}>Generate human-like content with AI and publish directly to Facebook</p>
+              <div className="tab-pane">
+                <div className="section-header">
+                  <div className="section-badge">✍️ Content Creation</div>
+                  <h2 className="section-title">Create & Post with AI</h2>
+                  <p className="section-desc">Generate human-like content with AI and publish directly to Facebook</p>
                 </div>
                 
-                <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '32px' }}>
-                  <button onClick={generateContent} disabled={manualPost.isGenerating || !userProfile.isConfigured} style={{ padding: '18px 36px', border: 'none', borderRadius: '16px', fontSize: '17px', fontWeight: '700', cursor: (manualPost.isGenerating || !userProfile.isConfigured) ? 'not-allowed' : 'pointer', background: (manualPost.isGenerating || !userProfile.isConfigured) ? 'linear-gradient(135deg, #cbd5e1, #94a3b8)' : 'linear-gradient(135deg, #667eea, #764ba2)', color: 'white', boxShadow: (manualPost.isGenerating || !userProfile.isConfigured) ? 'none' : '0 8px 24px rgba(102, 126, 234, 0.35)', transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)', display: 'flex', alignItems: 'center', gap: '12px' }} onMouseEnter={e => { if (!manualPost.isGenerating && userProfile.isConfigured) e.currentTarget.style.transform = 'translateY(-2px)'; }} onMouseLeave={e => { if (!manualPost.isGenerating && userProfile.isConfigured) e.currentTarget.style.transform = 'translateY(0)'; }}>
-                    <span style={{ fontSize: '22px' }}>🤖</span>
-                    <span>{manualPost.isGenerating ? 'Generating...' : 'Generate AI Content'}</span>
+                <div className="generate-section">
+                  <button onClick={generateContent} disabled={manualPost.isGenerating || !userProfile.isConfigured} className="generate-btn">
+                    <span className="btn-icon">🤖</span>
+                    <span className="btn-text">{manualPost.isGenerating ? 'Generating...' : 'Generate AI Content'}</span>
                   </button>
                 </div>
 
-                <form onSubmit={handleManualPost}>
-                  <div style={{ marginBottom: '28px' }}>
-                    <label style={{ display: 'block', fontSize: '15px', fontWeight: '700', color: '#374151', marginBottom: '12px', letterSpacing: '-0.01em' }}>Post Title</label>
-                    <input type="text" value={manualPost.title} onChange={(e) => setManualPost(prev => ({ ...prev, title: e.target.value }))} placeholder="Enter your post title..." required style={{ width: '100%', padding: '16px 20px', border: '2px solid #e5e7eb', borderRadius: '14px', fontSize: '16px', background: 'white', fontWeight: '500', transition: 'all 0.3s', outline: 'none' }} onFocus={e => e.target.style.borderColor = '#1877f2'} onBlur={e => e.target.style.borderColor = '#e5e7eb'} />
+                <form onSubmit={handleManualPost} className="post-form">
+                  <div className="form-group">
+                    <label className="form-label">Post Title</label>
+                    <input type="text" value={manualPost.title} onChange={(e) => setManualPost(prev => ({ ...prev, title: e.target.value }))} placeholder="Enter your post title..." required className="form-input" />
                   </div>
 
-                  <div style={{ marginBottom: '28px' }}>
-                    <label style={{ display: 'block', fontSize: '15px', fontWeight: '700', color: '#374151', marginBottom: '12px', letterSpacing: '-0.01em' }}>Post Content</label>
-                    <textarea value={manualPost.content} onChange={(e) => setManualPost(prev => ({ ...prev, content: e.target.value }))} placeholder="Enter your post content or generate with AI..." rows="10" required style={{ width: '100%', padding: '16px 20px', border: '2px solid #e5e7eb', borderRadius: '14px', fontSize: '16px', background: 'white', resize: 'vertical', fontWeight: '500', lineHeight: 1.6, transition: 'all 0.3s', outline: 'none' }} onFocus={e => e.target.style.borderColor = '#1877f2'} onBlur={e => e.target.style.borderColor = '#e5e7eb'} />
+                  <div className="form-group">
+                    <label className="form-label">Post Content</label>
+                    <textarea value={manualPost.content} onChange={(e) => setManualPost(prev => ({ ...prev, content: e.target.value }))} placeholder="Enter your post content or generate with AI..." rows="10" required className="form-textarea" />
                   </div>
 
                   {facebookPages.length > 0 && (
-                    <div style={{ marginBottom: '28px' }}>
-                      <label style={{ display: 'block', fontSize: '15px', fontWeight: '700', color: '#374151', marginBottom: '12px', letterSpacing: '-0.01em' }}>Facebook Page (Optional)</label>
-                      <select value={manualPost.pageId} onChange={(e) => setManualPost(prev => ({ ...prev, pageId: e.target.value }))} style={{ width: '100%', padding: '16px 20px', border: '2px solid #e5e7eb', borderRadius: '14px', fontSize: '16px', background: 'white', fontWeight: '500', cursor: 'pointer', transition: 'all 0.3s', outline: 'none' }} onFocus={e => e.target.style.borderColor = '#1877f2'} onBlur={e => e.target.style.borderColor = '#e5e7eb'}>
+                    <div className="form-group">
+                      <label className="form-label">Facebook Page (Optional)</label>
+                      <select value={manualPost.pageId} onChange={(e) => setManualPost(prev => ({ ...prev, pageId: e.target.value }))} className="form-select">
                         <option value="">Select a page</option>
                         {facebookPages.map(page => (
                           <option key={page.id} value={page.id}>{page.name}</option>
@@ -546,15 +556,15 @@ const FacebookAutomation = () => {
                     </div>
                   )}
 
-                  <div style={{ marginBottom: '40px' }}>
-                    <label style={{ display: 'block', fontSize: '15px', fontWeight: '700', color: '#374151', marginBottom: '12px', letterSpacing: '-0.01em' }}>Image URL (Optional)</label>
-                    <input type="url" value={manualPost.imageUrl} onChange={(e) => setManualPost(prev => ({ ...prev, imageUrl: e.target.value }))} placeholder="https://example.com/image.jpg" style={{ width: '100%', padding: '16px 20px', border: '2px solid #e5e7eb', borderRadius: '14px', fontSize: '16px', background: 'white', fontWeight: '500', transition: 'all 0.3s', outline: 'none' }} onFocus={e => e.target.style.borderColor = '#1877f2'} onBlur={e => e.target.style.borderColor = '#e5e7eb'} />
+                  <div className="form-group">
+                    <label className="form-label">Image URL (Optional)</label>
+                    <input type="url" value={manualPost.imageUrl} onChange={(e) => setManualPost(prev => ({ ...prev, imageUrl: e.target.value }))} placeholder="https://example.com/image.jpg" className="form-input" />
                   </div>
 
-                  <div style={{ textAlign: 'center' }}>
-                    <button type="submit" disabled={loading || !facebookConnected || !manualPost.title || !manualPost.content} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '12px', padding: '20px 48px', border: 'none', borderRadius: '16px', fontSize: '18px', fontWeight: '700', cursor: (loading || !facebookConnected || !manualPost.title || !manualPost.content) ? 'not-allowed' : 'pointer', background: (loading || !facebookConnected || !manualPost.title || !manualPost.content) ? 'linear-gradient(135deg, #cbd5e1, #94a3b8)' : 'linear-gradient(135deg, #10b981, #059669)', color: 'white', boxShadow: (loading || !facebookConnected || !manualPost.title || !manualPost.content) ? 'none' : '0 8px 24px rgba(16, 185, 129, 0.35)', transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)' }} onMouseEnter={e => { if (!loading && facebookConnected && manualPost.title && manualPost.content) e.currentTarget.style.transform = 'translateY(-2px)'; }} onMouseLeave={e => { if (!loading && facebookConnected && manualPost.title && manualPost.content) e.currentTarget.style.transform = 'translateY(0)'; }}>
-                      <span style={{ fontSize: '22px' }}>🚀</span>
-                      <span>{loading ? 'Posting...' : 'Post to Facebook'}</span>
+                  <div className="form-actions">
+                    <button type="submit" disabled={loading || !facebookConnected || !manualPost.title || !manualPost.content} className="submit-btn">
+                      <span className="btn-icon">🚀</span>
+                      <span className="btn-text">{loading ? 'Posting...' : 'Post to Facebook'}</span>
                     </button>
                   </div>
                 </form>
@@ -563,58 +573,55 @@ const FacebookAutomation = () => {
 
             {/* Schedule Tab */}
             {activeTab === 'schedule' && (
-              <div style={{ position: 'relative', zIndex: 1 }}>
-                <div style={{ textAlign: 'center', marginBottom: '48px' }}>
-                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: '12px', background: 'linear-gradient(135deg, rgba(79, 172, 254, 0.1), rgba(0, 242, 254, 0.1))', padding: '12px 24px', borderRadius: '20px', marginBottom: '16px' }}>
-                    <span style={{ fontSize: '24px' }}>📅</span>
-                    <span style={{ fontSize: '14px', fontWeight: '700', color: '#4facfe', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Automation</span>
-                  </div>
-                  <h2 style={{ fontSize: '40px', fontWeight: '800', color: '#1f2937', marginBottom: '16px', letterSpacing: '-0.02em' }}>Auto-Post Schedule</h2>
-                  <p style={{ fontSize: '17px', color: '#64748b', maxWidth: '600px', margin: '0 auto' }}>Configure automated posting times for your Facebook content</p>
+              <div className="tab-pane">
+                <div className="section-header">
+                  <div className="section-badge">📅 Automation</div>
+                  <h2 className="section-title">Auto-Post Schedule</h2>
+                  <p className="section-desc">Configure automated posting times for your Facebook content</p>
                 </div>
                 
-                <div style={{ maxWidth: '700px', margin: '0 auto' }}>
-                  <div style={{ padding: '40px', background: 'linear-gradient(135deg, rgba(24, 119, 242, 0.05), rgba(12, 99, 228, 0.05))', borderRadius: '24px', border: '2px solid rgba(24, 119, 242, 0.2)' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '32px' }}>
-                      <div style={{ width: '56px', height: '56px', borderRadius: '16px', background: 'linear-gradient(135deg, #1877f2, #0c63e4)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '28px' }}>📘</div>
-                      <h3 style={{ margin: 0, color: '#1f2937', fontSize: '24px', fontWeight: '700' }}>Facebook Schedule</h3>
+                <div className="schedule-container">
+                  <div className="schedule-card">
+                    <div className="schedule-header">
+                      <div className="schedule-icon">📘</div>
+                      <h3 className="schedule-title">Facebook Schedule</h3>
                     </div>
                     
-                    <div style={{ marginBottom: '28px' }}>
-                      <label style={{ display: 'block', fontSize: '15px', fontWeight: '700', marginBottom: '12px', color: '#374151' }}>Posts Per Day</label>
-                      <input type="number" min="1" max="5" value={autoPostConfig.postsPerDay} onChange={(e) => setAutoPostConfig(prev => ({ ...prev, postsPerDay: parseInt(e.target.value) || 1 }))} style={{ padding: '14px 18px', border: '2px solid #e5e7eb', borderRadius: '12px', width: '120px', fontSize: '18px', fontWeight: '700', background: 'white', transition: 'all 0.3s', outline: 'none' }} onFocus={e => e.target.style.borderColor = '#1877f2'} onBlur={e => e.target.style.borderColor = '#e5e7eb'} />
-                      <div style={{ fontSize: '13px', color: '#6b7280', marginTop: '8px', fontWeight: '500' }}>Recommended: 2-3 posts per day for optimal engagement</div>
+                    <div className="form-group">
+                      <label className="form-label">Posts Per Day</label>
+                      <input type="number" min="1" max="5" value={autoPostConfig.postsPerDay} onChange={(e) => setAutoPostConfig(prev => ({ ...prev, postsPerDay: parseInt(e.target.value) || 1 }))} className="form-input-number" />
+                      <div className="form-hint">Recommended: 2-3 posts per day for optimal engagement</div>
                     </div>
 
-                    <div style={{ marginBottom: '28px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                        <label style={{ fontSize: '15px', fontWeight: '700', color: '#374151' }}>Posting Times</label>
-                        <button type="button" onClick={addTime} style={{ padding: '10px 20px', fontSize: '13px', background: 'linear-gradient(135deg, #1877f2, #0c63e4)', color: 'white', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: '700', transition: 'all 0.3s', boxShadow: '0 4px 12px rgba(24, 119, 242, 0.3)' }} onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'} onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}>+ Add Test Time</button>
+                    <div className="form-group">
+                      <div className="times-header">
+                        <label className="form-label">Posting Times</label>
+                        <button type="button" onClick={addTime} className="add-time-btn">+ Add Test Time</button>
                       </div>
                       
-                      <input type="time" onChange={(e) => { if (e.target.value && !autoPostConfig.postingTimes.includes(e.target.value)) { setAutoPostConfig(prev => ({ ...prev, postingTimes: [...prev.postingTimes, e.target.value].sort() })); e.target.value = ''; } }} style={{ padding: '14px 16px', border: '2px solid #e5e7eb', borderRadius: '12px', fontSize: '16px', marginBottom: '16px', width: '100%', background: 'white', fontWeight: '500', transition: 'all 0.3s', outline: 'none' }} onFocus={e => e.target.style.borderColor = '#1877f2'} onBlur={e => e.target.style.borderColor = '#e5e7eb'} />
+                      <input type="time" onChange={(e) => { if (e.target.value && !autoPostConfig.postingTimes.includes(e.target.value)) { setAutoPostConfig(prev => ({ ...prev, postingTimes: [...prev.postingTimes, e.target.value].sort() })); e.target.value = ''; } }} className="form-input" />
 
                       {autoPostConfig.postingTimes.length > 0 && (
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+                        <div className="times-list">
                           {autoPostConfig.postingTimes.map(time => (
-                            <span key={time} style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '10px 16px', background: 'white', border: '2px solid rgba(24, 119, 242, 0.3)', borderRadius: '12px', color: '#1877f2', fontSize: '15px', fontWeight: '700', transition: 'all 0.3s' }}>
+                            <span key={time} className="time-badge">
                               🕒 {time}
-                              <button onClick={() => removeTime(time)} style={{ background: 'rgba(239, 68, 68, 0.1)', border: 'none', color: '#ef4444', fontSize: '18px', cursor: 'pointer', padding: '4px 8px', lineHeight: 1, borderRadius: '8px', transition: 'all 0.2s', fontWeight: '700' }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.2)'} onMouseLeave={e => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)'}>×</button>
+                              <button onClick={() => removeTime(time)} className="time-remove">×</button>
                             </span>
                           ))}
                         </div>
                       )}
                     </div>
 
-                    <div style={{ padding: '20px', background: 'white', borderRadius: '16px', marginTop: '28px', border: '2px solid rgba(24, 119, 242, 0.15)' }}>
-                      <h4 style={{ margin: '0 0 12px 0', color: '#1f2937', fontSize: '17px', fontWeight: '700' }}>Automation Status</h4>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: autoPostConfig.enabled ? '#10b981' : '#ef4444', animation: 'pulse 2s ease-in-out infinite' }}></div>
-                        <span style={{ fontSize: '16px', color: '#374151', fontWeight: '600' }}>
+                    <div className="status-card">
+                      <h4 className="status-title">Automation Status</h4>
+                      <div className="status-info">
+                        <div className={`status-indicator ${autoPostConfig.enabled ? 'active' : 'inactive'}`}></div>
+                        <span className="status-text">
                           {autoPostConfig.enabled ? (
-                            <span style={{ color: '#059669' }}>✓ Active - {autoPostConfig.postsPerDay} posts/day</span>
+                            <span>✓ Active - {autoPostConfig.postsPerDay} posts/day</span>
                           ) : (
-                            <span style={{ color: '#dc2626' }}>○ Inactive - Configure and start automation</span>
+                            <span>○ Inactive - Configure and start automation</span>
                           )}
                         </span>
                       </div>
@@ -626,74 +633,71 @@ const FacebookAutomation = () => {
 
             {/* Status Tab */}
             {activeTab === 'status' && (
-              <div style={{ position: 'relative', zIndex: 1 }}>
-                <div style={{ textAlign: 'center', marginBottom: '48px' }}>
-                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: '12px', background: 'linear-gradient(135deg, rgba(67, 233, 123, 0.1), rgba(56, 249, 215, 0.1))', padding: '12px 24px', borderRadius: '20px', marginBottom: '16px' }}>
-                    <span style={{ fontSize: '24px' }}>📊</span>
-                    <span style={{ fontSize: '14px', fontWeight: '700', color: '#43e97b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Analytics</span>
-                  </div>
-                  <h2 style={{ fontSize: '40px', fontWeight: '800', color: '#1f2937', marginBottom: '16px', letterSpacing: '-0.02em' }}>Performance Analytics</h2>
-                  <p style={{ fontSize: '17px', color: '#64748b', maxWidth: '600px', margin: '0 auto' }}>Track your Facebook automation performance and engagement metrics</p>
+              <div className="tab-pane">
+                <div className="section-header">
+                  <div className="section-badge">📊 Analytics</div>
+                  <h2 className="section-title">Performance Analytics</h2>
+                  <p className="section-desc">Track your Facebook automation performance and engagement metrics</p>
                 </div>
                 
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '28px', marginBottom: '48px' }}>
-                  <div style={{ background: 'linear-gradient(135deg, rgba(24, 119, 242, 0.05), rgba(12, 99, 228, 0.05))', borderRadius: '20px', padding: '32px', border: '2px solid rgba(24, 119, 242, 0.2)', transition: 'all 0.3s', cursor: 'pointer' }} onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.boxShadow = '0 12px 32px rgba(24, 119, 242, 0.2)'; }} onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = 'none'; }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
-                      <div style={{ width: '48px', height: '48px', borderRadius: '14px', background: 'linear-gradient(135deg, #1877f2, #0c63e4)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px' }}>📘</div>
-                      <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '700', color: '#1f2937' }}>Facebook Connection</h3>
+                <div className="stats-grid">
+                  <div className="stat-card">
+                    <div className="stat-header">
+                      <div className="stat-icon-fb">📘</div>
+                      <h3 className="stat-title">Facebook Connection</h3>
                     </div>
-                    <div style={{ display: 'inline-block', padding: '8px 16px', borderRadius: '10px', fontSize: '14px', fontWeight: '700', background: facebookConnected ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)', color: facebookConnected ? '#059669' : '#dc2626', marginBottom: '12px' }}>
+                    <div className={`stat-badge ${facebookConnected ? 'badge-success' : 'badge-error'}`}>
                       {facebookConnected ? '✓ Connected' : '○ Disconnected'}
                     </div>
-                    {facebookUsername && <p style={{ margin: '12px 0 0 0', color: '#64748b', fontSize: '16px', fontWeight: '500' }}>Account: <strong style={{ color: '#1f2937' }}>{facebookUsername}</strong></p>}
-                    {facebookPages.length > 0 && <p style={{ margin: '8px 0 0 0', color: '#64748b', fontSize: '14px' }}>{facebookPages.length} pages available</p>}
+                    {facebookUsername && <p className="stat-info">Account: <strong>{facebookUsername}</strong></p>}
+                    {facebookPages.length > 0 && <p className="stat-info">{facebookPages.length} pages available</p>}
                   </div>
 
-                  <div style={{ background: 'linear-gradient(135deg, rgba(102, 126, 234, 0.05), rgba(118, 75, 162, 0.05))', borderRadius: '20px', padding: '32px', border: '2px solid rgba(102, 126, 234, 0.2)', transition: 'all 0.3s', cursor: 'pointer' }} onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.boxShadow = '0 12px 32px rgba(102, 126, 234, 0.2)'; }} onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = 'none'; }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
-                      <div style={{ width: '48px', height: '48px', borderRadius: '14px', background: 'linear-gradient(135deg, #667eea, #764ba2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px' }}>🤖</div>
-                      <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '700', color: '#1f2937' }}>AI Profile Status</h3>
+                  <div className="stat-card">
+                    <div className="stat-header">
+                      <div className="stat-icon-ai">🤖</div>
+                      <h3 className="stat-title">AI Profile Status</h3>
                     </div>
-                    <div style={{ display: 'inline-block', padding: '8px 16px', borderRadius: '10px', fontSize: '14px', fontWeight: '700', background: userProfile.isConfigured ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)', color: userProfile.isConfigured ? '#059669' : '#dc2626', marginBottom: '12px' }}>
+                    <div className={`stat-badge ${userProfile.isConfigured ? 'badge-success' : 'badge-error'}`}>
                       {userProfile.isConfigured ? '✓ Configured' : '○ Not Configured'}
                     </div>
                     {userProfile.isConfigured && (
-                      <div style={{ marginTop: '12px' }}>
-                        <p style={{ margin: '6px 0', color: '#64748b', fontSize: '15px' }}>Domain: <strong style={{ color: '#1f2937' }}>{userProfile.domain}</strong></p>
-                        <p style={{ margin: '6px 0', color: '#64748b', fontSize: '15px' }}>Style: <strong style={{ color: '#1f2937' }}>{userProfile.contentStyle}</strong></p>
+                      <div className="stat-details">
+                        <p className="stat-info">Domain: <strong>{userProfile.domain}</strong></p>
+                        <p className="stat-info">Style: <strong>{userProfile.contentStyle}</strong></p>
                       </div>
                     )}
                   </div>
 
-                  <div style={{ background: 'linear-gradient(135deg, rgba(79, 172, 254, 0.05), rgba(0, 242, 254, 0.05))', borderRadius: '20px', padding: '32px', border: '2px solid rgba(79, 172, 254, 0.2)', transition: 'all 0.3s', cursor: 'pointer' }} onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.boxShadow = '0 12px 32px rgba(79, 172, 254, 0.2)'; }} onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = 'none'; }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
-                      <div style={{ width: '48px', height: '48px', borderRadius: '14px', background: 'linear-gradient(135deg, #4facfe, #00f2fe)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px' }}>⚡</div>
-                      <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '700', color: '#1f2937' }}>Automation Status</h3>
+                  <div className="stat-card">
+                    <div className="stat-header">
+                      <div className="stat-icon-auto">⚡</div>
+                      <h3 className="stat-title">Automation Status</h3>
                     </div>
-                    <div style={{ display: 'inline-block', padding: '8px 16px', borderRadius: '10px', fontSize: '14px', fontWeight: '700', background: autoPostConfig.enabled ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)', color: autoPostConfig.enabled ? '#059669' : '#dc2626', marginBottom: '12px' }}>
+                    <div className={`stat-badge ${autoPostConfig.enabled ? 'badge-success' : 'badge-error'}`}>
                       {autoPostConfig.enabled ? '✓ Active' : '○ Inactive'}
                     </div>
                     {autoPostConfig.enabled && (
-                      <div style={{ marginTop: '12px' }}>
-                        <p style={{ margin: '6px 0', color: '#64748b', fontSize: '15px' }}>Posts/Day: <strong style={{ color: '#1f2937' }}>{autoPostConfig.postsPerDay}</strong></p>
-                        <p style={{ margin: '6px 0', color: '#64748b', fontSize: '15px' }}>Scheduled Times: <strong style={{ color: '#1f2937' }}>{autoPostConfig.postingTimes.length}</strong></p>
+                      <div className="stat-details">
+                        <p className="stat-info">Posts/Day: <strong>{autoPostConfig.postsPerDay}</strong></p>
+                        <p className="stat-info">Scheduled Times: <strong>{autoPostConfig.postingTimes.length}</strong></p>
                       </div>
                     )}
                   </div>
                 </div>
 
-                <div style={{ padding: '48px', background: 'linear-gradient(135deg, rgba(67, 233, 123, 0.05), rgba(56, 249, 215, 0.05))', borderRadius: '24px', border: '2px solid rgba(67, 233, 123, 0.2)' }}>
-                  <h3 style={{ margin: '0 0 40px 0', fontSize: '28px', fontWeight: '800', color: '#1f2937', textAlign: 'center', letterSpacing: '-0.01em' }}>📈 Performance Metrics</h3>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '24px' }}>
+                <div className="metrics-section">
+                  <h3 className="metrics-title">📈 Performance Metrics</h3>
+                  <div className="metrics-grid">
                     {[
-                      { value: performanceData.postsToday, label: 'Posts Today', icon: '📝', color: '#10b981', gradient: 'linear-gradient(135deg, #10b981, #059669)' },
-                      { value: performanceData.totalEngagement, label: 'Total Engagement', icon: '💬', color: '#3b82f6', gradient: 'linear-gradient(135deg, #3b82f6, #2563eb)' },
-                      { value: `${performanceData.successRate}%`, label: 'Success Rate', icon: '✓', color: '#f59e0b', gradient: 'linear-gradient(135deg, #f59e0b, #d97706)' }
+                      { value: performanceData.postsToday, label: 'Posts Today', icon: '📝', color: '#10b981' },
+                      { value: performanceData.totalEngagement, label: 'Total Engagement', icon: '💬', color: '#3b82f6' },
+                      { value: `${performanceData.successRate}%`, label: 'Success Rate', icon: '✓', color: '#f59e0b' }
                     ].map((metric, i) => (
-                      <div key={i} style={{ padding: '32px 24px', background: 'white', borderRadius: '20px', textAlign: 'center', border: '2px solid rgba(0, 0, 0, 0.05)', transition: 'all 0.3s', cursor: 'pointer' }} onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-6px)'; e.currentTarget.style.boxShadow = '0 16px 40px rgba(0, 0, 0, 0.1)'; }} onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = 'none'; }}>
-                        <div style={{ fontSize: '40px', marginBottom: '12px' }}>{metric.icon}</div>
-                        <div style={{ fontSize: '48px', fontWeight: '800', marginBottom: '12px', background: metric.gradient, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', letterSpacing: '-0.02em' }}>{metric.value}</div>
-                        <div style={{ fontSize: '15px', color: '#64748b', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{metric.label}</div>
+                      <div key={i} className="metric-card">
+                        <div className="metric-icon">{metric.icon}</div>
+                        <div className="metric-value" style={{ color: metric.color }}>{metric.value}</div>
+                        <div className="metric-label">{metric.label}</div>
                       </div>
                     ))}
                   </div>
@@ -706,33 +710,1192 @@ const FacebookAutomation = () => {
       </div>
 
       <style>{`
+        * {
+          margin: 0;
+          padding: 0;
+          box-sizing: border-box;
+        }
+
+        .fb-automation-container {
+          font-family: 'Inter', 'SF Pro Display', system-ui, -apple-system, sans-serif;
+          min-height: 100vh;
+          background: linear-gradient(135deg, #1877f2 0%, #0c63e4 100%);
+          position: relative;
+        }
+
+        /* Mobile Menu Button */
+        .mobile-menu-btn {
+          display: none;
+          position: fixed;
+          top: 20px;
+          left: 20px;
+          z-index: 1001;
+          background: white;
+          border: none;
+          border-radius: 12px;
+          padding: 12px;
+          cursor: pointer;
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+          flex-direction: column;
+          gap: 4px;
+          width: 48px;
+          height: 48px;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .mobile-menu-btn span {
+          width: 24px;
+          height: 3px;
+          background: #1877f2;
+          border-radius: 2px;
+          transition: all 0.3s;
+        }
+
+        /* Notifications */
+        .notifications-container {
+          position: fixed;
+          top: 24px;
+          right: 24px;
+          z-index: 10000;
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+          max-width: 420px;
+        }
+
+        .notification {
+          padding: 18px 24px;
+          borderRadius: 16px;
+          backdrop-filter: blur(20px);
+          color: white;
+          font-weight: 600;
+          box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 16px;
+          fontSize: 15px;
+          animation: slideInRight 0.4s ease-out;
+        }
+
+        .notification-success {
+          background: linear-gradient(135deg, #10b981, #059669);
+        }
+
+        .notification-error {
+          background: linear-gradient(135deg, #ef4444, #dc2626);
+        }
+
+        .notification-info {
+          background: linear-gradient(135deg, #3b82f6, #2563eb);
+        }
+
+        .notification-close {
+          background: rgba(255, 255, 255, 0.2);
+          border: none;
+          color: white;
+          font-size: 20px;
+          cursor: pointer;
+          padding: 4px 8px;
+          border-radius: 8px;
+          transition: all 0.2s;
+          line-height: 1;
+        }
+
+        .notification-close:hover {
+          background: rgba(255, 255, 255, 0.3);
+        }
+
+        /* Loading Overlay */
+        .loading-overlay {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: rgba(0, 0, 0, 0.75);
+          backdrop-filter: blur(12px);
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          z-index: 9999;
+          animation: fadeIn 0.3s ease-out;
+        }
+
+        .loading-content {
+          background: white;
+          padding: 48px 60px;
+          border-radius: 24px;
+          text-align: center;
+          box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+          animation: scaleIn 0.3s ease-out;
+        }
+
+        .spinner-container {
+          position: relative;
+          width: 64px;
+          height: 64px;
+          margin: 0 auto;
+        }
+
+        .spinner-bg {
+          border: 5px solid #f3f4f6;
+          border-radius: 50%;
+          width: 64px;
+          height: 64px;
+          position: absolute;
+        }
+
+        .spinner {
+          border: 5px solid #1877f2;
+          border-top: 5px solid transparent;
+          border-radius: 50%;
+          width: 64px;
+          height: 64px;
+          animation: spin 1s linear infinite;
+          position: absolute;
+        }
+
+        .loading-text {
+          margin-top: 24px;
+          color: #1f2937;
+          font-size: 17px;
+          font-weight: 600;
+        }
+
+        /* Sidebar */
+        .sidebar-overlay {
+          display: none;
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: rgba(0, 0, 0, 0.5);
+          z-index: 999;
+        }
+
+        .sidebar {
+          width: 340px;
+          background: rgba(255, 255, 255, 0.98);
+          backdrop-filter: blur(20px);
+          height: 100vh;
+          position: fixed;
+          display: flex;
+          flex-direction: column;
+          box-shadow: 6px 0 40px rgba(0, 0, 0, 0.12);
+          z-index: 1000;
+          overflow-y: auto;
+          transition: transform 0.3s ease;
+        }
+
+        .sidebar-header {
+          padding: 32px 24px;
+          background: linear-gradient(135deg, #1877f2, #0c63e4);
+          position: relative;
+          overflow: hidden;
+        }
+
+        .header-decoration {
+          position: absolute;
+          top: -50%;
+          right: -20%;
+          width: 200px;
+          height: 200px;
+          border-radius: 50%;
+          background: rgba(255, 255, 255, 0.1);
+          filter: blur(40px);
+        }
+
+        .header-content {
+          position: relative;
+          z-index: 1;
+          text-align: center;
+        }
+
+        .header-icon {
+          font-size: 48px;
+          margin-bottom: 12px;
+        }
+
+        .header-title {
+          font-size: 28px;
+          font-weight: 800;
+          color: white;
+          margin-bottom: 6px;
+        }
+
+        .header-subtitle {
+          font-size: 14px;
+          color: rgba(255, 255, 255, 0.95);
+          font-weight: 500;
+        }
+
+        .header-user {
+          font-size: 13px;
+          color: rgba(255, 255, 255, 0.85);
+          margin-top: 8px;
+          background: rgba(255, 255, 255, 0.15);
+          padding: 6px 12px;
+          border-radius: 20px;
+          display: inline-block;
+        }
+
+        /* Connection Section */
+        .connection-section {
+          padding: 20px;
+          background: white;
+          border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+        }
+
+        .connection-title {
+          font-size: 12px;
+          font-weight: 800;
+          color: #64748b;
+          margin-bottom: 12px;
+          letter-spacing: 0.08em;
+        }
+
+        .connection-card {
+          padding: 20px;
+          border-radius: 16px;
+          border: 2px solid;
+        }
+
+        .connection-card.connected {
+          background: linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(5, 150, 105, 0.05));
+          border-color: rgba(16, 185, 129, 0.3);
+        }
+
+        .connection-card.disconnected {
+          background: linear-gradient(135deg, rgba(239, 68, 68, 0.1), rgba(220, 38, 38, 0.05));
+          border-color: rgba(239, 68, 68, 0.3);
+        }
+
+        .connection-content {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+        }
+
+        .status-badge {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          font-size: 15px;
+          font-weight: 700;
+        }
+
+        .status-connected {
+          color: #047857;
+        }
+
+        .status-disconnected {
+          color: #dc2626;
+        }
+
+        .status-dot {
+          width: 10px;
+          height: 10px;
+          border-radius: 50%;
+          animation: pulse 2s ease-in-out infinite;
+        }
+
+        .status-connected .status-dot {
+          background: #10b981;
+          box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.2);
+        }
+
+        .status-disconnected .status-dot {
+          background: #ef4444;
+        }
+
+        .username-badge {
+          font-size: 14px;
+          color: #065f46;
+          font-weight: 700;
+          background: rgba(16, 185, 129, 0.15);
+          padding: 8px 12px;
+          border-radius: 10px;
+          display: inline-block;
+          border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+
+        .pages-info {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+        }
+
+        .pages-count {
+          font-size: 12px;
+          color: #6b7280;
+          font-weight: 600;
+        }
+
+        .page-badge {
+          font-size: 11px;
+          color: #4b5563;
+          background: rgba(59, 130, 246, 0.1);
+          padding: 4px 10px;
+          border-radius: 12px;
+          display: inline-block;
+          margin-right: 6px;
+          font-weight: 500;
+        }
+
+        .pages-more {
+          font-size: 11px;
+          color: #6b7280;
+        }
+
+        .connection-message {
+          font-size: 13px;
+          color: #7f1d1d;
+          line-height: 1.5;
+        }
+
+        .connection-btn {
+          width: 100%;
+          padding: 12px;
+          font-size: 14px;
+          font-weight: 700;
+          color: white;
+          border: none;
+          border-radius: 12px;
+          cursor: pointer;
+          transition: all 0.3s;
+        }
+
+        .test-btn {
+          background: linear-gradient(135deg, #10b981, #059669);
+          box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+        }
+
+        .connect-btn {
+          background: linear-gradient(135deg, #1877f2, #0c63e4);
+          box-shadow: 0 4px 12px rgba(24, 119, 242, 0.3);
+        }
+
+        .connection-btn:hover:not(:disabled) {
+          transform: translateY(-2px);
+        }
+
+        .connection-btn:disabled {
+          background: #d1d5db;
+          cursor: not-allowed;
+          box-shadow: none;
+        }
+
+        /* Navigation */
+        .sidebar-nav {
+          flex: 1;
+          padding: 20px;
+        }
+
+        .nav-btn {
+          width: 100%;
+          display: flex;
+          align-items: center;
+          gap: 16px;
+          padding: 18px 20px;
+          border: none;
+          background: transparent;
+          color: #64748b;
+          text-align: left;
+          border-radius: 16px;
+          cursor: pointer;
+          margin-bottom: 10px;
+          font-size: 15px;
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .nav-btn:hover {
+          background: rgba(24, 119, 242, 0.06);
+          transform: translateX(4px);
+        }
+
+        .nav-btn-active {
+          background: linear-gradient(135deg, #1877f2, #0c63e4);
+          color: white;
+          transform: translateX(8px);
+          box-shadow: 0 8px 24px rgba(24, 119, 242, 0.35);
+        }
+
+        .nav-icon {
+          font-size: 24px;
+        }
+
+        .nav-content {
+          flex: 1;
+        }
+
+        .nav-label {
+          font-weight: 600;
+          font-size: 15px;
+          margin-bottom: 2px;
+        }
+
+        .nav-desc {
+          font-size: 12px;
+          opacity: 0.85;
+        }
+
+        /* Main Content */
+        .main-content {
+          margin-left: 340px;
+          min-height: 100vh;
+          position: relative;
+        }
+
+        .main-header {
+          padding: 40px 48px;
+          background: rgba(255, 255, 255, 0.98);
+          backdrop-filter: blur(20px);
+          border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          position: sticky;
+          top: 0;
+          z-index: 50;
+          box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
+        }
+
+        .header-text {
+          flex: 1;
+        }
+
+        .main-title {
+          font-size: 36px;
+          font-weight: 800;
+          background: linear-gradient(135deg, #1877f2, #0c63e4);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          margin-bottom: 8px;
+        }
+
+        .main-subtitle {
+          font-size: 17px;
+          color: #64748b;
+          font-weight: 500;
+        }
+
+        .start-automation-btn {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          padding: 16px 32px;
+          border: none;
+          border-radius: 14px;
+          font-size: 16px;
+          font-weight: 700;
+          cursor: pointer;
+          background: linear-gradient(135deg, #1877f2, #0c63e4);
+          color: white;
+          box-shadow: 0 8px 24px rgba(24, 119, 242, 0.35);
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .start-automation-btn:hover:not(:disabled) {
+          transform: translateY(-2px);
+        }
+
+        .start-automation-btn:disabled {
+          background: linear-gradient(135deg, #cbd5e1, #94a3b8);
+          cursor: not-allowed;
+        }
+
+        .btn-icon {
+          font-size: 20px;
+        }
+
+        /* Tab Container */
+        .tab-container {
+          padding: 48px;
+        }
+
+        .tab-content {
+          background: white;
+          border-radius: 28px;
+          padding: 48px;
+          box-shadow: 0 20px 60px rgba(0, 0, 0, 0.08);
+          max-width: 1400px;
+          margin: 0 auto;
+          position: relative;
+        }
+
+        /* Section Header */
+        .section-header {
+          text-align: center;
+          margin-bottom: 48px;
+        }
+
+        .section-badge {
+          display: inline-flex;
+          align-items: center;
+          gap: 12px;
+          background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1));
+          padding: 12px 24px;
+          border-radius: 20px;
+          margin-bottom: 16px;
+          font-size: 14px;
+          font-weight: 700;
+          color: #667eea;
+        }
+
+        .section-title {
+          font-size: 40px;
+          font-weight: 800;
+          color: #1f2937;
+          margin-bottom: 16px;
+        }
+
+        .section-desc {
+          font-size: 17px;
+          color: #64748b;
+          max-width: 600px;
+          margin: 0 auto;
+        }
+
+        /* Forms */
+        .form-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 28px;
+          margin-bottom: 28px;
+        }
+
+        .form-group {
+          margin-bottom: 28px;
+        }
+
+        .form-label {
+          display: block;
+          font-size: 15px;
+          font-weight: 700;
+          color: #374151;
+          margin-bottom: 12px;
+        }
+
+        .form-input, .form-select, .form-textarea {
+          width: 100%;
+          padding: 16px 20px;
+          border: 2px solid #e5e7eb;
+          border-radius: 14px;
+          font-size: 16px;
+          background: white;
+          font-weight: 500;
+          transition: all 0.3s;
+          outline: none;
+        }
+
+        .form-input:focus, .form-select:focus, .form-textarea:focus {
+          border-color: #1877f2;
+        }
+
+        .form-textarea {
+          resize: vertical;
+          line-height: 1.6;
+        }
+
+        .form-input-number {
+          padding: 14px 18px;
+          border: 2px solid #e5e7eb;
+          border-radius: 12px;
+          width: 120px;
+          font-size: 18px;
+          font-weight: 700;
+          background: white;
+          transition: all 0.3s;
+          outline: none;
+        }
+
+        .form-input-number:focus {
+          border-color: #1877f2;
+        }
+
+        .form-hint {
+          font-size: 13px;
+          color: #6b7280;
+          margin-top: 8px;
+          font-weight: 500;
+        }
+
+        .form-actions {
+          text-align: center;
+          margin-top: 40px;
+        }
+
+        .primary-btn, .submit-btn, .generate-btn {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 12px;
+          padding: 20px 48px;
+          border: none;
+          border-radius: 16px;
+          font-size: 18px;
+          font-weight: 700;
+          cursor: pointer;
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .primary-btn {
+          background: linear-gradient(135deg, #1877f2, #0c63e4);
+          color: white;
+          box-shadow: 0 8px 24px rgba(24, 119, 242, 0.35);
+        }
+
+        .submit-btn {
+          background: linear-gradient(135deg, #10b981, #059669);
+          color: white;
+          box-shadow: 0 8px 24px rgba(16, 185, 129, 0.35);
+        }
+
+        .generate-btn {
+          background: linear-gradient(135deg, #667eea, #764ba2);
+          color: white;
+          box-shadow: 0 8px 24px rgba(102, 126, 234, 0.35);
+        }
+
+        .primary-btn:hover:not(:disabled),
+        .submit-btn:hover:not(:disabled),
+        .generate-btn:hover:not(:disabled) {
+          transform: translateY(-2px);
+        }
+
+        .primary-btn:disabled,
+        .submit-btn:disabled,
+        .generate-btn:disabled {
+          background: linear-gradient(135deg, #cbd5e1, #94a3b8);
+          cursor: not-allowed;
+          box-shadow: none;
+        }
+
+        /* Success Message */
+        .success-message {
+          margin-top: 32px;
+          padding: 24px;
+          background: linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(5, 150, 105, 0.05));
+          border-radius: 20px;
+          border: 2px solid rgba(16, 185, 129, 0.3);
+          display: flex;
+          align-items: center;
+          gap: 16px;
+          animation: fadeInUp 0.5s ease-out;
+        }
+
+        .success-icon {
+          font-size: 28px;
+          color: #10b981;
+        }
+
+        .success-content {
+          flex: 1;
+        }
+
+        .success-title {
+          color: #065f46;
+          font-weight: 700;
+          font-size: 20px;
+          margin-bottom: 6px;
+        }
+
+        .success-text {
+          color: #059669;
+          font-size: 16px;
+        }
+
+        /* Generate Section */
+        .generate-section {
+          display: flex;
+          justify-content: flex-end;
+          margin-bottom: 32px;
+        }
+
+        /* Schedule */
+        .schedule-container {
+          max-width: 700px;
+          margin: 0 auto;
+        }
+
+        .schedule-card {
+          padding: 40px;
+          background: linear-gradient(135deg, rgba(24, 119, 242, 0.05), rgba(12, 99, 228, 0.05));
+          border-radius: 24px;
+          border: 2px solid rgba(24, 119, 242, 0.2);
+        }
+
+        .schedule-header {
+          display: flex;
+          align-items: center;
+          gap: 16px;
+          margin-bottom: 32px;
+        }
+
+        .schedule-icon {
+          width: 56px;
+          height: 56px;
+          border-radius: 16px;
+          background: linear-gradient(135deg, #1877f2, #0c63e4);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 28px;
+        }
+
+        .schedule-title {
+          font-size: 24px;
+          font-weight: 700;
+          color: #1f2937;
+        }
+
+        .times-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 12px;
+        }
+
+        .add-time-btn {
+          padding: 10px 20px;
+          font-size: 13px;
+          background: linear-gradient(135deg, #1877f2, #0c63e4);
+          color: white;
+          border: none;
+          border-radius: 10px;
+          cursor: pointer;
+          font-weight: 700;
+          transition: all 0.3s;
+          box-shadow: 0 4px 12px rgba(24, 119, 242, 0.3);
+        }
+
+        .add-time-btn:hover {
+          transform: translateY(-2px);
+        }
+
+        .times-list {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 10px;
+          margin-top: 16px;
+        }
+
+        .time-badge {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          padding: 10px 16px;
+          background: white;
+          border: 2px solid rgba(24, 119, 242, 0.3);
+          border-radius: 12px;
+          color: #1877f2;
+          font-size: 15px;
+          font-weight: 700;
+        }
+
+        .time-remove {
+          background: rgba(239, 68, 68, 0.1);
+          border: none;
+          color: #ef4444;
+          font-size: 18px;
+          cursor: pointer;
+          padding: 4px 8px;
+          line-height: 1;
+          border-radius: 8px;
+          transition: all 0.2s;
+          font-weight: 700;
+        }
+
+        .time-remove:hover {
+          background: rgba(239, 68, 68, 0.2);
+        }
+
+        .status-card {
+          padding: 20px;
+          background: white;
+          border-radius: 16px;
+          margin-top: 28px;
+          border: 2px solid rgba(24, 119, 242, 0.15);
+        }
+
+        .status-title {
+          font-size: 17px;
+          font-weight: 700;
+          color: #1f2937;
+          margin-bottom: 12px;
+        }
+
+        .status-info {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+        }
+
+        .status-indicator {
+          width: 12px;
+          height: 12px;
+          border-radius: 50%;
+          animation: pulse 2s ease-in-out infinite;
+        }
+
+        .status-indicator.active {
+          background: #10b981;
+        }
+
+        .status-indicator.inactive {
+          background: #ef4444;
+        }
+
+        .status-text {
+          font-size: 16px;
+          color: #374151;
+          font-weight: 600;
+        }
+
+        /* Stats Grid */
+        .stats-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+          gap: 28px;
+          margin-bottom: 48px;
+        }
+
+        .stat-card {
+          background: white;
+          border-radius: 20px;
+          padding: 32px;
+          border: 2px solid;
+          transition: all 0.3s;
+          cursor: pointer;
+        }
+
+        .stat-card:hover {
+          transform: translateY(-4px);
+          box-shadow: 0 12px 32px rgba(0, 0, 0, 0.1);
+        }
+
+        .stat-header {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          margin-bottom: 16px;
+        }
+
+        .stat-icon-fb, .stat-icon-ai, .stat-icon-auto {
+          width: 48px;
+          height: 48px;
+          border-radius: 14px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 24px;
+        }
+
+        .stat-icon-fb {
+          background: linear-gradient(135deg, #1877f2, #0c63e4);
+        }
+
+        .stat-icon-ai {
+          background: linear-gradient(135deg, #667eea, #764ba2);
+        }
+
+        .stat-icon-auto {
+          background: linear-gradient(135deg, #4facfe, #00f2fe);
+        }
+
+        .stat-title {
+          font-size: 18px;
+          font-weight: 700;
+          color: #1f2937;
+        }
+
+        .stat-badge {
+          display: inline-block;
+          padding: 8px 16px;
+          border-radius: 10px;
+          font-size: 14px;
+          font-weight: 700;
+          margin-bottom: 12px;
+        }
+
+        .badge-success {
+          background: rgba(16, 185, 129, 0.15);
+          color: #059669;
+        }
+
+        .badge-error {
+          background: rgba(239, 68, 68, 0.15);
+          color: #dc2626;
+        }
+
+        .stat-info {
+          margin: 6px 0;
+          color: #64748b;
+          font-size: 15px;
+        }
+
+        .stat-info strong {
+          color: #1f2937;
+        }
+
+        .stat-details {
+          margin-top: 12px;
+        }
+
+        /* Metrics */
+        .metrics-section {
+          padding: 48px;
+          background: linear-gradient(135deg, rgba(67, 233, 123, 0.05), rgba(56, 249, 215, 0.05));
+          border-radius: 24px;
+          border: 2px solid rgba(67, 233, 123, 0.2);
+        }
+
+        .metrics-title {
+          font-size: 28px;
+          font-weight: 800;
+          color: #1f2937;
+          text-align: center;
+          margin-bottom: 40px;
+        }
+
+        .metrics-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+          gap: 24px;
+        }
+
+        .metric-card {
+          padding: 32px 24px;
+          background: white;
+          border-radius: 20px;
+          text-align: center;
+          border: 2px solid rgba(0, 0, 0, 0.05);
+          transition: all 0.3s;
+          cursor: pointer;
+        }
+
+        .metric-card:hover {
+          transform: translateY(-6px);
+          box-shadow: 0 16px 40px rgba(0, 0, 0, 0.1);
+        }
+
+        .metric-icon {
+          font-size: 40px;
+          margin-bottom: 12px;
+        }
+
+        .metric-value {
+          font-size: 48px;
+          font-weight: 800;
+          margin-bottom: 12px;
+        }
+
+        .metric-label {
+          font-size: 15px;
+          color: #64748b;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+        }
+
+        /* Animations */
         @keyframes spin {
           0% { transform: rotate(0deg); }
           100% { transform: rotate(360deg); }
         }
-        @keyframes float {
-          0%, 100% { transform: translateY(0) scale(1); }
-          50% { transform: translateY(-20px) scale(1.05); }
-        }
+
         @keyframes pulse {
           0%, 100% { opacity: 1; transform: scale(1); }
           50% { opacity: 0.7; transform: scale(0.95); }
         }
+
         @keyframes fadeIn {
           from { opacity: 0; }
           to { opacity: 1; }
         }
+
         @keyframes fadeInUp {
           from { opacity: 0; transform: translateY(20px); }
           to { opacity: 1; transform: translateY(0); }
         }
+
         @keyframes scaleIn {
           from { opacity: 0; transform: scale(0.9); }
           to { opacity: 1; transform: scale(1); }
         }
+
         @keyframes slideInRight {
           from { opacity: 0; transform: translateX(100px); }
           to { opacity: 1; transform: translateX(0); }
+        }
+
+        /* Responsive Design */
+        @media (max-width: 1200px) {
+          .form-grid {
+            grid-template-columns: 1fr;
+          }
+
+          .stats-grid {
+            grid-template-columns: 1fr;
+          }
+
+          .metrics-grid {
+            grid-template-columns: 1fr;
+          }
+        }
+
+        @media (max-width: 768px) {
+          .mobile-menu-btn {
+            display: flex;
+          }
+
+          .sidebar {
+            transform: translateX(-100%);
+          }
+
+          .sidebar-open {
+            transform: translateX(0);
+          }
+
+          .sidebar-overlay {
+            display: block;
+          }
+
+          .main-content {
+            margin-left: 0;
+          }
+
+          .main-header {
+            padding: 20px;
+            flex-direction: column;
+            gap: 16px;
+            align-items: flex-start;
+          }
+
+          .main-title {
+            font-size: 24px;
+          }
+
+          .main-subtitle {
+            font-size: 14px;
+          }
+
+          .start-automation-btn {
+            width: 100%;
+            justify-content: center;
+          }
+
+          .tab-container {
+            padding: 20px;
+          }
+
+          .tab-content {
+            padding: 24px;
+            border-radius: 20px;
+          }
+
+          .section-title {
+            font-size: 28px;
+          }
+
+          .section-desc {
+            font-size: 15px;
+          }
+
+          .notifications-container {
+            right: 16px;
+            left: 16px;
+            max-width: none;
+          }
+
+          .notification {
+            padding: 14px 18px;
+            font-size: 14px;
+          }
+
+          .form-actions {
+            margin-top: 24px;
+          }
+
+          .primary-btn, .submit-btn, .generate-btn {
+            width: 100%;
+            padding: 16px 32px;
+            font-size: 16px;
+          }
+
+          .generate-section {
+            justify-content: stretch;
+          }
+
+          .generate-btn {
+            width: 100%;
+          }
+
+          .schedule-card {
+            padding: 24px;
+          }
+
+          .metrics-section {
+            padding: 24px;
+          }
+
+          .metrics-title {
+            font-size: 22px;
+          }
+
+          .metric-value {
+            font-size: 36px;
+          }
+        }
+
+        @media (max-width: 480px) {
+          .sidebar {
+            width: 280px;
+          }
+
+          .header-icon {
+            font-size: 36px;
+          }
+
+          .header-title {
+            font-size: 22px;
+          }
+
+          .connection-section {
+            padding: 16px;
+          }
+
+          .sidebar-nav {
+            padding: 16px;
+          }
+
+          .nav-btn {
+            padding: 14px 16px;
+          }
+
+          .main-header {
+            padding: 16px;
+          }
+
+          .main-title {
+            font-size: 20px;
+          }
+
+          .tab-content {
+            padding: 20px;
+          }
+
+          .section-title {
+            font-size: 24px;
+          }
+
+          .time-badge {
+            font-size: 13px;
+            padding: 8px 12px;
+          }
         }
       `}</style>
     </div>
