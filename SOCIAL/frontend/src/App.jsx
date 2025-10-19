@@ -6,6 +6,11 @@ import Login from './quickpage/Login';
 import Register from './quickpage/Register';
 import Landing_Page from './Landing_Page';
 import './App.css';
+import PrivacyPolicy from './footerpages/Privacypolicy.jsx';
+import TermsOfService from './footerpages/TermsOfService';
+import CookiePolicy from './footerpages/CookiePolicy';
+import Contact from './footerpages/Contact';
+import About from './footerpages/About';
 
 // Lazy load all platform components with error handling
 const RedditAUTO = lazy(() => 
@@ -312,6 +317,15 @@ function App() {
                   <Route path="/" element={<Landing_Page />} />
                   <Route path="/login" element={<Login />} />
                   <Route path="/register" element={<Register />} />
+
+
+
+                  // In Routes:
+<Route path="/privacy" element={<PrivacyPolicy />} />
+<Route path="/terms" element={<TermsOfService />} />
+<Route path="/cookie-policy" element={<CookiePolicy />} />
+<Route path="/contact" element={<Contact />} />
+<Route path="/about" element={<About />} />
                   
                   <Route 
                     path="/reddit-auto" 
