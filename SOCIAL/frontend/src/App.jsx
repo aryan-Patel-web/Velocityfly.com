@@ -6,18 +6,129 @@ import Login from './quickpage/Login';
 import Register from './quickpage/Register';
 import Landing_Page from './Landing_Page';
 import './App.css';
-import PrivacyPolicy from './footerpages/Privacypolicy.jsx';
-import TermsOfService from './footerpages/TermsOfService';
-import CookiePolicy from './footerpages/CookiePolicy';
-import Contact from './footerpages/Contact';
-import About from './footerpages/About';
 
-// Lazy load all platform components with error handling
+// Footer Pages Imports - Only import if files exist
+let PrivacyPolicy, TermsOfService, CookiePolicy, Contact, About;
+let Features, Pricing, HelpCenter, Documentation, Blog;
+let Careers, Status, Community, Integrations, API;
+
+try {
+  PrivacyPolicy = require('./footerpages/PrivacyPolicy').default;
+} catch { PrivacyPolicy = () => <ComingSoon page="Privacy Policy" />; }
+
+try {
+  TermsOfService = require('./footerpages/TermsOfService').default;
+} catch { TermsOfService = () => <ComingSoon page="Terms of Service" />; }
+
+try {
+  CookiePolicy = require('./footerpages/CookiePolicy').default;
+} catch { CookiePolicy = () => <ComingSoon page="Cookie Policy" />; }
+
+try {
+  Contact = require('./footerpages/Contact').default;
+} catch { Contact = () => <ComingSoon page="Contact" />; }
+
+try {
+  About = require('./footerpages/About').default;
+} catch { About = () => <ComingSoon page="About" />; }
+
+try {
+  Features = require('./footerpages/Features').default;
+} catch { Features = () => <ComingSoon page="Features" />; }
+
+try {
+  Pricing = require('./footerpages/Pricing').default;
+} catch { Pricing = () => <ComingSoon page="Pricing" />; }
+
+try {
+  HelpCenter = require('./footerpages/HelpCenter').default;
+} catch { HelpCenter = () => <ComingSoon page="Help Center" />; }
+
+try {
+  Documentation = require('./footerpages/Documentation').default;
+} catch { Documentation = () => <ComingSoon page="Documentation" />; }
+
+try {
+  Blog = require('./footerpages/Blog').default;
+} catch { Blog = () => <ComingSoon page="Blog" />; }
+
+try {
+  Careers = require('./footerpages/Careers').default;
+} catch { Careers = () => <ComingSoon page="Careers" />; }
+
+try {
+  Status = require('./footerpages/Status').default;
+} catch { Status = () => <ComingSoon page="Status" />; }
+
+try {
+  Community = require('./footerpages/Community').default;
+} catch { Community = () => <ComingSoon page="Community" />; }
+
+try {
+  Integrations = require('./footerpages/Integrations').default;
+} catch { Integrations = () => <ComingSoon page="Integrations" />; }
+
+try {
+  API = require('./footerpages/API').default;
+} catch { API = () => <ComingSoon page="API" />; }
+
+// Coming Soon fallback component
+const ComingSoon = ({ page }) => (
+  <div style={{
+    minHeight: '100vh',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+    padding: '40px 20px'
+  }}>
+    <div style={{
+      background: 'white',
+      borderRadius: '20px',
+      padding: '48px',
+      textAlign: 'center',
+      maxWidth: '500px',
+      boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2)'
+    }}>
+      <div style={{ fontSize: '64px', marginBottom: '24px' }}>🚧</div>
+      <h1 style={{
+        fontSize: '32px',
+        fontWeight: '800',
+        color: '#1f2937',
+        marginBottom: '16px'
+      }}>
+        {page}
+      </h1>
+      <p style={{
+        color: '#6b7280',
+        fontSize: '16px',
+        marginBottom: '32px'
+      }}>
+        This page is coming soon. We're working hard to bring it to you!
+      </p>
+      <Link to="/" style={{
+        display: 'inline-block',
+        padding: '14px 32px',
+        background: 'linear-gradient(135deg, #667eea, #764ba2)',
+        color: 'white',
+        textDecoration: 'none',
+        borderRadius: '12px',
+        fontSize: '16px',
+        fontWeight: '700',
+        boxShadow: '0 4px 14px rgba(102, 126, 234, 0.4)'
+      }}>
+        ← Back to Home
+      </Link>
+    </div>
+  </div>
+);
+
+// Lazy load platform components
 const RedditAUTO = lazy(() => 
   import('./pages/RedditAUTO').catch(() => ({
     default: () => <div style={{ padding: '40px', textAlign: 'center', color: '#ff4444' }}>
       <h2>Reddit Component Error</h2>
-      <p>Please check if RedditAUTO.jsx exists and has a default export.</p>
+      <p>Please check if RedditAUTO.jsx exists.</p>
     </div>
   }))
 );
@@ -26,7 +137,7 @@ const SocialMediaAutomation = lazy(() =>
   import('./pages/Fb').catch(() => ({
     default: () => <div style={{ padding: '40px', textAlign: 'center', color: '#ff4444' }}>
       <h2>Facebook Component Error</h2>
-      <p>Please check if Fb.jsx exists and has a default export.</p>
+      <p>Please check if Fb.jsx exists.</p>
     </div>
   }))
 );
@@ -35,7 +146,7 @@ const InstagramAutomation = lazy(() =>
   import('./pages/INSTA').catch(() => ({
     default: () => <div style={{ padding: '40px', textAlign: 'center', color: '#ff4444' }}>
       <h2>Instagram Component Error</h2>
-      <p>Please check if INSTA.jsx exists and has a default export.</p>
+      <p>Please check if INSTA.jsx exists.</p>
     </div>
   }))
 );
@@ -44,7 +155,7 @@ const WhatsAppAutomation = lazy(() =>
   import('./pages/WhatsApp').catch(() => ({
     default: () => <div style={{ padding: '40px', textAlign: 'center', color: '#ff4444' }}>
       <h2>WhatsApp Component Error</h2>
-      <p>Please check if WhatsApp.jsx exists and has a default export.</p>
+      <p>Please check if WhatsApp.jsx exists.</p>
     </div>
   }))
 );
@@ -53,7 +164,7 @@ const YouTubeAutomation = lazy(() =>
   import('./pages/YouTube').catch(() => ({
     default: () => <div style={{ padding: '40px', textAlign: 'center', color: '#ff4444' }}>
       <h2>YouTube Component Error</h2>
-      <p>Please check if YouTube.jsx exists and has a default export.</p>
+      <p>Please check if YouTube.jsx exists.</p>
     </div>
   }))
 );
@@ -291,7 +402,7 @@ const ConditionalNavbar = () => {
           </div>
         </div>
       </nav>
-
+      
       <MobileMenu 
         isOpen={menuOpen}
         onClose={() => setMenuOpen(false)}
@@ -307,254 +418,278 @@ const ConditionalNavbar = () => {
 function App() {
   return (
     <ErrorBoundary>
-      <AuthProvider>
-        <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-          <div className="app">
-            <ConditionalNavbar />
-            <main>
-              <Suspense fallback={<LoadingSpinner />}>
-                <Routes>
-                  <Route path="/" element={<Landing_Page />} />
-                  <Route path="/login" element={<Login />} />
-                  <Route path="/register" element={<Register />} />
+      <Router>
+        <AuthProvider>
+          <ConditionalNavbar />
+          <Routes>
+            {/* Public Routes */}
+            <Route path="/" element={<Landing_Page />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
 
+            {/* Footer Pages - Will show "Coming Soon" if files missing */}
+            <Route path="/privacy" element={<PrivacyPolicy />} />
+            <Route path="/terms" element={<TermsOfService />} />
+            <Route path="/cookie-policy" element={<CookiePolicy />} />
+            <Route path="/contact" element={<Contact />} />
+            <Route path="/about" element={<About />} />
+            <Route path="/features" element={<Features />} />
+            <Route path="/pricing" element={<Pricing />} />
+            <Route path="/help" element={<HelpCenter />} />
+            <Route path="/documentation" element={<Documentation />} />
+            <Route path="/blog" element={<Blog />} />
+            <Route path="/careers" element={<Careers />} />
+            <Route path="/status" element={<Status />} />
+            <Route path="/community" element={<Community />} />
+            <Route path="/integrations" element={<Integrations />} />
+            <Route path="/api" element={<API />} />
 
+            {/* Protected Platform Routes */}
+            <Route path="/reddit-auto" element={
+              <ProtectedRoute>
+                <Suspense fallback={<LoadingSpinner platform="Reddit" />}>
+                  <RedditAUTO />
+                </Suspense>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/facebook-instagram" element={
+              <ProtectedRoute>
+                <Suspense fallback={<LoadingSpinner platform="Facebook" />}>
+                  <SocialMediaAutomation />
+                </Suspense>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/instagram" element={
+              <ProtectedRoute>
+                <Suspense fallback={<LoadingSpinner platform="Instagram" />}>
+                  <InstagramAutomation />
+                </Suspense>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/whatsapp" element={
+              <ProtectedRoute>
+                <Suspense fallback={<LoadingSpinner platform="WhatsApp" />}>
+                  <WhatsAppAutomation />
+                </Suspense>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/youtube" element={<YouTubeRouteWrapper />} />
 
-                  // In Routes:
-<Route path="/privacy" element={<PrivacyPolicy />} />
-<Route path="/terms" element={<TermsOfService />} />
-<Route path="/cookie-policy" element={<CookiePolicy />} />
-<Route path="/contact" element={<Contact />} />
-<Route path="/about" element={<About />} />
-                  
-                  <Route 
-                    path="/reddit-auto" 
-                    element={<ProtectedRoute><RedditAUTO /></ProtectedRoute>} 
-                  />
-                  <Route 
-                    path="/facebook-instagram" 
-                    element={<ProtectedRoute><SocialMediaAutomation /></ProtectedRoute>} 
-                  />
-                  <Route 
-                    path="/instagram" 
-                    element={<ProtectedRoute><InstagramAutomation /></ProtectedRoute>} 
-                  />
-                  <Route 
-                    path="/whatsapp" 
-                    element={<ProtectedRoute><WhatsAppAutomation /></ProtectedRoute>} 
-                  />
-                  <Route path="/youtube" element={<YouTubeRouteWrapper />} />
-                  
-                  <Route 
-                    path="*" 
-                    element={
-                      <div className="not-found">
-                        <h1>404</h1>
-                        <h2>Page Not Found</h2>
-                        <p>The page you're looking for doesn't exist.</p>
-                        <Link to="/">Go Home</Link>
-                      </div>
-                    } 
-                  />
-                </Routes>
-              </Suspense>
-            </main>
-          </div>
-        </Router>
-      </AuthProvider>
+            {/* 404 Not Found */}
+            <Route path="*" element={
+              <div className="not-found">
+                <h1>404</h1>
+                <h2>Page Not Found</h2>
+                <p>The page you're looking for doesn't exist.</p>
+                <Link to="/" className="home-link">Go Home</Link>
+              </div>
+            } />
+          </Routes>
+        </AuthProvider>
+      </Router>
 
       <style>{`
         * {
           margin: 0;
           padding: 0;
           box-sizing: border-box;
-          -webkit-tap-highlight-color: transparent;
         }
 
         body {
-          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', sans-serif;
           -webkit-font-smoothing: antialiased;
+          -moz-osx-font-smoothing: grayscale;
+          background: #f8f9fa;
           overflow-x: hidden;
         }
 
-        .app {
-          min-height: 100vh;
-          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        }
-
-        /* Navbar */
         .navbar {
-          background: rgba(255, 255, 255, 0.98);
-          backdrop-filter: blur(20px);
-          box-shadow: 0 2px 12px rgba(0,0,0,0.1);
-          position: sticky;
+          position: fixed;
           top: 0;
-          z-index: 100;
-          height: 60px;
+          left: 0;
+          right: 0;
+          background: rgba(255, 255, 255, 0.98);
+          backdrop-filter: blur(12px);
+          border-bottom: 2px solid #f0f0f0;
+          z-index: 999;
+          box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
         }
 
         .nav-container {
           max-width: 1400px;
           margin: 0 auto;
-          padding: 0 16px;
-          height: 100%;
+          padding: 0 24px;
           display: flex;
           align-items: center;
-          gap: 12px;
+          justify-content: space-between;
+          height: 68px;
+          gap: 16px;
         }
 
         .hamburger {
           display: none;
           flex-direction: column;
-          gap: 4px;
+          justify-content: space-between;
+          width: 28px;
+          height: 22px;
           background: none;
           border: none;
           cursor: pointer;
-          padding: 8px;
-          border-radius: 8px;
+          padding: 0;
+          z-index: 1001;
         }
 
         .hamburger span {
-          width: 22px;
-          height: 2.5px;
-          background: #667eea;
+          display: block;
+          width: 100%;
+          height: 3px;
+          background: #333;
           border-radius: 2px;
           transition: 0.3s;
-        }
-
-        .hamburger:active {
-          background: rgba(102, 126, 234, 0.1);
         }
 
         .brand {
           display: flex;
           align-items: center;
-          gap: 8px;
+          gap: 11px;
           text-decoration: none;
+          color: #1a1a1a;
           font-weight: 800;
-          font-size: 18px;
-          color: #1f2937;
+          font-size: 19px;
+          letter-spacing: -0.3px;
+          transition: 0.3s;
+        }
+
+        .brand:hover {
+          color: #667eea;
         }
 
         .brand-icon {
-          font-size: 24px;
-        }
-
-        .brand-text {
-          white-space: nowrap;
+          font-size: 26px;
+          line-height: 1;
         }
 
         .nav-links {
           display: flex;
           align-items: center;
-          gap: 6px;
-          margin-left: auto;
+          gap: 7px;
+          flex: 1;
+          justify-content: flex-end;
         }
 
         .link {
           display: flex;
           align-items: center;
-          gap: 6px;
+          gap: 7px;
           padding: 8px 14px;
           text-decoration: none;
-          color: #374151;
+          color: #555;
           font-weight: 600;
           font-size: 14px;
-          border-radius: 8px;
-          transition: 0.2s;
+          border-radius: 10px;
+          transition: 0.3s;
           white-space: nowrap;
         }
 
         .link:hover {
-          background: rgba(102, 126, 234, 0.1);
+          background: #f7f7ff;
           color: #667eea;
         }
 
         .link span:first-child {
-          font-size: 16px;
+          font-size: 19px;
+          line-height: 1;
+        }
+
+        .link .text {
+          display: none;
         }
 
         .user-box {
           display: flex;
           align-items: center;
-          gap: 10px;
-          padding: 6px 14px;
-          background: rgba(102, 126, 234, 0.1);
-          border-radius: 20px;
-          margin-left: 8px;
+          gap: 13px;
+          padding: 7px 13px 7px 16px;
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          border-radius: 12px;
+          margin-left: 7px;
         }
 
         .welcome {
-          font-size: 13px;
-          color: #667eea;
+          color: white;
           font-weight: 700;
-          max-width: 120px;
+          font-size: 13px;
+          max-width: 140px;
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
         }
 
         .btn-logout {
-          padding: 6px 12px;
-          background: #ef4444;
+          padding: 7px 15px;
+          background: rgba(255, 255, 255, 0.22);
+          border: 1.5px solid rgba(255, 255, 255, 0.4);
+          border-radius: 8px;
           color: white;
-          border: none;
-          border-radius: 6px;
-          font-size: 12px;
           font-weight: 700;
+          font-size: 12px;
           cursor: pointer;
+          transition: 0.3s;
           white-space: nowrap;
         }
 
-        .btn-logout:active {
-          transform: scale(0.95);
+        .btn-logout:hover {
+          background: rgba(255, 255, 255, 0.35);
+          transform: scale(1.05);
         }
 
-        /* Mobile Menu Overlay */
         .overlay {
           position: fixed;
           inset: 0;
-          background: rgba(0,0,0,0.5);
-          backdrop-filter: blur(4px);
-          z-index: 998;
-          animation: fadeIn 0.3s;
+          background: rgba(0, 0, 0, 0.55);
+          backdrop-filter: blur(3px);
+          z-index: 1000;
+          animation: fadeIn 0.25s ease-out;
         }
 
-        /* Mobile Menu */
         .mobile-menu {
           position: fixed;
           top: 0;
-          left: -100%;
-          width: 85%;
-          max-width: 300px;
-          height: 100vh;
+          left: 0;
+          bottom: 0;
+          width: 88%;
+          max-width: 310px;
           background: white;
-          z-index: 999;
-          display: flex;
-          flex-direction: column;
-          box-shadow: 4px 0 24px rgba(0,0,0,0.2);
-          transition: left 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+          box-shadow: 4px 0 24px rgba(0, 0, 0, 0.18);
+          z-index: 1001;
+          transform: translateX(-100%);
+          transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
           overflow-y: auto;
         }
 
         .mobile-menu.open {
-          left: 0;
+          transform: translateX(0);
         }
 
         .menu-header {
           display: flex;
-          align-items: center;
           justify-content: space-between;
+          align-items: center;
           padding: 18px;
-          background: linear-gradient(135deg, #667eea, #764ba2);
+          border-bottom: 2px solid #f0f0f0;
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
           color: white;
-          min-height: 70px;
+          min-height: 72px;
         }
 
         .menu-logo {
           display: flex;
           align-items: center;
-          gap: 10px;
+          gap: 11px;
           font-weight: 800;
           font-size: 18px;
         }
@@ -566,28 +701,25 @@ function App() {
         .close-btn {
           width: 38px;
           height: 38px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          background: rgba(255,255,255,0.2);
+          border-radius: 50%;
           border: none;
-          border-radius: 8px;
+          background: rgba(255, 255, 255, 0.22);
           color: white;
           font-size: 22px;
           cursor: pointer;
-          font-weight: 300;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: 0.3s;
         }
 
-        .close-btn:active {
-          background: rgba(255,255,255,0.3);
-          transform: scale(0.95);
+        .close-btn:hover {
+          background: rgba(255, 255, 255, 0.35);
+          transform: scale(1.1);
         }
 
         .menu-content {
-          flex: 1;
           padding: 18px;
-          display: flex;
-          flex-direction: column;
         }
 
         .user-card {
@@ -595,15 +727,15 @@ function App() {
           align-items: center;
           gap: 14px;
           padding: 16px;
-          background: linear-gradient(135deg, rgba(102,126,234,0.1), rgba(118,75,162,0.1));
+          background: linear-gradient(135deg, rgba(102, 126, 234, 0.08), rgba(118, 75, 162, 0.08));
           border-radius: 14px;
-          margin-bottom: 20px;
-          border: 2px solid rgba(102,126,234,0.2);
+          margin-bottom: 18px;
+          border: 1.5px solid rgba(102, 126, 234, 0.15);
         }
 
         .avatar {
-          width: 46px;
-          height: 46px;
+          width: 48px;
+          height: 48px;
           border-radius: 50%;
           background: linear-gradient(135deg, #667eea, #764ba2);
           display: flex;
@@ -621,288 +753,117 @@ function App() {
         .name {
           font-weight: 700;
           font-size: 15px;
-          color: #1f2937;
-          white-space: nowrap;
+          color: #1a1a1a;
+          margin-bottom: 3px;
           overflow: hidden;
           text-overflow: ellipsis;
+          white-space: nowrap;
         }
 
         .email {
           font-size: 12px;
-          color: #6b7280;
-          white-space: nowrap;
+          color: #666;
           overflow: hidden;
           text-overflow: ellipsis;
-          margin-top: 2px;
+          white-space: nowrap;
         }
 
         .menu-nav {
           display: flex;
           flex-direction: column;
-          gap: 8px;
-          flex: 1;
+          gap: 6px;
+          margin-bottom: 18px;
         }
 
         .menu-item {
           display: flex;
           align-items: center;
           gap: 14px;
-          padding: 15px 18px;
-          background: white;
-          border: 2px solid #f3f4f6;
+          padding: 14px 18px;
+          background: transparent;
+          border: none;
           border-radius: 12px;
           font-size: 15px;
           font-weight: 600;
-          color: #374151;
+          color: #333;
           cursor: pointer;
-          transition: 0.2s;
+          transition: 0.3s;
+          text-align: left;
+          width: 100%;
         }
 
-        .menu-item:active {
-          background: rgba(102,126,234,0.1);
-          border-color: rgba(102,126,234,0.3);
-          transform: scale(0.98);
+        .menu-item:hover {
+          background: rgba(102, 126, 234, 0.08);
+          color: #667eea;
+          transform: translateX(4px);
         }
 
         .menu-item span {
           font-size: 22px;
           width: 28px;
+          text-align: center;
         }
 
         .logout {
-          width: 100%;
           display: flex;
           align-items: center;
           justify-content: center;
-          gap: 10px;
-          padding: 15px;
-          background: linear-gradient(135deg, #ef4444, #dc2626);
-          color: white;
+          gap: 11px;
+          width: 100%;
+          padding: 14px;
+          background: linear-gradient(135deg, #ff4444, #cc0000);
           border: none;
           border-radius: 12px;
-          font-size: 15px;
+          color: white;
           font-weight: 700;
+          font-size: 15px;
           cursor: pointer;
-          margin-top: auto;
+          transition: 0.3s;
+          box-shadow: 0 3px 12px rgba(255, 68, 68, 0.3);
         }
 
-        .logout:active {
-          transform: scale(0.98);
+        .logout:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 5px 18px rgba(255, 68, 68, 0.4);
         }
 
         .logout span {
-          font-size: 18px;
+          font-size: 20px;
         }
 
-        /* Loading */
         .loading-container {
-          min-height: 100vh;
           display: flex;
-          align-items: center;
           justify-content: center;
-          background: linear-gradient(135deg, #667eea, #764ba2);
+          align-items: center;
+          min-height: 100vh;
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         }
 
         .loading-content {
           text-align: center;
-          color: white;
-          padding: 20px;
         }
 
         .spinner-wrapper {
           width: 60px;
           height: 60px;
-          margin: 0 auto 20px;
-          position: relative;
+          margin: 0 auto 22px;
         }
 
         .spinner {
           width: 100%;
           height: 100%;
-          border: 4px solid rgba(255,255,255,0.3);
+          border: 4px solid rgba(255, 255, 255, 0.25);
           border-top-color: white;
           border-radius: 50%;
-          animation: spin 1s linear infinite;
+          animation: spin 0.8s linear infinite;
         }
 
         .loading-text {
-          font-size: 16px;
+          color: white;
+          font-size: 17px;
           font-weight: 600;
         }
 
-        /* OAuth Pages */
-        .oauth-success-container,
-        .oauth-error-container {
-          min-height: 100vh;
-          background: linear-gradient(135deg, #667eea, #764ba2);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          padding: 20px;
-        }
-
-        .oauth-success-card,
-        .oauth-error-card {
-          background: white;
-          border-radius: 20px;
-          padding: 40px 28px;
-          max-width: 480px;
-          width: 100%;
-          box-shadow: 0 12px 40px rgba(0,0,0,0.2);
-          text-align: center;
-          animation: slideUp 0.5s;
-        }
-
-        .success-icon,
-        .error-icon {
-          font-size: 64px;
-          margin-bottom: 20px;
-        }
-
-        .success-title,
-        .error-title {
-          font-size: 24px;
-          font-weight: 800;
-          margin-bottom: 14px;
-          color: #1f2937;
-        }
-
-        .success-channel {
-          font-size: 16px;
-          color: #667eea;
-          font-weight: 700;
-          margin-bottom: 14px;
-          padding: 10px 18px;
-          background: rgba(102,126,234,0.1);
-          border-radius: 10px;
-          border: 2px solid rgba(102,126,234,0.2);
-        }
-
-        .success-message,
-        .error-message {
-          font-size: 14px;
-          color: #6b7280;
-          margin-bottom: 28px;
-          line-height: 1.5;
-        }
-
-        .success-button,
-        .error-button {
-          width: 100%;
-          padding: 14px 28px;
-          background: linear-gradient(135deg, #667eea, #764ba2);
-          color: white;
-          border: none;
-          border-radius: 10px;
-          font-size: 15px;
-          font-weight: 700;
-          cursor: pointer;
-          box-shadow: 0 4px 14px rgba(102,126,234,0.3);
-        }
-
-        .success-button:active,
-        .error-button:active {
-          transform: scale(0.98);
-        }
-
-        /* Error Boundary */
-        .error-boundary {
-          min-height: 100vh;
-          background: linear-gradient(135deg, #667eea, #764ba2);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          padding: 20px;
-        }
-
-        .error-card {
-          background: white;
-          border-radius: 20px;
-          padding: 40px 28px;
-          max-width: 480px;
-          width: 100%;
-          text-align: center;
-        }
-
-        .error-emoji {
-          font-size: 64px;
-          margin-bottom: 20px;
-        }
-
-        .error-card h1 {
-          font-size: 24px;
-          font-weight: 800;
-          color: #1f2937;
-          margin-bottom: 14px;
-        }
-
-        .error-card p {
-          font-size: 14px;
-          color: #6b7280;
-          margin-bottom: 28px;
-        }
-
-        .error-card button {
-          width: 100%;
-          padding: 14px 28px;
-          background: linear-gradient(135deg, #667eea, #764ba2);
-          color: white;
-          border: none;
-          border-radius: 10px;
-          font-size: 15px;
-          font-weight: 700;
-          cursor: pointer;
-        }
-
-        /* 404 Page */
-        .not-found {
-          min-height: 100vh;
-          background: linear-gradient(135deg, #667eea, #764ba2);
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          color: white;
-          text-align: center;
-          padding: 20px;
-        }
-
-        .not-found h1 {
-          font-size: 100px;
-          font-weight: 900;
-          margin-bottom: 16px;
-          line-height: 1;
-        }
-
-        .not-found h2 {
-          font-size: 28px;
-          font-weight: 800;
-          margin-bottom: 12px;
-        }
-
-        .not-found p {
-          font-size: 16px;
-          margin-bottom: 28px;
-          opacity: 0.9;
-        }
-
-        .not-found a {
-          display: inline-block;
-          padding: 14px 36px;
-          background: white;
-          color: #667eea;
-          text-decoration: none;
-          border-radius: 10px;
-          font-size: 15px;
-          font-weight: 700;
-          box-shadow: 0 4px 14px rgba(0,0,0,0.2);
-        }
-
-        .not-found a:active {
-          transform: scale(0.98);
-        }
-
-        /* Animations */
         @keyframes spin {
           to { transform: rotate(360deg); }
         }
@@ -912,304 +873,209 @@ function App() {
           to { opacity: 1; }
         }
 
-        @keyframes slideUp {
-          from {
-            opacity: 0;
-            transform: translateY(20px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
+        .oauth-success-container,
+        .oauth-error-container {
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          min-height: 100vh;
+          padding: 24px;
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         }
 
-        /* Mobile Responsive (320px - 480px) */
+        .oauth-success-card,
+        .oauth-error-card {
+          background: white;
+          border-radius: 20px;
+          padding: 48px 40px;
+          max-width: 480px;
+          width: 100%;
+          text-align: center;
+          box-shadow: 0 12px 48px rgba(0, 0, 0, 0.2);
+        }
+
+        .success-icon,
+        .error-icon {
+          font-size: 68px;
+          margin-bottom: 22px;
+        }
+
+        .success-title,
+        .error-title {
+          font-size: 28px;
+          font-weight: 800;
+          color: #1a1a1a;
+          margin-bottom: 14px;
+        }
+
+        .success-channel {
+          display: inline-block;
+          background: rgba(102, 126, 234, 0.12);
+          color: #667eea;
+          padding: 10px 20px;
+          border-radius: 10px;
+          font-weight: 700;
+          font-size: 15px;
+          margin-bottom: 18px;
+        }
+
+        .success-message,
+        .error-message {
+          color: #666;
+          font-size: 15px;
+          line-height: 1.6;
+          margin-bottom: 28px;
+        }
+
+        .success-button,
+        .error-button {
+          padding: 14px 32px;
+          background: linear-gradient(135deg, #667eea, #764ba2);
+          color: white;
+          border: none;
+          border-radius: 12px;
+          font-size: 16px;
+          font-weight: 700;
+          cursor: pointer;
+          transition: 0.3s;
+          box-shadow: 0 4px 16px rgba(102, 126, 234, 0.35);
+        }
+
+        .success-button:hover,
+        .error-button:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 6px 22px rgba(102, 126, 234, 0.45);
+        }
+
+        .not-found {
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+          align-items: center;
+          min-height: 100vh;
+          padding: 24px;
+          text-align: center;
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          color: white;
+        }
+
+        .not-found h1 {
+          font-size: 96px;
+          font-weight: 900;
+          margin-bottom: 16px;
+          line-height: 1;
+        }
+
+        .not-found h2 {
+          font-size: 32px;
+          font-weight: 800;
+          margin-bottom: 14px;
+        }
+
+        .not-found p {
+          font-size: 17px;
+          margin-bottom: 32px;
+          opacity: 0.92;
+        }
+
+        .home-link {
+          padding: 14px 32px;
+          background: white;
+          color: #667eea;
+          text-decoration: none;
+          border-radius: 12px;
+          font-weight: 700;
+          font-size: 16px;
+          transition: 0.3s;
+          box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+        }
+
+        .home-link:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 6px 22px rgba(0, 0, 0, 0.25);
+        }
+
+        .error-boundary {
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          min-height: 100vh;
+          padding: 24px;
+          background: linear-gradient(135deg, #ff4444 0%, #cc0000 100%);
+        }
+
+        .error-card {
+          background: white;
+          border-radius: 20px;
+          padding: 48px 40px;
+          max-width: 500px;
+          width: 100%;
+          text-align: center;
+          box-shadow: 0 12px 48px rgba(0, 0, 0, 0.3);
+        }
+
+        .error-emoji {
+          font-size: 72px;
+          margin-bottom: 22px;
+        }
+
+        .error-card h1 {
+          font-size: 28px;
+          color: #1a1a1a;
+          margin-bottom: 14px;
+        }
+
+        .error-card p {
+          color: #666;
+          font-size: 15px;
+          margin-bottom: 28px;
+          line-height: 1.6;
+        }
+
+        .error-card button {
+          padding: 14px 32px;
+          background: linear-gradient(135deg, #667eea, #764ba2);
+          color: white;
+          border: none;
+          border-radius: 12px;
+          font-size: 16px;
+          font-weight: 700;
+          cursor: pointer;
+          transition: 0.3s;
+          box-shadow: 0 4px 16px rgba(102, 126, 234, 0.35);
+        }
+
+        .error-card button:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 6px 22px rgba(102, 126, 234, 0.45);
+        }
+
         @media (max-width: 480px) {
-          .navbar {
-            height: 56px;
-          }
-
-          .nav-container {
-            padding: 0 14px;
-            gap: 10px;
-          }
-
-          .hamburger {
-            display: flex;
-          }
-
-          .brand {
-            font-size: 16px;
-            flex: 1;
-            justify-content: center;
-          }
-
-          .brand-icon {
-            font-size: 22px;
-          }
-
-          .brand-text {
-            display: none;
-          }
-
-          .nav-links {
-            display: none;
-          }
-
-          .mobile-menu {
-            width: 90%;
-            max-width: 280px;
-          }
-
-          .menu-header {
-            padding: 16px;
-            min-height: 66px;
-          }
-
-          .menu-logo {
-            font-size: 17px;
-            gap: 9px;
-          }
-
-          .logo-emoji {
-            font-size: 24px;
-          }
-
-          .close-btn {
-            width: 36px;
-            height: 36px;
-            font-size: 20px;
-          }
-
-          .menu-content {
-            padding: 16px;
-          }
-
-          .user-card {
-            padding: 14px;
-            gap: 12px;
-          }
-
-          .avatar {
-            width: 42px;
-            height: 42px;
-            font-size: 20px;
-          }
-
-          .name {
-            font-size: 14px;
-          }
-
-          .email {
-            font-size: 11px;
-          }
-
-          .menu-item {
-            padding: 13px 16px;
-            font-size: 14px;
-          }
-
-          .menu-item span {
-            font-size: 20px;
-            width: 26px;
-          }
-
-          .logout {
-            padding: 13px;
-            font-size: 14px;
-          }
-
-          .oauth-success-card,
-          .oauth-error-card {
-            padding: 32px 22px;
-          }
-
-          .success-icon,
-          .error-icon {
-            font-size: 56px;
-          }
-
-          .success-title,
-          .error-title {
-            font-size: 20px;
-          }
-
-          .success-channel {
-            font-size: 14px;
-            padding: 9px 16px;
-          }
-
-          .success-message,
-          .error-message {
-            font-size: 13px;
-          }
-
-          .not-found h1 {
-            font-size: 72px;
-          }
-
-          .not-found h2 {
-            font-size: 24px;
-          }
-
-          .not-found p {
-            font-size: 14px;
-          }
-
-          .spinner-wrapper {
-            width: 52px;
-            height: 52px;
-          }
-
-          .loading-text {
-            font-size: 15px;
-          }
+          .navbar { height: 56px; }
+          .nav-container { padding: 0 14px; gap: 10px; }
+          .hamburger { display: flex; }
+          .brand { font-size: 16px; flex: 1; justify-content: center; }
+          .brand-icon { font-size: 22px; }
+          .brand-text { display: none; }
+          .nav-links { display: none; }
+          .mobile-menu { width: 90%; max-width: 280px; }
         }
 
-        /* Small Mobile (320px - 375px) */
-        @media (max-width: 375px) {
-          .mobile-menu {
-            width: 92%;
-            max-width: 260px;
-          }
-
-          .menu-logo {
-            font-size: 16px;
-          }
-
-          .user-card {
-            padding: 12px;
-          }
-
-          .menu-item {
-            padding: 12px 14px;
-            font-size: 13px;
-          }
-        }
-
-        /* Small Tablets (481px - 767px) */
         @media (min-width: 481px) and (max-width: 767px) {
-          .hamburger {
-            display: flex;
-          }
-
-          .brand-text {
-            display: inline;
-          }
-
-          .nav-links {
-            display: none;
-          }
+          .hamburger { display: flex; }
+          .brand-text { display: inline; }
+          .nav-links { display: none; }
         }
 
-        /* Tablets (768px - 1024px) */
         @media (min-width: 768px) and (max-width: 1024px) {
-          .hamburger {
-            display: flex;
-          }
-
-          .nav-links {
-            display: none;
-          }
-
-          .mobile-menu {
-            max-width: 320px;
-          }
+          .hamburger { display: flex; }
+          .nav-links { display: none; }
         }
 
-        /* Desktop (1025px+) */
         @media (min-width: 1025px) {
-          .brand-text {
-            display: inline;
-          }
-
-          .link .text {
-            display: inline;
-          }
-
-          .welcome {
-            max-width: 180px;
-          }
-        }
-
-        /* Large Desktop (1400px+) */
-        @media (min-width: 1400px) {
-          .nav-container {
-            padding: 0 32px;
-          }
-
-          .brand {
-            font-size: 20px;
-          }
-
-          .link {
-            font-size: 15px;
-            padding: 9px 16px;
-          }
-
-          .welcome {
-            max-width: 200px;
-            font-size: 14px;
-          }
-        }
-
-        /* Landscape Mobile */
-        @media (max-height: 500px) and (orientation: landscape) {
-          .menu-header {
-            min-height: 56px;
-            padding: 12px 16px;
-          }
-
-          .user-card {
-            padding: 10px;
-          }
-
-          .menu-item {
-            padding: 10px 14px;
-          }
-
-          .logout {
-            padding: 10px;
-          }
-        }
-
-        /* Safe Areas for Notched Devices */
-        @supports (padding: max(0px)) {
-          .navbar {
-            padding-left: max(0px, env(safe-area-inset-left));
-            padding-right: max(0px, env(safe-area-inset-right));
-          }
-
-          .mobile-menu {
-            padding-top: max(0px, env(safe-area-inset-top));
-            padding-bottom: max(0px, env(safe-area-inset-bottom));
-          }
-        }
-
-        /* Focus Styles */
-        .link:focus-visible,
-        .menu-item:focus-visible,
-        .btn-logout:focus-visible,
-        .logout:focus-visible {
-          outline: 3px solid #667eea;
-          outline-offset: 2px;
-        }
-
-        /* Reduced Motion */
-        @media (prefers-reduced-motion: reduce) {
-          * {
-            animation-duration: 0.01ms !important;
-            transition-duration: 0.01ms !important;
-          }
-        }
-
-        /* Print */
-        @media print {
-          .navbar,
-          .mobile-menu,
-          .hamburger {
-            display: none !important;
-          }
+          .brand-text { display: inline; }
+          .link .text { display: inline; }
+          .welcome { max-width: 180px; }
         }
       `}</style>
     </ErrorBoundary>
