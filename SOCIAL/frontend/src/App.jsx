@@ -7,21 +7,22 @@ import Register from './quickpage/Register';
 import Landing_Page from './Landing_Page';
 import './App.css';
 
-// Footer Pages Imports - Only import if files exist
+// Footer Pages Imports - Using ACTUAL file names (case-sensitive!)
 let PrivacyPolicy, TermsOfService, CookiePolicy, Contact, About;
 let Features, Pricing, HelpCenter, Documentation, Blog;
 let Careers, Status, Community, Integrations, API;
 
+// Import with EXACT file names that exist
 try {
-  PrivacyPolicy = require('./footerpages/PrivacyPolicy').default;
+  PrivacyPolicy = require('./footerpages/Privacypolicy').default;
 } catch { PrivacyPolicy = () => <ComingSoon page="Privacy Policy" />; }
 
 try {
-  TermsOfService = require('./footerpages/TermsOfService').default;
+  TermsOfService = require('./footerpages/Termsofservice').default;
 } catch { TermsOfService = () => <ComingSoon page="Terms of Service" />; }
 
 try {
-  CookiePolicy = require('./footerpages/CookiePolicy').default;
+  CookiePolicy = require('./footerpages/Cookiepolicy').default;
 } catch { CookiePolicy = () => <ComingSoon page="Cookie Policy" />; }
 
 try {
@@ -41,7 +42,7 @@ try {
 } catch { Pricing = () => <ComingSoon page="Pricing" />; }
 
 try {
-  HelpCenter = require('./footerpages/HelpCenter').default;
+  HelpCenter = require('./footerpages/Helpcenter').default;
 } catch { HelpCenter = () => <ComingSoon page="Help Center" />; }
 
 try {
@@ -69,7 +70,7 @@ try {
 } catch { Integrations = () => <ComingSoon page="Integrations" />; }
 
 try {
-  API = require('./footerpages/API').default;
+  API = require('./footerpages/Api').default;
 } catch { API = () => <ComingSoon page="API" />; }
 
 // Coming Soon fallback component
@@ -404,7 +405,7 @@ const ConditionalNavbar = () => {
       </nav>
       
       <MobileMenu 
-        isOpen={menuOpen}
+        isOpen={menuOpen} 
         onClose={() => setMenuOpen(false)}
         isAuthenticated={isAuthenticated}
         user={user}
@@ -427,7 +428,7 @@ function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
 
-            {/* Footer Pages - Will show "Coming Soon" if files missing */}
+            {/* Footer Pages - Now using ACTUAL file names */}
             <Route path="/privacy" element={<PrivacyPolicy />} />
             <Route path="/terms" element={<TermsOfService />} />
             <Route path="/cookie-policy" element={<CookiePolicy />} />
@@ -555,53 +556,49 @@ function App() {
         .brand {
           display: flex;
           align-items: center;
-          gap: 11px;
+          gap: 10px;
           text-decoration: none;
           color: #1a1a1a;
           font-weight: 800;
-          font-size: 19px;
-          letter-spacing: -0.3px;
-          transition: 0.3s;
-        }
-
-        .brand:hover {
-          color: #667eea;
+          font-size: 22px;
+          letter-spacing: -0.5px;
         }
 
         .brand-icon {
-          font-size: 26px;
+          font-size: 28px;
           line-height: 1;
+        }
+
+        .brand-text {
+          display: none;
         }
 
         .nav-links {
           display: flex;
           align-items: center;
-          gap: 7px;
-          flex: 1;
-          justify-content: flex-end;
+          gap: 8px;
         }
 
         .link {
           display: flex;
           align-items: center;
-          gap: 7px;
-          padding: 8px 14px;
+          gap: 8px;
+          padding: 10px 16px;
           text-decoration: none;
-          color: #555;
+          color: #374151;
           font-weight: 600;
-          font-size: 14px;
+          font-size: 15px;
           border-radius: 10px;
-          transition: 0.3s;
-          white-space: nowrap;
+          transition: 0.2s;
         }
 
         .link:hover {
-          background: #f7f7ff;
+          background: #f3f4f6;
           color: #667eea;
         }
 
         .link span:first-child {
-          font-size: 19px;
+          font-size: 18px;
           line-height: 1;
         }
 
@@ -612,86 +609,87 @@ function App() {
         .user-box {
           display: flex;
           align-items: center;
-          gap: 13px;
-          padding: 7px 13px 7px 16px;
-          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-          border-radius: 12px;
-          margin-left: 7px;
+          gap: 12px;
+          padding-left: 16px;
+          border-left: 2px solid #e5e7eb;
+          margin-left: 8px;
         }
 
         .welcome {
-          color: white;
-          font-weight: 700;
-          font-size: 13px;
-          max-width: 140px;
+          color: #6b7280;
+          font-size: 14px;
+          font-weight: 600;
+          max-width: 120px;
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
         }
 
         .btn-logout {
-          padding: 7px 15px;
-          background: rgba(255, 255, 255, 0.22);
-          border: 1.5px solid rgba(255, 255, 255, 0.4);
-          border-radius: 8px;
+          padding: 8px 18px;
+          background: linear-gradient(135deg, #667eea, #764ba2);
           color: white;
+          border: none;
+          border-radius: 8px;
           font-weight: 700;
-          font-size: 12px;
+          font-size: 13px;
           cursor: pointer;
           transition: 0.3s;
-          white-space: nowrap;
+          box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
         }
 
         .btn-logout:hover {
-          background: rgba(255, 255, 255, 0.35);
-          transform: scale(1.05);
+          transform: translateY(-2px);
+          box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
         }
 
         .overlay {
           position: fixed;
-          inset: 0;
-          background: rgba(0, 0, 0, 0.55);
-          backdrop-filter: blur(3px);
-          z-index: 1000;
-          animation: fadeIn 0.25s ease-out;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: rgba(0, 0, 0, 0.6);
+          backdrop-filter: blur(4px);
+          z-index: 998;
+          animation: fadeIn 0.3s;
         }
 
         .mobile-menu {
           position: fixed;
           top: 0;
-          left: 0;
-          bottom: 0;
-          width: 88%;
-          max-width: 310px;
+          right: -100%;
+          width: 85%;
+          max-width: 340px;
+          height: 100vh;
           background: white;
-          box-shadow: 4px 0 24px rgba(0, 0, 0, 0.18);
-          z-index: 1001;
-          transform: translateX(-100%);
-          transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-          overflow-y: auto;
+          box-shadow: -4px 0 24px rgba(0, 0, 0, 0.15);
+          z-index: 999;
+          transition: right 0.3s ease;
+          display: flex;
+          flex-direction: column;
         }
 
         .mobile-menu.open {
-          transform: translateX(0);
+          right: 0;
         }
 
         .menu-header {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          padding: 18px;
-          border-bottom: 2px solid #f0f0f0;
-          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-          color: white;
-          min-height: 72px;
+          padding: 20px 22px;
+          border-bottom: 2px solid #f3f4f6;
+          background: linear-gradient(135deg, #667eea, #764ba2);
         }
 
         .menu-logo {
           display: flex;
           align-items: center;
-          gap: 11px;
+          gap: 10px;
+          color: white;
           font-weight: 800;
-          font-size: 18px;
+          font-size: 20px;
         }
 
         .logo-emoji {
@@ -699,27 +697,31 @@ function App() {
         }
 
         .close-btn {
-          width: 38px;
-          height: 38px;
+          width: 36px;
+          height: 36px;
           border-radius: 50%;
+          background: rgba(255, 255, 255, 0.2);
           border: none;
-          background: rgba(255, 255, 255, 0.22);
           color: white;
           font-size: 22px;
+          font-weight: 700;
           cursor: pointer;
           display: flex;
           align-items: center;
           justify-content: center;
-          transition: 0.3s;
+          transition: 0.2s;
         }
 
         .close-btn:hover {
-          background: rgba(255, 255, 255, 0.35);
-          transform: scale(1.1);
+          background: rgba(255, 255, 255, 0.3);
         }
 
         .menu-content {
-          padding: 18px;
+          flex: 1;
+          padding: 22px;
+          overflow-y: auto;
+          display: flex;
+          flex-direction: column;
         }
 
         .user-card {
@@ -727,10 +729,10 @@ function App() {
           align-items: center;
           gap: 14px;
           padding: 16px;
-          background: linear-gradient(135deg, rgba(102, 126, 234, 0.08), rgba(118, 75, 162, 0.08));
+          background: linear-gradient(135deg, #f0f4ff, #e8f0ff);
           border-radius: 14px;
-          margin-bottom: 18px;
-          border: 1.5px solid rgba(102, 126, 234, 0.15);
+          margin-bottom: 24px;
+          border: 2px solid #e0e7ff;
         }
 
         .avatar {
@@ -741,7 +743,7 @@ function App() {
           display: flex;
           align-items: center;
           justify-content: center;
-          font-size: 22px;
+          font-size: 24px;
           flex-shrink: 0;
         }
 
@@ -752,17 +754,17 @@ function App() {
 
         .name {
           font-weight: 700;
-          font-size: 15px;
+          font-size: 16px;
           color: #1a1a1a;
-          margin-bottom: 3px;
+          margin-bottom: 4px;
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
         }
 
         .email {
-          font-size: 12px;
-          color: #666;
+          font-size: 13px;
+          color: #6b7280;
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
@@ -772,43 +774,38 @@ function App() {
           display: flex;
           flex-direction: column;
           gap: 6px;
-          margin-bottom: 18px;
+          margin-bottom: 24px;
         }
 
         .menu-item {
           display: flex;
           align-items: center;
           gap: 14px;
-          padding: 14px 18px;
+          padding: 14px 16px;
           background: transparent;
           border: none;
           border-radius: 12px;
-          font-size: 15px;
+          font-size: 16px;
           font-weight: 600;
-          color: #333;
+          color: #374151;
           cursor: pointer;
-          transition: 0.3s;
+          transition: 0.2s;
           text-align: left;
-          width: 100%;
         }
 
         .menu-item:hover {
-          background: rgba(102, 126, 234, 0.08);
+          background: #f3f4f6;
           color: #667eea;
-          transform: translateX(4px);
         }
 
-        .menu-item span {
-          font-size: 22px;
-          width: 28px;
+        .menu-item span:first-child {
+          font-size: 20px;
+          width: 24px;
           text-align: center;
         }
 
         .logout {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 11px;
+          margin-top: auto;
           width: 100%;
           padding: 14px;
           background: linear-gradient(135deg, #ff4444, #cc0000);

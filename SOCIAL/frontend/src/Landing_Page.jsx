@@ -21,7 +21,7 @@ const Landing_Page = () => {
   // Auto-rotate features
   useEffect(() => {
     const interval = setInterval(() => {
-      setActiveFeature((prev) => (prev + 1) % features.length);
+      setActiveFeature((prev) => (prev + 1) % 4);
     }, 5000);
     return () => clearInterval(interval);
   }, []);
@@ -42,47 +42,37 @@ const Landing_Page = () => {
     { 
       name: 'Facebook', 
       emoji: '📘', 
-      color: '#4267B2', 
       route: '/facebook-instagram', 
       features: ['AI Content Generation', 'Multi-Page Management', 'Smart Scheduling', 'Advanced Analytics'],
-      description: 'Automate your Facebook presence with AI-powered content creation and intelligent scheduling.',
-      image: 'https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=800&h=600&fit=crop'
+      description: 'Automate your Facebook presence with AI-powered content creation and intelligent scheduling.'
     },
     { 
       name: 'Instagram', 
       emoji: '📸', 
-      color: '#E4405F', 
       route: '/instagram', 
       features: ['AI Image Generation', 'Smart Hashtags', 'Story Automation', 'Engagement Boost'],
-      description: 'Create stunning Instagram content automatically with AI-powered images and captions.',
-      image: 'https://images.unsplash.com/photo-1611162616305-c69b3fa7fbe0?w=800&h=600&fit=crop'
+      description: 'Create stunning Instagram content automatically with AI-powered images and captions.'
     },
     { 
       name: 'WhatsApp', 
       emoji: '💬', 
-      color: '#25D366', 
       route: '/whatsapp', 
       features: ['Auto Reply', 'Broadcast Messages', 'Templates', 'Chat Analytics'],
-      description: 'Streamline your WhatsApp communication with automated responses and broadcast capabilities.',
-      image: 'https://images.unsplash.com/photo-1611606063065-ee7946f0787a?w=800&h=600&fit=crop'
+      description: 'Streamline your WhatsApp communication with automated responses and broadcast capabilities.'
     },
     { 
       name: 'YouTube', 
       emoji: '📺', 
-      color: '#FF0000', 
       route: '/youtube', 
       features: ['AI Script Writing', 'Auto Upload', 'SEO Optimization', 'Shorts Creation'],
-      description: 'Grow your YouTube channel with AI-generated scripts and automated video uploads.',
-      image: 'https://images.unsplash.com/photo-1611162618071-b39a2ec055fb?w=800&h=600&fit=crop'
+      description: 'Grow your YouTube channel with AI-generated scripts and automated video uploads.'
     },
     { 
       name: 'Reddit', 
       emoji: '🔴', 
-      color: '#FF4500', 
       route: '/reddit-auto', 
       features: ['Auto Posting', 'Smart Replies', 'Karma Building', 'Multi-Subreddit'],
-      description: 'Build your Reddit presence with intelligent posting and automated engagement.',
-      image: 'https://images.unsplash.com/photo-1634942537034-2531766767d1?w=800&h=600&fit=crop'
+      description: 'Build your Reddit presence with intelligent posting and automated engagement.'
     }
   ];
 
@@ -90,26 +80,22 @@ const Landing_Page = () => {
     {
       title: 'AI-Powered Content',
       description: 'Generate engaging posts, captions, and images automatically with advanced AI',
-      icon: '🤖',
-      image: 'https://images.unsplash.com/photo-1677442136019-21780ecad995?w=800&h=600&fit=crop'
+      icon: '🤖'
     },
     {
       title: 'Smart Scheduling',
       description: 'Post at optimal times for maximum engagement across all platforms',
-      icon: '⚡',
-      image: 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=800&h=600&fit=crop'
+      icon: '⚡'
     },
     {
       title: 'Analytics Dashboard',
       description: 'Track performance and optimize your strategy with real-time insights',
-      icon: '📊',
-      image: 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=800&h=600&fit=crop'
+      icon: '📊'
     },
     {
       title: 'Multi-Platform',
       description: 'Manage all your social media accounts from one unified dashboard',
-      icon: '🎯',
-      image: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=800&h=600&fit=crop'
+      icon: '🎯'
     }
   ];
 
@@ -156,162 +142,39 @@ const Landing_Page = () => {
   };
 
   return (
-    <div style={{ minHeight: '100vh', background: 'white', overflow: 'hidden' }}>
+    <div className="landing-page-container">
       {/* Header */}
-      <header style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        zIndex: 1000,
-        background: scrolled ? 'rgba(255, 255, 255, 0.98)' : 'rgba(255, 255, 255, 0.95)',
-        backdropFilter: 'blur(10px)',
-        borderBottom: scrolled ? '1px solid rgba(0, 0, 0, 0.1)' : 'none',
-        padding: '16px 0',
-        boxShadow: scrolled ? '0 2px 20px rgba(0,0,0,0.1)' : 'none',
-        transition: 'all 0.3s ease'
-      }}>
-        <div style={{
-          maxWidth: '1400px',
-          margin: '0 auto',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          padding: '0 24px'
-        }}>
+      <header className={`landing-header ${scrolled ? 'scrolled' : ''}`}>
+        <div className="landing-header-content">
           {/* Logo */}
-          <Link to="/" style={{
-            fontSize: '28px',
-            fontWeight: '700',
-            background: 'linear-gradient(135deg, #667eea, #764ba2)',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-            textDecoration: 'none',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            zIndex: 1002
-          }}>
-            <span style={{ fontSize: '32px' }}>🚀</span>
+          <Link to="/" className="landing-logo">
+            <span className="logo-emoji">🚀</span>
             <span className="logo-text">VelocityPost</span>
           </Link>
           
           {/* Desktop Navigation */}
-          <nav className="desktop-nav" style={{ 
-            display: 'flex', 
-            gap: '32px', 
-            alignItems: 'center' 
-          }}>
-            <button 
-              onClick={() => scrollToSection('features')}
-              style={{ 
-                background: 'none',
-                border: 'none',
-                color: '#374151', 
-                cursor: 'pointer',
-                textDecoration: 'none', 
-                fontWeight: '500', 
-                fontSize: '16px', 
-                transition: 'color 0.3s',
-                padding: '8px 0'
-              }}
-              onMouseEnter={(e) => e.target.style.color = '#667eea'}
-              onMouseLeave={(e) => e.target.style.color = '#374151'}
-            >
+          <nav className="landing-desktop-nav">
+            <button onClick={() => scrollToSection('features')} className="nav-button">
               Features
             </button>
-            <button 
-              onClick={() => scrollToSection('platforms')}
-              style={{ 
-                background: 'none',
-                border: 'none',
-                color: '#374151', 
-                cursor: 'pointer',
-                textDecoration: 'none', 
-                fontWeight: '500', 
-                fontSize: '16px', 
-                transition: 'color 0.3s',
-                padding: '8px 0'
-              }}
-              onMouseEnter={(e) => e.target.style.color = '#667eea'}
-              onMouseLeave={(e) => e.target.style.color = '#374151'}
-            >
+            <button onClick={() => scrollToSection('platforms')} className="nav-button">
               Platforms
             </button>
-            <button 
-              onClick={() => scrollToSection('testimonials')}
-              style={{ 
-                background: 'none',
-                border: 'none',
-                color: '#374151', 
-                cursor: 'pointer',
-                textDecoration: 'none', 
-                fontWeight: '500', 
-                fontSize: '16px', 
-                transition: 'color 0.3s',
-                padding: '8px 0'
-              }}
-              onMouseEnter={(e) => e.target.style.color = '#667eea'}
-              onMouseLeave={(e) => e.target.style.color = '#374151'}
-            >
+            <button onClick={() => scrollToSection('testimonials')} className="nav-button">
               Testimonials
             </button>
-            <Link 
-              to="/pricing"
-              style={{ 
-                color: '#374151', 
-                textDecoration: 'none', 
-                fontWeight: '500', 
-                fontSize: '16px', 
-                transition: 'color 0.3s',
-                padding: '8px 0'
-              }}
-              onMouseEnter={(e) => e.target.style.color = '#667eea'}
-              onMouseLeave={(e) => e.target.style.color = '#374151'}
-            >
+            <Link to="/pricing" className="nav-button">
               Pricing
             </Link>
             
             {isAuthenticated ? (
-              <Link to="/reddit-auto" style={{
-                padding: '12px 28px',
-                background: 'linear-gradient(135deg, #667eea, #764ba2)',
-                color: 'white',
-                textDecoration: 'none',
-                borderRadius: '30px',
-                fontWeight: '600',
-                fontSize: '15px',
-                boxShadow: '0 4px 15px rgba(102, 126, 234, 0.4)',
-                transition: 'all 0.3s',
-                display: 'inline-block'
-              }}>
+              <Link to="/reddit-auto" className="cta-button">
                 Dashboard
               </Link>
             ) : (
               <>
-                <Link to="/login" style={{ 
-                  color: '#374151', 
-                  textDecoration: 'none', 
-                  fontWeight: '500', 
-                  fontSize: '16px',
-                  transition: 'color 0.3s'
-                }}
-                onMouseEnter={(e) => e.target.style.color = '#667eea'}
-                onMouseLeave={(e) => e.target.style.color = '#374151'}
-                >
-                  Sign In
-                </Link>
-                <Link to="/register" style={{
-                  padding: '12px 28px',
-                  background: 'linear-gradient(135deg, #667eea, #764ba2)',
-                  color: 'white',
-                  textDecoration: 'none',
-                  borderRadius: '30px',
-                  fontWeight: '600',
-                  fontSize: '15px',
-                  boxShadow: '0 4px 15px rgba(102, 126, 234, 0.4)',
-                  transition: 'all 0.3s'
-                }}>
+                <Link to="/login" className="nav-button">Sign In</Link>
+                <Link to="/register" className="cta-button">
                   Get Started Free
                 </Link>
               </>
@@ -320,453 +183,114 @@ const Landing_Page = () => {
 
           {/* Mobile Menu Button */}
           <button
-            className="mobile-menu-btn"
+            className="landing-mobile-menu-btn"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            style={{
-              display: 'none',
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              padding: '8px',
-              zIndex: 1002
-            }}
+            aria-label="Toggle menu"
           >
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-              <span style={{
-                width: '25px',
-                height: '3px',
-                background: '#374151',
-                borderRadius: '2px',
-                transition: 'all 0.3s',
-                transform: mobileMenuOpen ? 'rotate(45deg) translateY(8px)' : 'none'
-              }} />
-              <span style={{
-                width: '25px',
-                height: '3px',
-                background: '#374151',
-                borderRadius: '2px',
-                transition: 'all 0.3s',
-                opacity: mobileMenuOpen ? 0 : 1
-              }} />
-              <span style={{
-                width: '25px',
-                height: '3px',
-                background: '#374151',
-                borderRadius: '2px',
-                transition: 'all 0.3s',
-                transform: mobileMenuOpen ? 'rotate(-45deg) translateY(-8px)' : 'none'
-              }} />
-            </div>
+            <span className={mobileMenuOpen ? 'active' : ''}></span>
+            <span className={mobileMenuOpen ? 'active' : ''}></span>
+            <span className={mobileMenuOpen ? 'active' : ''}></span>
           </button>
         </div>
 
+        {/* Mobile Menu Overlay */}
+        {mobileMenuOpen && (
+          <div className="landing-mobile-overlay" onClick={() => setMobileMenuOpen(false)} />
+        )}
+
         {/* Mobile Menu */}
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'rgba(0, 0, 0, 0.5)',
-          backdropFilter: 'blur(5px)',
-          opacity: mobileMenuOpen ? 1 : 0,
-          visibility: mobileMenuOpen ? 'visible' : 'hidden',
-          transition: 'all 0.3s ease',
-          zIndex: 1001
-        }} onClick={() => setMobileMenuOpen(false)} />
+        <div className={`landing-mobile-menu ${mobileMenuOpen ? 'open' : ''}`}>
+          <button onClick={() => scrollToSection('features')} className="mobile-menu-item">
+            Features
+          </button>
+          <button onClick={() => scrollToSection('platforms')} className="mobile-menu-item">
+            Platforms
+          </button>
+          <button onClick={() => scrollToSection('testimonials')} className="mobile-menu-item">
+            Testimonials
+          </button>
+          <Link to="/pricing" onClick={() => setMobileMenuOpen(false)} className="mobile-menu-item">
+            Pricing
+          </Link>
 
-        <div className="mobile-menu" style={{
-          position: 'fixed',
-          top: 0,
-          right: 0,
-          bottom: 0,
-          width: '80%',
-          maxWidth: '320px',
-          background: 'white',
-          boxShadow: '-4px 0 24px rgba(0, 0, 0, 0.2)',
-          transform: mobileMenuOpen ? 'translateX(0)' : 'translateX(100%)',
-          transition: 'transform 0.3s ease',
-          zIndex: 1002,
-          overflowY: 'auto',
-          padding: '80px 24px 24px'
-        }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-            <button 
-              onClick={() => scrollToSection('features')}
-              style={{
-                background: 'none',
-                border: 'none',
-                color: '#374151',
-                cursor: 'pointer',
-                textAlign: 'left',
-                fontSize: '18px',
-                fontWeight: '500',
-                padding: '12px 0',
-                borderBottom: '1px solid #f3f4f6'
-              }}
-            >
-              Features
-            </button>
-            <button 
-              onClick={() => scrollToSection('platforms')}
-              style={{
-                background: 'none',
-                border: 'none',
-                color: '#374151',
-                cursor: 'pointer',
-                textAlign: 'left',
-                fontSize: '18px',
-                fontWeight: '500',
-                padding: '12px 0',
-                borderBottom: '1px solid #f3f4f6'
-              }}
-            >
-              Platforms
-            </button>
-            <button 
-              onClick={() => scrollToSection('testimonials')}
-              style={{
-                background: 'none',
-                border: 'none',
-                color: '#374151',
-                cursor: 'pointer',
-                textAlign: 'left',
-                fontSize: '18px',
-                fontWeight: '500',
-                padding: '12px 0',
-                borderBottom: '1px solid #f3f4f6'
-              }}
-            >
-              Testimonials
-            </button>
-            <Link 
-              to="/pricing"
-              onClick={() => setMobileMenuOpen(false)}
-              style={{
-                color: '#374151',
-                textDecoration: 'none',
-                fontSize: '18px',
-                fontWeight: '500',
-                padding: '12px 0',
-                borderBottom: '1px solid #f3f4f6',
-                display: 'block'
-              }}
-            >
-              Pricing
+          {isAuthenticated ? (
+            <Link to="/reddit-auto" onClick={() => setMobileMenuOpen(false)} className="mobile-cta-button">
+              Dashboard
             </Link>
-
-            {isAuthenticated ? (
-              <Link 
-                to="/reddit-auto"
-                onClick={() => setMobileMenuOpen(false)}
-                style={{
-                  padding: '14px 24px',
-                  background: 'linear-gradient(135deg, #667eea, #764ba2)',
-                  color: 'white',
-                  textDecoration: 'none',
-                  borderRadius: '12px',
-                  fontWeight: '600',
-                  fontSize: '16px',
-                  textAlign: 'center',
-                  marginTop: '16px',
-                  display: 'block'
-                }}
-              >
-                Dashboard
+          ) : (
+            <>
+              <Link to="/login" onClick={() => setMobileMenuOpen(false)} className="mobile-signin-button">
+                Sign In
               </Link>
-            ) : (
-              <>
-                <Link 
-                  to="/login"
-                  onClick={() => setMobileMenuOpen(false)}
-                  style={{
-                    padding: '14px 24px',
-                    background: 'transparent',
-                    color: '#667eea',
-                    textDecoration: 'none',
-                    border: '2px solid #667eea',
-                    borderRadius: '12px',
-                    fontWeight: '600',
-                    fontSize: '16px',
-                    textAlign: 'center',
-                    marginTop: '16px',
-                    display: 'block'
-                  }}
-                >
-                  Sign In
-                </Link>
-                <Link 
-                  to="/register"
-                  onClick={() => setMobileMenuOpen(false)}
-                  style={{
-                    padding: '14px 24px',
-                    background: 'linear-gradient(135deg, #667eea, #764ba2)',
-                    color: 'white',
-                    textDecoration: 'none',
-                    borderRadius: '12px',
-                    fontWeight: '600',
-                    fontSize: '16px',
-                    textAlign: 'center',
-                    display: 'block'
-                  }}
-                >
-                  Get Started Free
-                </Link>
-              </>
-            )}
-          </div>
+              <Link to="/register" onClick={() => setMobileMenuOpen(false)} className="mobile-cta-button">
+                Get Started Free
+              </Link>
+            </>
+          )}
         </div>
       </header>
 
       {/* Hero Section */}
-      <section style={{
-        minHeight: '100vh',
-        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%)',
-        position: 'relative',
-        padding: '140px 24px 100px',
-        overflow: 'hidden',
-        display: 'flex',
-        alignItems: 'center'
-      }}>
-        {/* Animated background elements */}
-        <div className="floating-bg" style={{
-          position: 'absolute',
-          top: '10%',
-          left: '5%',
-          width: '300px',
-          height: '300px',
-          background: 'rgba(255, 255, 255, 0.1)',
-          borderRadius: '50%',
-          filter: 'blur(60px)',
-          animation: 'float 20s ease-in-out infinite'
-        }} />
-        <div className="floating-bg" style={{
-          position: 'absolute',
-          bottom: '10%',
-          right: '5%',
-          width: '400px',
-          height: '400px',
-          background: 'rgba(255, 255, 255, 0.1)',
-          borderRadius: '50%',
-          filter: 'blur(80px)',
-          animation: 'float 25s ease-in-out infinite reverse'
-        }} />
+      <section className="hero-section">
+        <div className="floating-bg floating-bg-1"></div>
+        <div className="floating-bg floating-bg-2"></div>
         
-        <div style={{ maxWidth: '1400px', margin: '0 auto', width: '100%', position: 'relative', zIndex: 1 }}>
-          <div style={{
-            textAlign: 'center',
-            color: 'white'
-          }}>
-            {/* Badge */}
-            <div style={{
-              display: 'inline-block',
-              padding: '10px 24px',
-              background: 'rgba(255, 255, 255, 0.2)',
-              backdropFilter: 'blur(10px)',
-              borderRadius: '30px',
-              marginBottom: '32px',
-              border: '1px solid rgba(255, 255, 255, 0.3)',
-              fontSize: '14px',
-              fontWeight: '600',
-              animation: 'fadeInDown 1s ease-out'
-            }}>
-              🎉 New: AI-Powered Instagram Stories!
-            </div>
+        <div className="hero-content">
+          <div className="hero-badge">
+            🎉 New: AI-Powered Instagram Stories!
+          </div>
 
-            {/* Main Heading */}
-            <h1 style={{
-              fontSize: 'clamp(40px, 8vw, 72px)',
-              fontWeight: '900',
-              lineHeight: '1.1',
-              marginBottom: '24px',
-              animation: 'fadeInUp 1s ease-out 0.2s both'
-            }}>
-              Automate Your<br />
-              <span style={{
-                background: 'linear-gradient(90deg, #fff, #f0f0f0)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent'
-              }}>
-                Social Media Magic
-              </span>
-            </h1>
+          <h1 className="hero-title">
+            Automate Your<br />
+            <span className="gradient-text">Social Media Magic</span>
+          </h1>
 
-            {/* Subtitle */}
-            <p style={{
-              fontSize: 'clamp(18px, 3vw, 24px)',
-              lineHeight: '1.6',
-              opacity: 0.95,
-              maxWidth: '700px',
-              margin: '0 auto 40px',
-              animation: 'fadeInUp 1s ease-out 0.4s both'
-            }}>
-              AI-powered automation for Facebook, Instagram, WhatsApp, YouTube & Reddit. 
-              Save 20+ hours weekly while boosting engagement by 300%.
-            </p>
+          <p className="hero-subtitle">
+            AI-powered automation for Facebook, Instagram, WhatsApp, YouTube & Reddit. 
+            Save 20+ hours weekly while boosting engagement by 300%.
+          </p>
 
-            {/* CTA Buttons */}
-            <div style={{
-              display: 'flex',
-              gap: '16px',
-              justifyContent: 'center',
-              flexWrap: 'wrap',
-              animation: 'fadeInUp 1s ease-out 0.6s both'
-            }}>
-              <Link to="/register" style={{
-                padding: '16px 40px',
-                background: 'white',
-                color: '#667eea',
-                textDecoration: 'none',
-                borderRadius: '30px',
-                fontWeight: '700',
-                fontSize: '18px',
-                boxShadow: '0 10px 40px rgba(0, 0, 0, 0.2)',
-                transition: 'all 0.3s',
-                display: 'inline-block'
-              }}
-              onMouseEnter={(e) => {
-                e.target.style.transform = 'translateY(-3px)';
-                e.target.style.boxShadow = '0 15px 50px rgba(0, 0, 0, 0.3)';
-              }}
-              onMouseLeave={(e) => {
-                e.target.style.transform = 'translateY(0)';
-                e.target.style.boxShadow = '0 10px 40px rgba(0, 0, 0, 0.2)';
-              }}
-              >
-                Start Free Trial
-              </Link>
-              <button 
-                onClick={() => scrollToSection('platforms')}
-                style={{
-                  padding: '16px 40px',
-                  background: 'rgba(255, 255, 255, 0.15)',
-                  backdropFilter: 'blur(10px)',
-                  color: 'white',
-                  border: '2px solid rgba(255, 255, 255, 0.3)',
-                  borderRadius: '30px',
-                  fontWeight: '700',
-                  fontSize: '18px',
-                  cursor: 'pointer',
-                  transition: 'all 0.3s'
-                }}
-                onMouseEnter={(e) => {
-                  e.target.style.background = 'rgba(255, 255, 255, 0.25)';
-                  e.target.style.transform = 'translateY(-3px)';
-                }}
-                onMouseLeave={(e) => {
-                  e.target.style.background = 'rgba(255, 255, 255, 0.15)';
-                  e.target.style.transform = 'translateY(0)';
-                }}
-              >
-                Watch Demo
-              </button>
-            </div>
+          <div className="hero-buttons">
+            <Link to="/register" className="hero-cta-primary">
+              Start Free Trial
+            </Link>
+            <button onClick={() => scrollToSection('platforms')} className="hero-cta-secondary">
+              Watch Demo
+            </button>
+          </div>
 
-            {/* Trust Badges */}
-            <div style={{
-              marginTop: '60px',
-              display: 'flex',
-              gap: '40px',
-              justifyContent: 'center',
-              flexWrap: 'wrap',
-              opacity: 0.9,
-              animation: 'fadeInUp 1s ease-out 0.8s both'
-            }}>
-              {stats.map((stat, idx) => (
-                <div key={idx} style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: '36px', fontWeight: '900', marginBottom: '8px' }}>
-                    {stat.value}
-                  </div>
-                  <div style={{ fontSize: '14px', opacity: 0.9 }}>
-                    {stat.label}
-                  </div>
-                </div>
-              ))}
-            </div>
+          <div className="hero-stats">
+            {stats.map((stat, idx) => (
+              <div key={idx} className="stat-item">
+                <div className="stat-value">{stat.value}</div>
+                <div className="stat-label">{stat.label}</div>
+              </div>
+            ))}
           </div>
         </div>
       </section>
 
       {/* Features Section */}
-      <section id="features" style={{
-        padding: '120px 24px',
-        background: 'white'
-      }}>
-        <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
-          <div style={{ textAlign: 'center', marginBottom: '80px' }}>
-            <div style={{
-              display: 'inline-block',
-              padding: '8px 20px',
-              background: 'rgba(102, 126, 234, 0.1)',
-              borderRadius: '20px',
-              color: '#667eea',
-              fontWeight: '700',
-              fontSize: '14px',
-              marginBottom: '16px'
-            }}>
-              FEATURES
-            </div>
-            <h2 style={{
-              fontSize: 'clamp(32px, 5vw, 48px)',
-              fontWeight: '900',
-              color: '#1a1a1a',
-              marginBottom: '16px'
-            }}>
-              Everything You Need to Succeed
-            </h2>
-            <p style={{
-              fontSize: 'clamp(16px, 2.5vw, 20px)',
-              color: '#6b7280',
-              maxWidth: '600px',
-              margin: '0 auto'
-            }}>
+      <section id="features" className="features-section">
+        <div className="section-container">
+          <div className="section-header">
+            <div className="section-badge">FEATURES</div>
+            <h2 className="section-title">Everything You Need to Succeed</h2>
+            <p className="section-subtitle">
               Powerful features designed to help you grow your social media presence effortlessly
             </p>
           </div>
 
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-            gap: '32px'
-          }}>
+          <div className="features-grid">
             {features.map((feature, idx) => (
               <div
                 key={idx}
+                className={`feature-card ${activeFeature === idx ? 'active' : ''}`}
                 onMouseEnter={() => setActiveFeature(idx)}
-                style={{
-                  padding: '40px',
-                  background: activeFeature === idx ? 'linear-gradient(135deg, #667eea, #764ba2)' : 'white',
-                  borderRadius: '24px',
-                  boxShadow: activeFeature === idx ? '0 20px 60px rgba(102, 126, 234, 0.4)' : '0 4px 20px rgba(0, 0, 0, 0.08)',
-                  transition: 'all 0.4s',
-                  cursor: 'pointer',
-                  transform: activeFeature === idx ? 'translateY(-8px)' : 'translateY(0)',
-                  border: activeFeature === idx ? 'none' : '1px solid #f3f4f6'
-                }}
               >
-                <div style={{
-                  fontSize: '48px',
-                  marginBottom: '20px',
-                  filter: activeFeature === idx ? 'grayscale(0) brightness(1.2)' : 'grayscale(0)',
-                  transition: 'all 0.3s'
-                }}>
-                  {feature.icon}
-                </div>
-                <h3 style={{
-                  fontSize: '24px',
-                  fontWeight: '800',
-                  color: activeFeature === idx ? 'white' : '#1a1a1a',
-                  marginBottom: '12px'
-                }}>
-                  {feature.title}
-                </h3>
-                <p style={{
-                  color: activeFeature === idx ? 'rgba(255, 255, 255, 0.9)' : '#6b7280',
-                  lineHeight: '1.7',
-                  fontSize: '16px'
-                }}>
-                  {feature.description}
-                </p>
+                <div className="feature-icon">{feature.icon}</div>
+                <h3 className="feature-title">{feature.title}</h3>
+                <p className="feature-description">{feature.description}</p>
               </div>
             ))}
           </div>
@@ -774,123 +298,39 @@ const Landing_Page = () => {
       </section>
 
       {/* Platforms Section */}
-      <section id="platforms" style={{
-        padding: '120px 24px',
-        background: 'linear-gradient(180deg, #f9fafb 0%, white 100%)'
-      }}>
-        <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
-          <div style={{ textAlign: 'center', marginBottom: '80px' }}>
-            <div style={{
-              display: 'inline-block',
-              padding: '8px 20px',
-              background: 'rgba(102, 126, 234, 0.1)',
-              borderRadius: '20px',
-              color: '#667eea',
-              fontWeight: '700',
-              fontSize: '14px',
-              marginBottom: '16px'
-            }}>
-              PLATFORMS
-            </div>
-            <h2 style={{
-              fontSize: 'clamp(32px, 5vw, 48px)',
-              fontWeight: '900',
-              color: '#1a1a1a',
-              marginBottom: '16px'
-            }}>
-              Connect All Your Channels
-            </h2>
-            <p style={{
-              fontSize: 'clamp(16px, 2.5vw, 20px)',
-              color: '#6b7280',
-              maxWidth: '600px',
-              margin: '0 auto'
-            }}>
+      <section id="platforms" className="platforms-section">
+        <div className="section-container">
+          <div className="section-header">
+            <div className="section-badge">PLATFORMS</div>
+            <h2 className="section-title">Connect All Your Channels</h2>
+            <p className="section-subtitle">
               Seamless integration with all major social media platforms
             </p>
           </div>
 
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
-            gap: '32px'
-          }}>
+          <div className="platforms-grid">
             {platforms.map((platform, idx) => (
               <Link
                 key={idx}
                 to={isAuthenticated ? platform.route : '/register'}
+                className={`platform-card ${hoveredPlatform === idx ? 'hovered' : ''}`}
                 onMouseEnter={() => setHoveredPlatform(idx)}
                 onMouseLeave={() => setHoveredPlatform(null)}
-                style={{
-                  display: 'block',
-                  padding: '32px',
-                  background: hoveredPlatform === idx ? 'linear-gradient(135deg, #667eea, #764ba2)' : 'white',
-                  borderRadius: '24px',
-                  boxShadow: hoveredPlatform === idx ? '0 20px 60px rgba(102, 126, 234, 0.3)' : '0 4px 20px rgba(0, 0, 0, 0.08)',
-                  transition: 'all 0.4s',
-                  textDecoration: 'none',
-                  transform: hoveredPlatform === idx ? 'translateY(-8px) scale(1.02)' : 'translateY(0) scale(1)',
-                  border: hoveredPlatform === idx ? 'none' : '1px solid #f3f4f6',
-                  cursor: 'pointer'
-                }}
               >
-                <div style={{ marginBottom: '20px' }}>
-                  <div style={{
-                    width: '64px',
-                    height: '64px',
-                    borderRadius: '16px',
-                    background: hoveredPlatform === idx ? 'rgba(255, 255, 255, 0.2)' : 'rgba(102, 126, 234, 0.1)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: '32px',
-                    marginBottom: '20px',
-                    transition: 'all 0.3s'
-                  }}>
-                    {platform.emoji}
-                  </div>
-                  <h3 style={{
-                    fontSize: '24px',
-                    fontWeight: '800',
-                    color: hoveredPlatform === idx ? 'white' : '#1a1a1a',
-                    marginBottom: '12px'
-                  }}>
-                    {platform.name}
-                  </h3>
-                  <p style={{
-                    color: hoveredPlatform === idx ? 'rgba(255, 255, 255, 0.9)' : '#6b7280',
-                    lineHeight: '1.7',
-                    fontSize: '15px',
-                    marginBottom: '20px'
-                  }}>
-                    {platform.description}
-                  </p>
+                <div className="platform-icon-wrapper">
+                  <div className="platform-icon">{platform.emoji}</div>
                 </div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                <h3 className="platform-title">{platform.name}</h3>
+                <p className="platform-description">{platform.description}</p>
+                <div className="platform-features">
                   {platform.features.map((feat, featIdx) => (
-                    <span key={featIdx} style={{
-                      padding: '6px 14px',
-                      background: hoveredPlatform === idx ? 'rgba(255, 255, 255, 0.2)' : 'rgba(102, 126, 234, 0.1)',
-                      color: hoveredPlatform === idx ? 'white' : '#667eea',
-                      borderRadius: '12px',
-                      fontSize: '13px',
-                      fontWeight: '600'
-                    }}>
+                    <span key={featIdx} className="platform-feature-tag">
                       {feat}
                     </span>
                   ))}
                 </div>
-                <div style={{
-                  marginTop: '24px',
-                  color: hoveredPlatform === idx ? 'white' : '#667eea',
-                  fontWeight: '700',
-                  fontSize: '15px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px'
-                }}>
-                  Get Started
-                  <span style={{ fontSize: '20px' }}>→</span>
+                <div className="platform-cta">
+                  Get Started <span>→</span>
                 </div>
               </Link>
             ))}
@@ -899,107 +339,30 @@ const Landing_Page = () => {
       </section>
 
       {/* Testimonials Section */}
-      <section id="testimonials" style={{
-        padding: '120px 24px',
-        background: 'white'
-      }}>
-        <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
-          <div style={{ textAlign: 'center', marginBottom: '80px' }}>
-            <div style={{
-              display: 'inline-block',
-              padding: '8px 20px',
-              background: 'rgba(102, 126, 234, 0.1)',
-              borderRadius: '20px',
-              color: '#667eea',
-              fontWeight: '700',
-              fontSize: '14px',
-              marginBottom: '16px'
-            }}>
-              TESTIMONIALS
-            </div>
-            <h2 style={{
-              fontSize: 'clamp(32px, 5vw, 48px)',
-              fontWeight: '900',
-              color: '#1a1a1a',
-              marginBottom: '16px'
-            }}>
-              Loved by Thousands
-            </h2>
-            <p style={{
-              fontSize: 'clamp(16px, 2.5vw, 20px)',
-              color: '#6b7280',
-              maxWidth: '600px',
-              margin: '0 auto'
-            }}>
+      <section id="testimonials" className="testimonials-section">
+        <div className="section-container">
+          <div className="section-header">
+            <div className="section-badge">TESTIMONIALS</div>
+            <h2 className="section-title">Loved by Thousands</h2>
+            <p className="section-subtitle">
               See what our customers are saying about VelocityPost
             </p>
           </div>
 
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-            gap: '32px'
-          }}>
+          <div className="testimonials-grid">
             {testimonials.map((testimonial, idx) => (
-              <div key={idx} style={{
-                padding: '40px',
-                background: 'white',
-                borderRadius: '24px',
-                boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08)',
-                border: '1px solid #f3f4f6',
-                transition: 'all 0.3s'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.boxShadow = '0 12px 40px rgba(0, 0, 0, 0.12)';
-                e.currentTarget.style.transform = 'translateY(-4px)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.boxShadow = '0 4px 20px rgba(0, 0, 0, 0.08)';
-                e.currentTarget.style.transform = 'translateY(0)';
-              }}
-              >
-                <div style={{
-                  display: 'flex',
-                  gap: '4px',
-                  marginBottom: '20px'
-                }}>
+              <div key={idx} className="testimonial-card">
+                <div className="testimonial-stars">
                   {[...Array(testimonial.rating)].map((_, i) => (
-                    <span key={i} style={{ color: '#fbbf24', fontSize: '20px' }}>★</span>
+                    <span key={i}>★</span>
                   ))}
                 </div>
-                <p style={{
-                  color: '#374151',
-                  lineHeight: '1.8',
-                  fontSize: '16px',
-                  marginBottom: '24px',
-                  fontStyle: 'italic'
-                }}>
-                  "{testimonial.content}"
-                </p>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                  <img
-                    src={testimonial.image}
-                    alt={testimonial.name}
-                    style={{
-                      width: '56px',
-                      height: '56px',
-                      borderRadius: '50%',
-                      objectFit: 'cover'
-                    }}
-                  />
+                <p className="testimonial-content">"{testimonial.content}"</p>
+                <div className="testimonial-author">
+                  <img src={testimonial.image} alt={testimonial.name} className="author-image" />
                   <div>
-                    <div style={{
-                      fontWeight: '700',
-                      color: '#1a1a1a',
-                      fontSize: '16px',
-                      marginBottom: '4px'
-                    }}>
-                      {testimonial.name}
-                    </div>
-                    <div style={{
-                      color: '#6b7280',
-                      fontSize: '14px'
-                    }}>
+                    <div className="author-name">{testimonial.name}</div>
+                    <div className="author-role">
                       {testimonial.role} at {testimonial.company}
                     </div>
                   </div>
@@ -1011,176 +374,49 @@ const Landing_Page = () => {
       </section>
 
       {/* CTA Section */}
-      <section style={{
-        padding: '120px 24px',
-        background: 'linear-gradient(135deg, #667eea, #764ba2)',
-        position: 'relative',
-        overflow: 'hidden'
-      }}>
-        <div className="floating-bg" style={{
-          position: 'absolute',
-          top: '50%',
-          left: '50%',
-          transform: 'translate(-50%, -50%)',
-          width: '600px',
-          height: '600px',
-          background: 'rgba(255, 255, 255, 0.1)',
-          borderRadius: '50%',
-          filter: 'blur(80px)'
-        }} />
+      <section className="cta-section">
+        <div className="floating-bg floating-bg-3"></div>
         
-        <div style={{
-          maxWidth: '900px',
-          margin: '0 auto',
-          textAlign: 'center',
-          position: 'relative',
-          zIndex: 1
-        }}>
-          <h2 style={{
-            fontSize: 'clamp(32px, 5vw, 56px)',
-            fontWeight: '900',
-            color: 'white',
-            marginBottom: '24px',
-            lineHeight: '1.2'
-          }}>
-            Ready to Transform Your Social Media?
-          </h2>
-          <p style={{
-            fontSize: 'clamp(18px, 3vw, 24px)',
-            color: 'rgba(255, 255, 255, 0.95)',
-            marginBottom: '40px',
-            lineHeight: '1.6'
-          }}>
+        <div className="cta-content">
+          <h2 className="cta-title">Ready to Transform Your Social Media?</h2>
+          <p className="cta-subtitle">
             Join 50,000+ businesses already automating their social media success
           </p>
-          <div style={{
-            display: 'flex',
-            gap: '16px',
-            justifyContent: 'center',
-            flexWrap: 'wrap'
-          }}>
-            <Link to="/register" style={{
-              padding: '18px 48px',
-              background: 'white',
-              color: '#667eea',
-              textDecoration: 'none',
-              borderRadius: '30px',
-              fontWeight: '700',
-              fontSize: '18px',
-              boxShadow: '0 10px 40px rgba(0, 0, 0, 0.2)',
-              transition: 'all 0.3s',
-              display: 'inline-block'
-            }}
-            onMouseEnter={(e) => {
-              e.target.style.transform = 'translateY(-3px) scale(1.05)';
-              e.target.style.boxShadow = '0 15px 50px rgba(0, 0, 0, 0.3)';
-            }}
-            onMouseLeave={(e) => {
-              e.target.style.transform = 'translateY(0) scale(1)';
-              e.target.style.boxShadow = '0 10px 40px rgba(0, 0, 0, 0.2)';
-            }}
-            >
+          <div className="cta-buttons">
+            <Link to="/register" className="cta-button-primary">
               Start Free 14-Day Trial
             </Link>
-            <Link to="/contact" style={{
-              padding: '18px 48px',
-              background: 'rgba(255, 255, 255, 0.15)',
-              backdropFilter: 'blur(10px)',
-              color: 'white',
-              textDecoration: 'none',
-              border: '2px solid rgba(255, 255, 255, 0.3)',
-              borderRadius: '30px',
-              fontWeight: '700',
-              fontSize: '18px',
-              transition: 'all 0.3s',
-              display: 'inline-block'
-            }}
-            onMouseEnter={(e) => {
-              e.target.style.background = 'rgba(255, 255, 255, 0.25)';
-              e.target.style.transform = 'translateY(-3px)';
-            }}
-            onMouseLeave={(e) => {
-              e.target.style.background = 'rgba(255, 255, 255, 0.15)';
-              e.target.style.transform = 'translateY(0)';
-            }}
-            >
+            <Link to="/contact" className="cta-button-secondary">
               Contact Sales
             </Link>
           </div>
-          <p style={{
-            marginTop: '24px',
-            color: 'rgba(255, 255, 255, 0.8)',
-            fontSize: '14px'
-          }}>
+          <p className="cta-note">
             No credit card required • Cancel anytime • 24/7 support
           </p>
         </div>
       </section>
 
       {/* Footer */}
-      <footer style={{
-        background: '#1a1a1a',
-        color: 'white',
-        padding: '80px 24px 40px'
-      }}>
-        <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-            gap: '48px',
-            marginBottom: '60px'
-          }}>
+      <footer className="landing-footer">
+        <div className="footer-content">
+          <div className="footer-grid">
             {/* Brand */}
-            <div style={{ gridColumn: window.innerWidth > 768 ? 'span 2' : 'span 1' }}>
-              <div style={{
-                fontSize: '28px',
-                fontWeight: '700',
-                marginBottom: '16px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px'
-              }}>
-                <span style={{ fontSize: '32px' }}>🚀</span>
+            <div className="footer-brand">
+              <div className="footer-logo">
+                <span>🚀</span>
                 VelocityPost
               </div>
-              <p style={{
-                color: '#9ca3af',
-                lineHeight: '1.6',
-                marginBottom: '24px',
-                maxWidth: '300px'
-              }}>
+              <p className="footer-description">
                 AI-powered social media automation for modern businesses. Save time, boost engagement, grow faster.
               </p>
-              <div style={{ display: 'flex', gap: '12px' }}>
+              <div className="footer-socials">
                 {[
-                  { icon: '𝕏', name: 'Twitter', url: '#' },
-                  { icon: 'f', name: 'Facebook', url: '#' },
-                  { icon: 'in', name: 'LinkedIn', url: '#' },
-                  { icon: 'IG', name: 'Instagram', url: '#' }
+                  { icon: '𝕏', name: 'Twitter' },
+                  { icon: 'f', name: 'Facebook' },
+                  { icon: 'in', name: 'LinkedIn' },
+                  { icon: 'IG', name: 'Instagram' }
                 ].map((social, idx) => (
-                  <a key={idx} href={social.url} style={{
-                    width: '40px',
-                    height: '40px',
-                    borderRadius: '50%',
-                    background: '#374151',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    color: 'white',
-                    textDecoration: 'none',
-                    fontWeight: '700',
-                    fontSize: '14px',
-                    transition: 'all 0.3s'
-                  }}
-                  onMouseEnter={(e) => {
-                    e.target.style.background = '#667eea';
-                    e.target.style.transform = 'translateY(-3px)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.target.style.background = '#374151';
-                    e.target.style.transform = 'translateY(0)';
-                  }}
-                  >
+                  <a key={idx} href="#" className="footer-social-link" aria-label={social.name}>
                     {social.icon}
                   </a>
                 ))}
@@ -1188,240 +424,423 @@ const Landing_Page = () => {
             </div>
 
             {/* Product */}
-            <div>
-              <h4 style={{
-                fontSize: '16px',
-                fontWeight: '700',
-                marginBottom: '20px',
-                textTransform: 'uppercase',
-                letterSpacing: '1px',
-                color: 'white'
-              }}>
-                Product
-              </h4>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                <Link to="/features" style={{
-                  color: '#9ca3af',
-                  textDecoration: 'none',
-                  transition: 'color 0.3s',
-                  fontSize: '15px'
-                }}
-                onMouseEnter={(e) => e.target.style.color = '#667eea'}
-                onMouseLeave={(e) => e.target.style.color = '#9ca3af'}
-                >
-                  Features
-                </Link>
-                <Link to="/pricing" style={{
-                  color: '#9ca3af',
-                  textDecoration: 'none',
-                  transition: 'color 0.3s',
-                  fontSize: '15px'
-                }}
-                onMouseEnter={(e) => e.target.style.color = '#667eea'}
-                onMouseLeave={(e) => e.target.style.color = '#9ca3af'}
-                >
-                  Pricing
-                </Link>
-                <Link to="/integrations" style={{
-                  color: '#9ca3af',
-                  textDecoration: 'none',
-                  transition: 'color 0.3s',
-                  fontSize: '15px'
-                }}
-                onMouseEnter={(e) => e.target.style.color = '#667eea'}
-                onMouseLeave={(e) => e.target.style.color = '#9ca3af'}
-                >
-                  Integrations
-                </Link>
-                <Link to="/api" style={{
-                  color: '#9ca3af',
-                  textDecoration: 'none',
-                  transition: 'color 0.3s',
-                  fontSize: '15px'
-                }}
-                onMouseEnter={(e) => e.target.style.color = '#667eea'}
-                onMouseLeave={(e) => e.target.style.color = '#9ca3af'}
-                >
-                  API
-                </Link>
+            <div className="footer-column">
+              <h4 className="footer-column-title">Product</h4>
+              <div className="footer-links">
+                <Link to="/features" className="footer-link">Features</Link>
+                <Link to="/pricing" className="footer-link">Pricing</Link>
+                <Link to="/integrations" className="footer-link">Integrations</Link>
+                <Link to="/api" className="footer-link">API</Link>
               </div>
             </div>
 
             {/* Company */}
-            <div>
-              <h4 style={{
-                fontSize: '16px',
-                fontWeight: '700',
-                marginBottom: '20px',
-                textTransform: 'uppercase',
-                letterSpacing: '1px',
-                color: 'white'
-              }}>
-                Company
-              </h4>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                <Link to="/about" style={{
-                  color: '#9ca3af',
-                  textDecoration: 'none',
-                  transition: 'color 0.3s',
-                  fontSize: '15px'
-                }}
-                onMouseEnter={(e) => e.target.style.color = '#667eea'}
-                onMouseLeave={(e) => e.target.style.color = '#9ca3af'}
-                >
-                  About
-                </Link>
-                <Link to="/blog" style={{
-                  color: '#9ca3af',
-                  textDecoration: 'none',
-                  transition: 'color 0.3s',
-                  fontSize: '15px'
-                }}
-                onMouseEnter={(e) => e.target.style.color = '#667eea'}
-                onMouseLeave={(e) => e.target.style.color = '#9ca3af'}
-                >
-                  Blog
-                </Link>
-                <Link to="/careers" style={{
-                  color: '#9ca3af',
-                  textDecoration: 'none',
-                  transition: 'color 0.3s',
-                  fontSize: '15px'
-                }}
-                onMouseEnter={(e) => e.target.style.color = '#667eea'}
-                onMouseLeave={(e) => e.target.style.color = '#9ca3af'}
-                >
-                  Careers
-                </Link>
-                <Link to="/contact" style={{
-                  color: '#9ca3af',
-                  textDecoration: 'none',
-                  transition: 'color 0.3s',
-                  fontSize: '15px'
-                }}
-                onMouseEnter={(e) => e.target.style.color = '#667eea'}
-                onMouseLeave={(e) => e.target.style.color = '#9ca3af'}
-                >
-                  Contact
-                </Link>
+            <div className="footer-column">
+              <h4 className="footer-column-title">Company</h4>
+              <div className="footer-links">
+                <Link to="/about" className="footer-link">About</Link>
+                <Link to="/blog" className="footer-link">Blog</Link>
+                <Link to="/careers" className="footer-link">Careers</Link>
+                <Link to="/contact" className="footer-link">Contact</Link>
               </div>
             </div>
 
             {/* Resources */}
-            <div>
-              <h4 style={{
-                fontSize: '16px',
-                fontWeight: '700',
-                marginBottom: '20px',
-                textTransform: 'uppercase',
-                letterSpacing: '1px',
-                color: 'white'
-              }}>
-                Resources
-              </h4>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                <Link to="/help" style={{
-                  color: '#9ca3af',
-                  textDecoration: 'none',
-                  transition: 'color 0.3s',
-                  fontSize: '15px'
-                }}
-                onMouseEnter={(e) => e.target.style.color = '#667eea'}
-                onMouseLeave={(e) => e.target.style.color = '#9ca3af'}
-                >
-                  Help Center
-                </Link>
-                <Link to="/documentation" style={{
-                  color: '#9ca3af',
-                  textDecoration: 'none',
-                  transition: 'color 0.3s',
-                  fontSize: '15px'
-                }}
-                onMouseEnter={(e) => e.target.style.color = '#667eea'}
-                onMouseLeave={(e) => e.target.style.color = '#9ca3af'}
-                >
-                  Documentation
-                </Link>
-                <Link to="/community" style={{
-                  color: '#9ca3af',
-                  textDecoration: 'none',
-                  transition: 'color 0.3s',
-                  fontSize: '15px'
-                }}
-                onMouseEnter={(e) => e.target.style.color = '#667eea'}
-                onMouseLeave={(e) => e.target.style.color = '#9ca3af'}
-                >
-                  Community
-                </Link>
-                <Link to="/status" style={{
-                  color: '#9ca3af',
-                  textDecoration: 'none',
-                  transition: 'color 0.3s',
-                  fontSize: '15px'
-                }}
-                onMouseEnter={(e) => e.target.style.color = '#667eea'}
-                onMouseLeave={(e) => e.target.style.color = '#9ca3af'}
-                >
-                  Status
-                </Link>
+            <div className="footer-column">
+              <h4 className="footer-column-title">Resources</h4>
+              <div className="footer-links">
+                <Link to="/help" className="footer-link">Help Center</Link>
+                <Link to="/documentation" className="footer-link">Documentation</Link>
+                <Link to="/community" className="footer-link">Community</Link>
+                <Link to="/status" className="footer-link">Status</Link>
               </div>
             </div>
           </div>
 
-          {/* Bottom */}
-          <div style={{
-            paddingTop: '32px',
-            borderTop: '1px solid #374151',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            flexWrap: 'wrap',
-            gap: '20px'
-          }}>
-            <p style={{ color: '#9ca3af', margin: 0, fontSize: '14px' }}>
+          {/* Bottom Bar */}
+          <div className="footer-bottom">
+            <p className="footer-copyright">
               © 2025 VelocityPost. All rights reserved.
             </p>
-            <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
-              <Link to="/privacy" style={{
-                color: '#9ca3af',
-                textDecoration: 'none',
-                fontSize: '14px',
-                transition: 'color 0.3s'
-              }}
-              onMouseEnter={(e) => e.target.style.color = '#667eea'}
-              onMouseLeave={(e) => e.target.style.color = '#9ca3af'}
-              >
-                Privacy Policy
-              </Link>
-              <Link to="/terms" style={{
-                color: '#9ca3af',
-                textDecoration: 'none',
-                fontSize: '14px',
-                transition: 'color 0.3s'
-              }}
-              onMouseEnter={(e) => e.target.style.color = '#667eea'}
-              onMouseLeave={(e) => e.target.style.color = '#9ca3af'}
-              >
-                Terms of Service
-              </Link>
-              <Link to="/cookie-policy" style={{
-                color: '#9ca3af',
-                textDecoration: 'none',
-                fontSize: '14px',
-                transition: 'color 0.3s'
-              }}
-              onMouseEnter={(e) => e.target.style.color = '#667eea'}
-              onMouseLeave={(e) => e.target.style.color = '#9ca3af'}
-              >
-                Cookie Policy
-              </Link>
+            <div className="footer-legal-links">
+              <Link to="/privacy" className="footer-legal-link">Privacy Policy</Link>
+              <Link to="/terms" className="footer-legal-link">Terms of Service</Link>
+              <Link to="/cookie-policy" className="footer-legal-link">Cookie Policy</Link>
             </div>
           </div>
         </div>
       </footer>
 
-      {/* CSS Animations & Responsive Styles */}
+      {/* Styles */}
       <style>{`
+        /* Reset & Base Styles */
+        .landing-page-container {
+          min-height: 100vh;
+          background: white;
+          overflow-x: hidden;
+        }
+
+        /* Header Styles */
+        .landing-header {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          z-index: 998;
+          background: rgba(255, 255, 255, 0.95);
+          backdrop-filter: blur(10px);
+          padding: 16px 0;
+          transition: all 0.3s ease;
+        }
+
+        .landing-header.scrolled {
+          background: rgba(255, 255, 255, 0.98);
+          border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+          box-shadow: 0 2px 20px rgba(0,0,0,0.1);
+        }
+
+        .landing-header-content {
+          max-width: 1400px;
+          margin: 0 auto;
+          padding: 0 24px;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        }
+
+        .landing-logo {
+          font-size: 28px;
+          fontWeight: 700;
+          background: linear-gradient(135deg, #667eea, #764ba2);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          text-decoration: none;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          z-index: 999;
+        }
+
+        .logo-emoji {
+          font-size: 32px;
+        }
+
+        .landing-desktop-nav {
+          display: flex;
+          gap: 32px;
+          align-items: center;
+        }
+
+        .nav-button {
+          background: none;
+          border: none;
+          color: #374151;
+          font-size: 16px;
+          font-weight: 500;
+          cursor: pointer;
+          text-decoration: none;
+          padding: 8px 0;
+          transition: color 0.3s;
+        }
+
+        .nav-button:hover {
+          color: #667eea;
+        }
+
+        .cta-button {
+          padding: 12px 28px;
+          background: linear-gradient(135deg, #667eea, #764ba2);
+          color: white;
+          text-decoration: none;
+          border-radius: 30px;
+          font-weight: 600;
+          font-size: 15px;
+          box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+          transition: all 0.3s;
+          display: inline-block;
+        }
+
+        .cta-button:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 6px 20px rgba(102, 126, 234, 0.5);
+        }
+
+        /* Mobile Menu */
+        .landing-mobile-menu-btn {
+          display: none;
+          flex-direction: column;
+          gap: 5px;
+          background: none;
+          border: none;
+          cursor: pointer;
+          padding: 8px;
+          z-index: 999;
+        }
+
+        .landing-mobile-menu-btn span {
+          width: 25px;
+          height: 3px;
+          background: #374151;
+          border-radius: 2px;
+          transition: all 0.3s;
+        }
+
+        .landing-mobile-menu-btn span.active:nth-child(1) {
+          transform: rotate(45deg) translateY(8px);
+        }
+
+        .landing-mobile-menu-btn span.active:nth-child(2) {
+          opacity: 0;
+        }
+
+        .landing-mobile-menu-btn span.active:nth-child(3) {
+          transform: rotate(-45deg) translateY(-8px);
+        }
+
+        .landing-mobile-overlay {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: rgba(0, 0, 0, 0.5);
+          z-index: 997;
+          backdrop-filter: blur(5px);
+        }
+
+        .landing-mobile-menu {
+          position: fixed;
+          top: 0;
+          right: 0;
+          bottom: 0;
+          width: 80%;
+          max-width: 320px;
+          background: white;
+          box-shadow: -4px 0 24px rgba(0, 0, 0, 0.2);
+          transform: translateX(100%);
+          transition: transform 0.3s ease;
+          z-index: 998;
+          padding: 80px 24px 24px;
+          overflow-y: auto;
+        }
+
+        .landing-mobile-menu.open {
+          transform: translateX(0);
+        }
+
+        .mobile-menu-item {
+          display: block;
+          width: 100%;
+          padding: 12px 0;
+          color: #374151;
+          font-size: 18px;
+          font-weight: 500;
+          text-decoration: none;
+          border: none;
+          background: none;
+          text-align: left;
+          border-bottom: 1px solid #f3f4f6;
+          cursor: pointer;
+        }
+
+        .mobile-signin-button {
+          display: block;
+          width: 100%;
+          padding: 14px 24px;
+          margin-top: 16px;
+          background: transparent;
+          color: #667eea;
+          border: 2px solid #667eea;
+          border-radius: 12px;
+          font-weight: 600;
+          font-size: 16px;
+          text-align: center;
+          text-decoration: none;
+        }
+
+        .mobile-cta-button {
+          display: block;
+          width: 100%;
+          padding: 14px 24px;
+          margin-top: 12px;
+          background: linear-gradient(135deg, #667eea, #764ba2);
+          color: white;
+          border-radius: 12px;
+          font-weight: 600;
+          font-size: 16px;
+          text-align: center;
+          text-decoration: none;
+        }
+
+        /* Hero Section */
+        .hero-section {
+          min-height: 100vh;
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+          position: relative;
+          padding: 140px 24px 100px;
+          display: flex;
+          align-items: center;
+          overflow: hidden;
+        }
+
+        .floating-bg {
+          position: absolute;
+          background: rgba(255, 255, 255, 0.1);
+          border-radius: 50%;
+          filter: blur(60px);
+          animation: float 20s ease-in-out infinite;
+        }
+
+        .floating-bg-1 {
+          top: 10%;
+          left: 5%;
+          width: 300px;
+          height: 300px;
+        }
+
+        .floating-bg-2 {
+          bottom: 10%;
+          right: 5%;
+          width: 400px;
+          height: 400px;
+          animation-duration: 25s;
+          animation-direction: reverse;
+        }
+
+        .floating-bg-3 {
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+          width: 600px;
+          height: 600px;
+          filter: blur(80px);
+        }
+
+        @keyframes float {
+          0%, 100% {
+            transform: translate(0, 0) rotate(0deg);
+          }
+          33% {
+            transform: translate(30px, -50px) rotate(120deg);
+          }
+          66% {
+            transform: translate(-20px, 30px) rotate(240deg);
+          }
+        }
+
+        .hero-content {
+          max-width: 1400px;
+          margin: 0 auto;
+          text-align: center;
+          color: white;
+          position: relative;
+          z-index: 1;
+        }
+
+        .hero-badge {
+          display: inline-block;
+          padding: 10px 24px;
+          background: rgba(255, 255, 255, 0.2);
+          backdrop-filter: blur(10px);
+          border-radius: 30px;
+          border: 1px solid rgba(255, 255, 255, 0.3);
+          font-size: 14px;
+          font-weight: 600;
+          margin-bottom: 32px;
+          animation: fadeInDown 1s ease-out;
+        }
+
+        .hero-title {
+          font-size: clamp(40px, 8vw, 72px);
+          font-weight: 900;
+          line-height: 1.1;
+          margin-bottom: 24px;
+          animation: fadeInUp 1s ease-out 0.2s both;
+        }
+
+        .gradient-text {
+          background: linear-gradient(90deg, #fff, #f0f0f0);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+        }
+
+        .hero-subtitle {
+          font-size: clamp(18px, 3vw, 24px);
+          line-height: 1.6;
+          opacity: 0.95;
+          max-width: 700px;
+          margin: 0 auto 40px;
+          animation: fadeInUp 1s ease-out 0.4s both;
+        }
+
+        .hero-buttons {
+          display: flex;
+          gap: 16px;
+          justify-content: center;
+          flex-wrap: wrap;
+          animation: fadeInUp 1s ease-out 0.6s both;
+        }
+
+        .hero-cta-primary {
+          padding: 16px 40px;
+          background: white;
+          color: #667eea;
+          text-decoration: none;
+          border-radius: 30px;
+          font-weight: 700;
+          font-size: 18px;
+          box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+          transition: all 0.3s;
+        }
+
+        .hero-cta-primary:hover {
+          transform: translateY(-3px);
+          box-shadow: 0 15px 50px rgba(0, 0, 0, 0.3);
+        }
+
+        .hero-cta-secondary {
+          padding: 16px 40px;
+          background: rgba(255, 255, 255, 0.15);
+          backdrop-filter: blur(10px);
+          color: white;
+          border: 2px solid rgba(255, 255, 255, 0.3);
+          border-radius: 30px;
+          font-weight: 700;
+          font-size: 18px;
+          cursor: pointer;
+          transition: all 0.3s;
+        }
+
+        .hero-cta-secondary:hover {
+          background: rgba(255, 255, 255, 0.25);
+          transform: translateY(-3px);
+        }
+
+        .hero-stats {
+          margin-top: 60px;
+          display: flex;
+          gap: 40px;
+          justify-content: center;
+          flex-wrap: wrap;
+          opacity: 0.9;
+          animation: fadeInUp 1s ease-out 0.8s both;
+        }
+
+        .stat-item {
+          text-align: center;
+        }
+
+        .stat-value {
+          font-size: 36px;
+          font-weight: 900;
+          margin-bottom: 8px;
+        }
+
+        .stat-label {
+          font-size: 14px;
+          opacity: 0.9;
+        }
+
         @keyframes fadeInDown {
           from {
             opacity: 0;
@@ -1444,61 +863,517 @@ const Landing_Page = () => {
           }
         }
 
-        @keyframes float {
-          0%, 100% {
-            transform: translate(0, 0) rotate(0deg);
-          }
-          33% {
-            transform: translate(30px, -50px) rotate(120deg);
-          }
-          66% {
-            transform: translate(-20px, 30px) rotate(240deg);
-          }
+        /* Section Styles */
+        .features-section,
+        .platforms-section,
+        .testimonials-section {
+          padding: 120px 24px;
         }
 
-        * {
-          box-sizing: border-box;
+        .platforms-section {
+          background: linear-gradient(180deg, #f9fafb 0%, white 100%);
         }
 
-        /* Mobile Menu Button - Show on tablets and mobile */
+        .section-container {
+          max-width: 1400px;
+          margin: 0 auto;
+        }
+
+        .section-header {
+          text-align: center;
+          margin-bottom: 80px;
+        }
+
+        .section-badge {
+          display: inline-block;
+          padding: 8px 20px;
+          background: rgba(102, 126, 234, 0.1);
+          border-radius: 20px;
+          color: #667eea;
+          font-weight: 700;
+          font-size: 14px;
+          margin-bottom: 16px;
+        }
+
+        .section-title {
+          font-size: clamp(32px, 5vw, 48px);
+          font-weight: 900;
+          color: #1a1a1a;
+          margin-bottom: 16px;
+        }
+
+        .section-subtitle {
+          font-size: clamp(16px, 2.5vw, 20px);
+          color: #6b7280;
+          max-width: 600px;
+          margin: 0 auto;
+        }
+
+        /* Features Grid */
+        .features-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+          gap: 32px;
+        }
+
+        .feature-card {
+          padding: 40px;
+          background: white;
+          border-radius: 24px;
+          box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+          transition: all 0.4s;
+          cursor: pointer;
+          border: 1px solid #f3f4f6;
+        }
+
+        .feature-card.active {
+          background: linear-gradient(135deg, #667eea, #764ba2);
+          box-shadow: 0 20px 60px rgba(102, 126, 234, 0.4);
+          transform: translateY(-8px);
+          border: none;
+        }
+
+        .feature-icon {
+          font-size: 48px;
+          margin-bottom: 20px;
+        }
+
+        .feature-title {
+          font-size: 24px;
+          font-weight: 800;
+          color: #1a1a1a;
+          margin-bottom: 12px;
+        }
+
+        .feature-card.active .feature-title {
+          color: white;
+        }
+
+        .feature-description {
+          color: #6b7280;
+          line-height: 1.7;
+          font-size: 16px;
+        }
+
+        .feature-card.active .feature-description {
+          color: rgba(255, 255, 255, 0.9);
+        }
+
+        /* Platforms Grid */
+        .platforms-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+          gap: 32px;
+        }
+
+        .platform-card {
+          display: block;
+          padding: 32px;
+          background: white;
+          border-radius: 24px;
+          box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+          transition: all 0.4s;
+          text-decoration: none;
+          border: 1px solid #f3f4f6;
+          cursor: pointer;
+        }
+
+        .platform-card.hovered {
+          background: linear-gradient(135deg, #667eea, #764ba2);
+          box-shadow: 0 20px 60px rgba(102, 126, 234, 0.3);
+          transform: translateY(-8px) scale(1.02);
+          border: none;
+        }
+
+        .platform-icon-wrapper {
+          margin-bottom: 20px;
+        }
+
+        .platform-icon {
+          width: 64px;
+          height: 64px;
+          border-radius: 16px;
+          background: rgba(102, 126, 234, 0.1);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 32px;
+          transition: all 0.3s;
+        }
+
+        .platform-card.hovered .platform-icon {
+          background: rgba(255, 255, 255, 0.2);
+        }
+
+        .platform-title {
+          font-size: 24px;
+          font-weight: 800;
+          color: #1a1a1a;
+          margin-bottom: 12px;
+        }
+
+        .platform-card.hovered .platform-title {
+          color: white;
+        }
+
+        .platform-description {
+          color: #6b7280;
+          line-height: 1.7;
+          font-size: 15px;
+          margin-bottom: 20px;
+        }
+
+        .platform-card.hovered .platform-description {
+          color: rgba(255, 255, 255, 0.9);
+        }
+
+        .platform-features {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+          margin-bottom: 24px;
+        }
+
+        .platform-feature-tag {
+          padding: 6px 14px;
+          background: rgba(102, 126, 234, 0.1);
+          color: #667eea;
+          border-radius: 12px;
+          font-size: 13px;
+          font-weight: 600;
+        }
+
+        .platform-card.hovered .platform-feature-tag {
+          background: rgba(255, 255, 255, 0.2);
+          color: white;
+        }
+
+        .platform-cta {
+          color: #667eea;
+          font-weight: 700;
+          font-size: 15px;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .platform-card.hovered .platform-cta {
+          color: white;
+        }
+
+        .platform-cta span {
+          font-size: 20px;
+        }
+
+        /* Testimonials Grid */
+        .testimonials-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+          gap: 32px;
+        }
+
+        .testimonial-card {
+          padding: 40px;
+          background: white;
+          border-radius: 24px;
+          box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+          border: 1px solid #f3f4f6;
+          transition: all 0.3s;
+        }
+
+        .testimonial-card:hover {
+          box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12);
+          transform: translateY(-4px);
+        }
+
+        .testimonial-stars {
+          display: flex;
+          gap: 4px;
+          margin-bottom: 20px;
+          color: #fbbf24;
+          font-size: 20px;
+        }
+
+        .testimonial-content {
+          color: #374151;
+          line-height: 1.8;
+          font-size: 16px;
+          margin-bottom: 24px;
+          font-style: italic;
+        }
+
+        .testimonial-author {
+          display: flex;
+          align-items: center;
+          gap: 16px;
+        }
+
+        .author-image {
+          width: 56px;
+          height: 56px;
+          border-radius: 50%;
+          object-fit: cover;
+        }
+
+        .author-name {
+          font-weight: 700;
+          color: #1a1a1a;
+          font-size: 16px;
+          margin-bottom: 4px;
+        }
+
+        .author-role {
+          color: #6b7280;
+          font-size: 14px;
+        }
+
+        /* CTA Section */
+        .cta-section {
+          padding: 120px 24px;
+          background: linear-gradient(135deg, #667eea, #764ba2);
+          position: relative;
+          overflow: hidden;
+        }
+
+        .cta-content {
+          max-width: 900px;
+          margin: 0 auto;
+          text-align: center;
+          position: relative;
+          z-index: 1;
+        }
+
+        .cta-title {
+          font-size: clamp(32px, 5vw, 56px);
+          font-weight: 900;
+          color: white;
+          margin-bottom: 24px;
+          line-height: 1.2;
+        }
+
+        .cta-subtitle {
+          font-size: clamp(18px, 3vw, 24px);
+          color: rgba(255, 255, 255, 0.95);
+          margin-bottom: 40px;
+          line-height: 1.6;
+        }
+
+        .cta-buttons {
+          display: flex;
+          gap: 16px;
+          justify-content: center;
+          flex-wrap: wrap;
+        }
+
+        .cta-button-primary {
+          padding: 18px 48px;
+          background: white;
+          color: #667eea;
+          text-decoration: none;
+          border-radius: 30px;
+          font-weight: 700;
+          font-size: 18px;
+          box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+          transition: all 0.3s;
+        }
+
+        .cta-button-primary:hover {
+          transform: translateY(-3px) scale(1.05);
+          box-shadow: 0 15px 50px rgba(0, 0, 0, 0.3);
+        }
+
+        .cta-button-secondary {
+          padding: 18px 48px;
+          background: rgba(255, 255, 255, 0.15);
+          backdrop-filter: blur(10px);
+          color: white;
+          text-decoration: none;
+          border: 2px solid rgba(255, 255, 255, 0.3);
+          border-radius: 30px;
+          font-weight: 700;
+          font-size: 18px;
+          transition: all 0.3s;
+        }
+
+        .cta-button-secondary:hover {
+          background: rgba(255, 255, 255, 0.25);
+          transform: translateY(-3px);
+        }
+
+        .cta-note {
+          margin-top: 24px;
+          color: rgba(255, 255, 255, 0.8);
+          font-size: 14px;
+        }
+
+        /* Footer */
+        .landing-footer {
+          background: #1a1a1a;
+          color: white;
+          padding: 80px 24px 40px;
+        }
+
+        .footer-content {
+          max-width: 1400px;
+          margin: 0 auto;
+        }
+
+        .footer-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+          gap: 48px;
+          margin-bottom: 60px;
+        }
+
+        .footer-brand {
+          grid-column: span 2;
+        }
+
+        .footer-logo {
+          font-size: 28px;
+          font-weight: 700;
+          margin-bottom: 16px;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .footer-logo span {
+          font-size: 32px;
+        }
+
+        .footer-description {
+          color: #9ca3af;
+          line-height: 1.6;
+          margin-bottom: 24px;
+          max-width: 300px;
+        }
+
+        .footer-socials {
+          display: flex;
+          gap: 12px;
+        }
+
+        .footer-social-link {
+          width: 40px;
+          height: 40px;
+          border-radius: 50%;
+          background: #374151;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: white;
+          text-decoration: none;
+          font-weight: 700;
+          font-size: 14px;
+          transition: all 0.3s;
+        }
+
+        .footer-social-link:hover {
+          background: #667eea;
+          transform: translateY(-3px);
+        }
+
+        .footer-column-title {
+          font-size: 16px;
+          font-weight: 700;
+          margin-bottom: 20px;
+          text-transform: uppercase;
+          letter-spacing: 1px;
+          color: white;
+        }
+
+        .footer-links {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+        }
+
+        .footer-link {
+          color: #9ca3af;
+          text-decoration: none;
+          font-size: 15px;
+          transition: color 0.3s;
+        }
+
+        .footer-link:hover {
+          color: #667eea;
+        }
+
+        .footer-bottom {
+          padding-top: 32px;
+          border-top: 1px solid #374151;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          flex-wrap: wrap;
+          gap: 20px;
+        }
+
+        .footer-copyright {
+          color: #9ca3af;
+          margin: 0;
+          font-size: 14px;
+        }
+
+        .footer-legal-links {
+          display: flex;
+          gap: 24px;
+          flex-wrap: wrap;
+        }
+
+        .footer-legal-link {
+          color: #9ca3af;
+          text-decoration: none;
+          font-size: 14px;
+          transition: color 0.3s;
+        }
+
+        .footer-legal-link:hover {
+          color: #667eea;
+        }
+
+        /* Responsive Styles */
         @media (max-width: 1024px) {
-          .mobile-menu-btn {
-            display: block !important;
+          .landing-mobile-menu-btn {
+            display: flex;
           }
           
-          .desktop-nav {
-            display: none !important;
-          }
-
-          .logo-text {
-            font-size: 20px;
+          .landing-desktop-nav {
+            display: none;
           }
         }
 
-        /* Tablet Responsiveness */
         @media (max-width: 768px) {
           .floating-bg {
             width: 200px !important;
             height: 200px !important;
           }
+
+          .footer-brand {
+            grid-column: span 1;
+          }
         }
 
-        /* Mobile Responsiveness */
         @media (max-width: 480px) {
-          header {
-            padding: 12px 0 !important;
+          .landing-header {
+            padding: 12px 0;
           }
 
           .logo-text {
             display: none;
           }
 
-          section {
-            padding: 80px 16px !important;
+          .hero-section,
+          .features-section,
+          .platforms-section,
+          .testimonials-section,
+          .cta-section {
+            padding: 80px 16px;
           }
 
-          footer {
-            padding: 60px 16px 32px !important;
+          .landing-footer {
+            padding: 60px 16px 32px;
           }
         }
 
