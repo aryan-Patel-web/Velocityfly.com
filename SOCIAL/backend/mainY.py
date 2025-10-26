@@ -1451,6 +1451,14 @@ async def youtube_oauth_url(request: YouTubeOAuthRequest):
         logger.error(f"YouTube OAuth URL generation failed: {e}")
         raise HTTPException(status_code=500, detail=f"Internal error: {str(e)}")
 
+
+
+
+
+
+
+
+
 # FIXED OAuth callback endpoint
 @app.get("/api/youtube/oauth-callback")
 async def youtube_oauth_callback_get(code: str, state: str):
@@ -1529,6 +1537,13 @@ async def youtube_oauth_callback_get(code: str, state: str):
             url="https://frontend-agentic-bnc2.onrender.com/youtube?error=oauth_failed",
             status_code=302
         )
+
+
+
+
+
+
+
 
 # ADD missing /api/auth/me endpoint
 @app.get("/api/auth/me")
