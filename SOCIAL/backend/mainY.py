@@ -1456,13 +1456,9 @@ async def youtube_oauth_url(request: YouTubeOAuthRequest):
 
 
 
-
-
-
-# FIXED OAuth callback endpoint
 @app.get("/api/youtube/oauth-callback")
 async def youtube_oauth_callback_get(code: str, state: str):
-    """Handle YouTube OAuth callback from Google - FIXED GET endpoint"""
+    """Handle YouTube OAuth callback from Google - FIXED"""
     try:
         logger.info(f"YouTube OAuth callback received - state: {state}, code: {code[:20]}...")
         
@@ -1472,14 +1468,14 @@ async def youtube_oauth_callback_get(code: str, state: str):
         else:
             logger.error(f"Invalid state format: {state}")
             return RedirectResponse(
-                url="https://frontend-agentic-bnc2.onrender.com/youtube?error=invalid_state",
+                url="https://frontend-agentic-bnc2.onrender.com/youtube-callback?error=invalid_state",
                 status_code=302
             )
         
         if not youtube_connector:
             logger.error("YouTube connector not available")
             return RedirectResponse(
-                url="https://frontend-agentic-bnc2.onrender.com/youtube?error=service_unavailable",
+                url="https://frontend-agentic-bnc2.onrender.com/youtube-callback?error=service_unavailable",
                 status_code=302
             )
         
@@ -1494,7 +1490,7 @@ async def youtube_oauth_callback_get(code: str, state: str):
         if not token_result["success"]:
             logger.error(f"Token exchange failed: {token_result.get('error')}")
             return RedirectResponse(
-                url="https://frontend-agentic-bnc2.onrender.com/youtube?error=token_exchange_failed",
+                url="https://frontend-agentic-bnc2.onrender.com/youtube-callback?error=token_exchange_failed",
                 status_code=302
             )
         
@@ -1526,17 +1522,98 @@ async def youtube_oauth_callback_get(code: str, state: str):
         channel_title = token_result["channel_info"].get("title", "Unknown Channel")
         logger.info(f"YouTube OAuth SUCCESS - Channel: {channel_title}")
         
+        # THIS IS THE KEY LINE - REDIRECT TO /youtube-callback NOT /youtube
         return RedirectResponse(
-            url=f"https://frontend-agentic-bnc2.onrender.com/youtube?youtube_connected=true&channel={channel_title}",
+            url=f"https://frontend-agentic-bnc2.onrender.com/youtube-callback?youtube_connected=true&channel={channel_title}",
             status_code=302
         )
         
     except Exception as e:
         logger.error(f"YouTube OAuth callback failed: {e}")
         return RedirectResponse(
-            url="https://frontend-agentic-bnc2.onrender.com/youtube?error=oauth_failed",
+            url="https://frontend-agentic-bnc2.onrender.com/youtube-callback?error=oauth_failed",
             status_code=302
         )
+
+
+# FIXED OAuth callback endpoint
+# @app.get("/api/youtube/oauth-callback")
+# async def youtube_oauth_callback_get(code: str, state: str):
+#     """Handle YouTube OAuth callback from Google - FIXED GET endpoint"""
+#     try:
+#         logger.info(f"YouTube OAuth callback received - state: {state}, code: {code[:20]}...")
+        
+#         if "youtube_oauth_" in state:
+#             user_id = state.replace("youtube_oauth_", "")
+#             logger.info(f"Extracted user_id from state: {user_id}")
+#         else:
+#             logger.error(f"Invalid state format: {state}")
+#             return RedirectResponse(
+#                 url="https://frontend-agentic-bnc2.onrender.com/youtube?error=invalid_state",
+#                 status_code=302
+#             )
+        
+#         if not youtube_connector:
+#             logger.error("YouTube connector not available")
+#             return RedirectResponse(
+#                 url="https://frontend-agentic-bnc2.onrender.com/youtube?error=service_unavailable",
+#                 status_code=302
+#             )
+        
+#         backend_redirect_uri = "https://agentic-u5lx.onrender.com/api/youtube/oauth-callback"
+#         logger.info(f"Token exchange with redirect_uri: {backend_redirect_uri}")
+            
+#         token_result = await youtube_connector.exchange_code_for_token(
+#             code=code,
+#             redirect_uri=backend_redirect_uri
+#         )
+        
+#         if not token_result["success"]:
+#             logger.error(f"Token exchange failed: {token_result.get('error')}")
+#             return RedirectResponse(
+#                 url="https://frontend-agentic-bnc2.onrender.com/youtube?error=token_exchange_failed",
+#                 status_code=302
+#             )
+        
+#         youtube_credentials = {
+#             "access_token": token_result["access_token"],
+#             "refresh_token": token_result["refresh_token"],
+#             "token_uri": token_result["token_uri"],
+#             "client_id": token_result["client_id"],
+#             "client_secret": token_result["client_secret"],
+#             "scopes": token_result["scopes"],
+#             "expires_at": datetime.now() + timedelta(seconds=token_result.get("expires_in", 3600)),
+#             "channel_info": token_result["channel_info"]
+#         }
+        
+#         try:
+#             success = await database_manager.store_youtube_credentials(
+#                 user_id=user_id,
+#                 credentials=youtube_credentials
+#             )
+            
+#             if success:
+#                 logger.info(f"YouTube credentials stored for user {user_id}")
+#             else:
+#                 logger.error(f"Failed to store YouTube credentials for user {user_id}")
+                
+#         except Exception as db_error:
+#             logger.error(f"Database error: {db_error}")
+        
+#         channel_title = token_result["channel_info"].get("title", "Unknown Channel")
+#         logger.info(f"YouTube OAuth SUCCESS - Channel: {channel_title}")
+        
+#         return RedirectResponse(
+#             url=f"https://frontend-agentic-bnc2.onrender.com/youtube?youtube_connected=true&channel={channel_title}",
+#             status_code=302
+#         )
+        
+#     except Exception as e:
+#         logger.error(f"YouTube OAuth callback failed: {e}")
+#         return RedirectResponse(
+#             url="https://frontend-agentic-bnc2.onrender.com/youtube?error=oauth_failed",
+#             status_code=302
+#         )
 
 
 
