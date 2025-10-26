@@ -272,127 +272,112 @@ const Landing_Page = () => {
 
       {/* Features Section */}
       <section id="features" className="features-section">
-        <div className="section-container">
-          <div className="section-header">
-            <div className="section-badge">FEATURES</div>
-            <h2 className="section-title">Everything You Need to Succeed</h2>
-            <p className="section-subtitle">
-              Powerful features designed to help you grow your social media presence effortlessly
-            </p>
-          </div>
+        <div className="section-header">
+          <h2 className="section-title">Powerful Features</h2>
+          <p className="section-subtitle">
+            Everything you need to dominate social media
+          </p>
+        </div>
 
-          <div className="features-grid">
-            {features.map((feature, idx) => (
-              <div
-                key={idx}
-                className={`feature-card ${activeFeature === idx ? 'active' : ''}`}
-                onMouseEnter={() => setActiveFeature(idx)}
-              >
-                <div className="feature-icon">{feature.icon}</div>
-                <h3 className="feature-title">{feature.title}</h3>
-                <p className="feature-description">{feature.description}</p>
-              </div>
-            ))}
-          </div>
+        <div className="features-grid">
+          {features.map((feature, idx) => (
+            <div
+              key={idx}
+              className={`feature-card ${activeFeature === idx ? 'active' : ''}`}
+              onMouseEnter={() => setActiveFeature(idx)}
+            >
+              <div className="feature-icon">{feature.icon}</div>
+              <h3 className="feature-title">{feature.title}</h3>
+              <p className="feature-description">{feature.description}</p>
+            </div>
+          ))}
         </div>
       </section>
 
       {/* Platforms Section */}
       <section id="platforms" className="platforms-section">
-        <div className="section-container">
-          <div className="section-header">
-            <div className="section-badge">PLATFORMS</div>
-            <h2 className="section-title">Connect All Your Channels</h2>
-            <p className="section-subtitle">
-              Seamless integration with all major social media platforms
-            </p>
-          </div>
+        <div className="section-header">
+          <h2 className="section-title">Supported Platforms</h2>
+          <p className="section-subtitle">
+            One dashboard to rule them all
+          </p>
+        </div>
 
-          <div className="platforms-grid">
-            {platforms.map((platform, idx) => (
-              <Link
-                key={idx}
-                to={isAuthenticated ? platform.route : '/register'}
-                className={`platform-card ${hoveredPlatform === idx ? 'hovered' : ''}`}
-                onMouseEnter={() => setHoveredPlatform(idx)}
-                onMouseLeave={() => setHoveredPlatform(null)}
-              >
-                <div className="platform-icon-wrapper">
-                  <div className="platform-icon">{platform.emoji}</div>
-                </div>
-                <h3 className="platform-title">{platform.name}</h3>
-                <p className="platform-description">{platform.description}</p>
-                <div className="platform-features">
-                  {platform.features.map((feat, featIdx) => (
-                    <span key={featIdx} className="platform-feature-tag">
-                      {feat}
-                    </span>
-                  ))}
-                </div>
-                <div className="platform-cta">
-                  Get Started <span>→</span>
-                </div>
-              </Link>
-            ))}
-          </div>
+        <div className="platforms-grid">
+          {platforms.map((platform, idx) => (
+            <Link
+              key={idx}
+              to={platform.route}
+              className="platform-card"
+              onMouseEnter={() => setHoveredPlatform(idx)}
+              onMouseLeave={() => setHoveredPlatform(null)}
+            >
+              <div className="platform-emoji">{platform.emoji}</div>
+              <h3 className="platform-name">{platform.name}</h3>
+              <p className="platform-description">{platform.description}</p>
+              
+              <div className={`platform-features ${hoveredPlatform === idx ? 'visible' : ''}`}>
+                {platform.features.map((feature, fIdx) => (
+                  <span key={fIdx} className="platform-feature-tag">
+                    {feature}
+                  </span>
+                ))}
+              </div>
+            </Link>
+          ))}
         </div>
       </section>
 
       {/* Testimonials Section */}
       <section id="testimonials" className="testimonials-section">
-        <div className="section-container">
-          <div className="section-header">
-            <div className="section-badge">TESTIMONIALS</div>
-            <h2 className="section-title">Loved by Thousands</h2>
-            <p className="section-subtitle">
-              See what our customers are saying about VelocityPost
-            </p>
-          </div>
+        <div className="section-header">
+          <h2 className="section-title">Loved by Thousands</h2>
+          <p className="section-subtitle">
+            See what our users are saying
+          </p>
+        </div>
 
-          <div className="testimonials-grid">
-            {testimonials.map((testimonial, idx) => (
-              <div key={idx} className="testimonial-card">
-                <div className="testimonial-stars">
-                  {[...Array(testimonial.rating)].map((_, i) => (
-                    <span key={i}>★</span>
-                  ))}
-                </div>
-                <p className="testimonial-content">"{testimonial.content}"</p>
-                <div className="testimonial-author">
-                  <img src={testimonial.image} alt={testimonial.name} className="author-image" />
-                  <div>
-                    <div className="author-name">{testimonial.name}</div>
-                    <div className="author-role">
-                      {testimonial.role} at {testimonial.company}
-                    </div>
+        <div className="testimonials-grid">
+          {testimonials.map((testimonial, idx) => (
+            <div key={idx} className="testimonial-card">
+              <div className="testimonial-rating">
+                {'⭐'.repeat(testimonial.rating)}
+              </div>
+              <p className="testimonial-content">"{testimonial.content}"</p>
+              <div className="testimonial-author">
+                <img
+                  src={testimonial.image}
+                  alt={testimonial.name}
+                  className="author-image"
+                />
+                <div className="author-info">
+                  <div className="author-name">{testimonial.name}</div>
+                  <div className="author-role">
+                    {testimonial.role} at {testimonial.company}
                   </div>
                 </div>
               </div>
-            ))}
-          </div>
+            </div>
+          ))}
         </div>
       </section>
 
       {/* CTA Section */}
       <section className="cta-section">
-        <div className="floating-bg floating-bg-3"></div>
-        
         <div className="cta-content">
           <h2 className="cta-title">Ready to Transform Your Social Media?</h2>
           <p className="cta-subtitle">
-            Join 50,000+ businesses already automating their social media success
+            Join 50,000+ users automating their social media success
           </p>
           <div className="cta-buttons">
             <Link to="/register" className="cta-button-primary">
-              Start Free 14-Day Trial
+              Start Free Trial
             </Link>
             <Link to="/contact" className="cta-button-secondary">
               Contact Sales
             </Link>
           </div>
-          <p className="cta-note">
-            No credit card required • Cancel anytime • 24/7 support
-          </p>
+          <p className="cta-note">No credit card required • Cancel anytime</p>
         </div>
       </section>
 
@@ -400,30 +385,32 @@ const Landing_Page = () => {
       <footer className="landing-footer">
         <div className="footer-content">
           <div className="footer-grid">
-            {/* Brand */}
+            {/* Brand Section */}
             <div className="footer-brand">
               <div className="footer-logo">
                 <span>🚀</span>
                 VelocityPost
               </div>
               <p className="footer-description">
-                AI-powered social media automation for modern businesses. Save time, boost engagement, grow faster.
+                AI-powered social media automation platform helping businesses save time and boost engagement.
               </p>
               <div className="footer-socials">
-                {[
-                  { icon: '𝕏', name: 'Twitter' },
-                  { icon: 'f', name: 'Facebook' },
-                  { icon: 'in', name: 'LinkedIn' },
-                  { icon: 'IG', name: 'Instagram' }
-                ].map((social, idx) => (
-                  <a key={idx} href="#" className="footer-social-link" aria-label={social.name}>
-                    {social.icon}
-                  </a>
-                ))}
+                <a href="https://facebook.com" className="footer-social-link" target="_blank" rel="noopener noreferrer">
+                  f
+                </a>
+                <a href="https://twitter.com" className="footer-social-link" target="_blank" rel="noopener noreferrer">
+                  𝕏
+                </a>
+                <a href="https://instagram.com" className="footer-social-link" target="_blank" rel="noopener noreferrer">
+                  📷
+                </a>
+                <a href="https://linkedin.com" className="footer-social-link" target="_blank" rel="noopener noreferrer">
+                  in
+                </a>
               </div>
             </div>
 
-            {/* Product */}
+            {/* Product Links */}
             <div className="footer-column">
               <h4 className="footer-column-title">Product</h4>
               <div className="footer-links">
@@ -434,49 +421,61 @@ const Landing_Page = () => {
               </div>
             </div>
 
-            {/* Company */}
+            {/* Company Links */}
             <div className="footer-column">
               <h4 className="footer-column-title">Company</h4>
               <div className="footer-links">
-                <Link to="/about" className="footer-link">About</Link>
-                <Link to="/blog" className="footer-link">Blog</Link>
+                <Link to="/about" className="footer-link">About Us</Link>
                 <Link to="/careers" className="footer-link">Careers</Link>
+                <Link to="/blog" className="footer-link">Blog</Link>
                 <Link to="/contact" className="footer-link">Contact</Link>
               </div>
             </div>
 
-            {/* Resources */}
+            {/* Support Links */}
             <div className="footer-column">
-              <h4 className="footer-column-title">Resources</h4>
+              <h4 className="footer-column-title">Support</h4>
               <div className="footer-links">
-                <Link to="/help" className="footer-link">Help Center</Link>
+                <Link to="/helpcenter" className="footer-link">Help Center</Link>
                 <Link to="/documentation" className="footer-link">Documentation</Link>
                 <Link to="/community" className="footer-link">Community</Link>
                 <Link to="/status" className="footer-link">Status</Link>
               </div>
             </div>
+
+            {/* Legal Links */}
+            <div className="footer-column">
+              <h4 className="footer-column-title">Legal</h4>
+              <div className="footer-links">
+                <Link to="/privacypolicy" className="footer-link">Privacy Policy</Link>
+                <Link to="/termsofservice" className="footer-link">Terms of Service</Link>
+                <Link to="/cookiepolicy" className="footer-link">Cookie Policy</Link>
+              </div>
+            </div>
           </div>
 
-          {/* Bottom Bar */}
           <div className="footer-bottom">
             <p className="footer-copyright">
-              © 2025 VelocityPost. All rights reserved.
+              © {new Date().getFullYear()} VelocityPost. All rights reserved.
             </p>
             <div className="footer-legal-links">
-              <Link to="/privacy" className="footer-legal-link">Privacy Policy</Link>
-              <Link to="/terms" className="footer-legal-link">Terms of Service</Link>
-              <Link to="/cookie-policy" className="footer-legal-link">Cookie Policy</Link>
+              <Link to="/privacypolicy" className="footer-legal-link">Privacy</Link>
+              <Link to="/termsofservice" className="footer-legal-link">Terms</Link>
+              <Link to="/cookiepolicy" className="footer-legal-link">Cookies</Link>
             </div>
           </div>
         </div>
       </footer>
 
-      {/* Styles */}
       <style>{`
-        /* Reset & Base Styles */
+        * {
+          margin: 0;
+          padding: 0;
+          box-sizing: border-box;
+        }
+
         .landing-page-container {
-          min-height: 100vh;
-          background: white;
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
           overflow-x: hidden;
         }
 
@@ -486,17 +485,16 @@ const Landing_Page = () => {
           top: 0;
           left: 0;
           right: 0;
-          z-index: 998;
-          background: rgba(255, 255, 255, 0.95);
-          backdrop-filter: blur(10px);
+          z-index: 1000;
+          background: rgba(255, 255, 255, 0.8);
+          backdrop-filter: blur(20px);
+          transition: all 0.3s;
           padding: 16px 0;
-          transition: all 0.3s ease;
         }
 
         .landing-header.scrolled {
-          background: rgba(255, 255, 255, 0.98);
-          border-bottom: 1px solid rgba(0, 0, 0, 0.1);
-          box-shadow: 0 2px 20px rgba(0,0,0,0.1);
+          background: rgba(255, 255, 255, 0.95);
+          box-shadow: 0 2px 20px rgba(0, 0, 0, 0.1);
         }
 
         .landing-header-content {
@@ -509,38 +507,44 @@ const Landing_Page = () => {
         }
 
         .landing-logo {
-          font-size: 28px;
-          fontWeight: 700;
-          background: linear-gradient(135deg, #667eea, #764ba2);
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-          text-decoration: none;
           display: flex;
           align-items: center;
           gap: 8px;
-          z-index: 999;
+          text-decoration: none;
+          color: #1a1a1a;
+          font-weight: 800;
+          font-size: 24px;
+          transition: transform 0.3s;
+        }
+
+        .landing-logo:hover {
+          transform: scale(1.05);
         }
 
         .logo-emoji {
-          font-size: 32px;
+          font-size: 28px;
+        }
+
+        .logo-text {
+          font-size: 20px;
         }
 
         .landing-desktop-nav {
           display: flex;
-          gap: 32px;
           align-items: center;
+          gap: 32px;
         }
 
         .nav-button {
           background: none;
           border: none;
-          color: #374151;
-          font-size: 16px;
-          font-weight: 500;
+          color: #4b5563;
+          font-size: 15px;
+          font-weight: 600;
           cursor: pointer;
           text-decoration: none;
-          padding: 8px 0;
           transition: color 0.3s;
+          padding: 8px 0;
         }
 
         .nav-button:hover {
@@ -548,21 +552,20 @@ const Landing_Page = () => {
         }
 
         .cta-button {
-          padding: 12px 28px;
           background: linear-gradient(135deg, #667eea, #764ba2);
           color: white;
+          padding: 12px 28px;
+          border-radius: 25px;
           text-decoration: none;
-          border-radius: 30px;
-          font-weight: 600;
+          font-weight: 700;
           font-size: 15px;
-          box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
           transition: all 0.3s;
-          display: inline-block;
+          box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
         }
 
         .cta-button:hover {
           transform: translateY(-2px);
-          box-shadow: 0 6px 20px rgba(102, 126, 234, 0.5);
+          box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
         }
 
         /* Mobile Menu */
@@ -574,19 +577,19 @@ const Landing_Page = () => {
           border: none;
           cursor: pointer;
           padding: 8px;
-          z-index: 999;
+          z-index: 1001;
         }
 
         .landing-mobile-menu-btn span {
           width: 25px;
           height: 3px;
-          background: #374151;
-          border-radius: 2px;
+          background: #1a1a1a;
+          border-radius: 3px;
           transition: all 0.3s;
         }
 
         .landing-mobile-menu-btn span.active:nth-child(1) {
-          transform: rotate(45deg) translateY(8px);
+          transform: rotate(45deg) translate(8px, 8px);
         }
 
         .landing-mobile-menu-btn span.active:nth-child(2) {
@@ -594,7 +597,7 @@ const Landing_Page = () => {
         }
 
         .landing-mobile-menu-btn span.active:nth-child(3) {
-          transform: rotate(-45deg) translateY(-8px);
+          transform: rotate(-45deg) translate(7px, -7px);
         }
 
         .landing-mobile-overlay {
@@ -604,247 +607,155 @@ const Landing_Page = () => {
           right: 0;
           bottom: 0;
           background: rgba(0, 0, 0, 0.5);
-          z-index: 997;
-          backdrop-filter: blur(5px);
+          z-index: 999;
+          animation: fadeIn 0.3s;
+        }
+
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
         }
 
         .landing-mobile-menu {
           position: fixed;
           top: 0;
-          right: 0;
-          bottom: 0;
-          width: 80%;
-          max-width: 320px;
+          right: -100%;
+          width: 280px;
+          height: 100vh;
           background: white;
-          box-shadow: -4px 0 24px rgba(0, 0, 0, 0.2);
-          transform: translateX(100%);
-          transition: transform 0.3s ease;
-          z-index: 998;
+          z-index: 1000;
           padding: 80px 24px 24px;
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+          transition: right 0.3s ease;
+          box-shadow: -5px 0 20px rgba(0, 0, 0, 0.1);
           overflow-y: auto;
         }
 
         .landing-mobile-menu.open {
-          transform: translateX(0);
+          right: 0;
         }
 
         .mobile-menu-item {
-          display: block;
-          width: 100%;
-          padding: 12px 0;
-          color: #374151;
-          font-size: 18px;
-          font-weight: 500;
-          text-decoration: none;
-          border: none;
           background: none;
-          text-align: left;
-          border-bottom: 1px solid #f3f4f6;
+          border: none;
+          color: #1a1a1a;
+          font-size: 16px;
+          font-weight: 600;
           cursor: pointer;
+          text-decoration: none;
+          padding: 12px 16px;
+          border-radius: 8px;
+          transition: all 0.3s;
+          text-align: left;
+        }
+
+        .mobile-menu-item:hover {
+          background: #f3f4f6;
+          color: #667eea;
         }
 
         .mobile-signin-button {
-          display: block;
-          width: 100%;
-          padding: 14px 24px;
-          margin-top: 16px;
-          background: transparent;
+          background: #f3f4f6;
           color: #667eea;
-          border: 2px solid #667eea;
-          border-radius: 12px;
-          font-weight: 600;
-          font-size: 16px;
-          text-align: center;
+          padding: 12px 24px;
+          border-radius: 8px;
           text-decoration: none;
+          font-weight: 700;
+          text-align: center;
+          transition: all 0.3s;
+          margin-top: 8px;
+        }
+
+        .mobile-signin-button:hover {
+          background: #e5e7eb;
         }
 
         .mobile-cta-button {
-          display: block;
-          width: 100%;
-          padding: 14px 24px;
-          margin-top: 12px;
           background: linear-gradient(135deg, #667eea, #764ba2);
           color: white;
-          border-radius: 12px;
-          font-weight: 600;
-          font-size: 16px;
-          text-align: center;
+          padding: 14px 24px;
+          border-radius: 8px;
           text-decoration: none;
+          font-weight: 700;
+          text-align: center;
+          transition: all 0.3s;
+          margin-top: 8px;
+        }
+
+        .mobile-cta-button:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
         }
 
         /* Hero Section */
         .hero-section {
           min-height: 100vh;
-          background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
-          position: relative;
-          padding: 140px 24px 100px;
           display: flex;
           align-items: center;
+          justify-content: center;
+          padding: 120px 24px 80px;
+          position: relative;
           overflow: hidden;
+          background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
         }
 
         .floating-bg {
           position: absolute;
-          background: rgba(255, 255, 255, 0.1);
+          width: 400px;
+          height: 400px;
           border-radius: 50%;
-          filter: blur(60px);
-          animation: float 20s ease-in-out infinite;
+          filter: blur(100px);
+          opacity: 0.3;
+          animation: float 20s infinite ease-in-out;
         }
 
         .floating-bg-1 {
+          background: #667eea;
           top: 10%;
-          left: 5%;
-          width: 300px;
-          height: 300px;
+          left: 10%;
+          animation-delay: 0s;
         }
 
         .floating-bg-2 {
+          background: #764ba2;
           bottom: 10%;
-          right: 5%;
-          width: 400px;
-          height: 400px;
-          animation-duration: 25s;
-          animation-direction: reverse;
-        }
-
-        .floating-bg-3 {
-          top: 50%;
-          left: 50%;
-          transform: translate(-50%, -50%);
-          width: 600px;
-          height: 600px;
-          filter: blur(80px);
+          right: 10%;
+          animation-delay: 5s;
         }
 
         @keyframes float {
-          0%, 100% {
-            transform: translate(0, 0) rotate(0deg);
-          }
-          33% {
-            transform: translate(30px, -50px) rotate(120deg);
-          }
-          66% {
-            transform: translate(-20px, 30px) rotate(240deg);
-          }
+          0%, 100% { transform: translate(0, 0); }
+          25% { transform: translate(30px, -30px); }
+          50% { transform: translate(-20px, 20px); }
+          75% { transform: translate(40px, 10px); }
         }
 
         .hero-content {
-          max-width: 1400px;
-          margin: 0 auto;
+          max-width: 1200px;
           text-align: center;
-          color: white;
           position: relative;
           z-index: 1;
         }
 
         .hero-badge {
           display: inline-block;
-          padding: 10px 24px;
-          background: rgba(255, 255, 255, 0.2);
-          backdrop-filter: blur(10px);
+          background: white;
+          padding: 12px 24px;
           border-radius: 30px;
-          border: 1px solid rgba(255, 255, 255, 0.3);
           font-size: 14px;
           font-weight: 600;
-          margin-bottom: 32px;
-          animation: fadeInDown 1s ease-out;
-        }
-
-        .hero-title {
-          font-size: clamp(40px, 8vw, 72px);
-          font-weight: 900;
-          line-height: 1.1;
-          margin-bottom: 24px;
-          animation: fadeInUp 1s ease-out 0.2s both;
-        }
-
-        .gradient-text {
-          background: linear-gradient(90deg, #fff, #f0f0f0);
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-        }
-
-        .hero-subtitle {
-          font-size: clamp(18px, 3vw, 24px);
-          line-height: 1.6;
-          opacity: 0.95;
-          max-width: 700px;
-          margin: 0 auto 40px;
-          animation: fadeInUp 1s ease-out 0.4s both;
-        }
-
-        .hero-buttons {
-          display: flex;
-          gap: 16px;
-          justify-content: center;
-          flex-wrap: wrap;
-          animation: fadeInUp 1s ease-out 0.6s both;
-        }
-
-        .hero-cta-primary {
-          padding: 16px 40px;
-          background: white;
           color: #667eea;
-          text-decoration: none;
-          border-radius: 30px;
-          font-weight: 700;
-          font-size: 18px;
-          box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
-          transition: all 0.3s;
+          margin-bottom: 32px;
+          box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+          animation: slideDown 0.6s ease-out;
         }
 
-        .hero-cta-primary:hover {
-          transform: translateY(-3px);
-          box-shadow: 0 15px 50px rgba(0, 0, 0, 0.3);
-        }
-
-        .hero-cta-secondary {
-          padding: 16px 40px;
-          background: rgba(255, 255, 255, 0.15);
-          backdrop-filter: blur(10px);
-          color: white;
-          border: 2px solid rgba(255, 255, 255, 0.3);
-          border-radius: 30px;
-          font-weight: 700;
-          font-size: 18px;
-          cursor: pointer;
-          transition: all 0.3s;
-        }
-
-        .hero-cta-secondary:hover {
-          background: rgba(255, 255, 255, 0.25);
-          transform: translateY(-3px);
-        }
-
-        .hero-stats {
-          margin-top: 60px;
-          display: flex;
-          gap: 40px;
-          justify-content: center;
-          flex-wrap: wrap;
-          opacity: 0.9;
-          animation: fadeInUp 1s ease-out 0.8s both;
-        }
-
-        .stat-item {
-          text-align: center;
-        }
-
-        .stat-value {
-          font-size: 36px;
-          font-weight: 900;
-          margin-bottom: 8px;
-        }
-
-        .stat-label {
-          font-size: 14px;
-          opacity: 0.9;
-        }
-
-        @keyframes fadeInDown {
+        @keyframes slideDown {
           from {
             opacity: 0;
-            transform: translateY(-30px);
+            transform: translateY(-20px);
           }
           to {
             opacity: 1;
@@ -852,7 +763,16 @@ const Landing_Page = () => {
           }
         }
 
-        @keyframes fadeInUp {
+        .hero-title {
+          font-size: clamp(40px, 7vw, 80px);
+          font-weight: 900;
+          line-height: 1.1;
+          margin-bottom: 24px;
+          color: #1a1a1a;
+          animation: slideUp 0.8s ease-out;
+        }
+
+        @keyframes slideUp {
           from {
             opacity: 0;
             transform: translateY(30px);
@@ -863,241 +783,271 @@ const Landing_Page = () => {
           }
         }
 
-        /* Section Styles */
-        .features-section,
-        .platforms-section,
-        .testimonials-section {
-          padding: 120px 24px;
+        .gradient-text {
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
         }
 
-        .platforms-section {
-          background: linear-gradient(180deg, #f9fafb 0%, white 100%);
+        .hero-subtitle {
+          font-size: clamp(18px, 3vw, 24px);
+          color: #4b5563;
+          max-width: 800px;
+          margin: 0 auto 48px;
+          line-height: 1.6;
+          animation: slideUp 1s ease-out;
         }
 
-        .section-container {
-          max-width: 1400px;
+        .hero-buttons {
+          display: flex;
+          gap: 20px;
+          justify-content: center;
+          flex-wrap: wrap;
+          margin-bottom: 60px;
+          animation: slideUp 1.2s ease-out;
+        }
+
+        .hero-cta-primary {
+          background: linear-gradient(135deg, #667eea, #764ba2);
+          color: white;
+          padding: 18px 48px;
+          border-radius: 30px;
+          text-decoration: none;
+          font-weight: 700;
+          font-size: 18px;
+          box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
+          transition: all 0.3s;
+        }
+
+        .hero-cta-primary:hover {
+          transform: translateY(-3px);
+          box-shadow: 0 15px 40px rgba(102, 126, 234, 0.4);
+        }
+
+        .hero-cta-secondary {
+          background: white;
+          color: #667eea;
+          padding: 18px 48px;
+          border: 2px solid #667eea;
+          border-radius: 30px;
+          font-weight: 700;
+          font-size: 18px;
+          cursor: pointer;
+          transition: all 0.3s;
+        }
+
+        .hero-cta-secondary:hover {
+          background: #667eea;
+          color: white;
+          transform: translateY(-3px);
+        }
+
+        .hero-stats {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+          gap: 32px;
+          max-width: 900px;
           margin: 0 auto;
+          animation: slideUp 1.4s ease-out;
+        }
+
+        .stat-item {
+          text-align: center;
+        }
+
+        .stat-value {
+          font-size: clamp(32px, 5vw, 48px);
+          font-weight: 900;
+          color: #667eea;
+          margin-bottom: 8px;
+        }
+
+        .stat-label {
+          font-size: 14px;
+          color: #6b7280;
+          font-weight: 600;
+        }
+
+        /* Features Section */
+        .features-section {
+          padding: 120px 24px;
+          background: white;
         }
 
         .section-header {
           text-align: center;
-          margin-bottom: 80px;
-        }
-
-        .section-badge {
-          display: inline-block;
-          padding: 8px 20px;
-          background: rgba(102, 126, 234, 0.1);
-          border-radius: 20px;
-          color: #667eea;
-          font-weight: 700;
-          font-size: 14px;
-          margin-bottom: 16px;
+          max-width: 800px;
+          margin: 0 auto 64px;
         }
 
         .section-title {
-          font-size: clamp(32px, 5vw, 48px);
+          font-size: clamp(36px, 5vw, 56px);
           font-weight: 900;
           color: #1a1a1a;
           margin-bottom: 16px;
         }
 
         .section-subtitle {
-          font-size: clamp(16px, 2.5vw, 20px);
+          font-size: clamp(16px, 3vw, 20px);
           color: #6b7280;
-          max-width: 600px;
-          margin: 0 auto;
+          line-height: 1.6;
         }
 
-        /* Features Grid */
         .features-grid {
+          max-width: 1400px;
+          margin: 0 auto;
           display: grid;
           grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
           gap: 32px;
         }
 
         .feature-card {
+          background: #f9fafb;
           padding: 40px;
-          background: white;
-          border-radius: 24px;
-          box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-          transition: all 0.4s;
+          border-radius: 20px;
+          transition: all 0.3s;
           cursor: pointer;
-          border: 1px solid #f3f4f6;
+          border: 2px solid transparent;
         }
 
+        .feature-card:hover,
         .feature-card.active {
-          background: linear-gradient(135deg, #667eea, #764ba2);
-          box-shadow: 0 20px 60px rgba(102, 126, 234, 0.4);
-          transform: translateY(-8px);
-          border: none;
+          background: white;
+          border-color: #667eea;
+          box-shadow: 0 20px 60px rgba(102, 126, 234, 0.15);
+          transform: translateY(-5px);
         }
 
         .feature-icon {
           font-size: 48px;
-          margin-bottom: 20px;
+          margin-bottom: 24px;
         }
 
         .feature-title {
           font-size: 24px;
-          font-weight: 800;
+          font-weight: 700;
           color: #1a1a1a;
           margin-bottom: 12px;
         }
 
-        .feature-card.active .feature-title {
-          color: white;
-        }
-
         .feature-description {
           color: #6b7280;
-          line-height: 1.7;
+          line-height: 1.6;
           font-size: 16px;
         }
 
-        .feature-card.active .feature-description {
-          color: rgba(255, 255, 255, 0.9);
+        /* Platforms Section */
+        .platforms-section {
+          padding: 120px 24px;
+          background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
         }
 
-        /* Platforms Grid */
         .platforms-grid {
+          max-width: 1400px;
+          margin: 0 auto;
           display: grid;
           grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
           gap: 32px;
         }
 
         .platform-card {
-          display: block;
-          padding: 32px;
           background: white;
-          border-radius: 24px;
-          box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-          transition: all 0.4s;
+          padding: 40px;
+          border-radius: 20px;
           text-decoration: none;
-          border: 1px solid #f3f4f6;
+          transition: all 0.3s;
           cursor: pointer;
+          border: 2px solid transparent;
+          display: flex;
+          flex-direction: column;
         }
 
-        .platform-card.hovered {
-          background: linear-gradient(135deg, #667eea, #764ba2);
-          box-shadow: 0 20px 60px rgba(102, 126, 234, 0.3);
-          transform: translateY(-8px) scale(1.02);
-          border: none;
+        .platform-card:hover {
+          border-color: #667eea;
+          transform: translateY(-10px);
+          box-shadow: 0 20px 60px rgba(102, 126, 234, 0.2);
         }
 
-        .platform-icon-wrapper {
+        .platform-emoji {
+          font-size: 64px;
           margin-bottom: 20px;
         }
 
-        .platform-icon {
-          width: 64px;
-          height: 64px;
-          border-radius: 16px;
-          background: rgba(102, 126, 234, 0.1);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 32px;
-          transition: all 0.3s;
-        }
-
-        .platform-card.hovered .platform-icon {
-          background: rgba(255, 255, 255, 0.2);
-        }
-
-        .platform-title {
-          font-size: 24px;
-          font-weight: 800;
+        .platform-name {
+          font-size: 28px;
+          font-weight: 700;
           color: #1a1a1a;
           margin-bottom: 12px;
         }
 
-        .platform-card.hovered .platform-title {
-          color: white;
-        }
-
         .platform-description {
           color: #6b7280;
-          line-height: 1.7;
-          font-size: 15px;
+          line-height: 1.6;
           margin-bottom: 20px;
-        }
-
-        .platform-card.hovered .platform-description {
-          color: rgba(255, 255, 255, 0.9);
+          flex-grow: 1;
         }
 
         .platform-features {
           display: flex;
           flex-wrap: wrap;
           gap: 8px;
-          margin-bottom: 24px;
+          opacity: 0;
+          max-height: 0;
+          overflow: hidden;
+          transition: all 0.3s;
+        }
+
+        .platform-features.visible {
+          opacity: 1;
+          max-height: 200px;
         }
 
         .platform-feature-tag {
-          padding: 6px 14px;
-          background: rgba(102, 126, 234, 0.1);
+          background: #f3f4f6;
           color: #667eea;
-          border-radius: 12px;
-          font-size: 13px;
+          padding: 6px 12px;
+          border-radius: 20px;
+          font-size: 12px;
           font-weight: 600;
         }
 
-        .platform-card.hovered .platform-feature-tag {
-          background: rgba(255, 255, 255, 0.2);
-          color: white;
+        /* Testimonials Section */
+        .testimonials-section {
+          padding: 120px 24px;
+          background: white;
         }
 
-        .platform-cta {
-          color: #667eea;
-          font-weight: 700;
-          font-size: 15px;
-          display: flex;
-          align-items: center;
-          gap: 8px;
-        }
-
-        .platform-card.hovered .platform-cta {
-          color: white;
-        }
-
-        .platform-cta span {
-          font-size: 20px;
-        }
-
-        /* Testimonials Grid */
         .testimonials-grid {
+          max-width: 1400px;
+          margin: 0 auto;
           display: grid;
           grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
           gap: 32px;
         }
 
         .testimonial-card {
+          background: #f9fafb;
           padding: 40px;
-          background: white;
-          border-radius: 24px;
-          box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-          border: 1px solid #f3f4f6;
+          border-radius: 20px;
           transition: all 0.3s;
         }
 
         .testimonial-card:hover {
-          box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12);
-          transform: translateY(-4px);
+          background: white;
+          box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
+          transform: translateY(-5px);
         }
 
-        .testimonial-stars {
-          display: flex;
-          gap: 4px;
-          margin-bottom: 20px;
-          color: #fbbf24;
+        .testimonial-rating {
           font-size: 20px;
+          margin-bottom: 16px;
         }
 
         .testimonial-content {
-          color: #374151;
-          line-height: 1.8;
+          color: #1a1a1a;
           font-size: 16px;
+          line-height: 1.6;
           margin-bottom: 24px;
           font-style: italic;
         }
@@ -1109,8 +1059,8 @@ const Landing_Page = () => {
         }
 
         .author-image {
-          width: 56px;
-          height: 56px;
+          width: 50px;
+          height: 50px;
           border-radius: 50%;
           object-fit: cover;
         }
@@ -1118,7 +1068,6 @@ const Landing_Page = () => {
         .author-name {
           font-weight: 700;
           color: #1a1a1a;
-          font-size: 16px;
           margin-bottom: 4px;
         }
 
@@ -1353,6 +1302,16 @@ const Landing_Page = () => {
           .footer-brand {
             grid-column: span 1;
           }
+
+          .hero-stats {
+            grid-template-columns: repeat(2, 1fr);
+          }
+
+          .features-grid,
+          .platforms-grid,
+          .testimonials-grid {
+            grid-template-columns: 1fr;
+          }
         }
 
         @media (max-width: 480px) {
@@ -1374,6 +1333,25 @@ const Landing_Page = () => {
 
           .landing-footer {
             padding: 60px 16px 32px;
+          }
+
+          .hero-buttons,
+          .cta-buttons {
+            flex-direction: column;
+            width: 100%;
+          }
+
+          .hero-cta-primary,
+          .hero-cta-secondary,
+          .cta-button-primary,
+          .cta-button-secondary {
+            width: 100%;
+            text-align: center;
+          }
+
+          .hero-stats {
+            grid-template-columns: 1fr;
+            gap: 24px;
           }
         }
 
