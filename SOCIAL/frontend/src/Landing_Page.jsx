@@ -6,10 +6,8 @@ const Landing_Page = () => {
   const { isAuthenticated } = useAuth();
   const [activeFeature, setActiveFeature] = useState(0);
   const [hoveredPlatform, setHoveredPlatform] = useState(null);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
 
-  // Handle scroll for header
   useEffect(() => {
     const handleScroll = () => {
       setScrolled(window.scrollY > 50);
@@ -18,25 +16,12 @@ const Landing_Page = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Auto-rotate features
   useEffect(() => {
     const interval = setInterval(() => {
       setActiveFeature((prev) => (prev + 1) % 4);
     }, 5000);
     return () => clearInterval(interval);
   }, []);
-
-  // Lock body scroll when mobile menu is open
-  useEffect(() => {
-    if (mobileMenuOpen) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = 'unset';
-    }
-    return () => {
-      document.body.style.overflow = 'unset';
-    };
-  }, [mobileMenuOpen]);
 
   const platforms = [
     { 
@@ -137,7 +122,6 @@ const Landing_Page = () => {
     const element = document.getElementById(sectionId);
     if (element) {
       element.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      setMobileMenuOpen(false);
     }
   };
 
@@ -146,122 +130,82 @@ const Landing_Page = () => {
       {/* Header */}
       <header className={`landing-header ${scrolled ? 'scrolled' : ''}`}>
         <div className="landing-header-content">
-          {/* Logo */}
           <Link to="/" className="landing-logo">
             <span className="logo-emoji">🚀</span>
             <span className="logo-text">VelocityPost</span>
           </Link>
           
-          {/* Desktop Navigation */}
-          <nav className="landing-desktop-nav">
-            <button onClick={() => scrollToSection('features')} className="nav-button">
+          <nav className="landing-nav">
+            <button onClick={() => scrollToSection('features')} className="nav-link">
               Features
             </button>
-            <button onClick={() => scrollToSection('platforms')} className="nav-button">
+            <button onClick={() => scrollToSection('platforms')} className="nav-link">
               Platforms
             </button>
-            <button onClick={() => scrollToSection('testimonials')} className="nav-button">
-              Testimonials
-            </button>
-            <Link to="/pricing" className="nav-button">
+            <Link to="/pricing" className="nav-link">
               Pricing
+            </Link>
+            <Link to="/about" className="nav-link">
+              About
+            </Link>
+            <Link to="/contact" className="nav-link">
+              Contact
             </Link>
             
             {isAuthenticated ? (
-              <Link to="/reddit-auto" className="cta-button">
+              <Link to="/reddit-auto" className="nav-cta-button">
                 Dashboard
               </Link>
             ) : (
               <>
-                <Link to="/login" className="nav-button">Sign In</Link>
-                <Link to="/register" className="cta-button">
-                  Get Started Free
+                <Link to="/login" className="nav-link-secondary">Sign In</Link>
+                <Link to="/register" className="nav-cta-button">
+                  Get Started
                 </Link>
               </>
             )}
           </nav>
-
-          {/* Mobile Menu Button */}
-          <button
-            className="landing-mobile-menu-btn"
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            aria-label="Toggle menu"
-          >
-            <span className={mobileMenuOpen ? 'active' : ''}></span>
-            <span className={mobileMenuOpen ? 'active' : ''}></span>
-            <span className={mobileMenuOpen ? 'active' : ''}></span>
-          </button>
-        </div>
-
-        {/* Mobile Menu Overlay */}
-        {mobileMenuOpen && (
-          <div className="landing-mobile-overlay" onClick={() => setMobileMenuOpen(false)} />
-        )}
-
-        {/* Mobile Menu */}
-        <div className={`landing-mobile-menu ${mobileMenuOpen ? 'open' : ''}`}>
-          <button onClick={() => scrollToSection('features')} className="mobile-menu-item">
-            Features
-          </button>
-          <button onClick={() => scrollToSection('platforms')} className="mobile-menu-item">
-            Platforms
-          </button>
-          <button onClick={() => scrollToSection('testimonials')} className="mobile-menu-item">
-            Testimonials
-          </button>
-          <Link to="/pricing" onClick={() => setMobileMenuOpen(false)} className="mobile-menu-item">
-            Pricing
-          </Link>
-
-          {isAuthenticated ? (
-            <Link to="/reddit-auto" onClick={() => setMobileMenuOpen(false)} className="mobile-cta-button">
-              Dashboard
-            </Link>
-          ) : (
-            <>
-              <Link to="/login" onClick={() => setMobileMenuOpen(false)} className="mobile-signin-button">
-                Sign In
-              </Link>
-              <Link to="/register" onClick={() => setMobileMenuOpen(false)} className="mobile-cta-button">
-                Get Started Free
-              </Link>
-            </>
-          )}
         </div>
       </header>
 
       {/* Hero Section */}
       <section className="hero-section">
-        <div className="floating-bg floating-bg-1"></div>
-        <div className="floating-bg floating-bg-2"></div>
+        <div className="hero-bg-animation">
+          <div className="floating-shape shape-1"></div>
+          <div className="floating-shape shape-2"></div>
+          <div className="floating-shape shape-3"></div>
+        </div>
         
         <div className="hero-content">
-          <div className="hero-badge">
-            🎉 New: AI-Powered Instagram Stories!
+          <div className="hero-badge animate-slide-down">
+            <span className="badge-icon">✨</span>
+            New: AI-Powered Instagram Stories!
           </div>
 
-          <h1 className="hero-title">
+          <h1 className="hero-title animate-slide-up">
             Automate Your<br />
             <span className="gradient-text">Social Media Magic</span>
           </h1>
 
-          <p className="hero-subtitle">
+          <p className="hero-subtitle animate-fade-in">
             AI-powered automation for Facebook, Instagram, WhatsApp, YouTube & Reddit. 
             Save 20+ hours weekly while boosting engagement by 300%.
           </p>
 
-          <div className="hero-buttons">
+          <div className="hero-buttons animate-fade-in-delay">
             <Link to="/register" className="hero-cta-primary">
-              Start Free Trial
+              <span>Start Free Trial</span>
+              <span className="button-arrow">→</span>
             </Link>
             <button onClick={() => scrollToSection('platforms')} className="hero-cta-secondary">
-              Watch Demo
+              <span>Watch Demo</span>
+              <span className="play-icon">▶</span>
             </button>
           </div>
 
           <div className="hero-stats">
             {stats.map((stat, idx) => (
-              <div key={idx} className="stat-item">
+              <div key={idx} className="stat-item animate-scale-in" style={{ animationDelay: `${idx * 0.1}s` }}>
                 <div className="stat-value">{stat.value}</div>
                 <div className="stat-label">{stat.label}</div>
               </div>
@@ -286,9 +230,12 @@ const Landing_Page = () => {
               className={`feature-card ${activeFeature === idx ? 'active' : ''}`}
               onMouseEnter={() => setActiveFeature(idx)}
             >
-              <div className="feature-icon">{feature.icon}</div>
+              <div className="feature-icon-wrapper">
+                <div className="feature-icon">{feature.icon}</div>
+              </div>
               <h3 className="feature-title">{feature.title}</h3>
               <p className="feature-description">{feature.description}</p>
+              <div className="feature-hover-line"></div>
             </div>
           ))}
         </div>
@@ -312,17 +259,21 @@ const Landing_Page = () => {
               onMouseEnter={() => setHoveredPlatform(idx)}
               onMouseLeave={() => setHoveredPlatform(null)}
             >
-              <div className="platform-emoji">{platform.emoji}</div>
+              <div className="platform-icon-bg">
+                <div className="platform-emoji">{platform.emoji}</div>
+              </div>
               <h3 className="platform-name">{platform.name}</h3>
               <p className="platform-description">{platform.description}</p>
               
-              <div className={`platform-features ${hoveredPlatform === idx ? 'visible' : ''}`}>
+              <div className="platform-features">
                 {platform.features.map((feature, fIdx) => (
                   <span key={fIdx} className="platform-feature-tag">
+                    <span className="tag-dot">•</span>
                     {feature}
                   </span>
                 ))}
               </div>
+              <div className="platform-arrow">→</div>
             </Link>
           ))}
         </div>
@@ -385,7 +336,6 @@ const Landing_Page = () => {
       <footer className="landing-footer">
         <div className="footer-content">
           <div className="footer-grid">
-            {/* Brand Section */}
             <div className="footer-brand">
               <div className="footer-logo">
                 <span>🚀</span>
@@ -395,22 +345,13 @@ const Landing_Page = () => {
                 AI-powered social media automation platform helping businesses save time and boost engagement.
               </p>
               <div className="footer-socials">
-                <a href="https://facebook.com" className="footer-social-link" target="_blank" rel="noopener noreferrer">
-                  f
-                </a>
-                <a href="https://twitter.com" className="footer-social-link" target="_blank" rel="noopener noreferrer">
-                  𝕏
-                </a>
-                <a href="https://instagram.com" className="footer-social-link" target="_blank" rel="noopener noreferrer">
-                  📷
-                </a>
-                <a href="https://linkedin.com" className="footer-social-link" target="_blank" rel="noopener noreferrer">
-                  in
-                </a>
+                <a href="https://facebook.com" className="footer-social-link" target="_blank" rel="noopener noreferrer">f</a>
+                <a href="https://twitter.com" className="footer-social-link" target="_blank" rel="noopener noreferrer">𝕏</a>
+                <a href="https://instagram.com" className="footer-social-link" target="_blank" rel="noopener noreferrer">📷</a>
+                <a href="https://linkedin.com" className="footer-social-link" target="_blank" rel="noopener noreferrer">in</a>
               </div>
             </div>
 
-            {/* Product Links */}
             <div className="footer-column">
               <h4 className="footer-column-title">Product</h4>
               <div className="footer-links">
@@ -421,7 +362,6 @@ const Landing_Page = () => {
               </div>
             </div>
 
-            {/* Company Links */}
             <div className="footer-column">
               <h4 className="footer-column-title">Company</h4>
               <div className="footer-links">
@@ -432,7 +372,6 @@ const Landing_Page = () => {
               </div>
             </div>
 
-            {/* Support Links */}
             <div className="footer-column">
               <h4 className="footer-column-title">Support</h4>
               <div className="footer-links">
@@ -443,7 +382,6 @@ const Landing_Page = () => {
               </div>
             </div>
 
-            {/* Legal Links */}
             <div className="footer-column">
               <h4 className="footer-column-title">Legal</h4>
               <div className="footer-links">
@@ -475,26 +413,99 @@ const Landing_Page = () => {
         }
 
         .landing-page-container {
-          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Inter', sans-serif;
           overflow-x: hidden;
+          background: #ffffff;
         }
 
-        /* Header Styles */
+        /* Animations */
+        @keyframes slideDown {
+          from {
+            opacity: 0;
+            transform: translateY(-30px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        @keyframes slideUp {
+          from {
+            opacity: 0;
+            transform: translateY(30px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        @keyframes fadeIn {
+          from {
+            opacity: 0;
+          }
+          to {
+            opacity: 1;
+          }
+        }
+
+        @keyframes scaleIn {
+          from {
+            opacity: 0;
+            transform: scale(0.8);
+          }
+          to {
+            opacity: 1;
+            transform: scale(1);
+          }
+        }
+
+        @keyframes float {
+          0%, 100% { transform: translate(0, 0) rotate(0deg); }
+          25% { transform: translate(10px, -10px) rotate(5deg); }
+          50% { transform: translate(-5px, 5px) rotate(-5deg); }
+          75% { transform: translate(-10px, -5px) rotate(3deg); }
+        }
+
+        .animate-slide-down {
+          animation: slideDown 0.8s ease-out;
+        }
+
+        .animate-slide-up {
+          animation: slideUp 0.9s ease-out;
+        }
+
+        .animate-fade-in {
+          animation: fadeIn 1s ease-out;
+        }
+
+        .animate-fade-in-delay {
+          animation: fadeIn 1s ease-out 0.3s backwards;
+        }
+
+        .animate-scale-in {
+          animation: scaleIn 0.6s ease-out backwards;
+        }
+
+        /* Header */
         .landing-header {
           position: fixed;
           top: 0;
           left: 0;
           right: 0;
           z-index: 1000;
-          background: rgba(255, 255, 255, 0.8);
-          backdrop-filter: blur(20px);
-          transition: all 0.3s;
+          background: rgba(255, 255, 255, 0.95);
+          backdrop-filter: blur(10px);
+          transition: all 0.3s ease;
           padding: 16px 0;
+          border-bottom: 1px solid transparent;
         }
 
         .landing-header.scrolled {
-          background: rgba(255, 255, 255, 0.95);
-          box-shadow: 0 2px 20px rgba(0, 0, 0, 0.1);
+          background: rgba(255, 255, 255, 0.98);
+          box-shadow: 0 2px 20px rgba(0, 0, 0, 0.08);
+          border-bottom-color: #e5e7eb;
         }
 
         .landing-header-content {
@@ -509,12 +520,12 @@ const Landing_Page = () => {
         .landing-logo {
           display: flex;
           align-items: center;
-          gap: 8px;
+          gap: 10px;
           text-decoration: none;
-          color: #1a1a1a;
+          color: #111827;
           font-weight: 800;
-          font-size: 24px;
-          transition: transform 0.3s;
+          font-size: 22px;
+          transition: transform 0.3s ease;
         }
 
         .landing-logo:hover {
@@ -522,171 +533,51 @@ const Landing_Page = () => {
         }
 
         .logo-emoji {
-          font-size: 28px;
+          font-size: 26px;
         }
 
-        .logo-text {
-          font-size: 20px;
-        }
-
-        .landing-desktop-nav {
+        .landing-nav {
           display: flex;
           align-items: center;
-          gap: 32px;
+          gap: 8px;
+          flex-wrap: wrap;
         }
 
-        .nav-button {
+        .nav-link,
+        .nav-link-secondary {
           background: none;
           border: none;
           color: #4b5563;
-          font-size: 15px;
+          font-size: 14px;
           font-weight: 600;
           cursor: pointer;
           text-decoration: none;
-          transition: color 0.3s;
-          padding: 8px 0;
+          padding: 8px 16px;
+          border-radius: 8px;
+          transition: all 0.2s ease;
         }
 
-        .nav-button:hover {
-          color: #667eea;
+        .nav-link:hover,
+        .nav-link-secondary:hover {
+          color: #0ea5e9;
+          background: #f0f9ff;
         }
 
-        .cta-button {
-          background: linear-gradient(135deg, #667eea, #764ba2);
+        .nav-cta-button {
+          background: linear-gradient(135deg, #0ea5e9 0%, #06b6d4 100%);
           color: white;
-          padding: 12px 28px;
-          border-radius: 25px;
+          padding: 10px 24px;
+          border-radius: 8px;
           text-decoration: none;
           font-weight: 700;
-          font-size: 15px;
-          transition: all 0.3s;
-          box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+          font-size: 14px;
+          transition: all 0.3s ease;
+          box-shadow: 0 4px 12px rgba(14, 165, 233, 0.3);
         }
 
-        .cta-button:hover {
+        .nav-cta-button:hover {
           transform: translateY(-2px);
-          box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
-        }
-
-        /* Mobile Menu */
-        .landing-mobile-menu-btn {
-          display: none;
-          flex-direction: column;
-          gap: 5px;
-          background: none;
-          border: none;
-          cursor: pointer;
-          padding: 8px;
-          z-index: 1001;
-        }
-
-        .landing-mobile-menu-btn span {
-          width: 25px;
-          height: 3px;
-          background: #1a1a1a;
-          border-radius: 3px;
-          transition: all 0.3s;
-        }
-
-        .landing-mobile-menu-btn span.active:nth-child(1) {
-          transform: rotate(45deg) translate(8px, 8px);
-        }
-
-        .landing-mobile-menu-btn span.active:nth-child(2) {
-          opacity: 0;
-        }
-
-        .landing-mobile-menu-btn span.active:nth-child(3) {
-          transform: rotate(-45deg) translate(7px, -7px);
-        }
-
-        .landing-mobile-overlay {
-          position: fixed;
-          top: 0;
-          left: 0;
-          right: 0;
-          bottom: 0;
-          background: rgba(0, 0, 0, 0.5);
-          z-index: 999;
-          animation: fadeIn 0.3s;
-        }
-
-        @keyframes fadeIn {
-          from { opacity: 0; }
-          to { opacity: 1; }
-        }
-
-        .landing-mobile-menu {
-          position: fixed;
-          top: 0;
-          right: -100%;
-          width: 280px;
-          height: 100vh;
-          background: white;
-          z-index: 1000;
-          padding: 80px 24px 24px;
-          display: flex;
-          flex-direction: column;
-          gap: 16px;
-          transition: right 0.3s ease;
-          box-shadow: -5px 0 20px rgba(0, 0, 0, 0.1);
-          overflow-y: auto;
-        }
-
-        .landing-mobile-menu.open {
-          right: 0;
-        }
-
-        .mobile-menu-item {
-          background: none;
-          border: none;
-          color: #1a1a1a;
-          font-size: 16px;
-          font-weight: 600;
-          cursor: pointer;
-          text-decoration: none;
-          padding: 12px 16px;
-          border-radius: 8px;
-          transition: all 0.3s;
-          text-align: left;
-        }
-
-        .mobile-menu-item:hover {
-          background: #f3f4f6;
-          color: #667eea;
-        }
-
-        .mobile-signin-button {
-          background: #f3f4f6;
-          color: #667eea;
-          padding: 12px 24px;
-          border-radius: 8px;
-          text-decoration: none;
-          font-weight: 700;
-          text-align: center;
-          transition: all 0.3s;
-          margin-top: 8px;
-        }
-
-        .mobile-signin-button:hover {
-          background: #e5e7eb;
-        }
-
-        .mobile-cta-button {
-          background: linear-gradient(135deg, #667eea, #764ba2);
-          color: white;
-          padding: 14px 24px;
-          border-radius: 8px;
-          text-decoration: none;
-          font-weight: 700;
-          text-align: center;
-          transition: all 0.3s;
-          margin-top: 8px;
-        }
-
-        .mobile-cta-button:hover {
-          transform: translateY(-2px);
-          box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+          box-shadow: 0 6px 16px rgba(14, 165, 233, 0.4);
         }
 
         /* Hero Section */
@@ -695,161 +586,167 @@ const Landing_Page = () => {
           display: flex;
           align-items: center;
           justify-content: center;
-          padding: 120px 24px 80px;
+          padding: 140px 24px 80px;
           position: relative;
           overflow: hidden;
-          background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+          background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 50%, #f0f9ff 100%);
         }
 
-        .floating-bg {
+        .hero-bg-animation {
           position: absolute;
-          width: 400px;
-          height: 400px;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          overflow: hidden;
+        }
+
+        .floating-shape {
+          position: absolute;
           border-radius: 50%;
-          filter: blur(100px);
-          opacity: 0.3;
+          filter: blur(60px);
+          opacity: 0.4;
           animation: float 20s infinite ease-in-out;
         }
 
-        .floating-bg-1 {
-          background: #667eea;
-          top: 10%;
-          left: 10%;
-          animation-delay: 0s;
+        .shape-1 {
+          width: 400px;
+          height: 400px;
+          background: linear-gradient(135deg, #0ea5e9, #06b6d4);
+          top: -100px;
+          left: -100px;
         }
 
-        .floating-bg-2 {
-          background: #764ba2;
-          bottom: 10%;
-          right: 10%;
+        .shape-2 {
+          width: 300px;
+          height: 300px;
+          background: linear-gradient(135deg, #06b6d4, #0284c7);
+          bottom: -50px;
+          right: -50px;
           animation-delay: 5s;
         }
 
-        @keyframes float {
-          0%, 100% { transform: translate(0, 0); }
-          25% { transform: translate(30px, -30px); }
-          50% { transform: translate(-20px, 20px); }
-          75% { transform: translate(40px, 10px); }
+        .shape-3 {
+          width: 250px;
+          height: 250px;
+          background: linear-gradient(135deg, #0ea5e9, #38bdf8);
+          top: 50%;
+          left: 50%;
+          animation-delay: 10s;
         }
 
         .hero-content {
-          max-width: 1200px;
+          max-width: 1000px;
           text-align: center;
           position: relative;
           z-index: 1;
         }
 
         .hero-badge {
-          display: inline-block;
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
           background: white;
-          padding: 12px 24px;
-          border-radius: 30px;
+          padding: 10px 20px;
+          border-radius: 50px;
           font-size: 14px;
           font-weight: 600;
-          color: #667eea;
+          color: #0ea5e9;
           margin-bottom: 32px;
-          box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-          animation: slideDown 0.6s ease-out;
+          box-shadow: 0 4px 20px rgba(14, 165, 233, 0.2);
         }
 
-        @keyframes slideDown {
-          from {
-            opacity: 0;
-            transform: translateY(-20px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
+        .badge-icon {
+          font-size: 16px;
         }
 
         .hero-title {
-          font-size: clamp(40px, 7vw, 80px);
+          font-size: clamp(40px, 8vw, 72px);
           font-weight: 900;
           line-height: 1.1;
           margin-bottom: 24px;
-          color: #1a1a1a;
-          animation: slideUp 0.8s ease-out;
-        }
-
-        @keyframes slideUp {
-          from {
-            opacity: 0;
-            transform: translateY(30px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
+          color: #111827;
+          letter-spacing: -0.02em;
         }
 
         .gradient-text {
-          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          background: linear-gradient(135deg, #0ea5e9 0%, #06b6d4 100%);
           -webkit-background-clip: text;
           -webkit-text-fill-color: transparent;
           background-clip: text;
         }
 
         .hero-subtitle {
-          font-size: clamp(18px, 3vw, 24px);
-          color: #4b5563;
-          max-width: 800px;
-          margin: 0 auto 48px;
-          line-height: 1.6;
-          animation: slideUp 1s ease-out;
+          font-size: clamp(16px, 3vw, 20px);
+          color: #6b7280;
+          max-width: 700px;
+          margin: 0 auto 40px;
+          line-height: 1.7;
         }
 
         .hero-buttons {
           display: flex;
-          gap: 20px;
+          gap: 16px;
           justify-content: center;
           flex-wrap: wrap;
           margin-bottom: 60px;
-          animation: slideUp 1.2s ease-out;
+        }
+
+        .hero-cta-primary,
+        .hero-cta-secondary {
+          padding: 16px 32px;
+          border-radius: 12px;
+          text-decoration: none;
+          font-weight: 700;
+          font-size: 16px;
+          transition: all 0.3s ease;
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          border: none;
+          cursor: pointer;
+          background: none;
         }
 
         .hero-cta-primary {
-          background: linear-gradient(135deg, #667eea, #764ba2);
+          background: linear-gradient(135deg, #0ea5e9 0%, #06b6d4 100%);
           color: white;
-          padding: 18px 48px;
-          border-radius: 30px;
-          text-decoration: none;
-          font-weight: 700;
-          font-size: 18px;
-          box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
-          transition: all 0.3s;
+          box-shadow: 0 10px 30px rgba(14, 165, 233, 0.3);
         }
 
         .hero-cta-primary:hover {
           transform: translateY(-3px);
-          box-shadow: 0 15px 40px rgba(102, 126, 234, 0.4);
+          box-shadow: 0 15px 40px rgba(14, 165, 233, 0.4);
         }
 
         .hero-cta-secondary {
           background: white;
-          color: #667eea;
-          padding: 18px 48px;
-          border: 2px solid #667eea;
-          border-radius: 30px;
-          font-weight: 700;
-          font-size: 18px;
-          cursor: pointer;
-          transition: all 0.3s;
+          color: #0ea5e9;
+          border: 2px solid #0ea5e9;
         }
 
         .hero-cta-secondary:hover {
-          background: #667eea;
+          background: #0ea5e9;
           color: white;
           transform: translateY(-3px);
         }
 
+        .button-arrow,
+        .play-icon {
+          font-size: 18px;
+          transition: transform 0.3s ease;
+        }
+
+        .hero-cta-primary:hover .button-arrow {
+          transform: translateX(5px);
+        }
+
         .hero-stats {
           display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+          grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
           gap: 32px;
-          max-width: 900px;
+          max-width: 800px;
           margin: 0 auto;
-          animation: slideUp 1.4s ease-out;
         }
 
         .stat-item {
@@ -857,21 +754,23 @@ const Landing_Page = () => {
         }
 
         .stat-value {
-          font-size: clamp(32px, 5vw, 48px);
+          font-size: clamp(28px, 5vw, 42px);
           font-weight: 900;
-          color: #667eea;
-          margin-bottom: 8px;
+          color: #0ea5e9;
+          margin-bottom: 4px;
         }
 
         .stat-label {
-          font-size: 14px;
+          font-size: 13px;
           color: #6b7280;
           font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
         }
 
         /* Features Section */
         .features-section {
-          padding: 120px 24px;
+          padding: 100px 24px;
           background: white;
         }
 
@@ -882,172 +781,254 @@ const Landing_Page = () => {
         }
 
         .section-title {
-          font-size: clamp(36px, 5vw, 56px);
+          font-size: clamp(32px, 5vw, 48px);
           font-weight: 900;
-          color: #1a1a1a;
+          color: #111827;
           margin-bottom: 16px;
+          letter-spacing: -0.02em;
         }
 
         .section-subtitle {
-          font-size: clamp(16px, 3vw, 20px);
+          font-size: clamp(16px, 3vw, 18px);
           color: #6b7280;
           line-height: 1.6;
         }
 
         .features-grid {
-          max-width: 1400px;
+          max-width: 1200px;
           margin: 0 auto;
           display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+          grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
           gap: 32px;
         }
 
         .feature-card {
           background: #f9fafb;
-          padding: 40px;
-          border-radius: 20px;
-          transition: all 0.3s;
+          padding: 36px 28px;
+          border-radius: 16px;
+          transition: all 0.3s ease;
           cursor: pointer;
           border: 2px solid transparent;
+          position: relative;
+          overflow: hidden;
+        }
+
+        .feature-card::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          height: 4px;
+          background: linear-gradient(90deg, #0ea5e9, #06b6d4);
+          transform: scaleX(0);
+          transition: transform 0.3s ease;
         }
 
         .feature-card:hover,
         .feature-card.active {
           background: white;
-          border-color: #667eea;
-          box-shadow: 0 20px 60px rgba(102, 126, 234, 0.15);
-          transform: translateY(-5px);
+          border-color: #0ea5e9;
+          box-shadow: 0 20px 60px rgba(14, 165, 233, 0.15);
+          transform: translateY(-8px);
+        }
+
+        .feature-card:hover::before,
+        .feature-card.active::before {
+          transform: scaleX(1);
+        }
+
+        .feature-icon-wrapper {
+          margin-bottom: 20px;
         }
 
         .feature-icon {
           font-size: 48px;
-          margin-bottom: 24px;
+          display: inline-block;
+          transition: transform 0.3s ease;
+        }
+
+        .feature-card:hover .feature-icon {
+          transform: scale(1.1) rotate(5deg);
         }
 
         .feature-title {
-          font-size: 24px;
+          font-size: 22px;
           font-weight: 700;
-          color: #1a1a1a;
+          color: #111827;
           margin-bottom: 12px;
         }
 
         .feature-description {
           color: #6b7280;
-          line-height: 1.6;
-          font-size: 16px;
+          line-height: 1.7;
+          font-size: 15px;
         }
 
         /* Platforms Section */
         .platforms-section {
-          padding: 120px 24px;
-          background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+          padding: 100px 24px;
+          background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
         }
 
         .platforms-grid {
-          max-width: 1400px;
+          max-width: 1200px;
+          margin: 0 auto;
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+          gap: 28px;
+        }
+
+        .platform-card {
+          background: white;
+          padding: 32px;
+          border-radius: 20px;
+          text-decoration: none;
+          transition: all 0.3s ease;
+          cursor: pointer;
+          border: 2px solid transparent;
+          display: flex;
+          flex-direction: column;
+          position: relative;
+          overflow: hidden;
+        }
+
+        .platform-card::after {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: linear-gradient(135deg, rgba(14, 165, 233, 0.05), rgba(6, 182, 212, 0.05));
+          opacity: 0;
+          transition: opacity 0.3s ease;
+        }
+
+        .platform-card:hover {
+          border-color: #0ea5e9;
+          transform: translateY(-10px);
+          box-shadow: 0 25px 70px rgba(14, 165, 233, 0.2);
+        }
+
+        .platform-card:hover::after {
+          opacity: 1;
+        }
+
+        .platform-icon-bg {
+          width: 80px;
+          height: 80px;
+          background: linear-gradient(135deg, #0ea5e9, #06b6d4);
+          border-radius: 20px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          margin-bottom: 20px;
+          position: relative;
+          z-index: 1;
+          transition: transform 0.3s ease;
+        }
+
+        .platform-card:hover .platform-icon-bg {
+          transform: scale(1.1) rotate(5deg);
+        }
+
+        .platform-emoji {
+          font-size: 48px;
+        }
+
+        .platform-name {
+          font-size: 26px;
+          font-weight: 700;
+          color: #111827;
+          margin-bottom: 12px;
+          position: relative;
+          z-index: 1;
+        }
+
+        .platform-description {
+          color: #6b7280;
+          line-height: 1.7;
+          margin-bottom: 20px;
+          flex-grow: 1;
+          font-size: 15px;
+          position: relative;
+          z-index: 1;
+        }
+
+        .platform-features {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+          position: relative;
+          z-index: 1;
+        }
+
+        .platform-feature-tag {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          color: #0ea5e9;
+          font-size: 13px;
+          font-weight: 600;
+        }
+
+        .tag-dot {
+          font-size: 20px;
+        }
+
+        .platform-arrow {
+          position: absolute;
+          bottom: 24px;
+          right: 24px;
+          font-size: 24px;
+          color: #0ea5e9;
+          opacity: 0;
+          transform: translateX(-10px);
+          transition: all 0.3s ease;
+        }
+
+        .platform-card:hover .platform-arrow {
+          opacity: 1;
+          transform: translateX(0);
+        }
+
+        /* Testimonials Section */
+        .testimonials-section {
+          padding: 100px 24px;
+          background: white;
+        }
+
+        .testimonials-grid {
+          max-width: 1200px;
           margin: 0 auto;
           display: grid;
           grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
           gap: 32px;
         }
 
-        .platform-card {
-          background: white;
-          padding: 40px;
-          border-radius: 20px;
-          text-decoration: none;
-          transition: all 0.3s;
-          cursor: pointer;
-          border: 2px solid transparent;
-          display: flex;
-          flex-direction: column;
-        }
-
-        .platform-card:hover {
-          border-color: #667eea;
-          transform: translateY(-10px);
-          box-shadow: 0 20px 60px rgba(102, 126, 234, 0.2);
-        }
-
-        .platform-emoji {
-          font-size: 64px;
-          margin-bottom: 20px;
-        }
-
-        .platform-name {
-          font-size: 28px;
-          font-weight: 700;
-          color: #1a1a1a;
-          margin-bottom: 12px;
-        }
-
-        .platform-description {
-          color: #6b7280;
-          line-height: 1.6;
-          margin-bottom: 20px;
-          flex-grow: 1;
-        }
-
-        .platform-features {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 8px;
-          opacity: 0;
-          max-height: 0;
-          overflow: hidden;
-          transition: all 0.3s;
-        }
-
-        .platform-features.visible {
-          opacity: 1;
-          max-height: 200px;
-        }
-
-        .platform-feature-tag {
-          background: #f3f4f6;
-          color: #667eea;
-          padding: 6px 12px;
-          border-radius: 20px;
-          font-size: 12px;
-          font-weight: 600;
-        }
-
-        /* Testimonials Section */
-        .testimonials-section {
-          padding: 120px 24px;
-          background: white;
-        }
-
-        .testimonials-grid {
-          max-width: 1400px;
-          margin: 0 auto;
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-          gap: 32px;
-        }
-
         .testimonial-card {
           background: #f9fafb;
-          padding: 40px;
+          padding: 36px;
           border-radius: 20px;
-          transition: all 0.3s;
+          transition: all 0.3s ease;
         }
 
         .testimonial-card:hover {
           background: white;
-          box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
-          transform: translateY(-5px);
+          box-shadow: 0 20px 60px rgba(0, 0, 0, 0.08);
+          transform: translateY(-8px);
         }
 
         .testimonial-rating {
-          font-size: 20px;
+          font-size: 18px;
           margin-bottom: 16px;
         }
 
         .testimonial-content {
-          color: #1a1a1a;
+          color: #111827;
           font-size: 16px;
-          line-height: 1.6;
+          line-height: 1.7;
           margin-bottom: 24px;
           font-style: italic;
         }
@@ -1059,33 +1040,35 @@ const Landing_Page = () => {
         }
 
         .author-image {
-          width: 50px;
-          height: 50px;
+          width: 56px;
+          height: 56px;
           border-radius: 50%;
           object-fit: cover;
+          border: 3px solid #0ea5e9;
         }
 
         .author-name {
           font-weight: 700;
-          color: #1a1a1a;
+          color: #111827;
           margin-bottom: 4px;
+          font-size: 15px;
         }
 
         .author-role {
           color: #6b7280;
-          font-size: 14px;
+          font-size: 13px;
         }
 
         /* CTA Section */
         .cta-section {
-          padding: 120px 24px;
-          background: linear-gradient(135deg, #667eea, #764ba2);
+          padding: 100px 24px;
+          background: linear-gradient(135deg, #0ea5e9 0%, #06b6d4 100%);
           position: relative;
           overflow: hidden;
         }
 
         .cta-content {
-          max-width: 900px;
+          max-width: 800px;
           margin: 0 auto;
           text-align: center;
           position: relative;
@@ -1093,17 +1076,17 @@ const Landing_Page = () => {
         }
 
         .cta-title {
-          font-size: clamp(32px, 5vw, 56px);
+          font-size: clamp(32px, 5vw, 48px);
           font-weight: 900;
           color: white;
-          margin-bottom: 24px;
+          margin-bottom: 20px;
           line-height: 1.2;
         }
 
         .cta-subtitle {
-          font-size: clamp(18px, 3vw, 24px);
+          font-size: clamp(16px, 3vw, 20px);
           color: rgba(255, 255, 255, 0.95);
-          margin-bottom: 40px;
+          margin-bottom: 36px;
           line-height: 1.6;
         }
 
@@ -1114,16 +1097,20 @@ const Landing_Page = () => {
           flex-wrap: wrap;
         }
 
-        .cta-button-primary {
-          padding: 18px 48px;
-          background: white;
-          color: #667eea;
+        .cta-button-primary,
+        .cta-button-secondary {
+          padding: 16px 40px;
+          border-radius: 12px;
           text-decoration: none;
-          border-radius: 30px;
           font-weight: 700;
-          font-size: 18px;
+          font-size: 16px;
+          transition: all 0.3s ease;
+        }
+
+        .cta-button-primary {
+          background: white;
+          color: #0ea5e9;
           box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
-          transition: all 0.3s;
         }
 
         .cta-button-primary:hover {
@@ -1132,16 +1119,10 @@ const Landing_Page = () => {
         }
 
         .cta-button-secondary {
-          padding: 18px 48px;
           background: rgba(255, 255, 255, 0.15);
           backdrop-filter: blur(10px);
           color: white;
-          text-decoration: none;
           border: 2px solid rgba(255, 255, 255, 0.3);
-          border-radius: 30px;
-          font-weight: 700;
-          font-size: 18px;
-          transition: all 0.3s;
         }
 
         .cta-button-secondary:hover {
@@ -1150,36 +1131,32 @@ const Landing_Page = () => {
         }
 
         .cta-note {
-          margin-top: 24px;
-          color: rgba(255, 255, 255, 0.8);
+          margin-top: 20px;
+          color: rgba(255, 255, 255, 0.9);
           font-size: 14px;
         }
 
         /* Footer */
         .landing-footer {
-          background: #1a1a1a;
+          background: #111827;
           color: white;
           padding: 80px 24px 40px;
         }
 
         .footer-content {
-          max-width: 1400px;
+          max-width: 1200px;
           margin: 0 auto;
         }
 
         .footer-grid {
           display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-          gap: 48px;
-          margin-bottom: 60px;
-        }
-
-        .footer-brand {
-          grid-column: span 2;
+          grid-template-columns: 2fr repeat(4, 1fr);
+          gap: 40px;
+          margin-bottom: 48px;
         }
 
         .footer-logo {
-          font-size: 28px;
+          font-size: 24px;
           font-weight: 700;
           margin-bottom: 16px;
           display: flex;
@@ -1188,14 +1165,15 @@ const Landing_Page = () => {
         }
 
         .footer-logo span {
-          font-size: 32px;
+          font-size: 28px;
         }
 
         .footer-description {
           color: #9ca3af;
           line-height: 1.6;
-          margin-bottom: 24px;
-          max-width: 300px;
+          margin-bottom: 20px;
+          max-width: 320px;
+          font-size: 14px;
         }
 
         .footer-socials {
@@ -1207,7 +1185,7 @@ const Landing_Page = () => {
           width: 40px;
           height: 40px;
           border-radius: 50%;
-          background: #374151;
+          background: #1f2937;
           display: flex;
           align-items: center;
           justify-content: center;
@@ -1215,18 +1193,18 @@ const Landing_Page = () => {
           text-decoration: none;
           font-weight: 700;
           font-size: 14px;
-          transition: all 0.3s;
+          transition: all 0.3s ease;
         }
 
         .footer-social-link:hover {
-          background: #667eea;
+          background: #0ea5e9;
           transform: translateY(-3px);
         }
 
         .footer-column-title {
-          font-size: 16px;
+          font-size: 14px;
           font-weight: 700;
-          margin-bottom: 20px;
+          margin-bottom: 16px;
           text-transform: uppercase;
           letter-spacing: 1px;
           color: white;
@@ -1235,28 +1213,28 @@ const Landing_Page = () => {
         .footer-links {
           display: flex;
           flex-direction: column;
-          gap: 12px;
+          gap: 10px;
         }
 
         .footer-link {
           color: #9ca3af;
           text-decoration: none;
-          font-size: 15px;
-          transition: color 0.3s;
+          font-size: 14px;
+          transition: color 0.2s ease;
         }
 
         .footer-link:hover {
-          color: #667eea;
+          color: #0ea5e9;
         }
 
         .footer-bottom {
           padding-top: 32px;
-          border-top: 1px solid #374151;
+          border-top: 1px solid #1f2937;
           display: flex;
           justify-content: space-between;
           align-items: center;
           flex-wrap: wrap;
-          gap: 20px;
+          gap: 16px;
         }
 
         .footer-copyright {
@@ -1267,7 +1245,7 @@ const Landing_Page = () => {
 
         .footer-legal-links {
           display: flex;
-          gap: 24px;
+          gap: 20px;
           flex-wrap: wrap;
         }
 
@@ -1275,36 +1253,48 @@ const Landing_Page = () => {
           color: #9ca3af;
           text-decoration: none;
           font-size: 14px;
-          transition: color 0.3s;
+          transition: color 0.2s ease;
         }
 
         .footer-legal-link:hover {
-          color: #667eea;
+          color: #0ea5e9;
         }
 
-        /* Responsive Styles */
-        @media (max-width: 1024px) {
-          .landing-mobile-menu-btn {
-            display: flex;
+        /* Responsive Design */
+        @media (max-width: 1200px) {
+          .footer-grid {
+            grid-template-columns: repeat(3, 1fr);
           }
-          
-          .landing-desktop-nav {
-            display: none;
+
+          .footer-brand {
+            grid-column: span 3;
           }
         }
 
         @media (max-width: 768px) {
-          .floating-bg {
-            width: 200px !important;
-            height: 200px !important;
+          .landing-nav {
+            gap: 4px;
+            justify-content: center;
           }
 
-          .footer-brand {
-            grid-column: span 1;
+          .nav-link,
+          .nav-link-secondary {
+            padding: 6px 10px;
+            font-size: 12px;
+          }
+
+          .nav-cta-button {
+            padding: 8px 16px;
+            font-size: 12px;
+          }
+
+          .hero-section {
+            padding: 120px 20px 60px;
           }
 
           .hero-stats {
             grid-template-columns: repeat(2, 1fr);
+            gap: 24px;
           }
 
           .features-grid,
@@ -1312,50 +1302,53 @@ const Landing_Page = () => {
           .testimonials-grid {
             grid-template-columns: 1fr;
           }
-        }
 
-        @media (max-width: 480px) {
-          .landing-header {
-            padding: 12px 0;
+          .footer-grid {
+            grid-template-columns: repeat(2, 1fr);
           }
 
-          .logo-text {
-            display: none;
+          .footer-brand {
+            grid-column: span 2;
           }
 
-          .hero-section,
-          .features-section,
-          .platforms-section,
-          .testimonials-section,
-          .cta-section {
-            padding: 80px 16px;
-          }
-
-          .landing-footer {
-            padding: 60px 16px 32px;
-          }
-
-          .hero-buttons,
           .cta-buttons {
             flex-direction: column;
-            width: 100%;
           }
 
-          .hero-cta-primary,
-          .hero-cta-secondary,
           .cta-button-primary,
           .cta-button-secondary {
             width: 100%;
-            text-align: center;
-          }
-
-          .hero-stats {
-            grid-template-columns: 1fr;
-            gap: 24px;
           }
         }
 
-        /* Smooth Scrolling */
+        @media (max-width: 480px) {
+          .landing-header-content {
+            padding: 0 16px;
+          }
+
+          .landing-nav {
+            gap: 2px;
+          }
+
+          .nav-link,
+          .nav-link-secondary {
+            padding: 6px 8px;
+            font-size: 11px;
+          }
+
+          .logo-text {
+            font-size: 16px;
+          }
+
+          .footer-grid {
+            grid-template-columns: 1fr;
+          }
+
+          .footer-brand {
+            grid-column: span 1;
+          }
+        }
+
         html {
           scroll-behavior: smooth;
         }
