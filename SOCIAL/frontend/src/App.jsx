@@ -7,7 +7,7 @@ import Register from './quickpage/Register';
 import Landing_Page from './Landing_Page';
 import './App.css';
 
-// Lazy load ONLY platform components
+// Lazy load platform components
 const RedditAUTO = lazy(() => import('./pages/RedditAUTO'));
 const SocialMediaAutomation = lazy(() => import('./pages/Fb'));
 const InstagramAutomation = lazy(() => import('./pages/INSTA'));
@@ -44,35 +44,46 @@ const LoadingSpinner = ({ platform = '' }) => (
   </div>
 );
 
-// YouTube OAuth Callback Handler
+// YouTube OAuth Callback Handler Component
 const YouTubeOAuthHandler = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const [message, setMessage] = React.useState('');
+  const [message, setMessage] = React.useState('Processing...');
+  const [isSuccess, setIsSuccess] = React.useState(false);
 
   useEffect(() => {
+    console.log('YouTubeOAuthHandler loaded');
+    console.log('URL:', window.location.href);
+    console.log('Search params:', location.search);
+    
     const params = new URLSearchParams(location.search);
     const youtubeConnected = params.get('youtube_connected');
     const channelName = params.get('channel');
     const error = params.get('error');
 
+    console.log('youtube_connected:', youtubeConnected);
+    console.log('channel:', channelName);
+    console.log('error:', error);
+
     if (youtubeConnected === 'true') {
-      // Success! Show message and redirect
-      setMessage(`✅ YouTube Connected! Channel: ${decodeURIComponent(channelName || 'Unknown')}`);
+      const decodedChannel = decodeURIComponent(channelName || 'Unknown');
+      setIsSuccess(true);
+      setMessage(`YouTube Connected! Channel: ${decodedChannel}`);
+      console.log('Success! Redirecting to /youtube in 2 seconds');
       
-      // Clean URL and redirect after 2 seconds
       setTimeout(() => {
         navigate('/youtube', { replace: true });
       }, 2000);
     } else if (error) {
-      // Error! Show message and redirect
-      setMessage(`❌ Connection Failed: ${error}`);
+      setIsSuccess(false);
+      setMessage(`Connection Failed: ${error}`);
+      console.log('Error! Redirecting to /youtube in 3 seconds');
       
       setTimeout(() => {
         navigate('/youtube', { replace: true });
       }, 3000);
     } else {
-      // No params, just redirect
+      console.log('No params, redirecting immediately');
       navigate('/youtube', { replace: true });
     }
   }, [location, navigate]);
@@ -99,7 +110,7 @@ const YouTubeOAuthHandler = () => {
           fontSize: '64px',
           marginBottom: '24px'
         }}>
-          {message.includes('✅') ? '✅' : message.includes('❌') ? '❌' : '🔄'}
+          {isSuccess ? '✅' : message.includes('Failed') ? '❌' : '🔄'}
         </div>
         <h1 style={{
           fontSize: '28px',
@@ -107,8 +118,8 @@ const YouTubeOAuthHandler = () => {
           color: '#1a1a1a',
           marginBottom: '16px'
         }}>
-          {message.includes('✅') ? 'YouTube Connected!' : 
-           message.includes('❌') ? 'Connection Failed' : 'Processing...'}
+          {isSuccess ? 'YouTube Connected!' : 
+           message.includes('Failed') ? 'Connection Failed' : 'Processing...'}
         </h1>
         <p style={{
           color: '#666',
@@ -116,7 +127,7 @@ const YouTubeOAuthHandler = () => {
           marginBottom: '24px',
           lineHeight: '1.6'
         }}>
-          {message || 'Redirecting to YouTube dashboard...'}
+          {message}
         </p>
         <div style={{
           marginTop: '32px'
@@ -132,7 +143,16 @@ const YouTubeOAuthHandler = () => {
               borderRadius: '12px',
               fontSize: '16px',
               fontWeight: '700',
-              boxShadow: '0 4px 16px rgba(14, 165, 233, 0.35)'
+              boxShadow: '0 4px 16px rgba(14, 165, 233, 0.35)',
+              transition: 'all 0.3s ease'
+            }}
+            onMouseEnter={(e) => {
+              e.target.style.transform = 'translateY(-2px)';
+              e.target.style.boxShadow = '0 6px 20px rgba(14, 165, 233, 0.45)';
+            }}
+            onMouseLeave={(e) => {
+              e.target.style.transform = 'translateY(0)';
+              e.target.style.boxShadow = '0 4px 16px rgba(14, 165, 233, 0.35)';
             }}
           >
             Go to YouTube Dashboard
@@ -143,7 +163,7 @@ const YouTubeOAuthHandler = () => {
   );
 };
 
-// Dashboard Navigation - Horizontal Scroll
+// Dashboard Navigation
 const DashboardNavbar = () => {
   const { logout } = useAuth();
   const location = useLocation();
@@ -423,15 +443,12 @@ function App() {
     <AuthProvider>
       <Router>
         <Routes>
+          {/* CRITICAL: YouTube OAuth callback MUST be BEFORE /* route */}
+          <Route path="/youtube-callback" element={<YouTubeOAuthHandler />} />
+
           {/* Authentication Routes */}
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
-
-          {/* YouTube OAuth Callback - Handle query params */}
-          <Route 
-            path="/youtube-callback" 
-            element={<YouTubeOAuthHandler />} 
-          />
 
           {/* Platform Routes (Protected) */}
           <Route 
@@ -486,7 +503,6 @@ function App() {
             } 
           />
           
-          {/* YouTube Route - Special handling for OAuth callback */}
           <Route 
             path="/youtube" 
             element={
@@ -500,7 +516,7 @@ function App() {
             } 
           />
 
-          {/* Landing Page - handles home + all footer pages */}
+          {/* Landing Page - MUST be LAST (catch-all) */}
           <Route path="/*" element={<Landing_Page />} />
         </Routes>
 
