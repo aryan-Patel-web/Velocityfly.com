@@ -2802,7 +2802,8 @@ import Privacypolicy from './footerpages/Privacypolicy';
 import Status from './footerpages/Status';
 import Termsofservice from './footerpages/Termsofservice';
 
-const BACKEND_URL = 'https://agentic-u5lx.onrender.com';
+// const BACKEND_URL = 'https://agentic-u5lx.onrender.com';
+const BACKEND_URL = 'https://velocitypost-984x.onrender.com';
 
 const Landing_Page = () => {
   const { isAuthenticated } = useAuth();

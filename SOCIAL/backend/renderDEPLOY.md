@@ -34,7 +34,7 @@ PORT=8000
 ENVIRONMENT=production
 
 # Optional
-FRONTEND_URL=https://frontend-agentic-bnc2.onrender.com
+FRONTEND_URL=https://velocitypost-ai.onrender.com
 ```
 
 ## Deployment Steps
@@ -124,4 +124,4 @@ RATE_LIMIT_ENABLED=true
 MAX_REQUESTS_PER_MINUTE=60
 
 # Optional: Frontend URL (for CORS)
-FRONTEND_URL=https://frontend-agentic-bnc2.onrender.com
+FRONTEND_URL=https://velocitypost-ai.onrender.com

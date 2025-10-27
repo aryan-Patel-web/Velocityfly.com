@@ -853,7 +853,7 @@ router = APIRouter(tags=["Reddit Automation"])
 #         "http://localhost:3000",
 #         "http://localhost:5173", 
 #         "http://localhost:8080",
-#         "https://frontend-agentic-bnc2.onrender.com",  # Your frontend domain
+#         "https://velocitypost-ai.onrender.com",  # Your frontend domain
 #         "https://agentic-u5lx.onrender.com"  # Your backend domain
 #          # Allow all origins for development
 #     ],
@@ -1272,7 +1272,7 @@ async def reddit_oauth_callback(code: str, state: str):
             logger.error(f"Invalid OAuth state from database: {state}")
             logger.error(f"Available states in database: {await database_manager.get_all_oauth_states() if hasattr(database_manager, 'get_all_oauth_states') else 'method not available'}")
             return RedirectResponse(
-                url="https://frontend-agentic-bnc2.onrender.com/?error=invalid_oauth_state",
+                url="https://velocitypost-ai.onrender.com/?error=invalid_oauth_state",
                 status_code=302
             )
         
@@ -1289,7 +1289,7 @@ async def reddit_oauth_callback(code: str, state: str):
         if not reddit_client_id or not reddit_client_secret:
             logger.error("Reddit credentials missing from environment")
             return RedirectResponse(
-                url="https://frontend-agentic-bnc2.onrender.com/?error=missing_credentials",
+                url="https://velocitypost-ai.onrender.com/?error=missing_credentials",
                 status_code=302
             )
         
@@ -1408,19 +1408,19 @@ async def reddit_oauth_callback(code: str, state: str):
                 
                 # Redirect to main page instead of /reddit-auto to avoid 404
                 return RedirectResponse(
-                    url=f"https://frontend-agentic-bnc2.onrender.com/?reddit_connected=true&username={username}",
+                    url=f"https://velocitypost-ai.onrender.com/?reddit_connected=true&username={username}",
                     status_code=302
                 )
             else:
                 logger.error("No access token in Reddit response")
                 return RedirectResponse(
-                    url="https://frontend-agentic-bnc2.onrender.com/?error=no_access_token",
+                    url="https://velocitypost-ai.onrender.com/?error=no_access_token",
                     status_code=302
                 )
         else:
             logger.error(f"Token exchange failed: {response.status_code} - {response.text}")
             return RedirectResponse(
-                url="https://frontend-agentic-bnc2.onrender.com/?error=token_exchange_failed",
+                url="https://velocitypost-ai.onrender.com/?error=token_exchange_failed",
                 status_code=302
             )
         
@@ -1428,7 +1428,7 @@ async def reddit_oauth_callback(code: str, state: str):
         logger.error(f"OAuth callback failed: {e}")
         logger.error(traceback.format_exc())
         return RedirectResponse(
-            url="https://frontend-agentic-bnc2.onrender.com/?error=oauth_failed",
+            url="https://velocitypost-ai.onrender.com/?error=oauth_failed",
             status_code=302
         )
 

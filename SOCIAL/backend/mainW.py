@@ -444,7 +444,7 @@
 #     allow_origins=[
 #         "http://localhost:3000",
 #         "http://localhost:5173",
-#         "https://frontend-agentic-bnc2.onrender.com",
+#         "https://velocitypost-ai.onrender.com",
 #         "https://agentic-u5lx.onrender.com",
 #         "*"
 #     ],

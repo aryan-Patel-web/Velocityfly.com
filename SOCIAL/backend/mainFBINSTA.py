@@ -1002,7 +1002,7 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "https://frontend-agentic-bnc2.onrender.com",
+        "https://velocitypost-ai.onrender.com",
         "http://localhost:3000",
         "http://localhost:5173",
     ],
@@ -1387,7 +1387,7 @@ async def oauth_callback(platform: str, code: str, state: str):
         user_id = oauth_states.get(state)
         if not user_id:
             return RedirectResponse(
-                url="https://frontend-agentic-bnc2.onrender.com/?error=invalid_state",
+                url="https://velocitypost-ai.onrender.com/?error=invalid_state",
                 status_code=302
             )
         
@@ -1441,18 +1441,18 @@ async def oauth_callback(platform: str, code: str, state: str):
         if result["success"]:
             username = result["user_info"].get("name" if platform == "facebook" else "username", "User")
             return RedirectResponse(
-                url=f"https://frontend-agentic-bnc2.onrender.com/?{platform}_connected=true&username={username}",
+                url=f"https://velocitypost-ai.onrender.com/?{platform}_connected=true&username={username}",
                 status_code=302
             )
         else:
             return RedirectResponse(
-                url=f"https://frontend-agentic-bnc2.onrender.com/?error={platform}_auth_failed",
+                url=f"https://velocitypost-ai.onrender.com/?error={platform}_auth_failed",
                 status_code=302
             )
     except Exception as e:
         logger.error(f"OAuth callback error: {e}")
         return RedirectResponse(
-            url="https://frontend-agentic-bnc2.onrender.com/?error=oauth_failed",
+            url="https://velocitypost-ai.onrender.com/?error=oauth_failed",
             status_code=302
         )
 
