@@ -1371,23 +1371,28 @@ from fastapi.responses import FileResponse
 
 
 
-# ✅ 1. Path to your React build folder
+## ✅ 1. Define React build directory
 frontend_dir = os.path.join(os.path.dirname(__file__), "../frontend/dist")
 
-# ✅ 2. Serve React static files (JS, CSS, images)
-app.mount("/static", StaticFiles(directory=os.path.join(frontend_dir, "static")), name="static")
+# ✅ 2. Check and mount the assets directory (Vite uses "assets", not "static")
+assets_dir = os.path.join(frontend_dir, "assets")
+if os.path.exists(assets_dir):
+    app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
+else:
+    print("⚠️ No 'assets' directory found. Run `npm run build` in frontend first.")
 
-# ✅ 3. Example API route
+# ✅ 3. Example API route (optional)
 @app.get("/api/hello")
 def hello():
-    return {"message": "Hello from FastAPI!"}
+    return {"message": "Hello from FastAPI + React!"}
 
-# ✅ 4. Catch-all route to serve index.html (for React Router)
+# ✅ 4. Catch-all route for React Router (so refresh won't break)
 @app.get("/{full_path:path}")
 async def serve_react(full_path: str):
     index_file = os.path.join(frontend_dir, "index.html")
-    return FileResponse(index_file)
-
+    if os.path.exists(index_file):
+        return FileResponse(index_file)
+    return {"error": "index.html not found"}
 
 
 
