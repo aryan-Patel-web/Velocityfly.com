@@ -1134,27 +1134,135 @@ async def extract_video_frames_as_thumbnails(
 #     # Shutdown
 #     await cleanup_services()
 
+# ==================== FIXED VERSION - ADD THIS AFTER LINE 166 ====================
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Application lifespan management"""
-    logger.info("🚀 Starting Multi-Platform Automation System...")
+    """Initialize services on startup and cleanup on shutdown"""
+    global database_manager, ai_service, youtube_connector, youtube_scheduler
+    global whatsapp_scheduler, webhook_handler, youtube_background_scheduler
+    global youtube_ai_service, youtube_feature_extractor
     
-    # ... existing YouTube initialization code ...
-    # (KEEP ALL EXISTING YOUTUBE CODE)
+    logger.info("=" * 60)
+    logger.info("STARTING APPLICATION INITIALIZATION")
+    logger.info("=" * 60)
     
-    # ============= ADD THIS: Initialize Reddit Services =============
-    try:
-        from main import initialize_reddit_services
-        await initialize_reddit_services()
-        logger.info("✅ Reddit features initialized successfully")
-    except Exception as e:
-        logger.warning(f"⚠️ Reddit features unavailable: {e}")
-        logger.warning("Continuing without Reddit features...")
+    # Initialize YouTube services
+    if YOUTUBE_AVAILABLE and initialize_youtube_service is not None:
+        try:
+            logger.info("Initializing YouTube services...")
+            success = await initialize_youtube_service()
+            
+            if success:
+                # Get the initialized connectors (with None checks)
+                if get_youtube_connector is not None:
+                    youtube_connector = get_youtube_connector()
+                    logger.info("✓ YouTube connector initialized")
+                
+                if get_youtube_scheduler is not None:
+                    youtube_scheduler = get_youtube_scheduler()
+                    logger.info("✓ YouTube scheduler initialized")
+                
+                if get_youtube_database is not None:
+                    database_manager = get_youtube_database()
+                    logger.info("✓ Database manager initialized")
+            else:
+                logger.error("✗ YouTube service initialization failed")
+                logger.error("Check environment variables:")
+                logger.error("  - GOOGLE_CLIENT_ID")
+                logger.error("  - GOOGLE_CLIENT_SECRET")
+                logger.error("  - GOOGLE_API_KEY")
+                logger.error("  - GOOGLE_OAUTH_REDIRECT_URI")
+                logger.error("  - MONGODB_URI")
+        except Exception as e:
+            logger.error(f"✗ YouTube initialization error: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
+    else:
+        logger.warning("YouTube module not available")
     
-    yield
+    # Initialize AI Service
+    if AI_SERVICE_AVAILABLE and AIService2 is not None:
+        try:
+            logger.info("Initializing AI Service...")
+            ai_service = AIService2()
+            logger.info("✓ AI Service initialized")
+        except Exception as e:
+            logger.error(f"✗ AI Service initialization failed: {e}")
     
-    # Cleanup
+    # Initialize YouTube AI Services
+    if YOUTUBE_AI_AVAILABLE and YouTubeAIService is not None and YouTubeFeatureExtractor is not None:
+        try:
+            logger.info("Initializing YouTube AI services...")
+            youtube_ai_service = YouTubeAIService()
+            # Pass the instantiated youtube_ai_service into the extractor constructor
+            youtube_feature_extractor = YouTubeFeatureExtractor(youtube_ai_service)
+            logger.info("✓ YouTube AI services initialized")
+        except Exception as e:
+            logger.error(f"✗ YouTube AI services initialization failed: {e}")
+
+
+
+
+    # Initialize WhatsApp
+    if WHATSAPP_AVAILABLE and WhatsAppConfig is not None and WhatsAppCloudAPI is not None:
+        try:
+            logger.info("Initializing WhatsApp services...")
+            # whatsapp_config = WhatsAppConfig(
+            #     access_token=os.getenv("WHATSAPP_ACCESS_TOKEN", ""),
+            #     phone_number_id=os.getenv("WHATSAPP_PHONE_NUMBER_ID", ""),
+            #     webhook_verify_token=os.getenv("WHATSAPP_WEBHOOK_VERIFY_TOKEN", "webhook_secret")
+            # )
+            # Some WhatsAppCloudAPI constructors expect separate arguments for access token and phone number id.
+            # Try calling with explicit parameters first, then fall back to passing the config object.
+        #     try:
+        #         whatsapp_api = WhatsAppCloudAPI(
+        #             access_token=getattr(whatsapp_config, "access_token", os.getenv("WHATSAPP_ACCESS_TOKEN", "")),
+        #             phone_number_id=getattr(whatsapp_config, "phone_number_id", os.getenv("WHATSAPP_PHONE_NUMBER_ID", ""))
+        #         )
+        #     except TypeError:
+        #         # Fallback: pass the config object if that is the expected signature
+        #         whatsapp_api = WhatsAppCloudAPI(whatsapp_config)
+            
+        #     if WhatsAppAutomationScheduler is not None:
+        #         whatsapp_scheduler = WhatsAppAutomationScheduler(whatsapp_api)
+            
+        #     if WhatsAppWebhookHandler is not None:
+        #         webhook_handler = WhatsAppWebhookHandler(whatsapp_config)
+            
+        #     logger.info("✓ WhatsApp services initialized")
+        # except Exception as e:
+        #     logger.error(f"✗ WhatsApp initialization failed: {e}")
+        # logger.error(f"✗ WhatsApp initialization failed: {e}")
+    
+    logger.info("=" * 60)
+    logger.info("✓ APPLICATION INITIALIZATION COMPLETE")
+    logger.info("=" * 60)
+    
+    # Print service status
+    logger.info("Service Status:")
+    logger.info(f"  YouTube Connector: {'✓' if youtube_connector else '✗'}")
+    logger.info(f"  YouTube Scheduler: {'✓' if youtube_scheduler else '✗'}")
+    logger.info(f"  Database Manager: {'✓' if database_manager else '✗'}")
+    logger.info(f"  AI Service: {'✓' if ai_service else '✗'}")
+    logger.info(f"  WhatsApp: {'✓' if whatsapp_scheduler else '✗'}")
+    logger.info("=" * 60)
+    
+    yield  # Application runs here
+    
+    # Cleanup on shutdown
     logger.info("Shutting down...")
+
+# ==================== END OF FIXED CODE ====================
+
+
+
+
+
+
+
+
+    
     
     # ============= ADD THIS: Cleanup Reddit Services =============
     try:
@@ -1312,6 +1420,114 @@ async def health_check():
         "services": services_status,
         "timestamp": datetime.now().isoformat()
     }
+
+
+# ========================================
+# PART 2: UPDATE APP INITIALIZATION
+# FIND THIS LINE (around line 260-270)
+# ========================================
+
+# FIND THIS:
+# app = FastAPI(
+#     title="Multi-Platform Social Media Automation API",
+#     version="2.0.0",
+#     description="Complete automation for YouTube, WhatsApp, Instagram, Facebook"
+# )
+
+# REPLACE WITH THIS:
+app = FastAPI(
+    title="Multi-Platform Social Media Automation API",
+    version="2.0.0",
+    description="Complete automation for YouTube, WhatsApp, Instagram, Facebook",
+    lifespan=lifespan  # ← ADD THIS LINE
+)
+
+
+# ========================================
+# PART 3: ADD TEST ENDPOINT
+# ADD THIS AFTER THE APP INITIALIZATION
+# ========================================
+
+@app.get("/api/test/services")
+async def test_services_status():
+    """
+    Test endpoint to check which services are initialized
+    Visit: https://your-backend.onrender.com/api/test/services
+    """
+    import os
+    
+    # Check global service instances
+    service_status = {
+        "services": {
+            "youtube_connector": "✓ Initialized" if youtube_connector else "✗ Not Initialized",
+            "youtube_scheduler": "✓ Initialized" if youtube_scheduler else "✗ Not Initialized",
+            "database_manager": "✓ Initialized" if database_manager else "✗ Not Initialized",
+            "ai_service": "✓ Initialized" if ai_service else "✗ Not Initialized",
+            "youtube_ai_service": "✓ Initialized" if youtube_ai_service else "✗ Not Initialized",
+            "whatsapp_scheduler": "✓ Initialized" if whatsapp_scheduler else "✗ Not Initialized"
+        },
+        "environment_variables": {
+            "GOOGLE_CLIENT_ID": "✓ Set" if os.getenv('GOOGLE_CLIENT_ID') else "✗ Not Set",
+            "GOOGLE_CLIENT_SECRET": "✓ Set" if os.getenv('GOOGLE_CLIENT_SECRET') else "✗ Not Set",
+            "GOOGLE_API_KEY": "✓ Set" if os.getenv('GOOGLE_API_KEY') else "✗ Not Set",
+            "GOOGLE_OAUTH_REDIRECT_URI": os.getenv('GOOGLE_OAUTH_REDIRECT_URI', '✗ Not Set'),
+            "MONGODB_URI": "✓ Set" if os.getenv('MONGODB_URI') else "✗ Not Set",
+            "FRONTEND_URL": os.getenv('FRONTEND_URL', '✗ Not Set')
+        },
+        "module_availability": {
+            "YOUTUBE_AVAILABLE": YOUTUBE_AVAILABLE,
+            "AI_SERVICE_AVAILABLE": AI_SERVICE_AVAILABLE,
+            "YOUTUBE_DATABASE_AVAILABLE": YOUTUBE_DATABASE_AVAILABLE,
+            "YOUTUBE_AI_AVAILABLE": YOUTUBE_AI_AVAILABLE,
+            "WHATSAPP_AVAILABLE": WHATSAPP_AVAILABLE
+        },
+        "youtube_ready": bool(youtube_connector and database_manager),
+        "summary": ""
+    }
+    
+    # Add summary message
+    if youtube_connector and database_manager:
+        service_status["summary"] = "✅ YouTube features are READY and working!"
+    elif not os.getenv('GOOGLE_CLIENT_ID') or not os.getenv('MONGODB_URI'):
+        service_status["summary"] = "❌ Missing environment variables. Add them in Render dashboard."
+    elif not YOUTUBE_AVAILABLE:
+        service_status["summary"] = "❌ YouTube module failed to import. Check server logs."
+    else:
+        service_status["summary"] = "❌ YouTube connector failed to initialize. Check startup logs."
+    
+    return service_status
+
+
+@app.get("/api/test/env")
+async def test_environment():
+    """
+    Simple endpoint to quickly check critical environment variables
+    Visit: https://your-backend.onrender.com/api/test/env
+    """
+    import os
+    
+    return {
+        "environment_check": {
+            "google_client_id": os.getenv('GOOGLE_CLIENT_ID', '')[:20] + "..." if os.getenv('GOOGLE_CLIENT_ID') else "NOT SET",
+            "google_client_secret": "SET" if os.getenv('GOOGLE_CLIENT_SECRET') else "NOT SET",
+            "google_api_key": "SET" if os.getenv('GOOGLE_API_KEY') else "NOT SET",
+            "redirect_uri": os.getenv('GOOGLE_OAUTH_REDIRECT_URI', 'NOT SET'),
+            "mongodb_uri": "SET" if os.getenv('MONGODB_URI') else "NOT SET",
+            "frontend_url": os.getenv('FRONTEND_URL', 'NOT SET')
+        },
+        "status": "✅ All variables set" if all([
+            os.getenv('GOOGLE_CLIENT_ID'),
+            os.getenv('GOOGLE_CLIENT_SECRET'),
+            os.getenv('GOOGLE_API_KEY'),
+            os.getenv('GOOGLE_OAUTH_REDIRECT_URI'),
+            os.getenv('MONGODB_URI')
+        ]) else "❌ Some variables missing"
+    }
+
+
+# ========================================
+# END OF PART 2 & 3
+# ========================================
 
 # Add debug endpoints
 @app.get("/debug/services")
