@@ -169,6 +169,7 @@ class TestPostRequest(BaseModel):
     language: str = "en"
     subreddits: List[str]
     content_style: str = "engaging"
+    platform: str = "reddit"
 
 class ManualPostRequest(BaseModel):
     title: str
@@ -2824,6 +2825,38 @@ async def debug_next_posting(current_user: dict = Depends(get_current_user)):
     except Exception as e:
         return {"success": False, "error": str(e)}
 
+
+
+@router.get("/api/reddit/questions")  # ✅ GET method
+async def find_reddit_questions(
+    subreddits: str = Query("AskReddit,explainlikeimfive,NoStupidQuestions"),
+    keywords: str = Query("help,how,what,why"),
+    limit: int = Query(10),
+    current_user: dict = Depends(get_current_user)
+):
+    """Find questions in subreddits matching keywords"""
+    try:
+        user_id = current_user["id"]
+        
+        # Check Reddit connection
+        if user_id not in user_reddit_tokens:
+            raise HTTPException(status_code=400, detail="Reddit not connected")
+        
+        # Parse inputs
+        subreddit_list = [s.strip() for s in subreddits.split(',')]
+        keyword_list = [k.strip() for k in keywords.split(',')]
+        
+        # Search questions (implement your logic here)
+        questions = []
+        
+        return {
+            "success": True,
+            "questions": questions,
+            "count": len(questions)
+        }
+    except Exception as e:
+        logger.error(f"Find questions failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 # Application startup
 # PORT = int(os.getenv("PORT", 10000))

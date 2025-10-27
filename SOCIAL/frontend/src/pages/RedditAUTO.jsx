@@ -189,47 +189,53 @@ useEffect(() => {
     }
   }, [userProfile, user?.email, showNotification]);
 
-  const generateRedditContent = useCallback(async () => {
-    if (!userProfile.businessType) { 
-      showNotification('Please configure your profile first', 'error'); 
-      return; 
+ const generateRedditContent = useCallback(async () => {
+  if (!userProfile.businessType) { 
+    showNotification('Please configure your profile first', 'error'); 
+    return; 
+  }
+
+  try {
+    setPostForm(prev => ({ ...prev, isGenerating: true }));
+    showNotification('Generating Reddit content with AI...', 'info');
+    
+    const response = await makeAuthenticatedRequest('/api/automation/test-auto-post', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        platform: 'reddit',
+        domain: userProfile.domain,
+        business_type: userProfile.businessType,
+        business_description: userProfile.businessDescription,
+        target_audience: userProfile.targetAudience,
+        content_style: userProfile.contentStyle,
+        subreddits: ['test', 'learnprogramming', 'artificial']  // ✅ ADDED
+      })
+    });
+
+    const result = await response.json();
+
+    if (result.success) {
+      setPostForm(prev => ({
+        ...prev,
+        title: result.title || '',
+        content: result.content_preview || result.content || ''
+      }));
+      showNotification(`✅ Content generated! Human authenticity: ${result.human_score || 95}%`, 'success');
+    } else { 
+      showNotification(result.error || 'Content generation failed', 'error'); 
     }
+  } catch (error) { 
+    showNotification('AI generation failed: ' + error.message, 'error'); 
+  } finally { 
+    setPostForm(prev => ({ ...prev, isGenerating: false })); 
+  }
+}, [makeAuthenticatedRequest, showNotification, userProfile]);
 
-    try {
-      setPostForm(prev => ({ ...prev, isGenerating: true }));
-      showNotification('Generating Reddit content with AI...', 'info');
-      
-      const response = await makeAuthenticatedRequest('/api/automation/test-auto-post', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          platform: 'reddit',
-          domain: userProfile.domain,
-          business_type: userProfile.businessType,
-          business_description: userProfile.businessDescription,
-          target_audience: userProfile.targetAudience,
-          content_style: userProfile.contentStyle
-        })
-      });
 
-      const result = await response.json();
 
-      if (result.success) {
-        setPostForm(prev => ({
-          ...prev,
-          title: result.title || '',
-          content: result.content_preview || result.content || ''
-        }));
-        showNotification(`Content generated! Human authenticity: ${result.human_score || 95}%`, 'success');
-      } else { 
-        showNotification(result.error || 'Content generation failed', 'error'); 
-      }
-    } catch (error) { 
-      showNotification('AI generation failed: ' + error.message, 'error'); 
-    } finally { 
-      setPostForm(prev => ({ ...prev, isGenerating: false })); 
-    }
-  }, [makeAuthenticatedRequest, showNotification, userProfile]);
+
+
 
   const publishRedditPost = useCallback(async (e) => {
     e.preventDefault();
