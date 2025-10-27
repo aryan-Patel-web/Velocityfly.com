@@ -3016,12 +3016,12 @@ const Landing_Page = () => {
             <Link to="/pricing" className="nav-link">
               Pricing
             </Link>
-            <Link to="/about" className="nav-link">
+            {/* <Link to="/about" className="nav-link">
               About
-            </Link>
-            <Link to="/contact" className="nav-link">
+            </Link> */}
+            {/* <Link to="/contact" className="nav-link">
               Contact
-            </Link>
+            </Link> */}
             
             {/* Server Start Button */}
             <button 
