@@ -76,59 +76,87 @@ const RedditAutomation = () => {
     setTimeout(() => setNotifications(prev => prev.filter(n => n.id !== notification.id)), 5000);
   }, []);
 
-  useEffect(() => {
-    if (!user?.email) return;
+
+
+
+
+useEffect(() => {
+  if (!user?.email) return;
+  
+  const checkRedditConnection = async () => {
+    // ✅ CHECK URL PARAMETERS FIRST (before initKey check)
+    const urlParams = new URLSearchParams(window.location.search);
+    const redditConnected = urlParams.get('reddit_connected');
+    const username = urlParams.get('username');
+    const error = urlParams.get('error');
+
+    // Handle OAuth callback with URL parameters
+    if (error) { 
+      showNotification(`Connection failed: ${error}`, 'error'); 
+      window.history.replaceState({}, '', window.location.pathname); 
+      return; 
+    }
+
+    if (redditConnected === 'true' && username) {
+      setRedditConnected(true); 
+      setRedditUsername(username);
+      updateUser({ reddit_connected: true, reddit_username: username });
+      showNotification(`✅ Reddit connected! Welcome u/${username}!`, 'success');
+      
+      // Save to localStorage
+      localStorage.setItem(`reddit_connected_${user.email}`, 'true');
+      localStorage.setItem(`reddit_username_${user.email}`, username);
+      
+      window.history.replaceState({}, '', window.location.pathname); 
+      return;
+    }
+
+    // ✅ NOW check localStorage for existing connection
+    const savedConnection = localStorage.getItem(`reddit_connected_${user.email}`);
+    const savedUsername = localStorage.getItem(`reddit_username_${user.email}`);
     
-    const initKey = `reddit_init_${user.email}`;
-    if (localStorage.getItem(initKey)) return;
-    localStorage.setItem(initKey, 'true');
+    if (savedConnection === 'true' && savedUsername) {
+      setRedditConnected(true);
+      setRedditUsername(savedUsername);
+      return;
+    }
 
-    const checkRedditConnection = async () => {
-      const urlParams = new URLSearchParams(window.location.search);
-      const redditConnected = urlParams.get('reddit_connected');
-      const username = urlParams.get('username');
-      const error = urlParams.get('error');
-
-      if (error) { 
-        showNotification(`Connection failed: ${error}`, 'error'); 
-        window.history.replaceState({}, '', window.location.pathname); 
-        return; 
-      }
-
-      if (redditConnected === 'true' && username) {
+    // Check backend for connection status
+    try {
+      const response = await makeAuthenticatedRequest('/api/reddit/connection-status');
+      const result = await response.json();
+      
+      if (result.success && result.connected) {
         setRedditConnected(true); 
-        setRedditUsername(username);
-        updateUser({ reddit_connected: true, reddit_username: username });
-        showNotification(`Reddit connected! Welcome u/${username}!`, 'success');
-        window.history.replaceState({}, '', window.location.pathname); 
-        return;
-      }
-
-      try {
-        const response = await makeAuthenticatedRequest('/api/reddit/connection-status');
-        const result = await response.json();
+        setRedditUsername(result.reddit_username || result.username);
         
-        if (result.success && result.connected) {
-          setRedditConnected(true); 
-          setRedditUsername(result.reddit_username || result.username);
-        }
-      } catch (error) { 
-        console.error('Failed to check Reddit connection:', error); 
+        // Save to localStorage
+        localStorage.setItem(`reddit_connected_${user.email}`, 'true');
+        localStorage.setItem(`reddit_username_${user.email}`, result.reddit_username || result.username);
       }
+    } catch (error) { 
+      console.error('Failed to check Reddit connection:', error); 
+    }
 
-      try {
-        const savedProfile = localStorage.getItem(`redditUserProfile_${user.email}`);
-        if (savedProfile) { 
-          const profile = JSON.parse(savedProfile); 
-          setUserProfile(profile); 
-        }
-      } catch (error) { 
-        console.error('Error loading profile:', error); 
+    // Load user profile
+    try {
+      const savedProfile = localStorage.getItem(`redditUserProfile_${user.email}`);
+      if (savedProfile) { 
+        const profile = JSON.parse(savedProfile); 
+        setUserProfile(profile); 
       }
-    };
+    } catch (error) { 
+      console.error('Error loading profile:', error); 
+    }
+  };
 
-    checkRedditConnection();
-  }, [user, makeAuthenticatedRequest, updateUser, showNotification]);
+  checkRedditConnection();
+}, [user, makeAuthenticatedRequest, updateUser, showNotification]);
+
+
+
+
+
 
   const handleRedditConnect = useCallback(async () => {
     try {
