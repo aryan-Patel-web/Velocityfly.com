@@ -1,13 +1,12 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
-// import App from './app'
-import App from './src/App.jsx'
+// import App from './App.jsx';
+import App from './app'  // match file casing
 
 // Global error handler for unhandled promise rejections
 window.addEventListener('unhandledrejection', (event) => {
   console.error('Unhandled promise rejection:', event.reason);
-  // Prevent the default browser behavior (logging to console)
   event.preventDefault();
 });
 
@@ -33,12 +32,11 @@ const initializeApp = () => {
       </StrictMode>
     );
     
-    console.log('🚀 Multi-User Reddit Automation Platform initialized successfully');
+    console.log('🚀 Application initialized successfully');
     
   } catch (error) {
     console.error('Failed to initialize app:', error);
     
-    // Fallback error display
     const rootElement = document.getElementById('root');
     if (rootElement) {
       rootElement.innerHTML = `
@@ -63,7 +61,7 @@ const initializeApp = () => {
           ">
             <h1 style="margin-bottom: 20px;">Application Error</h1>
             <p style="margin-bottom: 20px;">
-              Sorry, there was an error loading the Reddit Automation Platform.
+              Sorry, there was an error loading the application.
             </p>
             <p style="font-size: 14px; opacity: 0.8; margin-bottom: 20px;">
               ${error.message}
