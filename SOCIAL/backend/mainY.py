@@ -1140,8 +1140,7 @@ async def extract_video_frames_as_thumbnails(
 async def lifespan(app: FastAPI):
     """Initialize services on startup and cleanup on shutdown"""
     global database_manager, ai_service, youtube_connector, youtube_scheduler
-    global whatsapp_scheduler, webhook_handler, youtube_background_scheduler
-    global youtube_ai_service, youtube_feature_extractor
+    global youtube_background_scheduler, youtube_ai_service, youtube_feature_extractor
     
     logger.info("=" * 60)
     logger.info("STARTING APPLICATION INITIALIZATION")
@@ -1191,49 +1190,17 @@ async def lifespan(app: FastAPI):
             logger.error(f"✗ AI Service initialization failed: {e}")
     
     # Initialize YouTube AI Services
-    if YOUTUBE_AI_AVAILABLE and YouTubeAIService is not None and YouTubeFeatureExtractor is not None:
+    if YOUTUBE_AI_AVAILABLE and YouTubeAIService is not None:
         try:
             logger.info("Initializing YouTube AI services...")
             youtube_ai_service = YouTubeAIService()
-            # Pass the instantiated youtube_ai_service into the extractor constructor
-            youtube_feature_extractor = YouTubeFeatureExtractor(youtube_ai_service)
+            
+            if YouTubeFeatureExtractor is not None:
+                youtube_feature_extractor = YouTubeFeatureExtractor(youtube_ai_service)
+            
             logger.info("✓ YouTube AI services initialized")
         except Exception as e:
             logger.error(f"✗ YouTube AI services initialization failed: {e}")
-
-
-
-
-    # Initialize WhatsApp
-    if WHATSAPP_AVAILABLE and WhatsAppConfig is not None and WhatsAppCloudAPI is not None:
-        try:
-            logger.info("Initializing WhatsApp services...")
-            # whatsapp_config = WhatsAppConfig(
-            #     access_token=os.getenv("WHATSAPP_ACCESS_TOKEN", ""),
-            #     phone_number_id=os.getenv("WHATSAPP_PHONE_NUMBER_ID", ""),
-            #     webhook_verify_token=os.getenv("WHATSAPP_WEBHOOK_VERIFY_TOKEN", "webhook_secret")
-            # )
-            # Some WhatsAppCloudAPI constructors expect separate arguments for access token and phone number id.
-            # Try calling with explicit parameters first, then fall back to passing the config object.
-        #     try:
-        #         whatsapp_api = WhatsAppCloudAPI(
-        #             access_token=getattr(whatsapp_config, "access_token", os.getenv("WHATSAPP_ACCESS_TOKEN", "")),
-        #             phone_number_id=getattr(whatsapp_config, "phone_number_id", os.getenv("WHATSAPP_PHONE_NUMBER_ID", ""))
-        #         )
-        #     except TypeError:
-        #         # Fallback: pass the config object if that is the expected signature
-        #         whatsapp_api = WhatsAppCloudAPI(whatsapp_config)
-            
-        #     if WhatsAppAutomationScheduler is not None:
-        #         whatsapp_scheduler = WhatsAppAutomationScheduler(whatsapp_api)
-            
-        #     if WhatsAppWebhookHandler is not None:
-        #         webhook_handler = WhatsAppWebhookHandler(whatsapp_config)
-            
-        #     logger.info("✓ WhatsApp services initialized")
-        # except Exception as e:
-        #     logger.error(f"✗ WhatsApp initialization failed: {e}")
-        # logger.error(f"✗ WhatsApp initialization failed: {e}")
     
     logger.info("=" * 60)
     logger.info("✓ APPLICATION INITIALIZATION COMPLETE")
@@ -1245,7 +1212,6 @@ async def lifespan(app: FastAPI):
     logger.info(f"  YouTube Scheduler: {'✓' if youtube_scheduler else '✗'}")
     logger.info(f"  Database Manager: {'✓' if database_manager else '✗'}")
     logger.info(f"  AI Service: {'✓' if ai_service else '✗'}")
-    logger.info(f"  WhatsApp: {'✓' if whatsapp_scheduler else '✗'}")
     logger.info("=" * 60)
     
     yield  # Application runs here
