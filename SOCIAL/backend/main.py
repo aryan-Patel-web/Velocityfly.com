@@ -835,7 +835,8 @@ class MockAutomationScheduler:
 #     lifespan=lifespan
 # )
 # ============= CREATE ROUTER INSTEAD OF APP =============
-router = APIRouter(prefix="/reddit", tags=["Reddit Automation"])
+# No prefix - keeps API paths unchanged for frontend
+router = APIRouter(tags=["Reddit Automation"])
 
 # ADD TO TOP OF main.py
 # from fastapi.middleware.cors import CORSMiddleware
@@ -900,19 +901,19 @@ async def options_handler(request: Request):
 
 
 # Global exception handler
-@router.exception_handler(Exception)
-async def global_exception_handler(request: Request, exc: Exception):
-    logger.error(f"Global exception on {request.url}: {exc}")
-    logger.error(traceback.format_exc())
-    return JSONResponse(
-        status_code=500,
-        content={
-            "success": False,
-            "error": str(exc),
-            "message": "An unexpected error occurred.",
-            "timestamp": datetime.now().isoformat()
-        }
-    )
+# @router.exception_handler(Exception)
+# async def global_exception_handler(request: Request, exc: Exception):
+#     logger.error(f"Global exception on {request.url}: {exc}")
+#     logger.error(traceback.format_exc())
+#     return JSONResponse(
+#         status_code=500,
+#         content={
+#             "success": False,
+#             "error": str(exc),
+#             "message": "An unexpected error occurred.",
+#             "timestamp": datetime.now().isoformat()
+#         }
+#     )
 
 # Health check endpoints
 @router.get("/")

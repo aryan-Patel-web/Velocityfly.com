@@ -1194,9 +1194,17 @@ app.add_middleware(
     allowed_hosts=["*"]
 )
 
+
+
+
 # Exception handler for validation errors
+# ============= EXCEPTION HANDLERS (handles all routes including Reddit) =============
+from fastapi.exceptions import RequestValidationError
+from fastapi.encoders import jsonable_encoder
+
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    """Handle validation errors - ONLY ONE handler for RequestValidationError"""
     logger.error("=== 422 VALIDATION ERROR ===")
     logger.error(f"Request URL: {request.url}")
     logger.error(f"Request method: {request.method}")
@@ -1219,25 +1227,51 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         content={
             "success": False,
             "error": "Validation error",
-            "details": exc.errors(),
+            "details": jsonable_encoder(exc.errors()),
             "message": "Please check your request format"
         }
     )
 
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    """Handle HTTP exceptions"""
+    logger.error(f"HTTP {exc.status_code}: {exc.detail}")
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "success": False,
+            "error": exc.detail,
+            "status_code": exc.status_code
+        }
+    )
 
+@app.exception_handler(Exception)
+async def general_exception_handler(request: Request, exc: Exception):
+    """Handle unexpected errors"""
+    logger.error(f"Unexpected error: {exc}", exc_info=True)
+    logger.error(f"Request URL: {request.url}")
+    logger.error(f"Request method: {request.method}")
+    
+    return JSONResponse(
+        status_code=500,
+        content={
+            "success": False,
+            "error": "Internal server error",
+            "message": str(exc),
+            "type": type(exc).__name__
+        }
+    )
 
-
-# ============= ADD THIS: Include Reddit Router =============
+# ============= INCLUDE REDDIT ROUTER =============
 try:
     from main import router as reddit_router
     app.include_router(reddit_router)
-    logger.info("✅ Reddit routes registered at /reddit/*")
+    logger.info("✅ Reddit routes registered")
 except ImportError as e:
     logger.warning(f"⚠️ Could not load Reddit routes: {e}")
 except Exception as e:
     logger.error(f"❌ Error loading Reddit routes: {e}")
 
-    
 # Health check endpoint
 @app.get("/")
 async def root():
@@ -3551,32 +3585,32 @@ async def debug_youtube_endpoints():
     }
 
 # Error handlers
-@app.exception_handler(HTTPException)
-async def http_exception_handler(request: Request, exc: HTTPException):
-    return JSONResponse(
-        status_code=exc.status_code,
-        content={
-            "success": False,
-            "error": exc.detail,
-            "status_code": exc.status_code,
-            "timestamp": datetime.now().isoformat()
-        }
-    )
+# @app.exception_handler(HTTPException)
+# async def http_exception_handler(request: Request, exc: HTTPException):
+#     return JSONResponse(
+#         status_code=exc.status_code,
+#         content={
+#             "success": False,
+#             "error": exc.detail,
+#             "status_code": exc.status_code,
+#             "timestamp": datetime.now().isoformat()
+#         }
+#     )
 
-@app.exception_handler(Exception)
-async def general_exception_handler(request: Request, exc: Exception):
-    logger.error(f"Unhandled exception: {exc}")
-    logger.error(traceback.format_exc())
+# @app.exception_handler(Exception)
+# async def general_exception_handler(request: Request, exc: Exception):
+#     logger.error(f"Unhandled exception: {exc}")
+#     logger.error(traceback.format_exc())
     
-    return JSONResponse(
-        status_code=500,
-        content={
-            "success": False,
-            "error": "Internal server error",
-            "status_code": 500,
-            "timestamp": datetime.now().isoformat()
-        }
-    )
+#     return JSONResponse(
+#         status_code=500,
+#         content={
+#             "success": False,
+#             "error": "Internal server error",
+#             "status_code": 500,
+#             "timestamp": datetime.now().isoformat()
+#         }
+#     )
 
 @app.get("/api/debug/trigger-scheduler-check")
 async def trigger_scheduler_check():
