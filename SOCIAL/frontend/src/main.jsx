@@ -1,27 +1,23 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
-// import App from './App.jsx';
-import App from './app'  // match file casing
+import App from './App'
 
-// Global error handler for unhandled promise rejections
 window.addEventListener('unhandledrejection', (event) => {
   console.error('Unhandled promise rejection:', event.reason);
   event.preventDefault();
 });
 
-// Global error handler for JavaScript errors
 window.addEventListener('error', (event) => {
   console.error('Global error:', event.error);
 });
 
-// Application initialization
 const initializeApp = () => {
   try {
     const rootElement = document.getElementById('root');
     
     if (!rootElement) {
-      throw new Error('Root element not found. Make sure you have a div with id="root" in your HTML.');
+      throw new Error('Root element not found');
     }
 
     const root = createRoot(rootElement);
@@ -32,7 +28,7 @@ const initializeApp = () => {
       </StrictMode>
     );
     
-    console.log('🚀 Application initialized successfully');
+    console.log('🚀 Application initialized');
     
   } catch (error) {
     console.error('Failed to initialize app:', error);
@@ -45,7 +41,6 @@ const initializeApp = () => {
           justify-content: center;
           align-items: center;
           min-height: 100vh;
-          font-family: system-ui, -apple-system, sans-serif;
           background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
           color: white;
           text-align: center;
@@ -57,32 +52,19 @@ const initializeApp = () => {
             border-radius: 20px;
             padding: 40px;
             max-width: 500px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
           ">
-            <h1 style="margin-bottom: 20px;">Application Error</h1>
-            <p style="margin-bottom: 20px;">
-              Sorry, there was an error loading the application.
-            </p>
-            <p style="font-size: 14px; opacity: 0.8; margin-bottom: 20px;">
-              ${error.message}
-            </p>
-            <button 
-              onclick="window.location.reload()"
-              style="
-                background: white;
-                color: #333;
-                border: none;
-                padding: 12px 24px;
-                border-radius: 8px;
-                cursor: pointer;
-                font-weight: 500;
-              "
-            >
+            <h1>Application Error</h1>
+            <p>${error.message}</p>
+            <button onclick="window.location.reload()" style="
+              background: white;
+              color: #333;
+              border: none;
+              padding: 12px 24px;
+              border-radius: 8px;
+              cursor: pointer;
+            ">
               Reload Page
             </button>
-            <div style="margin-top: 20px; font-size: 12px; opacity: 0.7;">
-              If the problem persists, please contact support.
-            </div>
           </div>
         </div>
       `;
@@ -90,5 +72,4 @@ const initializeApp = () => {
   }
 };
 
-// Initialize the app
 initializeApp();
