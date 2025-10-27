@@ -1,7 +1,8 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
-import App from './app'
+// import App from './app'
+import App from './src/App.jsx'
 
 // Global error handler for unhandled promise rejections
 window.addEventListener('unhandledrejection', (event) => {
