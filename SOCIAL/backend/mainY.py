@@ -1385,12 +1385,11 @@ except Exception as e:
 @app.get("/")
 async def root():
     """Health check endpoint"""
-    logger.info("🏥 Health check requested")
     return {
         "status": "online",
         "service": "VelocityPost API",
         "version": "2.0.0",
-        "database": "connected" if database_manager else "not available",
+        "database": "connected" if database_manager else "disconnected",
         "timestamp": datetime.now().isoformat()
     }
 
@@ -1468,6 +1467,18 @@ async def options_register():
         }
     )
 
+@app.options("/api/auth/register")
+async def options_register():
+    return Response(
+        status_code=200,
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "POST, OPTIONS",
+            "Access-Control-Allow-Headers": "*",
+            "Access-Control-Allow-Credentials": "true",
+        }
+    )
+
 @app.options("/api/auth/login")
 async def options_login():
     return Response(
@@ -1492,25 +1503,16 @@ async def options_me():
         }
     )
 
-# ============ ADD THIS: Health Check ============
-# @app.get("/")
-# async def root():
-#     """Health check endpoint"""
-#     return {
-#         "status": "online",
-#         "service": "VelocityPost API",
-#         "database": "connected" if database_manager else "disconnected",
-#         "timestamp": datetime.now().isoformat()
-#     }
-
 @app.options("/")
-async def options_root():
+async def root_options():
+    """OPTIONS for root"""
     return Response(
         status_code=200,
         headers={
             "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Methods": "GET, OPTIONS",
+            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
             "Access-Control-Allow-Headers": "*",
+            "Access-Control-Allow-Credentials": "true",
         }
     )
 
