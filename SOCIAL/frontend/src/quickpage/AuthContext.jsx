@@ -15,19 +15,6 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [token, setToken] = useState(null);
 
-  // Debug helper for auth state
-  const debugAuth = useCallback(() => {
-    console.log('Auth Debug State:', {
-      isAuthenticated,
-      user,
-      token: token ? token.substring(0, 20) + '...' : null,
-      localStorage: {
-        authToken: localStorage.getItem('authToken') ? 'present' : 'missing',
-        cached_user: localStorage.getItem('cached_user') ? 'present' : 'missing'
-      }
-    });
-  }, [isAuthenticated, user, token]);
-
   // Clear all tokens helper
   const clearAllTokens = useCallback(() => {
     ['auth_token', 'token', 'authToken', 'cached_user', 'user'].forEach(key => 
@@ -36,13 +23,15 @@ export const AuthProvider = ({ children }) => {
     setToken(null);
     setUser(null);
     setIsAuthenticated(false);
-    console.log('All tokens cleared');
+    console.log('🧹 All tokens cleared');
   }, []);
 
   // Initialize authentication on app load
   useEffect(() => {
     const initAuth = async () => {
       try {
+        console.log('🔐 Initializing authentication...');
+        
         // Check for any existing token
         const savedToken = localStorage.getItem('authToken') || 
                           localStorage.getItem('auth_token') || 
@@ -54,56 +43,27 @@ export const AuthProvider = ({ children }) => {
         if (savedToken && cachedUser) {
           try {
             const userData = JSON.parse(cachedUser);
-            console.log('Attempting to restore user session...');
+            console.log('✅ Found saved session for:', userData.email);
             
-            // Validate token format
-            if (savedToken.length > 10) {
-              // Test token with backend
-              const testResponse = await fetch(`${API_BASE_URL}/api/auth/me`, {
-                headers: {
-                  'Authorization': `Bearer ${savedToken}`,
-                  'Content-Type': 'application/json'
-                }
-              });
-              
-              if (testResponse.ok) {
-                const validatedUser = await testResponse.json();
-                if (validatedUser.success) {
-                  setUser(userData);
-                  setToken(savedToken);
-                  setIsAuthenticated(true);
-                  
-                  // Ensure token is stored with correct key
-                  localStorage.setItem('authToken', savedToken);
-                  console.log('User session restored:', userData.email);
-                  setLoading(false);
-                  return;
-                }
-              } else if (testResponse.status === 404) {
-                // /me endpoint doesn't exist, but token might still be valid
-                // Skip validation and trust the cached session
-                setUser(userData);
-                setToken(savedToken);
-                setIsAuthenticated(true);
-                localStorage.setItem('authToken', savedToken);
-                console.log('User session restored (no validation):', userData.email);
-                setLoading(false);
-                return;
-              }
-            }
+            // Restore session
+            setUser(userData);
+            setToken(savedToken);
+            setIsAuthenticated(true);
             
-            // If we reach here, token is invalid
-            throw new Error('Invalid token');
+            // Ensure token is stored with correct key
+            localStorage.setItem('authToken', savedToken);
+            console.log('✅ User session restored:', userData.email);
+            
           } catch (parseError) {
-            console.error('Token validation failed:', parseError);
+            console.error('❌ Token validation failed:', parseError);
             clearAllTokens();
           }
         } else {
-          console.log('No saved session found');
+          console.log('ℹ️ No saved session found');
           clearAllTokens();
         }
       } catch (error) {
-        console.error('Auth initialization failed:', error);
+        console.error('❌ Auth initialization failed:', error);
         clearAllTokens();
       } finally {
         setLoading(false);
@@ -116,7 +76,7 @@ export const AuthProvider = ({ children }) => {
   const login = async (email, password) => {
     setLoading(true);
     try {
-      console.log('Login attempt:', { email, apiUrl: API_BASE_URL });
+      console.log('🔐 Login attempt:', { email, apiUrl: API_BASE_URL });
       
       const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
         method: 'POST',
@@ -127,28 +87,27 @@ export const AuthProvider = ({ children }) => {
         body: JSON.stringify({ email, password })
       });
 
-      console.log('Login response status:', response.status);
+      console.log('📡 Login response status:', response.status);
       
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ error: 'Network error' }));
-        console.error('Login HTTP error:', response.status, errorData);
+        console.error('❌ Login HTTP error:', response.status, errorData);
         return { 
           success: false, 
-          error: errorData.error || errorData.message || `HTTP ${response.status}: Login failed` 
+          error: errorData.detail || errorData.error || errorData.message || `HTTP ${response.status}: Login failed` 
         };
       }
 
       const data = await response.json();
-      console.log('Login response data:', data);
+      console.log('📦 Login response data:', data);
       
-      // FIXED: Check for success regardless of token presence
+      // Check for success
       if (data.success === true) {
-        console.log('Login successful - processing user data');
+        console.log('✅ Login successful - processing user data');
         
         // Extract user data with multiple fallback paths
         let userData;
         if (data.user && typeof data.user === 'object') {
-          // Backend returns user object
           userData = {
             user_id: data.user.user_id || data.user.id || data.user_id,
             id: data.user.user_id || data.user.id || data.user_id,
@@ -157,7 +116,6 @@ export const AuthProvider = ({ children }) => {
             platforms_connected: data.user.platforms_connected || data.platforms_connected || []
           };
         } else {
-          // Backend returns flat structure
           userData = {
             user_id: data.user_id || data.id,
             id: data.user_id || data.id,
@@ -167,7 +125,7 @@ export const AuthProvider = ({ children }) => {
           };
         }
         
-        // Generate a token if backend doesn't provide one
+        // Get token from response
         const authToken = data.token || 
                          data.access_token || 
                          data.authToken ||
@@ -187,22 +145,21 @@ export const AuthProvider = ({ children }) => {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
         
-        console.log('Login successful - user authenticated:', userData.email);
-        console.log('Token stored:', authToken.substring(0, 20) + '...');
+        console.log('✅ Login successful - user authenticated:', userData.email);
+        console.log('🔑 Token stored:', authToken.substring(0, 20) + '...');
         
         return { success: true, user: userData, token: authToken };
         
       } else {
-        // Explicit failure case
-        console.error('Login failed - backend returned error:', data);
+        console.error('❌ Login failed - backend returned error:', data);
         return { 
           success: false, 
-          error: data.error || data.message || 'Login failed - invalid credentials' 
+          error: data.detail || data.error || data.message || 'Login failed - invalid credentials' 
         };
       }
       
     } catch (error) {
-      console.error('Login network error:', error);
+      console.error('❌ Login network error:', error);
       return { 
         success: false, 
         error: 'Network error: ' + error.message 
@@ -215,7 +172,7 @@ export const AuthProvider = ({ children }) => {
   const register = async (name, email, password) => {
     setLoading(true);
     try {
-      console.log('Registration attempt:', { email, name });
+      console.log('📝 Registration attempt:', { email, name });
       
       const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
         method: 'POST',
@@ -227,9 +184,11 @@ export const AuthProvider = ({ children }) => {
       });
 
       const data = await response.json();
-      console.log('Registration response:', data);
+      console.log('📦 Registration response:', data);
       
       if (response.ok && data.success) {
+        console.log('✅ Registration successful');
+        
         // Auto-login after successful registration
         if (data.token || data.user_id) {
           const userData = { 
@@ -251,18 +210,18 @@ export const AuthProvider = ({ children }) => {
           localStorage.setItem('authToken', authToken);
           localStorage.setItem('cached_user', JSON.stringify(userData));
           
-          console.log('Registration and auto-login successful');
+          console.log('✅ Registration and auto-login successful');
           return { success: true, user: userData, message: data.message, token: authToken };
         }
         return { success: true, message: data.message };
       } else {
         return { 
           success: false, 
-          error: data.error || data.message || 'Registration failed' 
+          error: data.detail || data.error || data.message || 'Registration failed' 
         };
       }
     } catch (error) {
-      console.error('Registration error:', error);
+      console.error('❌ Registration error:', error);
       return { 
         success: false, 
         error: 'Registration failed: ' + error.message 
@@ -274,22 +233,21 @@ export const AuthProvider = ({ children }) => {
 
   const logout = useCallback(() => {
     clearAllTokens();
-    console.log('User logged out');
+    console.log('👋 User logged out');
   }, [clearAllTokens]);
 
   const updateUser = useCallback((userData) => {
     const updatedUser = { ...user, ...userData };
     setUser(updatedUser);
     localStorage.setItem('cached_user', JSON.stringify(updatedUser));
+    console.log('👤 User data updated');
   }, [user]);
 
-  // Enhanced makeAuthenticatedRequest function
   const makeAuthenticatedRequest = useCallback(async (endpoint, options = {}) => {
-    // Use state token first, fallback to localStorage
     const authToken = token || localStorage.getItem('authToken');
     
     if (!authToken) {
-      console.error('No authentication token available');
+      console.error('❌ No authentication token available');
       logout();
       throw new Error('No authentication token found');
     }
@@ -306,32 +264,31 @@ export const AuthProvider = ({ children }) => {
     };
 
     try {
-      console.log(`Making request to: ${API_BASE_URL}${endpoint}`);
+      console.log(`📡 Making request to: ${API_BASE_URL}${endpoint}`);
       const response = await fetch(`${API_BASE_URL}${endpoint}`, requestOptions);
       
       if (response.status === 401) {
-        console.error('401 Unauthorized - token expired or invalid');
+        console.error('❌ 401 Unauthorized - token expired or invalid');
         logout();
         throw new Error('Authentication failed - please log in again');
       }
       
       if (!response.ok) {
         const errorText = await response.text();
-        console.error(`HTTP ${response.status}:`, errorText);
+        console.error(`❌ HTTP ${response.status}:`, errorText);
         throw new Error(`HTTP ${response.status}: ${errorText || 'Request failed'}`);
       }
       
       return response;
     } catch (error) {
-      console.error('API request failed:', error);
+      console.error('❌ API request failed:', error);
       if (error.message.includes('Authentication failed')) {
-        throw error; // Re-throw auth errors
+        throw error;
       }
       throw new Error('Network request failed: ' + error.message);
     }
   }, [token, logout]);
 
-  // Helper function to check if user is really authenticated
   const isReallyAuthenticated = useCallback(() => {
     return isAuthenticated && user && user.user_id && token;
   }, [isAuthenticated, user, token]);
@@ -346,7 +303,6 @@ export const AuthProvider = ({ children }) => {
     logout,
     updateUser,
     makeAuthenticatedRequest,
-    debugAuth,
     isReallyAuthenticated
   };
 
