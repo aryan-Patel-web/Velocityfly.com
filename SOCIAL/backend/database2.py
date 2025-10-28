@@ -134,6 +134,8 @@ class MultiPlatformDatabaseManager:
         except Exception as e:
             logger.error(f"Index creation failed: {e}")
     
+
+
     # User Management
     async def register_user(self, email: str, password: str, name: str) -> Dict[str, Any]:
         """Register new user"""
@@ -251,6 +253,9 @@ class MultiPlatformDatabaseManager:
         except Exception as e:
             logger.error(f"User login failed: {e}")
             return {"success": False, "error": str(e)}
+        
+
+        
     
     async def get_user_by_token(self, token: str) -> Optional[Dict[str, Any]]:
         """Get user by JWT token"""

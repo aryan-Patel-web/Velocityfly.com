@@ -1892,16 +1892,20 @@ async def debug_users():
     except Exception as e:
         return {"error": str(e)}
 
+
+
+
+
 # ============= INCLUDE REDDIT ROUTER =============
+# ============= REDDIT ROUTER DISABLED =============
+# Disabled to prevent auth route conflicts between Reddit and YouTube endpoints
+# Reddit's main.py has /api/auth/* routes that conflict with mainY's auth routes
+# To re-enable: uncomment the app.mount() line below
 try:
-    # Import main module safely and look for common export patterns
     import importlib
     main_mod = importlib.import_module("main")
-
-    # Try to obtain an ASGI app instance first
     reddit_app = getattr(main_mod, "app", None)
-
-    # If a factory exists, try to call it to get an app
+    
     if reddit_app is None:
         create_app = getattr(main_mod, "create_app", None)
         if callable(create_app):
@@ -1910,25 +1914,22 @@ try:
                 logger.info("✓ Created Reddit app via create_app()")
             except Exception as e:
                 logger.warning(f"⚠️ main.create_app() failed: {e}")
-
-    # If we found an ASGI app, mount it
+    
     if reddit_app:
-        app.mount("/api/reddit", reddit_app)
-        logger.info("✅ Reddit app mounted at /api/reddit")
+        # DISABLED: app.mount("/api/reddit", reddit_app)
+        logger.info("ℹ️ Reddit app found but NOT mounted (disabled)")
     else:
-        # Fallback: look for a router object to include
         reddit_router = getattr(main_mod, "router", None) or getattr(main_mod, "reddit_router", None)
         if reddit_router:
-            app.include_router(reddit_router, prefix="/api/reddit")
-            logger.info("✅ Reddit router included at /api/reddit")
+            # DISABLED: app.include_router(reddit_router, prefix="/api/reddit")
+            logger.info("ℹ️ Reddit router found but NOT included (disabled)")
         else:
-            logger.warning("⚠️ No 'app' or 'router' found in main module to mount/include")
+            logger.info("ℹ️ No Reddit app or router found")
+            
 except ImportError as e:
-    logger.warning(f"⚠️ Reddit router module not available: {e}")
+    logger.info(f"ℹ️ Reddit module not available: {e}")
 except Exception as e:
-    logger.error(f"❌ Error loading Reddit routes: {e}")
-
-
+    logger.warning(f"⚠️ Error checking Reddit routes: {e}")
 # ========================================================================
 # 🔐 AUTHENTICATION & USER MANAGEMENT ROUTES
 # ========================================================================
