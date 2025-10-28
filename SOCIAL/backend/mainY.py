@@ -45,6 +45,13 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.encoders import jsonable_encoder
 from enum import Enum
 from pathlib import Path
+
+import bcrypt
+import jwt
+
+
+
+
 # Load environment variables
 from dotenv import load_dotenv
 load_dotenv()
@@ -1259,8 +1266,10 @@ app.add_middleware(
         "http://localhost:8080"
     ],
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["*"],
+    expose_headers=["*"],
+    max_age=3600
 )
 
 # Trusted hosts middleware
@@ -1616,13 +1625,13 @@ async def debug_users():
 # ========================================================================
 
 # ============ ADD OPTIONS HANDLERS FIRST ============
+# OPTIONS handlers for CORS
+@app.options("/api/auth/register")
+async def options_register():
+    return Response(status_code=200)
 
 @app.options("/api/auth/login")
 async def options_login():
-    return Response(status_code=200)
-
-@app.options("/api/auth/register")
-async def options_register():
     return Response(status_code=200)
 
 @app.options("/api/auth/me")
@@ -1632,20 +1641,26 @@ async def options_me():
 
 # ============ REGISTER ENDPOINT - FIXED ============
 
+
+# Register endpoint
 @app.post("/api/auth/register")
 async def register(request: RegisterRequest):
     """User registration with password hashing and JWT token"""
     try:
+        logger.info(f"📝 Registration attempt: {request.email}")
+        
         if not database_manager:
             raise HTTPException(status_code=503, detail="Database service not available")
         
         # Check if user exists
-        existing_user = await database_manager.get_user_by_email(request.email)
+        existing_user = await database_manager.users_collection.find_one(
+            {"email": request.email}
+        )
+        
         if existing_user:
             raise HTTPException(status_code=400, detail="Email already registered")
         
-        # Hash password - CRITICAL SECURITY FIX!
-        import bcrypt
+        # Hash password
         hashed_password = bcrypt.hashpw(
             request.password.encode('utf-8'),
             bcrypt.gensalt()
@@ -1657,19 +1672,16 @@ async def register(request: RegisterRequest):
             "_id": user_id,
             "email": request.email,
             "name": request.name,
-            "password": hashed_password,  # ← HASHED, not plain text!
+            "password": hashed_password,
             "created_at": datetime.now(),
             "platforms_connected": [],
             "automation_enabled": False
         }
         
-        success = await database_manager.create_user(user_data)
+        # Insert into database
+        await database_manager.users_collection.insert_one(user_data)
         
-        if not success:
-            raise HTTPException(status_code=400, detail="Registration failed")
-        
-        # Generate JWT token - CRITICAL FIX!
-        import jwt
+        # Generate JWT token
         token = jwt.encode(
             {
                 "user_id": user_id,
@@ -1680,12 +1692,12 @@ async def register(request: RegisterRequest):
             algorithm="HS256"
         )
         
-        logger.info(f"User registered: {request.email}")
+        logger.info(f"✅ User registered: {request.email}")
         
         return {
             "success": True,
             "message": "User registered successfully",
-            "token": token,  # ← ADD TOKEN!
+            "token": token,
             "user": {
                 "user_id": user_id,
                 "email": request.email,
@@ -1697,69 +1709,65 @@ async def register(request: RegisterRequest):
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Registration failed: {e}")
+        logger.error(f"❌ Registration failed: {e}")
         import traceback
         logger.error(traceback.format_exc())
-        raise HTTPException(status_code=500, detail="Registration failed")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
-# ============ LOGIN ENDPOINT - FIXED ============
-
+# Login endpoint
 @app.post("/api/auth/login")
 async def login(request: LoginRequest):
     """User login with password verification and JWT token"""
     try:
-        logger.info(f"Login attempt for email: {request.email}")
+        logger.info(f"🔐 Login attempt: {request.email}")
         
         if not database_manager:
             raise HTTPException(status_code=503, detail="Database service not available")
         
-        # Get user
-        user = await database_manager.get_user_by_email(request.email)
+        # Get user from database
+        user = await database_manager.users_collection.find_one(
+            {"email": request.email}
+        )
         
         if not user:
-            logger.warning(f"No user found with email: {request.email}")
+            logger.warning(f"❌ No user found: {request.email}")
             raise HTTPException(status_code=401, detail="Invalid credentials")
         
         # Get stored password
         stored_password = user.get("password")
         if not stored_password:
-            logger.error(f"No password stored for user: {request.email}")
+            logger.error(f"❌ No password stored for user: {request.email}")
             raise HTTPException(status_code=401, detail="Invalid credentials")
         
-        # Verify password with bcrypt - CRITICAL SECURITY FIX!
-        import bcrypt
+        # Verify password with bcrypt
         try:
             password_match = bcrypt.checkpw(
                 request.password.encode('utf-8'),
                 stored_password.encode('utf-8')
             )
         except Exception as e:
-            # If bcrypt fails, password might be in old plain text format
-            # This allows migration from plain text to hashed
-            logger.warning(f"bcrypt check failed, trying plain text comparison: {e}")
+            # If bcrypt fails, try plain text (for migration from old passwords)
+            logger.warning(f"⚠️ bcrypt check failed, trying plain text: {e}")
             password_match = (stored_password == request.password)
             
-            # If plain text match, update to hashed password
+            # If plain text match, migrate to hashed password
             if password_match:
-                logger.info(f"Migrating user {request.email} to hashed password")
-                hashed_password = bcrypt.hashpw(
+                logger.info(f"🔄 Migrating user {request.email} to hashed password")
+                hashed = bcrypt.hashpw(
                     request.password.encode('utf-8'),
                     bcrypt.gensalt()
                 ).decode('utf-8')
-                # Update password in database
                 await database_manager.users_collection.update_one(
                     {"email": request.email},
-                    {"$set": {"password": hashed_password}}
+                    {"$set": {"password": hashed}}
                 )
         
         if not password_match:
-            logger.warning(f"Password mismatch for user: {request.email}")
-            # DON'T LOG PASSWORDS! - SECURITY FIX!
+            logger.warning(f"❌ Password mismatch for user: {request.email}")
             raise HTTPException(status_code=401, detail="Invalid credentials")
         
-        # Generate JWT token - CRITICAL FIX!
-        import jwt
+        # Generate JWT token
         token = jwt.encode(
             {
                 "user_id": user["_id"],
@@ -1770,16 +1778,16 @@ async def login(request: LoginRequest):
             algorithm="HS256"
         )
         
-        logger.info(f"Login successful for user: {request.email}")
+        logger.info(f"✅ Login successful: {request.email}")
         
         return {
             "success": True,
             "message": "Login successful",
-            "token": token,  # ← ADD TOKEN!
+            "token": token,
             "user": {
                 "user_id": user["_id"],
                 "email": user["email"],
-                "name": user["name"],
+                "name": user.get("name", ""),
                 "platforms_connected": user.get("platforms_connected", [])
             }
         }
@@ -1787,14 +1795,13 @@ async def login(request: LoginRequest):
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Login failed with exception: {e}")
+        logger.error(f"❌ Login failed: {e}")
         import traceback
         logger.error(traceback.format_exc())
-        raise HTTPException(status_code=500, detail="Login failed")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
-# ============ GET CURRENT USER - ADD THIS IF MISSING ============
-
+# Get current user endpoint (optional but recommended)
 @app.get("/api/auth/me")
 async def get_current_user(authorization: str = Header(None)):
     """Get current user from JWT token"""
@@ -1808,7 +1815,6 @@ async def get_current_user(authorization: str = Header(None)):
         token = authorization.replace("Bearer ", "")
         
         # Decode JWT token
-        import jwt
         payload = jwt.decode(
             token,
             os.getenv("JWT_SECRET", "your-secret-key-change-in-production"),
@@ -1818,7 +1824,16 @@ async def get_current_user(authorization: str = Header(None)):
         user_id = payload.get("user_id")
         
         # Get user from database
-        user = await database_manager.get_user_by_id(user_id)
+        from bson import ObjectId
+        try:
+            user = await database_manager.users_collection.find_one(
+                {"_id": user_id}
+            )
+        except:
+            # If user_id is not ObjectId, try string
+            user = await database_manager.users_collection.find_one(
+                {"_id": user_id}
+            )
         
         if not user:
             raise HTTPException(status_code=401, detail="User not found")
@@ -1826,9 +1841,9 @@ async def get_current_user(authorization: str = Header(None)):
         return {
             "success": True,
             "user": {
-                "user_id": user["_id"],
+                "user_id": str(user["_id"]),
                 "email": user["email"],
-                "name": user["name"],
+                "name": user.get("name", ""),
                 "platforms_connected": user.get("platforms_connected", [])
             }
         }
@@ -1838,8 +1853,9 @@ async def get_current_user(authorization: str = Header(None)):
     except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Invalid token")
     except Exception as e:
-        logger.error(f"Auth error: {e}")
+        logger.error(f"❌ Auth error: {e}")
         raise HTTPException(status_code=401, detail="Authentication failed")
+
 
 
 # ========================================================================
