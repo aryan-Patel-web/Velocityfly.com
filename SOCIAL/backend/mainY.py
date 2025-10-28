@@ -509,7 +509,13 @@ async def store_scheduled_post(user_id: str, post_type: str, post_data: dict, sc
 
 
 
-# FIXED AI Service initialization function
+# ========== COMPLETE INITIALIZATION - ALL SERVICES ==========
+# This handles YouTube, Reddit, Database, and AI properly
+# Based on your working files
+
+# ========== SECTION 1: AI SERVICE INITIALIZATION ==========
+# ADD THIS AFTER LINE 500
+
 def initialize_ai_service():
     """Initialize AI service with proper error handling"""
     global ai_service
@@ -526,18 +532,18 @@ def initialize_ai_service():
             ai_service = None
             return False
         
-        # FIXED: Use AIService2 instead of AIService
+        # Use AIService2
         if AI_SERVICE_AVAILABLE and AIService2:
             ai_service = AIService2()
-            logger.info("AI Service 2 initialized successfully")
+            logger.info("✅ AI Service 2 initialized successfully")
             return True
         else:
-            logger.warning("AIService2 class not available")
+            logger.warning("⚠️ AIService2 class not available")
             ai_service = None
             return False
             
     except Exception as e:
-        logger.error(f"AI service initialization failed: {e}")
+        logger.error(f"❌ AI service initialization failed: {e}")
         ai_service = None
         return False
 
@@ -652,58 +658,101 @@ async def download_youtube_video_for_thumbnails(video_url: str, user_id: str) ->
         raise Exception(f"Failed to download YouTube video: {str(e)}")
 
 
+# ========== SECTION 2: Initialize Services Function ==========
+# LOCATION: Add this RIGHT AFTER Section 1 (after initialize_ai_service function)
+
+# ========== COMPLETE SERVICE INITIALIZATION ==========
+# ========== SECTION 2: COMPLETE SERVICE INITIALIZATION ==========
+
 async def initialize_services():
-    """Initialize all services with robust error handling"""
-    global database_manager, ai_service, youtube_connector, youtube_scheduler, youtube_background_scheduler, youtube_ai_service, youtube_feature_extractor
+    """
+    Initialize all services in correct order:
+    1. Environment variables check
+    2. AI Service
+    3. YouTube Database (with .connect())
+    4. YouTube Service (with dependencies)
+    5. YouTube AI Services
+    6. Reddit Services (if available)
+    """
+    global database_manager, ai_service, youtube_connector, youtube_scheduler
+    global youtube_background_scheduler, youtube_ai_service, youtube_feature_extractor
     
     try:
-        logger.info("Starting YouTube automation service initialization...")
+        logger.info("=" * 60)
+        logger.info("🚀 STARTING MULTI-SERVICE INITIALIZATION")
+        logger.info("=" * 60)
         
-        # Check required environment variables
-        required_env_vars = [
-            'GOOGLE_CLIENT_ID',
-            'GOOGLE_CLIENT_SECRET', 
-            'MONGODB_URI'
-        ]
+        # ========== STEP 1: Check Environment Variables ==========
+        logger.info("📋 Step 1: Checking environment variables...")
         
-        missing_vars = []
-        for var in required_env_vars:
-            if not os.getenv(var):
-                missing_vars.append(var)
+        required_env_vars = ['GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET', 'MONGODB_URI']
+        missing_vars = [var for var in required_env_vars if not os.getenv(var)]
         
         if missing_vars:
-            logger.error(f"Missing required environment variables: {missing_vars}")
+            logger.error(f"❌ Missing required environment variables: {missing_vars}")
+            logger.error("Set these in Render dashboard → Environment")
             return False
-            
-        logger.info("Environment variables check passed")
         
-        # STEP 1: Initialize AI service FIRST
+        logger.info("✅ All required environment variables present")
+        
+        # ========== STEP 2: Initialize AI Service ==========
+        logger.info("🤖 Step 2: Initializing AI Service...")
+        
         ai_initialized = initialize_ai_service()
-        logger.info(f"AI service initialization: {'Success' if ai_initialized else 'Failed/Mock'}")
+        if ai_initialized:
+            logger.info("✅ AI Service initialized successfully")
+        else:
+            logger.warning("⚠️ AI Service not available - continuing with mock")
         
-        # STEP 2: Initialize YouTube Database using FIXED import
+        # ========== STEP 3: Initialize YouTube Database ==========
+        logger.info("🗄️ Step 3: Initializing YouTube Database...")
+        
         if YOUTUBE_DATABASE_AVAILABLE and get_yt_db:
             try:
+                # Get database instance
                 database_manager = get_yt_db()
+                logger.info("📦 Database manager instance created")
+                
+                # CRITICAL: Actually connect to MongoDB
+                logger.info("🔌 Connecting to MongoDB...")
                 connected = await database_manager.connect()
+                
                 if connected:
-                    logger.info("YouTube database initialized successfully")
+                    logger.info("✅ YouTube database connected successfully")
+                    
+                    # Verify connection by checking collections
+                    try:
+                        # Try to access users collection
+                        if hasattr(database_manager, 'users_collection'):
+                            count = await database_manager.users_collection.count_documents({})
+                            logger.info(f"📊 Database verified: {count} users in system")
+                        else:
+                            logger.warning("⚠️ users_collection not found in database_manager")
+                    except Exception as verify_error:
+                        logger.warning(f"⚠️ Database verification warning: {verify_error}")
                 else:
-                    logger.error("YouTube database connection failed")
+                    logger.error("❌ YouTube database connection failed")
+                    logger.error("Check MONGODB_URI in environment variables")
                     return False
+                    
             except Exception as e:
-                logger.error(f"YouTube database initialization failed: {e}")
+                logger.error(f"❌ YouTube database initialization failed: {e}")
+                import traceback
+                logger.error(f"Traceback:\n{traceback.format_exc()}")
                 return False
         else:
-            logger.error("YouTube database not available - check YTdatabase.py import")
+            logger.error("❌ YouTube database module not available")
+            logger.error("Check that YTdatabase.py exists and imports correctly")
             return False
         
-        # STEP 3: Initialize YouTube service with database and AI service
+        # ========== STEP 4: Initialize YouTube Service ==========
+        logger.info("📺 Step 4: Initializing YouTube Service...")
+        
         if YOUTUBE_AVAILABLE and initialize_youtube_service:
             try:
-                logger.info("Initializing YouTube service with dependencies...")
+                # Pass database_manager and ai_service as dependencies
+                logger.info("🔗 Passing dependencies to YouTube service...")
                 
-                # Pass both database_manager and ai_service to YouTube initialization
                 success = await initialize_youtube_service(
                     database_manager=database_manager,
                     ai_service=ai_service
@@ -713,63 +762,159 @@ async def initialize_services():
                     # Get YouTube service instances
                     if get_youtube_connector:
                         youtube_connector = get_youtube_connector()
-                        logger.info("YouTube connector initialized")
+                        logger.info("✅ YouTube connector initialized")
+                    else:
+                        logger.warning("⚠️ YouTube connector not available")
                     
                     if get_youtube_scheduler:
                         youtube_scheduler = get_youtube_scheduler()
-                        logger.info("YouTube scheduler initialized")
+                        logger.info("✅ YouTube scheduler initialized")
+                    else:
+                        logger.warning("⚠️ YouTube scheduler not available")
                     
-                    # CRITICAL: Get background scheduler from youtube.py module
-                    from youtube import youtube_background_scheduler as yt_bg_scheduler
-                    youtube_background_scheduler = yt_bg_scheduler
-                    logger.info("Background scheduler reference obtained")
-                    
-                    logger.info("YouTube service initialization completed successfully")
+                    logger.info("✅ YouTube service initialization completed")
                 else:
-                    logger.error("YouTube service initialization returned False")
+                    logger.error("❌ YouTube service initialization returned False")
+                    logger.error("Check YouTube module and dependencies")
                     return False
                     
             except Exception as e:
-                logger.error(f"YouTube service initialization failed: {e}")
+                logger.error(f"❌ YouTube service initialization failed: {e}")
                 import traceback
-                logger.error(f"Traceback: {traceback.format_exc()}")
+                logger.error(f"Traceback:\n{traceback.format_exc()}")
                 return False
         else:
-            logger.error("YouTube module not available - check imports")
-            return False
+            logger.warning("⚠️ YouTube module not available - skipping YouTube init")
         
-        # STEP 4: Initialize YouTube AI services
+        # ========== STEP 5: Initialize YouTube AI Services ==========
+        logger.info("🎨 Step 5: Initializing YouTube AI Services...")
+        
         if YOUTUBE_AI_AVAILABLE:
             try:
                 youtube_ai_service = YouTubeAIService()
-                youtube_feature_extractor = YouTubeFeatureExtractor(youtube_ai_service)
-                logger.info("YouTube AI services initialized successfully")
+                logger.info("✅ YouTube AI Service initialized")
+                
+                if YouTubeFeatureExtractor:
+                    youtube_feature_extractor = YouTubeFeatureExtractor(youtube_ai_service)
+                    logger.info("✅ YouTube Feature Extractor initialized")
+                else:
+                    logger.warning("⚠️ YouTube Feature Extractor not available")
+                    
             except Exception as ai_error:
-                logger.warning(f"YouTube AI services initialization failed: {ai_error}")
+                logger.warning(f"⚠️ YouTube AI services initialization failed: {ai_error}")
+                logger.warning("Continuing without YouTube AI features")
+        else:
+            logger.info("ℹ️ YouTube AI services not available - skipping")
         
-        logger.info("All services initialized successfully")
+        # ========== STEP 6: Initialize Reddit Services (if available) ==========
+        logger.info("🔴 Step 6: Checking for Reddit services...")
+        
+        try:
+            # Try to import Reddit services
+            from main import (
+                get_database_manager as get_reddit_db,
+                automation_scheduler as reddit_scheduler
+            )
+            
+            if get_reddit_db:
+                reddit_db = get_reddit_db()
+                if reddit_db:
+                    logger.info("✅ Reddit database manager available")
+                else:
+                    logger.info("ℹ️ Reddit database manager returned None")
+            
+            if reddit_scheduler:
+                logger.info("✅ Reddit automation scheduler available")
+            else:
+                logger.info("ℹ️ Reddit automation scheduler not available")
+                
+        except ImportError:
+            logger.info("ℹ️ Reddit services not available - skipping")
+        except Exception as reddit_error:
+            logger.warning(f"⚠️ Reddit services initialization warning: {reddit_error}")
+        
+        # ========== FINAL: Print Service Status ==========
+        logger.info("=" * 60)
+        logger.info("✅ MULTI-SERVICE INITIALIZATION COMPLETE")
+        logger.info("=" * 60)
+        logger.info("📊 SERVICE STATUS SUMMARY:")
+        logger.info(f"  🤖 AI Service:           {'✅ Active' if ai_service else '❌ Inactive'}")
+        logger.info(f"  🗄️  Database Manager:     {'✅ Connected' if database_manager else '❌ Disconnected'}")
+        logger.info(f"  📺 YouTube Connector:    {'✅ Ready' if youtube_connector else '❌ Not Ready'}")
+        logger.info(f"  📺 YouTube Scheduler:    {'✅ Ready' if youtube_scheduler else '❌ Not Ready'}")
+        logger.info(f"  🎨 YouTube AI:           {'✅ Active' if youtube_ai_service else '❌ Inactive'}")
+        logger.info("=" * 60)
+        
+        # Check critical services
+        if not database_manager:
+            logger.error("❌ CRITICAL: Database Manager not initialized!")
+            logger.error("Application may not function correctly")
+            return False
+        
+        logger.info("🎉 All critical services initialized successfully")
         return True
         
     except Exception as e:
-        logger.error(f"Critical service initialization failure: {e}")
+        logger.error("=" * 60)
+        logger.error("❌ CRITICAL SERVICE INITIALIZATION FAILURE")
+        logger.error("=" * 60)
+        logger.error(f"Error: {e}")
+        logger.error(f"Error Type: {type(e).__name__}")
         import traceback
-        logger.error(f"Traceback: {traceback.format_exc()}")
+        logger.error(f"Traceback:\n{traceback.format_exc()}")
+        logger.error("=" * 60)
         return False
 
+
+
+
+
+
 # ========== ADD cleanup_services HERE ==========
+
+# ========== SECTION 3: Cleanup Services Function ==========
+# LOCATION: Add this RIGHT AFTER Section 2 (after initialize_services function)
 async def cleanup_services():
-    """Cleanup services on shutdown"""
-    try:
-        # Stop background scheduler
-        if youtube_background_scheduler:
+    """Cleanup all services on shutdown"""
+    global database_manager, youtube_background_scheduler
+    
+    logger.info("=" * 60)
+    logger.info("🛑 SHUTTING DOWN SERVICES")
+    logger.info("=" * 60)
+    
+    # Stop YouTube background scheduler
+    if youtube_background_scheduler:
+        try:
+            logger.info("⏹️ Stopping YouTube background scheduler...")
             await youtube_background_scheduler.stop()
-            logger.info("Background scheduler stopped")
-        
-        if database_manager:
-            await database_manager.close()
-        logger.info("Services cleaned up successfully")
+            logger.info("✅ YouTube background scheduler stopped")
+        except Exception as e:
+            logger.warning(f"⚠️ YouTube scheduler cleanup error: {e}")
+    
+    # Stop Reddit scheduler (if available)
+    try:
+        from main import automation_scheduler as reddit_scheduler
+        if reddit_scheduler and hasattr(reddit_scheduler, 'stop'):
+            logger.info("⏹️ Stopping Reddit automation scheduler...")
+            await reddit_scheduler.stop()
+            logger.info("✅ Reddit scheduler stopped")
+    except ImportError:
+        pass  # Reddit not available
     except Exception as e:
-        logger.error(f"Service cleanup failed: {e}")
+        logger.warning(f"⚠️ Reddit scheduler cleanup error: {e}")
+    
+    # Close database connection
+    if database_manager:
+        try:
+            logger.info("🔌 Closing database connection...")
+            await database_manager.close()
+            logger.info("✅ Database connection closed")
+        except Exception as e:
+            logger.warning(f"⚠️ Database cleanup error: {e}")
+    
+    logger.info("=" * 60)
+    logger.info("✅ SHUTDOWN COMPLETE")
+    logger.info("=" * 60)
 
 
 
@@ -1562,13 +1707,6 @@ async def health_check():
         "services": services_status,
         "timestamp": datetime.now().isoformat()
     }
-
-
-# ========================================
-# PART 2: UPDATE APP INITIALIZATION
-# FIND THIS LINE (around line 260-270)
-# ========================================
-
 
 
 
