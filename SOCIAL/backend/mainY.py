@@ -1896,41 +1896,42 @@ async def debug_users():
 
 
 
-# ============= INCLUDE REDDIT ROUTER =============
 # ============= REDDIT ROUTER DISABLED =============
-# Disabled to prevent auth route conflicts between Reddit and YouTube endpoints
-# Reddit's main.py has /api/auth/* routes that conflict with mainY's auth routes
-# To re-enable: uncomment the app.mount() line below
-try:
-    import importlib
-    main_mod = importlib.import_module("main")
-    reddit_app = getattr(main_mod, "app", None)
-    
-    if reddit_app is None:
-        create_app = getattr(main_mod, "create_app", None)
-        if callable(create_app):
-            try:
-                reddit_app = create_app()
-                logger.info("✓ Created Reddit app via create_app()")
-            except Exception as e:
-                logger.warning(f"⚠️ main.create_app() failed: {e}")
-    
-    if reddit_app:
-        
-        # DISABLED: app.mount("/api/reddit", reddit_app)
-        logger.info("ℹ️ Reddit app found but NOT mounted (disabled)")
-    else:
-        reddit_router = getattr(main_mod, "router", None) or getattr(main_mod, "reddit_router", None)
-        if reddit_router:
-            # DISABLED: app.include_router(reddit_router, prefix="/api/reddit")
-            logger.info("ℹ️ Reddit router found but NOT included (disabled)")
-        else:
-            logger.info("ℹ️ No Reddit app or router found")
-            
-except ImportError as e:
-    logger.info(f"ℹ️ Reddit module not available: {e}")
-except Exception as e:
-    logger.warning(f"⚠️ Error checking Reddit routes: {e}")
+# Completely disabled to prevent any conflicts
+# To re-enable: uncomment the code below
+
+# try:
+#     import importlib
+#     main_mod = importlib.import_module("main")
+#     reddit_app = getattr(main_mod, "app", None)
+#     
+#     if reddit_app is None:
+#         create_app = getattr(main_mod, "create_app", None)
+#         if callable(create_app):
+#             try:
+#                 reddit_app = create_app()
+#                 logger.info("✓ Created Reddit app via create_app()")
+#             except Exception as e:
+#                 logger.warning(f"⚠️ main.create_app() failed: {e}")
+#     
+#     if reddit_app:
+#         app.mount("/api/reddit", reddit_app)
+#         logger.info("ℹ️ Reddit app mounted at /api/reddit")
+#     else:
+#         reddit_router = getattr(main_mod, "router", None) or getattr(main_mod, "reddit_router", None)
+#         if reddit_router:
+#             app.include_router(reddit_router, prefix="/api/reddit")
+#             logger.info("ℹ️ Reddit router included at /api/reddit")
+#         else:
+#             logger.info("ℹ️ No Reddit app or router found")
+#             
+# except ImportError as e:
+#     logger.info(f"ℹ️ Reddit module not available: {e}")
+# except Exception as e:
+#     logger.warning(f"⚠️ Error checking Reddit routes: {e}")
+
+logger.info("ℹ️ Reddit integration completely disabled")
+
 # ========================================================================
 # 🔐 AUTHENTICATION & USER MANAGEMENT ROUTES
 # ========================================================================
