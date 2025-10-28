@@ -1274,10 +1274,10 @@ app.add_middleware(
 )
 
 # Trusted hosts middleware
-app.add_middleware(
-    TrustedHostMiddleware,
-    allowed_hosts=["*"]
-)
+# app.add_middleware(
+#     TrustedHostMiddleware,
+#     allowed_hosts=["*"]
+# )
 
 # COPY-PASTE THIS: Request Logging Middleware
 # Add this AFTER your CORS middleware (around line 1274)
@@ -1385,6 +1385,7 @@ except Exception as e:
 # COPY-PASTE THIS: Health Check Endpoints
 # Add this AFTER your auth endpoints (around line 1850)
 
+
 # ============ HEALTH CHECK ENDPOINTS ============
 
 @app.get("/")
@@ -1399,10 +1400,10 @@ async def root():
         "timestamp": datetime.now().isoformat()
     }
 
-@app.options("/")
-async def options_root():
-    """OPTIONS for root"""
-    return Response(status_code=200)
+# @app.options("/")
+# async def options_root():
+#     """OPTIONS for root"""
+#     return Response(status_code=200)
 
 @app.get("/api/health")
 async def detailed_health():
@@ -1456,6 +1457,68 @@ async def detailed_health():
 async def options_health():
     """OPTIONS for health check"""
     return Response(status_code=200)
+
+
+# COPY-PASTE THIS: Fixed OPTIONS Handlers
+# Replace lines 1629-1639 in your mainY.py
+
+@app.options("/api/auth/register")
+async def options_register():
+    return Response(
+        status_code=200,
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "POST, OPTIONS",
+            "Access-Control-Allow-Headers": "*",
+            "Access-Control-Allow-Credentials": "true",
+        }
+    )
+
+@app.options("/api/auth/login")
+async def options_login():
+    return Response(
+        status_code=200,
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "POST, OPTIONS",
+            "Access-Control-Allow-Headers": "*",
+            "Access-Control-Allow-Credentials": "true",
+        }
+    )
+
+@app.options("/api/auth/me")
+async def options_me():
+    return Response(
+        status_code=200,
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, OPTIONS",
+            "Access-Control-Allow-Headers": "*",
+            "Access-Control-Allow-Credentials": "true",
+        }
+    )
+
+# ============ ADD THIS: Health Check ============
+# @app.get("/")
+# async def root():
+#     """Health check endpoint"""
+#     return {
+#         "status": "online",
+#         "service": "VelocityPost API",
+#         "database": "connected" if database_manager else "disconnected",
+#         "timestamp": datetime.now().isoformat()
+#     }
+
+@app.options("/")
+async def options_root():
+    return Response(
+        status_code=200,
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, OPTIONS",
+            "Access-Control-Allow-Headers": "*",
+        }
+    )
 
 
 
@@ -1710,17 +1773,7 @@ async def debug_users():
 
 # ============ ADD OPTIONS HANDLERS FIRST ============
 # OPTIONS handlers for CORS
-@app.options("/api/auth/register")
-async def options_register():
-    return Response(status_code=200)
 
-@app.options("/api/auth/login")
-async def options_login():
-    return Response(status_code=200)
-
-@app.options("/api/auth/me")
-async def options_me():
-    return Response(status_code=200)
 
 
 # ============ REGISTER ENDPOINT - FIXED ============
