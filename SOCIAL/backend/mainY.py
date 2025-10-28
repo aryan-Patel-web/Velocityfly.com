@@ -1256,17 +1256,17 @@ app = FastAPI(
 # CORS middleware
 # 🌍 Middleware Configuration
 # ============================================================
+# CORS middleware - FIXED
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-    
         "https://velocitypost-ai.onrender.com",
         "https://velocitypost-984x.onrender.com",
-        "http://localhost:5173",  # Vite dev
-        "http://localhost:3000",  # React dev
+        "http://localhost:5173",
+        "http://localhost:3000",
         "http://localhost:8000",
         "http://localhost:8080",
-        # "*"  # ⚠️ for testing only — remove in production
+        "*"  # ← UNCOMMENT THIS FOR NOW!
     ],
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
@@ -1275,19 +1275,6 @@ app.add_middleware(
     max_age=3600
 )
 
-# ✅ Handle Preflight OPTIONS Requests
-@app.options("/{path:path}")
-async def preflight_handler(path: str):
-    return JSONResponse(content={"status": "ok"})
-
-# ✅ Trusted Host Middleware (Optional for Render / Vercel)
-app.add_middleware(
-    TrustedHostMiddleware,
-    allowed_hosts=["*"]
-)
-
-# COPY-PASTE THIS: Request Logging Middleware
-# Add this AFTER your CORS middleware (around line 1274)
 
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
