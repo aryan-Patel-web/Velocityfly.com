@@ -1254,23 +1254,21 @@ app = FastAPI(
 )
 
 # CORS middleware
+origins = [
+    "https://velocitypost-ai.onrender.com",
+    "https://velocitypost-984x.onrender.com",
+    "http://localhost:5173",
+    "http://localhost:3000",
+    "http://127.0.0.1:8000",
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://frontend-agentic-bnc2.onrender.com",
-        "https://velocitypost-ai.onrender.com",   # your React frontend on Render
-        "https://velocitypost-984x.onrender.com", # your backend URL (if accessed by other services)
-        "http://localhost:5173",  # for Vite dev
-        "http://localhost:3000",  # for React dev
-        "http://localhost:8000",
-        "http://localhost:8080",
-        "*"  # ⚠️ temporary for testing — remove in production
-    ],
+    allow_origins=origins,
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
-    allow_headers=["*"],
-    expose_headers=["*"],
-    max_age=3600
+    allow_methods=["*"],       # includes OPTIONS, GET, POST, etc.
+    allow_headers=["*"],       # allow all headers
+)
 )
 @app.options("/{path:path}")
 async def preflight_handler(path: str):
