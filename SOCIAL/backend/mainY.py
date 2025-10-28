@@ -1552,6 +1552,7 @@ async def root_options():
             "Access-Control-Allow-Credentials": "true",
         }
     )
+
 # @app.options("/")
 # async def options_root():
 #     """OPTIONS for root"""
@@ -1798,23 +1799,36 @@ async def test_environment():
 # ========================================
 
 # Add debug endpoints
-@app.get("/debug/services")
+@app.get("/api/debug/services")
 async def debug_services():
-    """Debug endpoint to check service status"""
+    """Enhanced debug endpoint to check all service statuses"""
     return {
-        "youtube_connector": youtube_connector is not None,
-        "youtube_scheduler": youtube_scheduler is not None,
-        "database_manager": database_manager is not None,
-        "ai_service": ai_service is not None,
-        "YOUTUBE_AVAILABLE": YOUTUBE_AVAILABLE,
-        "AI_SERVICE_AVAILABLE": AI_SERVICE_AVAILABLE,
-        "DATABASE_AVAILABLE": DATABASE_AVAILABLE,
-        "env_vars": {
-            "GOOGLE_CLIENT_ID": "✓" if os.getenv("GOOGLE_CLIENT_ID") else "✗",
-            "GOOGLE_CLIENT_SECRET": "✓" if os.getenv("GOOGLE_CLIENT_SECRET") else "✗",
-            "GOOGLE_OAUTH_REDIRECT_URI": os.getenv("GOOGLE_OAUTH_REDIRECT_URI"),
-            "MONGODB_URI": "✓" if os.getenv("MONGODB_URI") else "✗",
-            "FRONTEND_URL": os.getenv("FRONTEND_URL")
+        "timestamp": datetime.now().isoformat(),
+        "critical_services": {
+            "database_manager": {
+                "exists": database_manager is not None,
+                "type": str(type(database_manager)),
+                "has_users_collection": hasattr(database_manager, 'users_collection') if database_manager else False,
+                "has_db_attribute": hasattr(database_manager, 'db') if database_manager else False,
+            },
+            "ai_service": {
+                "exists": ai_service is not None,
+                "type": str(type(ai_service)) if ai_service else "None"
+            },
+            "youtube_connector": {
+                "exists": youtube_connector is not None
+            }
+        },
+        "environment_variables": {
+            "MONGODB_URI": "SET" if os.getenv("MONGODB_URI") else "MISSING",
+            "GOOGLE_CLIENT_ID": "SET" if os.getenv("GOOGLE_CLIENT_ID") else "MISSING",
+            "GOOGLE_CLIENT_SECRET": "SET" if os.getenv("GOOGLE_CLIENT_SECRET") else "MISSING",
+            "JWT_SECRET": "SET" if os.getenv("JWT_SECRET") else "MISSING"
+        },
+        "import_status": {
+            "YOUTUBE_AVAILABLE": YOUTUBE_AVAILABLE if 'YOUTUBE_AVAILABLE' in globals() else False,
+            "YOUTUBE_DATABASE_AVAILABLE": YOUTUBE_DATABASE_AVAILABLE if 'YOUTUBE_DATABASE_AVAILABLE' in globals() else False,
+            "AI_SERVICE_AVAILABLE": AI_SERVICE_AVAILABLE if 'AI_SERVICE_AVAILABLE' in globals() else False
         }
     }
 
@@ -1941,26 +1955,83 @@ except Exception as e:
 # ============================================================
 # 👤 AUTH ROUTES
 # ============================================================
+# ========== CORRECTED REGISTRATION ENDPOINT ==========
+# REPLACE YOUR CURRENT @app.post("/api/auth/register") WITH THIS
 
 @app.post("/api/auth/register")
 async def register(request: RegisterRequest):
-    """User registration with password hashing and JWT token"""
+    """User registration with proper database checking"""
     try:
-        logger.info("📝 Registration request received")
-
-        # ✅ Database Check
-        if not database_manager or not hasattr(database_manager, 'users_collection'):
-            raise HTTPException(status_code=503, detail="Database not available")
-
-        # ✅ Check if user already exists
-        existing_user = await database_manager.users_collection.find_one({"email": request.email})
-        if existing_user:
-            raise HTTPException(status_code=400, detail="Email already registered")
-
-        # ✅ Hash password
-        hashed_password = bcrypt.hashpw(request.password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-
-        # ✅ Insert new user
+        logger.info("=" * 60)
+        logger.info("📝 REGISTRATION REQUEST RECEIVED")
+        logger.info(f"Email: {request.email}")
+        logger.info(f"Name: {request.name}")
+        logger.info("=" * 60)
+        
+        # ========== CRITICAL: Check database_manager ==========
+        logger.info(f"🔍 Checking database_manager...")
+        logger.info(f"   database_manager exists: {database_manager is not None}")
+        logger.info(f"   database_manager type: {type(database_manager)}")
+        
+        if database_manager is None:
+            logger.error("❌ CRITICAL: database_manager is None!")
+            logger.error("This means initialize_services() failed or wasn't called")
+            logger.error("Check Render logs on startup for initialization errors")
+            raise HTTPException(
+                status_code=503, 
+                detail="Database not initialized. Check server logs for initialization errors."
+            )
+        
+        # Check if database has required attributes
+        if not hasattr(database_manager, 'users_collection'):
+            logger.error("❌ database_manager exists but has no users_collection!")
+            logger.error(f"Available attributes: {dir(database_manager)}")
+            raise HTTPException(
+                status_code=503,
+                detail="Database not properly configured"
+            )
+        
+        logger.info("✅ Database manager is available")
+        
+        # ========== Check if user exists ==========
+        logger.info(f"🔍 Checking if user exists: {request.email}")
+        
+        try:
+            existing_user = await database_manager.users_collection.find_one({"email": request.email})
+            
+            if existing_user:
+                logger.warning(f"⚠️ User already exists: {request.email}")
+                raise HTTPException(
+                    status_code=400, 
+                    detail="Email already registered. Please use a different email or login."
+                )
+            
+            logger.info("✅ Email is available")
+            
+        except Exception as db_error:
+            logger.error(f"❌ Database query failed: {db_error}")
+            logger.error(f"Error type: {type(db_error).__name__}")
+            import traceback
+            logger.error(f"Traceback:\n{traceback.format_exc()}")
+            raise HTTPException(
+                status_code=503,
+                detail=f"Database connection error: {str(db_error)}"
+            )
+        
+        # ========== Hash password ==========
+        logger.info("🔐 Hashing password...")
+        try:
+            hashed_password = bcrypt.hashpw(
+                request.password.encode('utf-8'), 
+                bcrypt.gensalt()
+            ).decode('utf-8')
+            logger.info("✅ Password hashed successfully")
+        except Exception as hash_error:
+            logger.error(f"❌ Password hashing failed: {hash_error}")
+            raise HTTPException(status_code=500, detail="Password hashing failed")
+        
+        # ========== Create user ==========
+        logger.info("👤 Creating user...")
         user_id = str(uuid.uuid4())
         user_data = {
             "_id": user_id,
@@ -1969,88 +2040,199 @@ async def register(request: RegisterRequest):
             "password": hashed_password,
             "created_at": datetime.now(),
             "platforms_connected": [],
-            "automation_enabled": False
+            "automation_enabled": False,
+            "settings": {},
+            "subscription": {
+                "plan": "free",
+                "started_at": datetime.now()
+            }
         }
-        await database_manager.users_collection.insert_one(user_data)
-
-        # ✅ Generate JWT token
-        token = jwt.encode(
-            {
-                "user_id": user_id,
-                "email": request.email,
-                "exp": datetime.utcnow() + timedelta(days=30)
-            },
-            os.getenv("JWT_SECRET", "your-secret-key-change-in-production"),
-            algorithm="HS256"
-        )
-
-        logger.success(f"✅ User registered: {request.email}")
-
+        
+        try:
+            result = await database_manager.users_collection.insert_one(user_data)
+            logger.info(f"✅ User created successfully")
+            logger.info(f"   User ID: {user_id}")
+            logger.info(f"   Insert result: {result.inserted_id}")
+        except Exception as insert_error:
+            logger.error(f"❌ User insertion failed: {insert_error}")
+            logger.error(f"Error type: {type(insert_error).__name__}")
+            import traceback
+            logger.error(f"Traceback:\n{traceback.format_exc()}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to create user: {str(insert_error)}"
+            )
+        
+        # ========== Generate JWT token ==========
+        logger.info("🔑 Generating JWT token...")
+        try:
+            jwt_secret = os.getenv("JWT_SECRET", "your-secret-key-change-in-production")
+            token = jwt.encode(
+                {
+                    "user_id": user_id,
+                    "email": request.email,
+                    "name": request.name,
+                    "exp": datetime.utcnow() + timedelta(days=30)
+                },
+                jwt_secret,
+                algorithm="HS256"
+            )
+            logger.info("✅ JWT token generated")
+        except Exception as jwt_error:
+            logger.error(f"❌ JWT generation failed: {jwt_error}")
+            raise HTTPException(status_code=500, detail="Token generation failed")
+        
+        # ========== Success ==========
+        logger.info("=" * 60)
+        logger.info("🎉 REGISTRATION SUCCESSFUL")
+        logger.info(f"   Email: {request.email}")
+        logger.info(f"   User ID: {user_id}")
+        logger.info("=" * 60)
+        
         return {
             "success": True,
-            "message": "User registered successfully",
+            "message": "Registration successful",
             "token": token,
             "user": {
                 "user_id": user_id,
                 "email": request.email,
                 "name": request.name,
-                "platforms_connected": []
+                "platforms_connected": [],
+                "automation_enabled": False
             }
         }
-
+    
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"❌ Registration failed: {e}\n{traceback.format_exc()}")
-        raise HTTPException(status_code=500, detail=str(e))
-
+        logger.error("=" * 60)
+        logger.error("❌ REGISTRATION FAILED")
+        logger.error(f"Error: {e}")
+        logger.error(f"Error type: {type(e).__name__}")
+        import traceback
+        logger.error(f"Traceback:\n{traceback.format_exc()}")
+        logger.error("=" * 60)
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Registration failed: {str(e)}"
+        )
 
 # ============================================================
 # 🔐 LOGIN
 # ============================================================
 @app.post("/api/auth/login")
 async def login(request: LoginRequest):
-    """User login with password verification and JWT token"""
+    """User login with enhanced error handling and logging"""
     try:
-        logger.info("🔐 Login request received")
-
-        if not database_manager:
-            raise HTTPException(status_code=503, detail="Database not available")
-
-        user = await database_manager.users_collection.find_one({"email": request.email})
-        if not user:
-            raise HTTPException(status_code=401, detail="Invalid credentials")
-
-        stored_password = user.get("password")
-        password_match = False
-
+        logger.info("=" * 60)
+        logger.info("🔐 LOGIN REQUEST RECEIVED")
+        logger.info(f"Email: {request.email}")
+        logger.info("=" * 60)
+        
+        # ========== CRITICAL: Check database_manager ==========
+        logger.info(f"🔍 Checking database_manager...")
+        logger.info(f"   database_manager exists: {database_manager is not None}")
+        
+        if database_manager is None:
+            logger.error("❌ CRITICAL: database_manager is None!")
+            logger.error("Login cannot proceed without database")
+            raise HTTPException(
+                status_code=503, 
+                detail="Database not initialized. Please contact support."
+            )
+        
+        logger.info("✅ Database manager is available")
+        
+        # ========== Find user ==========
+        logger.info(f"🔍 Looking up user: {request.email}")
+        
         try:
-            password_match = bcrypt.checkpw(request.password.encode('utf-8'), stored_password.encode('utf-8'))
-        except Exception as e:
-            logger.warning(f"⚠️ bcrypt failed: {e}, trying plaintext comparison")
+            user = await database_manager.users_collection.find_one({"email": request.email})
+            
+            if not user:
+                logger.warning(f"⚠️ User not found: {request.email}")
+                raise HTTPException(status_code=401, detail="Invalid email or password")
+            
+            logger.info(f"✅ User found: {user['_id']}")
+            
+        except Exception as db_error:
+            logger.error(f"❌ Database query failed: {db_error}")
+            raise HTTPException(
+                status_code=503,
+                detail="Database connection error"
+            )
+        
+        # ========== Verify password ==========
+        logger.info("🔐 Verifying password...")
+        
+        stored_password = user.get("password")
+        if not stored_password:
+            logger.error("❌ User has no password stored!")
+            raise HTTPException(status_code=401, detail="Invalid email or password")
+        
+        password_match = False
+        
+        try:
+            # Try bcrypt verification
+            password_match = bcrypt.checkpw(
+                request.password.encode('utf-8'), 
+                stored_password.encode('utf-8')
+            )
+            logger.info("✅ bcrypt verification successful")
+            
+        except Exception as bcrypt_error:
+            # Fallback to plaintext comparison
+            logger.warning(f"⚠️ bcrypt failed: {bcrypt_error}, trying plaintext")
             password_match = stored_password == request.password
+            
             if password_match:
-                hashed = bcrypt.hashpw(request.password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+                # Upgrade to hashed password
+                logger.info("🔄 Upgrading password to bcrypt hash...")
+                hashed = bcrypt.hashpw(
+                    request.password.encode('utf-8'), 
+                    bcrypt.gensalt()
+                ).decode('utf-8')
+                
                 await database_manager.users_collection.update_one(
                     {"email": request.email},
                     {"$set": {"password": hashed}}
                 )
-
+                logger.info("✅ Password upgraded to bcrypt")
+        
         if not password_match:
-            raise HTTPException(status_code=401, detail="Invalid credentials")
-
-        token = jwt.encode(
-            {
-                "user_id": user["_id"],
-                "email": user["email"],
-                "exp": datetime.utcnow() + timedelta(days=30)
-            },
-            os.getenv("JWT_SECRET", "your-secret-key-change-in-production"),
-            algorithm="HS256"
-        )
-
-        logger.success(f"✅ Login successful for {request.email}")
-
+            logger.warning(f"⚠️ Invalid password for: {request.email}")
+            raise HTTPException(status_code=401, detail="Invalid email or password")
+        
+        logger.info("✅ Password verified")
+        
+        # ========== Generate JWT token ==========
+        logger.info("🔑 Generating JWT token...")
+        
+        try:
+            jwt_secret = os.getenv("JWT_SECRET", "your-secret-key-change-in-production")
+            token = jwt.encode(
+                {
+                    "user_id": user["_id"],
+                    "email": user["email"],
+                    "name": user.get("name", ""),
+                    "exp": datetime.utcnow() + timedelta(days=30)
+                },
+                jwt_secret,
+                algorithm="HS256"
+            )
+            logger.info("✅ JWT token generated")
+            
+        except Exception as jwt_error:
+            logger.error(f"❌ JWT generation failed: {jwt_error}")
+            raise HTTPException(status_code=500, detail="Token generation failed")
+        
+        # ========== Success ==========
+        logger.info("=" * 60)
+        logger.info("🎉 LOGIN SUCCESSFUL")
+        logger.info(f"   Email: {request.email}")
+        logger.info(f"   User ID: {user['_id']}")
+        logger.info("=" * 60)
+        
         return {
             "success": True,
             "message": "Login successful",
@@ -2059,17 +2241,22 @@ async def login(request: LoginRequest):
                 "user_id": user["_id"],
                 "email": user["email"],
                 "name": user.get("name", ""),
-                "platforms_connected": user.get("platforms_connected", [])
+                "platforms_connected": user.get("platforms_connected", []),
+                "automation_enabled": user.get("automation_enabled", False)
             }
         }
-
+    
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"❌ Login failed: {e}\n{traceback.format_exc()}")
+        logger.error("=" * 60)
+        logger.error("❌ LOGIN FAILED")
+        logger.error(f"Error: {e}")
+        logger.error(f"Error type: {type(e).__name__}")
+        import traceback
+        logger.error(f"Traceback:\n{traceback.format_exc()}")
+        logger.error("=" * 60)
         raise HTTPException(status_code=500, detail=str(e))
-
-
 # ============================================================
 # 👥 GET CURRENT USER
 # ============================================================
