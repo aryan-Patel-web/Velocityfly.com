@@ -1257,13 +1257,14 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        
+        "https://frontend-agentic-bnc2.onrender.com",  # ← YOUR FRONTEND!
         "https://velocitypost-ai.onrender.com",
         "https://velocitypost-984x.onrender.com",
         "http://localhost:5173",
         "http://localhost:3000",
         "http://localhost:8000",
-        "http://localhost:8080"
+        "http://localhost:8080",
+        "*"  # Allow all for testing (remove in production)
     ],
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
@@ -1278,7 +1279,31 @@ app.add_middleware(
     allowed_hosts=["*"]
 )
 
+# COPY-PASTE THIS: Request Logging Middleware
+# Add this AFTER your CORS middleware (around line 1274)
 
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    """Log all incoming requests for debugging"""
+    logger.info("=" * 60)
+    logger.info(f"📥 INCOMING REQUEST")
+    logger.info(f"Method: {request.method}")
+    logger.info(f"URL: {request.url}")
+    logger.info(f"Path: {request.url.path}")
+    logger.info(f"Origin: {request.headers.get('origin', 'No origin')}")
+    logger.info(f"Content-Type: {request.headers.get('content-type', 'No content-type')}")
+    logger.info(f"User-Agent: {request.headers.get('user-agent', 'No UA')[:80]}")
+    logger.info("=" * 60)
+    
+    try:
+        response = await call_next(request)
+        logger.info(f"📤 RESPONSE STATUS: {response.status_code}")
+        return response
+    except Exception as e:
+        logger.error(f"❌ REQUEST FAILED: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
+        raise
 
 
 # Exception handler for validation errors
@@ -1357,21 +1382,80 @@ except Exception as e:
     logger.error(f"❌ Error loading Reddit routes: {e}")
 
 # Health check endpoint
+# COPY-PASTE THIS: Health Check Endpoints
+# Add this AFTER your auth endpoints (around line 1850)
+
+# ============ HEALTH CHECK ENDPOINTS ============
+
 @app.get("/")
 async def root():
-    """Health check and service status"""
+    """Health check endpoint"""
+    logger.info("🏥 Health check requested")
     return {
-        "status": "running",
-        "message": "Multi-Platform Social Media Automation System",
+        "status": "online",
+        "service": "VelocityPost API",
         "version": "2.0.0",
+        "database": "connected" if database_manager else "not available",
+        "timestamp": datetime.now().isoformat()
+    }
+
+@app.options("/")
+async def options_root():
+    """OPTIONS for root"""
+    return Response(status_code=200)
+
+@app.get("/api/health")
+async def detailed_health():
+    """Detailed health check with service status"""
+    logger.info("🏥 Detailed health check requested")
+    
+    # Check database connection
+    db_status = False
+    db_detail = "not initialized"
+    if database_manager:
+        try:
+            if hasattr(database_manager, 'users_collection'):
+                # Try to count users
+                count = await database_manager.users_collection.count_documents({})
+                db_status = True
+                db_detail = f"connected ({count} users)"
+        except Exception as e:
+            db_detail = f"error: {str(e)}"
+    
+    return {
+        "status": "healthy" if db_status else "degraded",
         "services": {
-            "youtube": YOUTUBE_AVAILABLE,
-            "whatsapp": WHATSAPP_AVAILABLE,
-            "ai_service": AI_SERVICE_AVAILABLE,
-            "database": DATABASE_AVAILABLE  # FIXED: Now properly defined
+            "database": {
+                "available": database_manager is not None,
+                "status": db_status,
+                "detail": db_detail
+            },
+            "youtube_connector": youtube_connector is not None,
+            "youtube_scheduler": youtube_scheduler is not None,
+            "ai_service": ai_service is not None
+        },
+        "endpoints": {
+            "register": "/api/auth/register",
+            "login": "/api/auth/login",
+            "me": "/api/auth/me"
+        },
+        "cors_origins": [
+            "https://frontend-agentic-bnc2.onrender.com",
+            "https://velocitypost-ai.onrender.com",
+            "https://velocitypost-984x.onrender.com"
+        ],
+        "environment": {
+            "mongodb_uri": "set" if os.getenv("MONGODB_URI") else "not set",
+            "jwt_secret": "set" if os.getenv("JWT_SECRET") else "not set",
+            "google_client_id": "set" if os.getenv("GOOGLE_CLIENT_ID") else "not set"
         },
         "timestamp": datetime.now().isoformat()
     }
+
+@app.options("/api/health")
+async def options_health():
+    """OPTIONS for health check"""
+    return Response(status_code=200)
 
 
 
@@ -1643,28 +1727,56 @@ async def options_me():
 
 
 # Register endpoint
+# COPY-PASTE THIS: Improved Register Endpoint
+# Replace your register endpoint (around line 1646-1715)
+
 @app.post("/api/auth/register")
 async def register(request: RegisterRequest):
     """User registration with password hashing and JWT token"""
     try:
-        logger.info(f"📝 Registration attempt: {request.email}")
+        # ✅ DETAILED LOGGING
+        logger.info("=" * 60)
+        logger.info("📝 REGISTRATION REQUEST RECEIVED")
+        logger.info(f"Email: {request.email}")
+        logger.info(f"Name: {request.name}")
+        logger.info(f"Database manager available: {database_manager is not None}")
+        if database_manager:
+            logger.info(f"Database type: {type(database_manager).__name__}")
+            logger.info(f"Has users_collection: {hasattr(database_manager, 'users_collection')}")
+        logger.info("=" * 60)
         
         if not database_manager:
+            logger.error("❌ DATABASE MANAGER IS NONE!")
+            logger.error("Check if YouTube module initialized properly")
+            logger.error("Check MONGODB_URI environment variable")
             raise HTTPException(status_code=503, detail="Database service not available")
         
+        # ✅ ADDITIONAL CHECK
+        if not hasattr(database_manager, 'users_collection'):
+            logger.error("❌ DATABASE MANAGER HAS NO users_collection!")
+            raise HTTPException(status_code=503, detail="Database not properly initialized")
+        
+        logger.info("✅ Database checks passed")
+        
         # Check if user exists
+        logger.info(f"Checking if user exists: {request.email}")
         existing_user = await database_manager.users_collection.find_one(
             {"email": request.email}
         )
         
         if existing_user:
+            logger.warning(f"⚠️ Email already registered: {request.email}")
             raise HTTPException(status_code=400, detail="Email already registered")
         
+        logger.info("✅ Email is available")
+        
         # Hash password
+        logger.info("🔒 Hashing password...")
         hashed_password = bcrypt.hashpw(
             request.password.encode('utf-8'),
             bcrypt.gensalt()
         ).decode('utf-8')
+        logger.info("✅ Password hashed")
         
         # Create user
         user_id = str(uuid.uuid4())
@@ -1678,10 +1790,13 @@ async def register(request: RegisterRequest):
             "automation_enabled": False
         }
         
+        logger.info(f"💾 Inserting user into database: {user_id}")
         # Insert into database
         await database_manager.users_collection.insert_one(user_data)
+        logger.info("✅ User inserted into database")
         
         # Generate JWT token
+        logger.info("🔑 Generating JWT token...")
         token = jwt.encode(
             {
                 "user_id": user_id,
@@ -1691,8 +1806,13 @@ async def register(request: RegisterRequest):
             os.getenv("JWT_SECRET", "your-secret-key-change-in-production"),
             algorithm="HS256"
         )
+        logger.info("✅ JWT token generated")
         
-        logger.info(f"✅ User registered: {request.email}")
+        logger.info("=" * 60)
+        logger.info(f"✅ REGISTRATION SUCCESSFUL: {request.email}")
+        logger.info(f"User ID: {user_id}")
+        logger.info(f"Token length: {len(token)} chars")
+        logger.info("=" * 60)
         
         return {
             "success": True,
@@ -1709,30 +1829,45 @@ async def register(request: RegisterRequest):
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"❌ Registration failed: {e}")
+        logger.error("=" * 60)
+        logger.error(f"❌ REGISTRATION FAILED")
+        logger.error(f"Error: {e}")
+        logger.error(f"Error type: {type(e).__name__}")
         import traceback
-        logger.error(traceback.format_exc())
+        logger.error(f"Traceback:\n{traceback.format_exc()}")
+        logger.error("=" * 60)
         raise HTTPException(status_code=500, detail=str(e))
 
-
 # Login endpoint
+# COPY-PASTE THIS: Improved Login Endpoint
+# Replace your login endpoint (around line 1719-1801)
+
 @app.post("/api/auth/login")
 async def login(request: LoginRequest):
     """User login with password verification and JWT token"""
     try:
-        logger.info(f"🔐 Login attempt: {request.email}")
+        # ✅ DETAILED LOGGING
+        logger.info("=" * 60)
+        logger.info("🔐 LOGIN REQUEST RECEIVED")
+        logger.info(f"Email: {request.email}")
+        logger.info(f"Database manager available: {database_manager is not None}")
+        logger.info("=" * 60)
         
         if not database_manager:
+            logger.error("❌ DATABASE MANAGER IS NONE!")
             raise HTTPException(status_code=503, detail="Database service not available")
         
         # Get user from database
+        logger.info(f"🔍 Looking up user: {request.email}")
         user = await database_manager.users_collection.find_one(
             {"email": request.email}
         )
         
         if not user:
-            logger.warning(f"❌ No user found: {request.email}")
+            logger.warning(f"❌ No user found with email: {request.email}")
             raise HTTPException(status_code=401, detail="Invalid credentials")
+        
+        logger.info(f"✅ User found: {user.get('_id')}")
         
         # Get stored password
         stored_password = user.get("password")
@@ -1740,16 +1875,21 @@ async def login(request: LoginRequest):
             logger.error(f"❌ No password stored for user: {request.email}")
             raise HTTPException(status_code=401, detail="Invalid credentials")
         
+        logger.info("🔒 Verifying password...")
+        
         # Verify password with bcrypt
         try:
             password_match = bcrypt.checkpw(
                 request.password.encode('utf-8'),
                 stored_password.encode('utf-8')
             )
+            logger.info(f"✅ bcrypt check: {'MATCH' if password_match else 'NO MATCH'}")
         except Exception as e:
             # If bcrypt fails, try plain text (for migration from old passwords)
-            logger.warning(f"⚠️ bcrypt check failed, trying plain text: {e}")
+            logger.warning(f"⚠️ bcrypt check failed: {e}")
+            logger.warning("Trying plain text comparison for migration...")
             password_match = (stored_password == request.password)
+            logger.info(f"Plain text check: {'MATCH' if password_match else 'NO MATCH'}")
             
             # If plain text match, migrate to hashed password
             if password_match:
@@ -1762,12 +1902,16 @@ async def login(request: LoginRequest):
                     {"email": request.email},
                     {"$set": {"password": hashed}}
                 )
+                logger.info("✅ Password migrated to hashed")
         
         if not password_match:
             logger.warning(f"❌ Password mismatch for user: {request.email}")
             raise HTTPException(status_code=401, detail="Invalid credentials")
         
+        logger.info("✅ Password verified")
+        
         # Generate JWT token
+        logger.info("🔑 Generating JWT token...")
         token = jwt.encode(
             {
                 "user_id": user["_id"],
@@ -1777,8 +1921,13 @@ async def login(request: LoginRequest):
             os.getenv("JWT_SECRET", "your-secret-key-change-in-production"),
             algorithm="HS256"
         )
+        logger.info("✅ JWT token generated")
         
-        logger.info(f"✅ Login successful: {request.email}")
+        logger.info("=" * 60)
+        logger.info(f"✅ LOGIN SUCCESSFUL: {request.email}")
+        logger.info(f"User ID: {user['_id']}")
+        logger.info(f"Token length: {len(token)} chars")
+        logger.info("=" * 60)
         
         return {
             "success": True,
@@ -1795,10 +1944,15 @@ async def login(request: LoginRequest):
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"❌ Login failed: {e}")
+        logger.error("=" * 60)
+        logger.error(f"❌ LOGIN FAILED")
+        logger.error(f"Error: {e}")
+        logger.error(f"Error type: {type(e).__name__}")
         import traceback
-        logger.error(traceback.format_exc())
+        logger.error(f"Traceback:\n{traceback.format_exc()}")
+        logger.error("=" * 60)
         raise HTTPException(status_code=500, detail=str(e))
+    
 
 
 # Get current user endpoint (optional but recommended)
