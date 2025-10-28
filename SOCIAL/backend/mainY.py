@@ -1,3 +1,5 @@
+
+
 """
 Complete Multi-Platform Social Media Automation System
 YouTube, WhatsApp, Instagram, Facebook with unified API
@@ -45,13 +47,6 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.encoders import jsonable_encoder
 from enum import Enum
 from pathlib import Path
-
-import bcrypt
-import jwt
-
-
-
-
 # Load environment variables
 from dotenv import load_dotenv
 load_dotenv()
@@ -509,13 +504,7 @@ async def store_scheduled_post(user_id: str, post_type: str, post_data: dict, sc
 
 
 
-# ========== COMPLETE INITIALIZATION - ALL SERVICES ==========
-# This handles YouTube, Reddit, Database, and AI properly
-# Based on your working files
-
-# ========== SECTION 1: AI SERVICE INITIALIZATION ==========
-# ADD THIS AFTER LINE 500
-
+# FIXED AI Service initialization function
 def initialize_ai_service():
     """Initialize AI service with proper error handling"""
     global ai_service
@@ -532,18 +521,18 @@ def initialize_ai_service():
             ai_service = None
             return False
         
-        # Use AIService2
+        # FIXED: Use AIService2 instead of AIService
         if AI_SERVICE_AVAILABLE and AIService2:
             ai_service = AIService2()
-            logger.info("✅ AI Service 2 initialized successfully")
+            logger.info("AI Service 2 initialized successfully")
             return True
         else:
-            logger.warning("⚠️ AIService2 class not available")
+            logger.warning("AIService2 class not available")
             ai_service = None
             return False
             
     except Exception as e:
-        logger.error(f"❌ AI service initialization failed: {e}")
+        logger.error(f"AI service initialization failed: {e}")
         ai_service = None
         return False
 
@@ -658,101 +647,58 @@ async def download_youtube_video_for_thumbnails(video_url: str, user_id: str) ->
         raise Exception(f"Failed to download YouTube video: {str(e)}")
 
 
-# ========== SECTION 2: Initialize Services Function ==========
-# LOCATION: Add this RIGHT AFTER Section 1 (after initialize_ai_service function)
-
-# ========== COMPLETE SERVICE INITIALIZATION ==========
-# ========== SECTION 2: COMPLETE SERVICE INITIALIZATION ==========
-
 async def initialize_services():
-    """
-    Initialize all services in correct order:
-    1. Environment variables check
-    2. AI Service
-    3. YouTube Database (with .connect())
-    4. YouTube Service (with dependencies)
-    5. YouTube AI Services
-    6. Reddit Services (if available)
-    """
-    global database_manager, ai_service, youtube_connector, youtube_scheduler
-    global youtube_background_scheduler, youtube_ai_service, youtube_feature_extractor
+    """Initialize all services with robust error handling"""
+    global database_manager, ai_service, youtube_connector, youtube_scheduler, youtube_background_scheduler, youtube_ai_service, youtube_feature_extractor
     
     try:
-        logger.info("=" * 60)
-        logger.info("🚀 STARTING MULTI-SERVICE INITIALIZATION")
-        logger.info("=" * 60)
+        logger.info("Starting YouTube automation service initialization...")
         
-        # ========== STEP 1: Check Environment Variables ==========
-        logger.info("📋 Step 1: Checking environment variables...")
+        # Check required environment variables
+        required_env_vars = [
+            'GOOGLE_CLIENT_ID',
+            'GOOGLE_CLIENT_SECRET', 
+            'MONGODB_URI'
+        ]
         
-        required_env_vars = ['GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET', 'MONGODB_URI']
-        missing_vars = [var for var in required_env_vars if not os.getenv(var)]
+        missing_vars = []
+        for var in required_env_vars:
+            if not os.getenv(var):
+                missing_vars.append(var)
         
         if missing_vars:
-            logger.error(f"❌ Missing required environment variables: {missing_vars}")
-            logger.error("Set these in Render dashboard → Environment")
+            logger.error(f"Missing required environment variables: {missing_vars}")
             return False
+            
+        logger.info("Environment variables check passed")
         
-        logger.info("✅ All required environment variables present")
-        
-        # ========== STEP 2: Initialize AI Service ==========
-        logger.info("🤖 Step 2: Initializing AI Service...")
-        
+        # STEP 1: Initialize AI service FIRST
         ai_initialized = initialize_ai_service()
-        if ai_initialized:
-            logger.info("✅ AI Service initialized successfully")
-        else:
-            logger.warning("⚠️ AI Service not available - continuing with mock")
+        logger.info(f"AI service initialization: {'Success' if ai_initialized else 'Failed/Mock'}")
         
-        # ========== STEP 3: Initialize YouTube Database ==========
-        logger.info("🗄️ Step 3: Initializing YouTube Database...")
-        
+        # STEP 2: Initialize YouTube Database using FIXED import
         if YOUTUBE_DATABASE_AVAILABLE and get_yt_db:
             try:
-                # Get database instance
                 database_manager = get_yt_db()
-                logger.info("📦 Database manager instance created")
-                
-                # CRITICAL: Actually connect to MongoDB
-                logger.info("🔌 Connecting to MongoDB...")
                 connected = await database_manager.connect()
-                
                 if connected:
-                    logger.info("✅ YouTube database connected successfully")
-                    
-                    # Verify connection by checking collections
-                    try:
-                        # Try to access users collection
-                        if hasattr(database_manager, 'users_collection'):
-                            count = await database_manager.users_collection.count_documents({})
-                            logger.info(f"📊 Database verified: {count} users in system")
-                        else:
-                            logger.warning("⚠️ users_collection not found in database_manager")
-                    except Exception as verify_error:
-                        logger.warning(f"⚠️ Database verification warning: {verify_error}")
+                    logger.info("YouTube database initialized successfully")
                 else:
-                    logger.error("❌ YouTube database connection failed")
-                    logger.error("Check MONGODB_URI in environment variables")
+                    logger.error("YouTube database connection failed")
                     return False
-                    
             except Exception as e:
-                logger.error(f"❌ YouTube database initialization failed: {e}")
-                import traceback
-                logger.error(f"Traceback:\n{traceback.format_exc()}")
+                logger.error(f"YouTube database initialization failed: {e}")
                 return False
         else:
-            logger.error("❌ YouTube database module not available")
-            logger.error("Check that YTdatabase.py exists and imports correctly")
+            logger.error("YouTube database not available - check YTdatabase.py import")
             return False
         
-        # ========== STEP 4: Initialize YouTube Service ==========
-        logger.info("📺 Step 4: Initializing YouTube Service...")
-        
+        # STEP 3: Initialize YouTube service with database and AI service
         if YOUTUBE_AVAILABLE and initialize_youtube_service:
             try:
-                # Pass database_manager and ai_service as dependencies
-                logger.info("🔗 Passing dependencies to YouTube service...")
+                logger.info("Initializing YouTube service with dependencies...")
                 
+                # Pass both database_manager and ai_service to YouTube initialization
                 success = await initialize_youtube_service(
                     database_manager=database_manager,
                     ai_service=ai_service
@@ -762,159 +708,63 @@ async def initialize_services():
                     # Get YouTube service instances
                     if get_youtube_connector:
                         youtube_connector = get_youtube_connector()
-                        logger.info("✅ YouTube connector initialized")
-                    else:
-                        logger.warning("⚠️ YouTube connector not available")
+                        logger.info("YouTube connector initialized")
                     
                     if get_youtube_scheduler:
                         youtube_scheduler = get_youtube_scheduler()
-                        logger.info("✅ YouTube scheduler initialized")
-                    else:
-                        logger.warning("⚠️ YouTube scheduler not available")
+                        logger.info("YouTube scheduler initialized")
                     
-                    logger.info("✅ YouTube service initialization completed")
+                    # CRITICAL: Get background scheduler from youtube.py module
+                    from youtube import youtube_background_scheduler as yt_bg_scheduler
+                    youtube_background_scheduler = yt_bg_scheduler
+                    logger.info("Background scheduler reference obtained")
+                    
+                    logger.info("YouTube service initialization completed successfully")
                 else:
-                    logger.error("❌ YouTube service initialization returned False")
-                    logger.error("Check YouTube module and dependencies")
+                    logger.error("YouTube service initialization returned False")
                     return False
                     
             except Exception as e:
-                logger.error(f"❌ YouTube service initialization failed: {e}")
+                logger.error(f"YouTube service initialization failed: {e}")
                 import traceback
-                logger.error(f"Traceback:\n{traceback.format_exc()}")
+                logger.error(f"Traceback: {traceback.format_exc()}")
                 return False
         else:
-            logger.warning("⚠️ YouTube module not available - skipping YouTube init")
+            logger.error("YouTube module not available - check imports")
+            return False
         
-        # ========== STEP 5: Initialize YouTube AI Services ==========
-        logger.info("🎨 Step 5: Initializing YouTube AI Services...")
-        
+        # STEP 4: Initialize YouTube AI services
         if YOUTUBE_AI_AVAILABLE:
             try:
                 youtube_ai_service = YouTubeAIService()
-                logger.info("✅ YouTube AI Service initialized")
-                
-                if YouTubeFeatureExtractor:
-                    youtube_feature_extractor = YouTubeFeatureExtractor(youtube_ai_service)
-                    logger.info("✅ YouTube Feature Extractor initialized")
-                else:
-                    logger.warning("⚠️ YouTube Feature Extractor not available")
-                    
+                youtube_feature_extractor = YouTubeFeatureExtractor(youtube_ai_service)
+                logger.info("YouTube AI services initialized successfully")
             except Exception as ai_error:
-                logger.warning(f"⚠️ YouTube AI services initialization failed: {ai_error}")
-                logger.warning("Continuing without YouTube AI features")
-        else:
-            logger.info("ℹ️ YouTube AI services not available - skipping")
+                logger.warning(f"YouTube AI services initialization failed: {ai_error}")
         
-        # ========== STEP 6: Initialize Reddit Services (if available) ==========
-        logger.info("🔴 Step 6: Checking for Reddit services...")
-        
-        try:
-            # Try to import Reddit services
-            from main import (
-                get_database_manager as get_reddit_db,
-                automation_scheduler as reddit_scheduler
-            )
-            
-            if get_reddit_db:
-                reddit_db = get_reddit_db()
-                if reddit_db:
-                    logger.info("✅ Reddit database manager available")
-                else:
-                    logger.info("ℹ️ Reddit database manager returned None")
-            
-            if reddit_scheduler:
-                logger.info("✅ Reddit automation scheduler available")
-            else:
-                logger.info("ℹ️ Reddit automation scheduler not available")
-                
-        except ImportError:
-            logger.info("ℹ️ Reddit services not available - skipping")
-        except Exception as reddit_error:
-            logger.warning(f"⚠️ Reddit services initialization warning: {reddit_error}")
-        
-        # ========== FINAL: Print Service Status ==========
-        logger.info("=" * 60)
-        logger.info("✅ MULTI-SERVICE INITIALIZATION COMPLETE")
-        logger.info("=" * 60)
-        logger.info("📊 SERVICE STATUS SUMMARY:")
-        logger.info(f"  🤖 AI Service:           {'✅ Active' if ai_service else '❌ Inactive'}")
-        logger.info(f"  🗄️  Database Manager:     {'✅ Connected' if database_manager else '❌ Disconnected'}")
-        logger.info(f"  📺 YouTube Connector:    {'✅ Ready' if youtube_connector else '❌ Not Ready'}")
-        logger.info(f"  📺 YouTube Scheduler:    {'✅ Ready' if youtube_scheduler else '❌ Not Ready'}")
-        logger.info(f"  🎨 YouTube AI:           {'✅ Active' if youtube_ai_service else '❌ Inactive'}")
-        logger.info("=" * 60)
-        
-        # Check critical services
-        if not database_manager:
-            logger.error("❌ CRITICAL: Database Manager not initialized!")
-            logger.error("Application may not function correctly")
-            return False
-        
-        logger.info("🎉 All critical services initialized successfully")
+        logger.info("All services initialized successfully")
         return True
         
     except Exception as e:
-        logger.error("=" * 60)
-        logger.error("❌ CRITICAL SERVICE INITIALIZATION FAILURE")
-        logger.error("=" * 60)
-        logger.error(f"Error: {e}")
-        logger.error(f"Error Type: {type(e).__name__}")
+        logger.error(f"Critical service initialization failure: {e}")
         import traceback
-        logger.error(f"Traceback:\n{traceback.format_exc()}")
-        logger.error("=" * 60)
+        logger.error(f"Traceback: {traceback.format_exc()}")
         return False
 
-
-
-
-
-
 # ========== ADD cleanup_services HERE ==========
-
-# ========== SECTION 3: Cleanup Services Function ==========
-# LOCATION: Add this RIGHT AFTER Section 2 (after initialize_services function)
 async def cleanup_services():
-    """Cleanup all services on shutdown"""
-    global database_manager, youtube_background_scheduler
-    
-    logger.info("=" * 60)
-    logger.info("🛑 SHUTTING DOWN SERVICES")
-    logger.info("=" * 60)
-    
-    # Stop YouTube background scheduler
-    if youtube_background_scheduler:
-        try:
-            logger.info("⏹️ Stopping YouTube background scheduler...")
-            await youtube_background_scheduler.stop()
-            logger.info("✅ YouTube background scheduler stopped")
-        except Exception as e:
-            logger.warning(f"⚠️ YouTube scheduler cleanup error: {e}")
-    
-    # Stop Reddit scheduler (if available)
+    """Cleanup services on shutdown"""
     try:
-        from main import automation_scheduler as reddit_scheduler
-        if reddit_scheduler and hasattr(reddit_scheduler, 'stop'):
-            logger.info("⏹️ Stopping Reddit automation scheduler...")
-            await reddit_scheduler.stop()
-            logger.info("✅ Reddit scheduler stopped")
-    except ImportError:
-        pass  # Reddit not available
-    except Exception as e:
-        logger.warning(f"⚠️ Reddit scheduler cleanup error: {e}")
-    
-    # Close database connection
-    if database_manager:
-        try:
-            logger.info("🔌 Closing database connection...")
+        # Stop background scheduler
+        if youtube_background_scheduler:
+            await youtube_background_scheduler.stop()
+            logger.info("Background scheduler stopped")
+        
+        if database_manager:
             await database_manager.close()
-            logger.info("✅ Database connection closed")
-        except Exception as e:
-            logger.warning(f"⚠️ Database cleanup error: {e}")
-    
-    logger.info("=" * 60)
-    logger.info("✅ SHUTDOWN COMPLETE")
-    logger.info("=" * 60)
+        logger.info("Services cleaned up successfully")
+    except Exception as e:
+        logger.error(f"Service cleanup failed: {e}")
 
 
 
@@ -1276,121 +1126,15 @@ async def extract_video_frames_as_thumbnails(
 
 
 # Initialize FastAPI app
-# @asynccontextmanager
-# async def lifespan(app: FastAPI):
-#     # Startup
-#     initialization_success = await initialize_services()
-#     if not initialization_success:
-#         logger.error("Service initialization failed - app may not work correctly")
-#     yield
-#     # Shutdown
-#     await cleanup_services()
-
-# ==================== FIXED VERSION - ADD THIS AFTER LINE 166 ====================
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Initialize services on startup and cleanup on shutdown"""
-    global database_manager, ai_service, youtube_connector, youtube_scheduler
-    global youtube_background_scheduler, youtube_ai_service, youtube_feature_extractor
-    
-    logger.info("=" * 60)
-    logger.info("STARTING APPLICATION INITIALIZATION")
-    logger.info("=" * 60)
-    
-    # Initialize YouTube services
-    if YOUTUBE_AVAILABLE and initialize_youtube_service is not None:
-        try:
-            logger.info("Initializing YouTube services...")
-            success = await initialize_youtube_service()
-            
-            if success:
-                # Get the initialized connectors (with None checks)
-                if get_youtube_connector is not None:
-                    youtube_connector = get_youtube_connector()
-                    logger.info("✓ YouTube connector initialized")
-                
-                if get_youtube_scheduler is not None:
-                    youtube_scheduler = get_youtube_scheduler()
-                    logger.info("✓ YouTube scheduler initialized")
-                
-                if get_youtube_database is not None:
-                    database_manager = get_youtube_database()
-                    logger.info("✓ Database manager initialized")
-            else:
-                logger.error("✗ YouTube service initialization failed")
-                logger.error("Check environment variables:")
-                logger.error("  - GOOGLE_CLIENT_ID")
-                logger.error("  - GOOGLE_CLIENT_SECRET")
-                logger.error("  - GOOGLE_API_KEY")
-                logger.error("  - GOOGLE_OAUTH_REDIRECT_URI")
-                logger.error("  - MONGODB_URI")
-        except Exception as e:
-            logger.error(f"✗ YouTube initialization error: {e}")
-            import traceback
-            logger.error(traceback.format_exc())
-    else:
-        logger.warning("YouTube module not available")
-    
-    # Initialize AI Service
-    if AI_SERVICE_AVAILABLE and AIService2 is not None:
-        try:
-            logger.info("Initializing AI Service...")
-            ai_service = AIService2()
-            logger.info("✓ AI Service initialized")
-        except Exception as e:
-            logger.error(f"✗ AI Service initialization failed: {e}")
-    
-    # Initialize YouTube AI Services
-    if YOUTUBE_AI_AVAILABLE and YouTubeAIService is not None:
-        try:
-            logger.info("Initializing YouTube AI services...")
-            youtube_ai_service = YouTubeAIService()
-            
-            if YouTubeFeatureExtractor is not None:
-                youtube_feature_extractor = YouTubeFeatureExtractor(youtube_ai_service)
-            
-            logger.info("✓ YouTube AI services initialized")
-        except Exception as e:
-            logger.error(f"✗ YouTube AI services initialization failed: {e}")
-    
-    logger.info("=" * 60)
-    logger.info("✓ APPLICATION INITIALIZATION COMPLETE")
-    logger.info("=" * 60)
-    
-    # Print service status
-    logger.info("Service Status:")
-    logger.info(f"  YouTube Connector: {'✓' if youtube_connector else '✗'}")
-    logger.info(f"  YouTube Scheduler: {'✓' if youtube_scheduler else '✗'}")
-    logger.info(f"  Database Manager: {'✓' if database_manager else '✗'}")
-    logger.info(f"  AI Service: {'✓' if ai_service else '✗'}")
-    logger.info("=" * 60)
-    
-    yield  # Application runs here
-    
-    # Cleanup on shutdown
-    logger.info("Shutting down...")
-
-# ==================== END OF FIXED CODE ====================
-
-
-
-
-
-
-
-
-    
-    
-    # ============= ADD THIS: Cleanup Reddit Services =============
-    try:
-        from main import automation_scheduler
-        if automation_scheduler and hasattr(automation_scheduler, 'stop'):
-            await automation_scheduler.stop()
-            logger.info("✅ Reddit scheduler stopped")
-    except Exception as e:
-        logger.warning(f"⚠️ Reddit cleanup warning: {e}")
-
+    # Startup
+    initialization_success = await initialize_services()
+    if not initialization_success:
+        logger.error("Service initialization failed - app may not work correctly")
+    yield
+    # Shutdown
+    await cleanup_services()
 
 app = FastAPI(
     title="Multi-Platform Social Media Automation",
@@ -1400,60 +1144,30 @@ app = FastAPI(
 )
 
 # CORS middleware
-# 🌍 Middleware Configuration
-# ============================================================
-# CORS middleware - FIXED
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
+        "https://frontend-agentic.onrender.com",
         "https://velocitypost-ai.onrender.com",
-        "https://velocitypost-984x.onrender.com",
         "http://localhost:5173",
         "http://localhost:3000",
         "http://localhost:8000",
-        "http://localhost:8080",
-        "*"  # ← UNCOMMENT THIS FOR NOW!
+        "http://localhost:8080"
     ],
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+    allow_methods=["*"],
     allow_headers=["*"],
-    expose_headers=["*"],
-    max_age=3600
 )
 
-
-@app.middleware("http")
-async def log_requests(request: Request, call_next):
-    """Log all incoming requests for debugging"""
-    logger.info("=" * 60)
-    logger.info(f"📥 INCOMING REQUEST")
-    logger.info(f"Method: {request.method}")
-    logger.info(f"URL: {request.url}")
-    logger.info(f"Path: {request.url.path}")
-    logger.info(f"Origin: {request.headers.get('origin', 'No origin')}")
-    logger.info(f"Content-Type: {request.headers.get('content-type', 'No content-type')}")
-    logger.info(f"User-Agent: {request.headers.get('user-agent', 'No UA')[:80]}")
-    logger.info("=" * 60)
-    
-    try:
-        response = await call_next(request)
-        logger.info(f"📤 RESPONSE STATUS: {response.status_code}")
-        return response
-    except Exception as e:
-        logger.error(f"❌ REQUEST FAILED: {e}")
-        import traceback
-        logger.error(traceback.format_exc())
-        raise
-
+# Trusted hosts middleware
+app.add_middleware(
+    TrustedHostMiddleware,
+    allowed_hosts=["*"]
+)
 
 # Exception handler for validation errors
-# ============= EXCEPTION HANDLERS (handles all routes including Reddit) =============
-from fastapi.exceptions import RequestValidationError
-from fastapi.encoders import jsonable_encoder
-
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
-    """Handle validation errors - ONLY ONE handler for RequestValidationError"""
     logger.error("=== 422 VALIDATION ERROR ===")
     logger.error(f"Request URL: {request.url}")
     logger.error(f"Request method: {request.method}")
@@ -1476,214 +1190,27 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         content={
             "success": False,
             "error": "Validation error",
-            "details": jsonable_encoder(exc.errors()),
+            "details": exc.errors(),
             "message": "Please check your request format"
         }
     )
 
-@app.exception_handler(HTTPException)
-async def http_exception_handler(request: Request, exc: HTTPException):
-    """Handle HTTP exceptions"""
-    logger.error(f"HTTP {exc.status_code}: {exc.detail}")
-    return JSONResponse(
-        status_code=exc.status_code,
-        content={
-            "success": False,
-            "error": exc.detail,
-            "status_code": exc.status_code
-        }
-    )
-
-@app.exception_handler(Exception)
-async def general_exception_handler(request: Request, exc: Exception):
-    """Handle unexpected errors"""
-    logger.error(f"Unexpected error: {exc}", exc_info=True)
-    logger.error(f"Request URL: {request.url}")
-    logger.error(f"Request method: {request.method}")
-    
-    return JSONResponse(
-        status_code=500,
-        content={
-            "success": False,
-            "error": "Internal server error",
-            "message": str(exc),
-            "type": type(exc).__name__
-        }
-    )
-
-# ============= INCLUDE REDDIT ROUTER =============
-try:
-    from main import router as reddit_router
-    app.include_router(reddit_router)
-    logger.info("✅ Reddit routes registered")
-except ImportError as e:
-    logger.warning(f"⚠️ Could not load Reddit routes: {e}")
-except Exception as e:
-    logger.error(f"❌ Error loading Reddit routes: {e}")
-
 # Health check endpoint
-# COPY-PASTE THIS: Health Check Endpoints
-# Add this AFTER your auth endpoints (around line 1850)
-
-
-# ============ HEALTH CHECK ENDPOINTS ============
-
 @app.get("/")
 async def root():
-    """Health check endpoint"""
+    """Health check and service status"""
     return {
-        "status": "online",
-        "service": "VelocityPost API",
+        "status": "running",
+        "message": "Multi-Platform Social Media Automation System",
         "version": "2.0.0",
-        "database": "connected" if database_manager else "disconnected",
-        "timestamp": datetime.now().isoformat()
-    }
-
-
-@app.options("/")
-async def root_options():
-    """OPTIONS for root"""
-    return Response(
-        status_code=200,
-        headers={
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-            "Access-Control-Allow-Headers": "*",
-            "Access-Control-Allow-Credentials": "true",
-        }
-    )
-
-# @app.options("/")
-# async def options_root():
-#     """OPTIONS for root"""
-#     return Response(status_code=200)
-
-@app.get("/api/health")
-async def detailed_health():
-    """Detailed health check with service status"""
-    logger.info("🏥 Detailed health check requested")
-    
-    # Check database connection
-    db_status = False
-    db_detail = "not initialized"
-    if database_manager:
-        try:
-            if hasattr(database_manager, 'users_collection'):
-                # Try to count users
-                count = await database_manager.users_collection.count_documents({})
-                db_status = True
-                db_detail = f"connected ({count} users)"
-        except Exception as e:
-            db_detail = f"error: {str(e)}"
-    
-    return {
-        "status": "healthy" if db_status else "degraded",
         "services": {
-            "database": {
-                "available": database_manager is not None,
-                "status": db_status,
-                "detail": db_detail
-            },
-            "youtube_connector": youtube_connector is not None,
-            "youtube_scheduler": youtube_scheduler is not None,
-            "ai_service": ai_service is not None
-        },
-        "endpoints": {
-            "register": "/api/auth/register",
-            "login": "/api/auth/login",
-            "me": "/api/auth/me"
-        },
-        "cors_origins": [
-            "https://frontend-agentic-bnc2.onrender.com",
-            "https://velocitypost-ai.onrender.com",
-            "https://velocitypost-984x.onrender.com"
-        ],
-        "environment": {
-            "mongodb_uri": "set" if os.getenv("MONGODB_URI") else "not set",
-            "jwt_secret": "set" if os.getenv("JWT_SECRET") else "not set",
-            "google_client_id": "set" if os.getenv("GOOGLE_CLIENT_ID") else "not set"
+            "youtube": YOUTUBE_AVAILABLE,
+            "whatsapp": WHATSAPP_AVAILABLE,
+            "ai_service": AI_SERVICE_AVAILABLE,
+            "database": DATABASE_AVAILABLE  # FIXED: Now properly defined
         },
         "timestamp": datetime.now().isoformat()
     }
-
-@app.options("/api/health")
-async def options_health():
-    """OPTIONS for health check"""
-    return Response(status_code=200)
-
-
-
-
-@app.options("/api/auth/register")
-async def options_register():
-    return Response(
-        status_code=200,
-        headers={
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Methods": "POST, OPTIONS",
-            "Access-Control-Allow-Headers": "*",
-            "Access-Control-Allow-Credentials": "true",
-        }
-    )
-
-
-
-@app.options("/api/auth/login")
-async def options_login():
-    return Response(
-        status_code=200,
-        headers={
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Methods": "POST, OPTIONS",
-            "Access-Control-Allow-Headers": "*",
-            "Access-Control-Allow-Credentials": "true",
-        }
-    )
-
-@app.options("/api/auth/me")
-async def options_me():
-    return Response(
-        status_code=200,
-        headers={
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Methods": "GET, OPTIONS",
-            "Access-Control-Allow-Headers": "*",
-            "Access-Control-Allow-Credentials": "true",
-        }
-    )
-
-
-
-
-# from fastapi.staticfiles import StaticFiles
-# from fastapi.responses import FileResponse
-
-
-
-# ## ✅ 1. Define React build directory
-# frontend_dir = os.path.join(os.path.dirname(__file__), "../frontend/dist")
-
-# # ✅ 2. Check and mount the assets directory (Vite uses "assets", not "static")
-# assets_dir = os.path.join(frontend_dir, "assets")
-# if os.path.exists(assets_dir):
-#     app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
-# else:
-#     print("⚠️ No 'assets' directory found. Run `npm run build` in frontend first.")
-
-# # ✅ 3. Example API route (optional)
-# @app.get("/api/hello")
-# def hello():
-#     return {"message": "Hello from FastAPI + React!"}
-
-# # ✅ 4. Catch-all route for React Router (so refresh won't break)
-# @app.get("/{full_path:path}")
-# async def serve_react(full_path: str):
-#     index_file = os.path.join(frontend_dir, "index.html")
-#     if os.path.exists(index_file):
-#         return FileResponse(index_file)
-#     return {"error": "index.html not found"}
-
-
 
 @app.get("/health")
 async def health_check():
@@ -1709,126 +1236,24 @@ async def health_check():
         "timestamp": datetime.now().isoformat()
     }
 
-
-
-
-# ========================================
-# PART 3: ADD TEST ENDPOINT
-# ADD THIS AFTER THE APP INITIALIZATION
-# ========================================
-
-@app.get("/api/test/services")
-async def test_services_status():
-    """
-    Test endpoint to check which services are initialized
-    Visit: https://your-backend.onrender.com/api/test/services
-    """
-    import os
-    
-    # Check global service instances
-    service_status = {
-        "services": {
-            "youtube_connector": "✓ Initialized" if youtube_connector else "✗ Not Initialized",
-            "youtube_scheduler": "✓ Initialized" if youtube_scheduler else "✗ Not Initialized",
-            "database_manager": "✓ Initialized" if database_manager else "✗ Not Initialized",
-            "ai_service": "✓ Initialized" if ai_service else "✗ Not Initialized",
-            "youtube_ai_service": "✓ Initialized" if youtube_ai_service else "✗ Not Initialized",
-            "whatsapp_scheduler": "✓ Initialized" if whatsapp_scheduler else "✗ Not Initialized"
-        },
-        "environment_variables": {
-            "GOOGLE_CLIENT_ID": "✓ Set" if os.getenv('GOOGLE_CLIENT_ID') else "✗ Not Set",
-            "GOOGLE_CLIENT_SECRET": "✓ Set" if os.getenv('GOOGLE_CLIENT_SECRET') else "✗ Not Set",
-            "GOOGLE_API_KEY": "✓ Set" if os.getenv('GOOGLE_API_KEY') else "✗ Not Set",
-            "GOOGLE_OAUTH_REDIRECT_URI": os.getenv('GOOGLE_OAUTH_REDIRECT_URI', '✗ Not Set'),
-            "MONGODB_URI": "✓ Set" if os.getenv('MONGODB_URI') else "✗ Not Set",
-            "FRONTEND_URL": os.getenv('FRONTEND_URL', '✗ Not Set')
-        },
-        "module_availability": {
-            "YOUTUBE_AVAILABLE": YOUTUBE_AVAILABLE,
-            "AI_SERVICE_AVAILABLE": AI_SERVICE_AVAILABLE,
-            "YOUTUBE_DATABASE_AVAILABLE": YOUTUBE_DATABASE_AVAILABLE,
-            "YOUTUBE_AI_AVAILABLE": YOUTUBE_AI_AVAILABLE,
-            "WHATSAPP_AVAILABLE": WHATSAPP_AVAILABLE
-        },
-        "youtube_ready": bool(youtube_connector and database_manager),
-        "summary": ""
-    }
-    
-    # Add summary message
-    if youtube_connector and database_manager:
-        service_status["summary"] = "✅ YouTube features are READY and working!"
-    elif not os.getenv('GOOGLE_CLIENT_ID') or not os.getenv('MONGODB_URI'):
-        service_status["summary"] = "❌ Missing environment variables. Add them in Render dashboard."
-    elif not YOUTUBE_AVAILABLE:
-        service_status["summary"] = "❌ YouTube module failed to import. Check server logs."
-    else:
-        service_status["summary"] = "❌ YouTube connector failed to initialize. Check startup logs."
-    
-    return service_status
-
-
-@app.get("/api/test/env")
-async def test_environment():
-    """
-    Simple endpoint to quickly check critical environment variables
-    Visit: https://your-backend.onrender.com/api/test/env
-    """
-    import os
-    
-    return {
-        "environment_check": {
-            "google_client_id": os.getenv('GOOGLE_CLIENT_ID', '')[:20] + "..." if os.getenv('GOOGLE_CLIENT_ID') else "NOT SET",
-            "google_client_secret": "SET" if os.getenv('GOOGLE_CLIENT_SECRET') else "NOT SET",
-            "google_api_key": "SET" if os.getenv('GOOGLE_API_KEY') else "NOT SET",
-            "redirect_uri": os.getenv('GOOGLE_OAUTH_REDIRECT_URI', 'NOT SET'),
-            "mongodb_uri": "SET" if os.getenv('MONGODB_URI') else "NOT SET",
-            "frontend_url": os.getenv('FRONTEND_URL', 'NOT SET')
-        },
-        "status": "✅ All variables set" if all([
-            os.getenv('GOOGLE_CLIENT_ID'),
-            os.getenv('GOOGLE_CLIENT_SECRET'),
-            os.getenv('GOOGLE_API_KEY'),
-            os.getenv('GOOGLE_OAUTH_REDIRECT_URI'),
-            os.getenv('MONGODB_URI')
-        ]) else "❌ Some variables missing"
-    }
-
-
-# ========================================
-# END OF PART 2 & 3
-# ========================================
-
 # Add debug endpoints
-@app.get("/api/debug/services")
+@app.get("/debug/services")
 async def debug_services():
-    """Enhanced debug endpoint to check all service statuses"""
+    """Debug endpoint to check service status"""
     return {
-        "timestamp": datetime.now().isoformat(),
-        "critical_services": {
-            "database_manager": {
-                "exists": database_manager is not None,
-                "type": str(type(database_manager)),
-                "has_users_collection": hasattr(database_manager, 'users_collection') if database_manager else False,
-                "has_db_attribute": hasattr(database_manager, 'db') if database_manager else False,
-            },
-            "ai_service": {
-                "exists": ai_service is not None,
-                "type": str(type(ai_service)) if ai_service else "None"
-            },
-            "youtube_connector": {
-                "exists": youtube_connector is not None
-            }
-        },
-        "environment_variables": {
-            "MONGODB_URI": "SET" if os.getenv("MONGODB_URI") else "MISSING",
-            "GOOGLE_CLIENT_ID": "SET" if os.getenv("GOOGLE_CLIENT_ID") else "MISSING",
-            "GOOGLE_CLIENT_SECRET": "SET" if os.getenv("GOOGLE_CLIENT_SECRET") else "MISSING",
-            "JWT_SECRET": "SET" if os.getenv("JWT_SECRET") else "MISSING"
-        },
-        "import_status": {
-            "YOUTUBE_AVAILABLE": YOUTUBE_AVAILABLE if 'YOUTUBE_AVAILABLE' in globals() else False,
-            "YOUTUBE_DATABASE_AVAILABLE": YOUTUBE_DATABASE_AVAILABLE if 'YOUTUBE_DATABASE_AVAILABLE' in globals() else False,
-            "AI_SERVICE_AVAILABLE": AI_SERVICE_AVAILABLE if 'AI_SERVICE_AVAILABLE' in globals() else False
+        "youtube_connector": youtube_connector is not None,
+        "youtube_scheduler": youtube_scheduler is not None,
+        "database_manager": database_manager is not None,
+        "ai_service": ai_service is not None,
+        "YOUTUBE_AVAILABLE": YOUTUBE_AVAILABLE,
+        "AI_SERVICE_AVAILABLE": AI_SERVICE_AVAILABLE,
+        "DATABASE_AVAILABLE": DATABASE_AVAILABLE,
+        "env_vars": {
+            "GOOGLE_CLIENT_ID": "✓" if os.getenv("GOOGLE_CLIENT_ID") else "✗",
+            "GOOGLE_CLIENT_SECRET": "✓" if os.getenv("GOOGLE_CLIENT_SECRET") else "✗",
+            "GOOGLE_OAUTH_REDIRECT_URI": os.getenv("GOOGLE_OAUTH_REDIRECT_URI"),
+            "MONGODB_URI": "✓" if os.getenv("MONGODB_URI") else "✗",
+            "FRONTEND_URL": os.getenv("FRONTEND_URL")
         }
     }
 
@@ -1892,431 +1317,104 @@ async def debug_users():
     except Exception as e:
         return {"error": str(e)}
 
-
-
-
-
-# ============= REDDIT ROUTER DISABLED =============
-# Completely disabled to prevent any conflicts
-# To re-enable: uncomment the code below
-
-# try:
-#     import importlib
-#     main_mod = importlib.import_module("main")
-#     reddit_app = getattr(main_mod, "app", None)
-#     
-#     if reddit_app is None:
-#         create_app = getattr(main_mod, "create_app", None)
-#         if callable(create_app):
-#             try:
-#                 reddit_app = create_app()
-#                 logger.info("✓ Created Reddit app via create_app()")
-#             except Exception as e:
-#                 logger.warning(f"⚠️ main.create_app() failed: {e}")
-#     
-#     if reddit_app:
-#         app.mount("/api/reddit", reddit_app)
-#         logger.info("ℹ️ Reddit app mounted at /api/reddit")
-#     else:
-#         reddit_router = getattr(main_mod, "router", None) or getattr(main_mod, "reddit_router", None)
-#         if reddit_router:
-#             app.include_router(reddit_router, prefix="/api/reddit")
-#             logger.info("ℹ️ Reddit router included at /api/reddit")
-#         else:
-#             logger.info("ℹ️ No Reddit app or router found")
-#             
-# except ImportError as e:
-#     logger.info(f"ℹ️ Reddit module not available: {e}")
-# except Exception as e:
-#     logger.warning(f"⚠️ Error checking Reddit routes: {e}")
-
-logger.info("ℹ️ Reddit integration completely disabled")
-
-# ========================================================================
-# 🔐 AUTHENTICATION & USER MANAGEMENT ROUTES
-# ========================================================================
-
-# ============ ADD OPTIONS HANDLERS FIRST ============
-# ========================================================================
-# FIXED AUTH ENDPOINTS - SECURE VERSION
-# Replace your current auth endpoints with these
-# ========================================================================
-
-# ============ ADD OPTIONS HANDLERS FIRST ============
-# OPTIONS handlers for CORS
-
-
-
-# ============ REGISTER ENDPOINT - FIXED ============
-
-
-# Register endpoint
-# COPY-PASTE THIS: Improved Register Endpoint
-# Replace your register endpoint (around line 1646-1715)
-
-
-# ============================================================
-# 👤 AUTH ROUTES
-# ============================================================
-# ========== CORRECTED REGISTRATION ENDPOINT ==========
-# REPLACE YOUR CURRENT @app.post("/api/auth/register") WITH THIS
-
+# Authentication endpoints
 @app.post("/api/auth/register")
 async def register(request: RegisterRequest):
-    """User registration with proper database checking"""
+    """User registration that returns user data for auto-login"""
     try:
-        logger.info("=" * 60)
-        logger.info("📝 REGISTRATION REQUEST RECEIVED")
-        logger.info(f"Email: {request.email}")
-        logger.info(f"Name: {request.name}")
-        logger.info("=" * 60)
+        if not database_manager:
+            raise HTTPException(status_code=503, detail="Database service not available")
         
-        # ========== CRITICAL: Check database_manager ==========
-        logger.info(f"🔍 Checking database_manager...")
-        logger.info(f"   database_manager exists: {database_manager is not None}")
-        logger.info(f"   database_manager type: {type(database_manager)}")
+        existing_user = await database_manager.get_user_by_email(request.email)
+        if existing_user:
+            raise HTTPException(status_code=400, detail="Email already registered")
         
-        if database_manager is None:
-            logger.error("❌ CRITICAL: database_manager is None!")
-            logger.error("This means initialize_services() failed or wasn't called")
-            logger.error("Check Render logs on startup for initialization errors")
-            raise HTTPException(
-                status_code=503, 
-                detail="Database not initialized. Check server logs for initialization errors."
-            )
-        
-        # Check if database has required attributes
-        if not hasattr(database_manager, 'users_collection'):
-            logger.error("❌ database_manager exists but has no users_collection!")
-            logger.error(f"Available attributes: {dir(database_manager)}")
-            raise HTTPException(
-                status_code=503,
-                detail="Database not properly configured"
-            )
-        
-        logger.info("✅ Database manager is available")
-        
-        # ========== Check if user exists ==========
-        logger.info(f"🔍 Checking if user exists: {request.email}")
-        
-        try:
-            existing_user = await database_manager.users_collection.find_one({"email": request.email})
-            
-            if existing_user:
-                logger.warning(f"⚠️ User already exists: {request.email}")
-                raise HTTPException(
-                    status_code=400, 
-                    detail="Email already registered. Please use a different email or login."
-                )
-            
-            logger.info("✅ Email is available")
-            
-        except Exception as db_error:
-            logger.error(f"❌ Database query failed: {db_error}")
-            logger.error(f"Error type: {type(db_error).__name__}")
-            import traceback
-            logger.error(f"Traceback:\n{traceback.format_exc()}")
-            raise HTTPException(
-                status_code=503,
-                detail=f"Database connection error: {str(db_error)}"
-            )
-        
-        # ========== Hash password ==========
-        logger.info("🔐 Hashing password...")
-        try:
-            hashed_password = bcrypt.hashpw(
-                request.password.encode('utf-8'), 
-                bcrypt.gensalt()
-            ).decode('utf-8')
-            logger.info("✅ Password hashed successfully")
-        except Exception as hash_error:
-            logger.error(f"❌ Password hashing failed: {hash_error}")
-            raise HTTPException(status_code=500, detail="Password hashing failed")
-        
-        # ========== Create user ==========
-        logger.info("👤 Creating user...")
         user_id = str(uuid.uuid4())
         user_data = {
             "_id": user_id,
             "email": request.email,
             "name": request.name,
-            "password": hashed_password,
+            "password": request.password,
             "created_at": datetime.now(),
             "platforms_connected": [],
-            "automation_enabled": False,
-            "settings": {},
-            "subscription": {
-                "plan": "free",
-                "started_at": datetime.now()
-            }
+            "automation_enabled": False
         }
         
-        try:
-            result = await database_manager.users_collection.insert_one(user_data)
-            logger.info(f"✅ User created successfully")
-            logger.info(f"   User ID: {user_id}")
-            logger.info(f"   Insert result: {result.inserted_id}")
-        except Exception as insert_error:
-            logger.error(f"❌ User insertion failed: {insert_error}")
-            logger.error(f"Error type: {type(insert_error).__name__}")
-            import traceback
-            logger.error(f"Traceback:\n{traceback.format_exc()}")
-            raise HTTPException(
-                status_code=500,
-                detail=f"Failed to create user: {str(insert_error)}"
-            )
+        success = await database_manager.create_user(user_data)
         
-        # ========== Generate JWT token ==========
-        logger.info("🔑 Generating JWT token...")
-        try:
-            jwt_secret = os.getenv("JWT_SECRET", "your-secret-key-change-in-production")
-            token = jwt.encode(
-                {
+        if success:
+            return {
+                "success": True,
+                "message": "User registered successfully",
+                "user": {
                     "user_id": user_id,
                     "email": request.email,
                     "name": request.name,
-                    "exp": datetime.utcnow() + timedelta(days=30)
-                },
-                jwt_secret,
-                algorithm="HS256"
-            )
-            logger.info("✅ JWT token generated")
-        except Exception as jwt_error:
-            logger.error(f"❌ JWT generation failed: {jwt_error}")
-            raise HTTPException(status_code=500, detail="Token generation failed")
-        
-        # ========== Success ==========
-        logger.info("=" * 60)
-        logger.info("🎉 REGISTRATION SUCCESSFUL")
-        logger.info(f"   Email: {request.email}")
-        logger.info(f"   User ID: {user_id}")
-        logger.info("=" * 60)
-        
-        return {
-            "success": True,
-            "message": "Registration successful",
-            "token": token,
-            "user": {
-                "user_id": user_id,
-                "email": request.email,
-                "name": request.name,
-                "platforms_connected": [],
-                "automation_enabled": False
+                    "platforms_connected": []
+                }
             }
-        }
-    
+        else:
+            raise HTTPException(status_code=400, detail="Registration failed")
+        
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("=" * 60)
-        logger.error("❌ REGISTRATION FAILED")
-        logger.error(f"Error: {e}")
-        logger.error(f"Error type: {type(e).__name__}")
-        import traceback
-        logger.error(f"Traceback:\n{traceback.format_exc()}")
-        logger.error("=" * 60)
-        raise HTTPException(
-            status_code=500, 
-            detail=f"Registration failed: {str(e)}"
-        )
+        logger.error(f"Registration failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
-# ============================================================
-# 🔐 LOGIN
-# ============================================================
 @app.post("/api/auth/login")
 async def login(request: LoginRequest):
-    """User login with enhanced error handling and logging"""
+    """User login with detailed debugging"""
     try:
-        logger.info("=" * 60)
-        logger.info("🔐 LOGIN REQUEST RECEIVED")
-        logger.info(f"Email: {request.email}")
-        logger.info("=" * 60)
+        logger.info(f"Login attempt for email: {request.email}")
         
-        # ========== CRITICAL: Check database_manager ==========
-        logger.info(f"🔍 Checking database_manager...")
-        logger.info(f"   database_manager exists: {database_manager is not None}")
+        if not database_manager:
+            raise HTTPException(status_code=503, detail="Database service not available")
         
-        if database_manager is None:
-            logger.error("❌ CRITICAL: database_manager is None!")
-            logger.error("Login cannot proceed without database")
-            raise HTTPException(
-                status_code=503, 
-                detail="Database not initialized. Please contact support."
-            )
+        user = await database_manager.get_user_by_email(request.email)
+        logger.info(f"User lookup result: {'Found' if user else 'Not found'}")
         
-        logger.info("✅ Database manager is available")
+        if not user:
+            logger.warning(f"No user found with email: {request.email}")
+            raise HTTPException(status_code=401, detail="Invalid credentials")
         
-        # ========== Find user ==========
-        logger.info(f"🔍 Looking up user: {request.email}")
-        
-        try:
-            user = await database_manager.users_collection.find_one({"email": request.email})
-            
-            if not user:
-                logger.warning(f"⚠️ User not found: {request.email}")
-                raise HTTPException(status_code=401, detail="Invalid email or password")
-            
-            logger.info(f"✅ User found: {user['_id']}")
-            
-        except Exception as db_error:
-            logger.error(f"❌ Database query failed: {db_error}")
-            raise HTTPException(
-                status_code=503,
-                detail="Database connection error"
-            )
-        
-        # ========== Verify password ==========
-        logger.info("🔐 Verifying password...")
+        user_info = {k: v for k, v in user.items() if k != 'password'}
+        logger.info(f"User data: {user_info}")
         
         stored_password = user.get("password")
         if not stored_password:
-            logger.error("❌ User has no password stored!")
-            raise HTTPException(status_code=401, detail="Invalid email or password")
+            logger.error(f"No password stored for user: {request.email}")
+            raise HTTPException(status_code=401, detail="Invalid credentials")
         
-        password_match = False
+        logger.info(f"Password comparison - Provided length: {len(request.password)}, Stored length: {len(stored_password)}")
         
-        try:
-            # Try bcrypt verification
-            password_match = bcrypt.checkpw(
-                request.password.encode('utf-8'), 
-                stored_password.encode('utf-8')
-            )
-            logger.info("✅ bcrypt verification successful")
-            
-        except Exception as bcrypt_error:
-            # Fallback to plaintext comparison
-            logger.warning(f"⚠️ bcrypt failed: {bcrypt_error}, trying plaintext")
-            password_match = stored_password == request.password
-            
-            if password_match:
-                # Upgrade to hashed password
-                logger.info("🔄 Upgrading password to bcrypt hash...")
-                hashed = bcrypt.hashpw(
-                    request.password.encode('utf-8'), 
-                    bcrypt.gensalt()
-                ).decode('utf-8')
-                
-                await database_manager.users_collection.update_one(
-                    {"email": request.email},
-                    {"$set": {"password": hashed}}
-                )
-                logger.info("✅ Password upgraded to bcrypt")
+        if stored_password != request.password:
+            logger.warning(f"Password mismatch for user: {request.email}")
+            logger.info(f"Provided password: '{request.password}'")
+            logger.info(f"Stored password: '{stored_password}'")
+            raise HTTPException(status_code=401, detail="Invalid credentials")
         
-        if not password_match:
-            logger.warning(f"⚠️ Invalid password for: {request.email}")
-            raise HTTPException(status_code=401, detail="Invalid email or password")
-        
-        logger.info("✅ Password verified")
-        
-        # ========== Generate JWT token ==========
-        logger.info("🔑 Generating JWT token...")
-        
-        try:
-            jwt_secret = os.getenv("JWT_SECRET", "your-secret-key-change-in-production")
-            token = jwt.encode(
-                {
-                    "user_id": user["_id"],
-                    "email": user["email"],
-                    "name": user.get("name", ""),
-                    "exp": datetime.utcnow() + timedelta(days=30)
-                },
-                jwt_secret,
-                algorithm="HS256"
-            )
-            logger.info("✅ JWT token generated")
-            
-        except Exception as jwt_error:
-            logger.error(f"❌ JWT generation failed: {jwt_error}")
-            raise HTTPException(status_code=500, detail="Token generation failed")
-        
-        # ========== Success ==========
-        logger.info("=" * 60)
-        logger.info("🎉 LOGIN SUCCESSFUL")
-        logger.info(f"   Email: {request.email}")
-        logger.info(f"   User ID: {user['_id']}")
-        logger.info("=" * 60)
+        logger.info(f"Login successful for user: {request.email}")
         
         return {
             "success": True,
             "message": "Login successful",
-            "token": token,
             "user": {
                 "user_id": user["_id"],
                 "email": user["email"],
-                "name": user.get("name", ""),
-                "platforms_connected": user.get("platforms_connected", []),
-                "automation_enabled": user.get("automation_enabled", False)
-            }
-        }
-    
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error("=" * 60)
-        logger.error("❌ LOGIN FAILED")
-        logger.error(f"Error: {e}")
-        logger.error(f"Error type: {type(e).__name__}")
-        import traceback
-        logger.error(f"Traceback:\n{traceback.format_exc()}")
-        logger.error("=" * 60)
-        raise HTTPException(status_code=500, detail=str(e))
-# ============================================================
-# 👥 GET CURRENT USER
-# ============================================================
-@app.get("/api/auth/me")
-async def get_current_user(authorization: str = Header(None)):
-    """Get current user info from JWT token"""
-    try:
-        if not database_manager:
-            raise HTTPException(status_code=503, detail="Database not available")
-
-        if not authorization or not authorization.startswith("Bearer "):
-            raise HTTPException(status_code=401, detail="Not authenticated")
-
-        token = authorization.replace("Bearer ", "")
-        payload = jwt.decode(
-            token,
-            os.getenv("JWT_SECRET", "your-secret-key-change-in-production"),
-            algorithms=["HS256"]
-        )
-
-        user_id = payload.get("user_id")
-        user = await database_manager.users_collection.find_one({"_id": user_id})
-
-        if not user:
-            raise HTTPException(status_code=401, detail="User not found")
-
-        return {
-            "success": True,
-            "user": {
-                "user_id": str(user["_id"]),
-                "email": user["email"],
-                "name": user.get("name", ""),
+                "name": user["name"],
                 "platforms_connected": user.get("platforms_connected", [])
             }
         }
-
-    except jwt.ExpiredSignatureError:
-        raise HTTPException(status_code=401, detail="Token expired")
-    except jwt.InvalidTokenError:
-        raise HTTPException(status_code=401, detail="Invalid token")
+        
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"❌ Auth error: {e}")
-        raise HTTPException(status_code=401, detail="Authentication failed")
-
-
-# ========================================================================
-# END OF FIXED AUTH ENDPOINTS
-# ========================================================================
-
-# IMPORTANT: Add to requirements.txt:
-# bcrypt>=4.0.0
-# PyJWT>=2.8.0
-
-
-
-
-
+        logger.error(f"Login failed with exception: {e}")
+        logger.error(f"Exception type: {type(e)}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 # FIXED YouTube OAuth endpoints
 @app.post("/api/youtube/oauth-url")
@@ -2333,7 +1431,7 @@ async def youtube_oauth_url(request: YouTubeOAuthRequest):
             )
         
         # FORCED backend redirect URI - hardcoded to ensure correctness
-        backend_redirect_uri = "https://agentic-u5lx.onrender.com/api/youtube/oauth-callback"
+        backend_redirect_uri = "https://velocitypost-984x.onrender.com/api/youtube/oauth-callback"
         
         logger.info(f"Using FORCED BACKEND redirect URI: {backend_redirect_uri}")
         
@@ -2385,7 +1483,7 @@ async def youtube_oauth_callback_get(code: str, state: str):
             )
         
         # Exchange code for token
-        backend_redirect_uri = "https://agentic-u5lx.onrender.com/api/youtube/oauth-callback"
+        backend_redirect_uri = "https://velocitypost-984x.onrender.com/api/youtube/oauth-callback"
         logger.info(f"Token exchange with redirect_uri: {backend_redirect_uri}")
             
         token_result = await youtube_connector.exchange_code_for_token(
@@ -2488,7 +1586,7 @@ async def youtube_oauth_callback_get(code: str, state: str):
 #                 status_code=302
 #             )
         
-#         backend_redirect_uri = "https://agentic-u5lx.onrender.com/api/youtube/oauth-callback"
+#         backend_redirect_uri = "https://velocitypost-984x.onrender.com/api/youtube/oauth-callback"
 #         logger.info(f"Token exchange with redirect_uri: {backend_redirect_uri}")
             
 #         token_result = await youtube_connector.exchange_code_for_token(
@@ -2584,10 +1682,10 @@ async def debug_youtube_status():
             "GOOGLE_CLIENT_ID": "✓" if os.getenv("GOOGLE_CLIENT_ID") else "✗",
             "GOOGLE_CLIENT_SECRET": "✓" if os.getenv("GOOGLE_CLIENT_SECRET") else "✗",
             "GOOGLE_OAUTH_REDIRECT_URI": os.getenv("GOOGLE_OAUTH_REDIRECT_URI"),
-            "BACKEND_URL": os.getenv("BACKEND_URL", "https://agentic-u5lx.onrender.com"),
+            "BACKEND_URL": os.getenv("BACKEND_URL", "https://velocitypost-984x.onrender.com"),
             "MONGODB_URI": "✓" if os.getenv("MONGODB_URI") else "✗"
         },
-        "expected_redirect_uri": f"{os.getenv('BACKEND_URL', 'https://agentic-u5lx.onrender.com')}/api/youtube/oauth-callback"
+        "expected_redirect_uri": f"{os.getenv('BACKEND_URL', 'https://velocitypost-984x.onrender.com')}/api/youtube/oauth-callback"
     }
 
 
@@ -4410,32 +3508,32 @@ async def debug_youtube_endpoints():
     }
 
 # Error handlers
-# @app.exception_handler(HTTPException)
-# async def http_exception_handler(request: Request, exc: HTTPException):
-#     return JSONResponse(
-#         status_code=exc.status_code,
-#         content={
-#             "success": False,
-#             "error": exc.detail,
-#             "status_code": exc.status_code,
-#             "timestamp": datetime.now().isoformat()
-#         }
-#     )
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "success": False,
+            "error": exc.detail,
+            "status_code": exc.status_code,
+            "timestamp": datetime.now().isoformat()
+        }
+    )
 
-# @app.exception_handler(Exception)
-# async def general_exception_handler(request: Request, exc: Exception):
-#     logger.error(f"Unhandled exception: {exc}")
-#     logger.error(traceback.format_exc())
+@app.exception_handler(Exception)
+async def general_exception_handler(request: Request, exc: Exception):
+    logger.error(f"Unhandled exception: {exc}")
+    logger.error(traceback.format_exc())
     
-#     return JSONResponse(
-#         status_code=500,
-#         content={
-#             "success": False,
-#             "error": "Internal server error",
-#             "status_code": 500,
-#             "timestamp": datetime.now().isoformat()
-#         }
-#     )
+    return JSONResponse(
+        status_code=500,
+        content={
+            "success": False,
+            "error": "Internal server error",
+            "status_code": 500,
+            "timestamp": datetime.now().isoformat()
+        }
+    )
 
 @app.get("/api/debug/trigger-scheduler-check")
 async def trigger_scheduler_check():

@@ -4,7 +4,7 @@ Each user has their own Reddit tokens and automation settings
 REAL POSTING ENABLED - REAL AI CONTENT GENERATION
 """
 
-from fastapi import FastAPI, HTTPException, Request, Query, BackgroundTasks, Header, Depends, APIRouter, APIRouter
+from fastapi import FastAPI, HTTPException, Request, Query, BackgroundTasks, Header, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse , Response
@@ -93,7 +93,7 @@ except ImportError:
             mongodb_uri = "mongodb+srv://aryan:aryan@cluster0.7iquw6v.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
             reddit_client_id = os.getenv("REDDIT_CLIENT_ID")
             reddit_client_secret = os.getenv("REDDIT_CLIENT_SECRET")
-            reddit_redirect_uri = os.getenv("REDDIT_REDIRECT_URI", "https://agentic-u5lx.onrender.com/api/oauth/reddit/callback")
+            reddit_redirect_uri = os.getenv("REDDIT_REDIRECT_URI", "https://velocitypost-984x.onrender.com/api/oauth/reddit/callback")
             reddit_user_agent = "RedditAutomationPlatform/1.0"
             token_encryption_key = os.getenv("TOKEN_ENCRYPTION_KEY")
             mistral_api_key = os.getenv("MISTRAL_API_KEY")
@@ -169,7 +169,6 @@ class TestPostRequest(BaseModel):
     language: str = "en"
     subreddits: List[str]
     content_style: str = "engaging"
-    platform: str = "reddit"
 
 class ManualPostRequest(BaseModel):
     title: str
@@ -604,240 +603,237 @@ class MockAutomationScheduler:
 
 
 # Application lifespan management with multi-user support
-# @asynccontextmanager
-# async def lifespan(app: FastAPI):
-#     """Application startup and shutdown with multi-user support"""
-#     global database_manager, ai_service, reddit_oauth_connector, automation_scheduler
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Application startup and shutdown with multi-user support"""
+    global database_manager, ai_service, reddit_oauth_connector, automation_scheduler
     
-#     logger.info("Starting Multi-User Reddit Automation System with REAL AI CONTENT...")
-#     print("Initializing Multi-User Reddit Automation Platform...")
+    logger.info("Starting Multi-User Reddit Automation System with REAL AI CONTENT...")
+    print("Initializing Multi-User Reddit Automation Platform...")
     
-#     # Verify environment variables
-#     required_vars = {
-#         'MISTRAL_API_KEY': os.getenv('MISTRAL_API_KEY'),
-#         'GROQ_API_KEY': os.getenv('GROQ_API_KEY'),
-#         'REDDIT_CLIENT_ID': os.getenv('REDDIT_CLIENT_ID'),
-#         'REDDIT_CLIENT_SECRET': os.getenv('REDDIT_CLIENT_SECRET')
-#     }
+    # Verify environment variables
+    required_vars = {
+        'MISTRAL_API_KEY': os.getenv('MISTRAL_API_KEY'),
+        'GROQ_API_KEY': os.getenv('GROQ_API_KEY'),
+        'REDDIT_CLIENT_ID': os.getenv('REDDIT_CLIENT_ID'),
+        'REDDIT_CLIENT_SECRET': os.getenv('REDDIT_CLIENT_SECRET')
+    }
     
-#     print("Environment Variables Status:")
-#     for var_name, var_value in required_vars.items():
-#         status = "FOUND" if var_value else "MISSING"
-#         print(f"  {var_name}: {status}")
-#         if var_value:
-#             logger.info(f"{var_name}: Present")
-#         else:
-#             logger.warning(f"{var_name}: Missing")
+    print("Environment Variables Status:")
+    for var_name, var_value in required_vars.items():
+        status = "FOUND" if var_value else "MISSING"
+        print(f"  {var_name}: {status}")
+        if var_value:
+            logger.info(f"{var_name}: Present")
+        else:
+            logger.warning(f"{var_name}: Missing")
     
-#     # Initialize Multi-User Database
-#     try:
-#         if DatabaseManager and MULTIUSER_DB_AVAILABLE:
-#             database_manager = DatabaseManager("mongodb+srv://aryan:aryan@cluster0.7iquw6v.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0")
-#             await database_manager.connect()
-#             logger.info("Multi-User MongoDB Atlas connected successfully")
-#             print("Database: Multi-User MongoDB Atlas Connected")
+    # Initialize Multi-User Database
+    try:
+        if DatabaseManager and MULTIUSER_DB_AVAILABLE:
+            database_manager = DatabaseManager("mongodb+srv://aryan:aryan@cluster0.7iquw6v.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0")
+            await database_manager.connect()
+            logger.info("Multi-User MongoDB Atlas connected successfully")
+            print("Database: Multi-User MongoDB Atlas Connected")
             
-#             # Load existing user tokens and automations
-#             await load_existing_tokens()
-#             await load_all_user_automations()
+            # Load existing user tokens and automations
+            await load_existing_tokens()
+            await load_all_user_automations()
             
-#         else:
-#             raise ImportError("Multi-User DatabaseManager not available")
-#     except Exception as e:
-#         logger.warning(f"Multi-User database initialization failed: {e}")
-#         database_manager = MockMultiUserDatabase()
-#         await database_manager.connect()
-#         print("Database: Mock Multi-User mode")
+        else:
+            raise ImportError("Multi-User DatabaseManager not available")
+    except Exception as e:
+        logger.warning(f"Multi-User database initialization failed: {e}")
+        database_manager = MockMultiUserDatabase()
+        await database_manager.connect()
+        print("Database: Mock Multi-User mode")
     
-#     # Initialize AI Service
-#     try:
-#         if AIService and (MISTRAL_KEY or GROQ_KEY):
-#             logger.info("Attempting to initialize REAL AI service...")
-#             ai_service = AIService()
+    # Initialize AI Service
+    try:
+        if AIService and (MISTRAL_KEY or GROQ_KEY):
+            logger.info("Attempting to initialize REAL AI service...")
+            ai_service = AIService()
             
-#             test_result = await ai_service.test_ai_connection()
+            test_result = await ai_service.test_ai_connection()
             
-#             if test_result.get("success") and test_result.get('primary_service') != 'mock':
-#                 primary_service = test_result.get('primary_service', 'unknown')
-#                 logger.info(f"REAL AI service initialized successfully: {primary_service}")
-#                 print(f"AI Service: {primary_service.upper()} CONNECTED")
+            if test_result.get("success") and test_result.get('primary_service') != 'mock':
+                primary_service = test_result.get('primary_service', 'unknown')
+                logger.info(f"REAL AI service initialized successfully: {primary_service}")
+                print(f"AI Service: {primary_service.upper()} CONNECTED")
                 
-#                 test_content = await ai_service.generate_reddit_domain_content(
-#                     domain="tech",
-#                     business_type="test",
-#                     business_description="test",
-#                     test_mode=False
-#                 )
+                test_content = await ai_service.generate_reddit_domain_content(
+                    domain="tech",
+                    business_type="test",
+                    business_description="test",
+                    test_mode=False
+                )
                 
-#                 if test_content.get('ai_service') != 'mock':
-#                     logger.info("AI content generation verified - REAL AI active")
-#                     print("AI Content Generation: VERIFIED")
-#                 else:
-#                     raise Exception("AI service returning mock content")
+                if test_content.get('ai_service') != 'mock':
+                    logger.info("AI content generation verified - REAL AI active")
+                    print("AI Content Generation: VERIFIED")
+                else:
+                    raise Exception("AI service returning mock content")
                     
-#             else:
-#                 raise Exception(f"AI service test failed: {test_result}")
+            else:
+                raise Exception(f"AI service test failed: {test_result}")
                 
-#         else:
-#             raise Exception("AI service not available or no API keys")
+        else:
+            raise Exception("AI service not available or no API keys")
             
-#     except Exception as e:
-#         logger.error(f"REAL AI service initialization failed: {e}")
-#         logger.error("Falling back to MockAIService")
-#         ai_service = MockAIService()
-#         print("AI Service: MOCK MODE - Configure API keys")
+    except Exception as e:
+        logger.error(f"REAL AI service initialization failed: {e}")
+        logger.error("Falling back to MockAIService")
+        ai_service = MockAIService()
+        print("AI Service: MOCK MODE - Configure API keys")
     
-#     # Initialize Reddit OAuth Connector
-#     try:
-#         reddit_client_id = os.getenv('REDDIT_CLIENT_ID')
-#         reddit_client_secret = os.getenv('REDDIT_CLIENT_SECRET')
+    # Initialize Reddit OAuth Connector
+    try:
+        reddit_client_id = os.getenv('REDDIT_CLIENT_ID')
+        reddit_client_secret = os.getenv('REDDIT_CLIENT_SECRET')
         
-#         print(f"Reddit Client ID found: {bool(reddit_client_id)}")
-#         print(f"Reddit Client Secret found: {bool(reddit_client_secret)}")
+        print(f"Reddit Client ID found: {bool(reddit_client_id)}")
+        print(f"Reddit Client Secret found: {bool(reddit_client_secret)}")
         
-#         if reddit_client_id and reddit_client_secret:
-#             config = {
-#                 'REDDIT_CLIENT_ID': reddit_client_id,
-#                 'REDDIT_CLIENT_SECRET': reddit_client_secret,
-#                 'REDDIT_REDIRECT_URI': os.getenv('REDDIT_REDIRECT_URI', 'https://agentic-u5lx.onrender.com/api/oauth/reddit/callback'),
-#                 'REDDIT_USER_AGENT': os.getenv('REDDIT_USER_AGENT', 'IndianAutomationPlatform/1.0'),
-#                 'TOKEN_ENCRYPTION_KEY': os.getenv('TOKEN_ENCRYPTION_KEY', 'default_key_change_in_production')
-#             }
+        if reddit_client_id and reddit_client_secret:
+            config = {
+                'REDDIT_CLIENT_ID': reddit_client_id,
+                'REDDIT_CLIENT_SECRET': reddit_client_secret,
+                'REDDIT_REDIRECT_URI': os.getenv('REDDIT_REDIRECT_URI', 'https://velocitypost-984x.onrender.com/api/oauth/reddit/callback'),
+                'REDDIT_USER_AGENT': os.getenv('REDDIT_USER_AGENT', 'IndianAutomationPlatform/1.0'),
+                'TOKEN_ENCRYPTION_KEY': os.getenv('TOKEN_ENCRYPTION_KEY', 'default_key_change_in_production')
+            }
             
-#             # Create a simple Reddit OAuth connector
-#             class SimpleRedditOAuth:
-#                 def __init__(self, config):
-#                     self.config = config
-#                     self.is_configured = True
+            # Create a simple Reddit OAuth connector
+            class SimpleRedditOAuth:
+                def __init__(self, config):
+                    self.config = config
+                    self.is_configured = True
                 
-#                 async def post_content_with_token(self, **kwargs):
-#                     # Simple Reddit API posting implementation
-#                     access_token = kwargs.get('access_token')
-#                     headers = {
-#                         'Authorization': f'Bearer {access_token}',
-#                         'User-Agent': self.config['REDDIT_USER_AGENT']
-#                     }
+                async def post_content_with_token(self, **kwargs):
+                    # Simple Reddit API posting implementation
+                    access_token = kwargs.get('access_token')
+                    headers = {
+                        'Authorization': f'Bearer {access_token}',
+                        'User-Agent': self.config['REDDIT_USER_AGENT']
+                    }
                     
-#                     data = {
-#                         'kind': 'self',
-#                         'title': kwargs.get('title'),
-#                         'text': kwargs.get('content'),
-#                         'sr': kwargs.get('subreddit_name')
-#                     }
+                    data = {
+                        'kind': 'self',
+                        'title': kwargs.get('title'),
+                        'text': kwargs.get('content'),
+                        'sr': kwargs.get('subreddit_name')
+                    }
                     
-#                     try:
-#                         import requests
-#                         response = requests.post(
-#                             'https://oauth.reddit.com/api/submit',
-#                             headers=headers,
-#                             data=data,
-#                             timeout=30
-#                         )
+                    try:
+                        import requests
+                        response = requests.post(
+                            'https://oauth.reddit.com/api/submit',
+                            headers=headers,
+                            data=data,
+                            timeout=30
+                        )
                         
-#                         if response.status_code == 200:
-#                             return {
-#                                 "success": True,
-#                                 "post_id": "reddit_post_id",
-#                                 "post_url": f"https://reddit.com/r/{kwargs.get('subreddit_name')}/comments/post_id"
-#                             }
-#                         else:
-#                             return {
-#                                 "success": False,
-#                                 "error": f"Reddit API error: {response.status_code}",
-#                                 "message": response.text[:200]
-#                             }
-#                     except Exception as e:
-#                         return {
-#                             "success": False,
-#                             "error": f"Reddit posting failed: {str(e)}"
-#                         }
+                        if response.status_code == 200:
+                            return {
+                                "success": True,
+                                "post_id": "reddit_post_id",
+                                "post_url": f"https://reddit.com/r/{kwargs.get('subreddit_name')}/comments/post_id"
+                            }
+                        else:
+                            return {
+                                "success": False,
+                                "error": f"Reddit API error: {response.status_code}",
+                                "message": response.text[:200]
+                            }
+                    except Exception as e:
+                        return {
+                            "success": False,
+                            "error": f"Reddit posting failed: {str(e)}"
+                        }
             
-#             reddit_oauth_connector = SimpleRedditOAuth(config)
-#             logger.info("Simple Reddit OAuth connector initialized successfully")
-#             print("Reddit OAuth: Simple Implementation Configured")
-#         else:
-#             raise ImportError("Reddit credentials missing")
-#     except Exception as e:
-#         logger.warning(f"Reddit OAuth initialization failed: {e}")
-#         reddit_oauth_connector = MockRedditConnector()
-#         print("Reddit OAuth: Mock mode")
+            reddit_oauth_connector = SimpleRedditOAuth(config)
+            logger.info("Simple Reddit OAuth connector initialized successfully")
+            print("Reddit OAuth: Simple Implementation Configured")
+        else:
+            raise ImportError("Reddit credentials missing")
+    except Exception as e:
+        logger.warning(f"Reddit OAuth initialization failed: {e}")
+        reddit_oauth_connector = MockRedditConnector()
+        print("Reddit OAuth: Mock mode")
     
-#     # Initialize Multi-User Reddit Automation System  
-#     try:
-#         if (AUTOMATION_AVAILABLE and RedditAutomationScheduler and 
-#             not isinstance(ai_service, MockAIService) and 
-#             not isinstance(reddit_oauth_connector, MockRedditConnector)):
+    # Initialize Multi-User Reddit Automation System  
+    try:
+        if (AUTOMATION_AVAILABLE and RedditAutomationScheduler and 
+            not isinstance(ai_service, MockAIService) and 
+            not isinstance(reddit_oauth_connector, MockRedditConnector)):
             
-#             automation_scheduler = RedditAutomationScheduler(
-#                 reddit_oauth_connector, ai_service, database_manager, user_reddit_tokens
-#             )
-#             automation_scheduler.start_scheduler()
-#             logger.info("REAL Multi-User Reddit automation system initialized")
-#             print("Automation Scheduler: REAL MULTI-USER MODE")
-#         else:
-#             raise ImportError("Real automation components not available")
-#     except Exception as e:
-#         logger.warning(f"Real automation system initialization failed: {e}")
-#         automation_scheduler = MockAutomationScheduler()
-#         automation_scheduler.start_scheduler()
-#         print("Automation Scheduler: Mock Multi-User mode")
+            automation_scheduler = RedditAutomationScheduler(
+                reddit_oauth_connector, ai_service, database_manager, user_reddit_tokens
+            )
+            automation_scheduler.start_scheduler()
+            logger.info("REAL Multi-User Reddit automation system initialized")
+            print("Automation Scheduler: REAL MULTI-USER MODE")
+        else:
+            raise ImportError("Real automation components not available")
+    except Exception as e:
+        logger.warning(f"Real automation system initialization failed: {e}")
+        automation_scheduler = MockAutomationScheduler()
+        automation_scheduler.start_scheduler()
+        print("Automation Scheduler: Mock Multi-User mode")
     
-#     # Final status report
-#     real_components = []
-#     mock_components = []
+    # Final status report
+    real_components = []
+    mock_components = []
     
-#     if not isinstance(ai_service, MockAIService):
-#         real_components.append("AI Content Generation")
-#     else:
-#         mock_components.append("AI (needs MISTRAL_API_KEY or GROQ_API_KEY)")
+    if not isinstance(ai_service, MockAIService):
+        real_components.append("AI Content Generation")
+    else:
+        mock_components.append("AI (needs MISTRAL_API_KEY or GROQ_API_KEY)")
         
-#     if not isinstance(reddit_oauth_connector, MockRedditConnector):
-#         real_components.append("Reddit API")
-#     else:
-#         mock_components.append("Reddit (needs REDDIT_CLIENT_ID + REDDIT_CLIENT_SECRET)")
+    if not isinstance(reddit_oauth_connector, MockRedditConnector):
+        real_components.append("Reddit API")
+    else:
+        mock_components.append("Reddit (needs REDDIT_CLIENT_ID + REDDIT_CLIENT_SECRET)")
         
-#     if not isinstance(automation_scheduler, MockAutomationScheduler):
-#         real_components.append("Multi-User Auto-posting")
-#     else:
-#         mock_components.append("Automation (depends on AI + Reddit)")
+    if not isinstance(automation_scheduler, MockAutomationScheduler):
+        real_components.append("Multi-User Auto-posting")
+    else:
+        mock_components.append("Automation (depends on AI + Reddit)")
     
-#     if MULTIUSER_DB_AVAILABLE and not isinstance(database_manager, MockMultiUserDatabase):
-#         real_components.append("Multi-User Database")
-#     else:
-#         mock_components.append("Database (using mock)")
+    if MULTIUSER_DB_AVAILABLE and not isinstance(database_manager, MockMultiUserDatabase):
+        real_components.append("Multi-User Database")
+    else:
+        mock_components.append("Database (using mock)")
     
-#     print(f"\nREAL Multi-User Components: {real_components if real_components else 'None'}")
-#     print(f"Mock Components: {mock_components if mock_components else 'None'}")
-#     print("Multi-User Application startup completed!\n")
+    print(f"\nREAL Multi-User Components: {real_components if real_components else 'None'}")
+    print(f"Mock Components: {mock_components if mock_components else 'None'}")
+    print("Multi-User Application startup completed!\n")
     
-#     logger.info("Multi-User application startup completed")
+    logger.info("Multi-User application startup completed")
     
-#     yield
+    yield
     
-#     # Cleanup
-#     logger.info("Shutting down multi-user application...")
-#     if automation_scheduler and hasattr(automation_scheduler, 'is_running'):
-#         automation_scheduler.is_running = False
-#     if database_manager and hasattr(database_manager, 'disconnect'):
-#         try:
-#             await database_manager.disconnect()
-#         except Exception as e:
-#             logger.warning(f"Database disconnect failed: {e}")
+    # Cleanup
+    logger.info("Shutting down multi-user application...")
+    if automation_scheduler and hasattr(automation_scheduler, 'is_running'):
+        automation_scheduler.is_running = False
+    if database_manager and hasattr(database_manager, 'disconnect'):
+        try:
+            await database_manager.disconnect()
+        except Exception as e:
+            logger.warning(f"Database disconnect failed: {e}")
 
 
 
-# # Create FastAPI app
-# app = FastAPI(
-#     title="Multi-User Reddit Automation Platform",
-#     description="Complete Multi-User Reddit Automation System with Individual User Accounts",
-#     version="6.0.0",
-#     docs_url="/docs",
-#     redoc_url="/redoc",
-#     lifespan=lifespan
-# )
-# ============= CREATE ROUTER INSTEAD OF APP =============
-# No prefix - keeps API paths unchanged for frontend
-router = APIRouter(tags=["Reddit Automation"])
+# Create FastAPI app
+app = FastAPI(
+    title="Multi-User Reddit Automation Platform",
+    description="Complete Multi-User Reddit Automation System with Individual User Accounts",
+    version="6.0.0",
+    docs_url="/docs",
+    redoc_url="/redoc",
+    lifespan=lifespan
+)
 
 # ADD TO TOP OF main.py
 # from fastapi.middleware.cors import CORSMiddleware
@@ -847,44 +843,44 @@ router = APIRouter(tags=["Reddit Automation"])
 # Find this section in your main.py (around lines 25-35) and replace it:
 
 # ===== CORS Configuration - FIXED =====
-# app.add_middleware(
-#     CORSMiddleware,
-#     allow_origins=[
-#         "http://localhost:3000",
-#         "http://localhost:5173", 
-#         "http://localhost:8080",
-#         "https://velocitypost-ai.onrender.com",  # Your frontend domain
-#         "https://agentic-u5lx.onrender.com"  # Your backend domain
-#          # Allow all origins for development
-#     ],
-#     allow_credentials=True,
-#     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
-#     allow_headers=[
-#         "Content-Type", 
-#         "Authorization", 
-#         "X-User-Token",
-#         "Accept",
-#         "Origin",
-#         "X-Requested-With",
-#         "Access-Control-Request-Method",
-#         "Access-Control-Request-Headers"
-#     ],
-#     expose_headers=["*"],
-#     max_age=3600
-# )
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:3000",
+        "http://localhost:5173", 
+        "http://localhost:8080",
+        "https://velocitypost-ai.onrender.com",  # Your frontend domain
+        "https://velocitypost-984x.onrender.com"  # Your backend domain
+         # Allow all origins for development
+    ],
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+    allow_headers=[
+        "Content-Type", 
+        "Authorization", 
+        "X-User-Token",
+        "Accept",
+        "Origin",
+        "X-Requested-With",
+        "Access-Control-Request-Method",
+        "Access-Control-Request-Headers"
+    ],
+    expose_headers=["*"],
+    max_age=3600
+)
 
 
 
 
-# app.add_middleware(
-#     TrustedHostMiddleware,
-#     allowed_hosts=["*"]
-# )
+app.add_middleware(
+    TrustedHostMiddleware,
+    allowed_hosts=["*"]
+)
 
 
 # Add this code after your CORS middleware (around line 50 in main.py):
 
-@router.options("/{path:path}")
+@app.options("/{path:path}")
 async def options_handler(request: Request):
     """Handle preflight OPTIONS requests"""
     return Response(
@@ -902,22 +898,22 @@ async def options_handler(request: Request):
 
 
 # Global exception handler
-# @router.exception_handler(Exception)
-# async def global_exception_handler(request: Request, exc: Exception):
-#     logger.error(f"Global exception on {request.url}: {exc}")
-#     logger.error(traceback.format_exc())
-#     return JSONResponse(
-#         status_code=500,
-#         content={
-#             "success": False,
-#             "error": str(exc),
-#             "message": "An unexpected error occurred.",
-#             "timestamp": datetime.now().isoformat()
-#         }
-#     )
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    logger.error(f"Global exception on {request.url}: {exc}")
+    logger.error(traceback.format_exc())
+    return JSONResponse(
+        status_code=500,
+        content={
+            "success": False,
+            "error": str(exc),
+            "message": "An unexpected error occurred.",
+            "timestamp": datetime.now().isoformat()
+        }
+    )
 
 # Health check endpoints
-@router.get("/")
+@app.get("/")
 async def root():
     ai_status = "real" if not isinstance(ai_service, MockAIService) else "mock"
     reddit_status = "real" if not isinstance(reddit_oauth_connector, MockRedditConnector) else "mock"
@@ -944,7 +940,7 @@ async def root():
 
 
 
-@router.get("/health")
+@app.get("/health")
 async def health_check():
     """Enhanced health check with CORS headers"""
     try:
@@ -1012,7 +1008,7 @@ async def health_check():
 
 
 # User-specific Reddit endpoints
-@router.get("/api/reddit/connection-status")
+@app.get("/api/reddit/connection-status")
 async def get_reddit_connection_status(current_user: dict = Depends(get_current_user)):
     """Get Reddit connection status for current user"""
     try:
@@ -1070,7 +1066,7 @@ async def get_reddit_connection_status(current_user: dict = Depends(get_current_
         logger.error(f"Connection status check failed: {e}")
         return {"success": False, "error": str(e)}
 
-@router.get("/api/reddit/test-connection")
+@app.get("/api/reddit/test-connection")
 async def test_reddit_connection(current_user: dict = Depends(get_current_user)):
     """Test Reddit API connection for current user"""
     try:
@@ -1107,7 +1103,7 @@ async def test_reddit_connection(current_user: dict = Depends(get_current_user))
         return {"success": False, "error": str(e)}
 
 # Completion of health check endpoint (from Part 1)
-@router.get("/health")
+@app.get("/health")
 async def health_check():
     try:
         ai_status = "unknown"
@@ -1177,7 +1173,7 @@ async def health_check():
 
 
 # Multi-User Authentication endpoints
-@router.post("/api/auth/register")
+@app.post("/api/auth/register")
 async def register_user(user_data: RegisterRequest):
     """Register new user with email and password"""
     try:
@@ -1196,7 +1192,7 @@ async def register_user(user_data: RegisterRequest):
         logger.error(f"User registration failed: {e}")
         raise HTTPException(status_code=400, detail=str(e))
 
-@router.post("/api/auth/login")
+@app.post("/api/auth/login")
 async def login_user(login_data: LoginRequest):
     """Login user and return JWT token"""
     try:
@@ -1214,7 +1210,7 @@ async def login_user(login_data: LoginRequest):
         logger.error(f"User login failed: {e}")
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
-@router.get("/api/auth/me")
+@app.get("/api/auth/me")
 async def get_current_user_info(current_user: dict = Depends(get_current_user)):
     """Get current user information"""
     return {
@@ -1226,7 +1222,7 @@ async def get_current_user_info(current_user: dict = Depends(get_current_user)):
 
 
 
-@router.get("/api/oauth/reddit/authorize")
+@app.get("/api/oauth/reddit/authorize")
 async def reddit_oauth_authorize(current_user: dict = Depends(get_current_user)):
     """Start Reddit OAuth flow for authenticated user - FIXED VERSION"""
     try:
@@ -1240,7 +1236,7 @@ async def reddit_oauth_authorize(current_user: dict = Depends(get_current_user))
         await database_manager.store_oauth_state(state, user_id, expires_at)
         
         reddit_client_id = os.getenv("REDDIT_CLIENT_ID")
-        reddit_redirect_uri = os.getenv("REDDIT_REDIRECT_URI", "https://agentic-u5lx.onrender.com/api/oauth/reddit/callback")
+        reddit_redirect_uri = os.getenv("REDDIT_REDIRECT_URI", "https://velocitypost-984x.onrender.com/api/oauth/reddit/callback")
         
         if not reddit_client_id:
             raise HTTPException(status_code=500, detail="Reddit credentials not configured")
@@ -1262,7 +1258,7 @@ async def reddit_oauth_authorize(current_user: dict = Depends(get_current_user))
 
 
 
-@router.get("/api/oauth/reddit/callback")
+@app.get("/api/oauth/reddit/callback")
 async def reddit_oauth_callback(code: str, state: str):
     """Handle Reddit OAuth callback for authenticated user - FIXED VERSION"""
     try:
@@ -1440,7 +1436,7 @@ async def reddit_oauth_callback(code: str, state: str):
 
 
 # User-specific Reddit endpoints
-@router.get("/api/reddit/connection-status")
+@app.get("/api/reddit/connection-status")
 async def get_reddit_connection_status(current_user: dict = Depends(get_current_user)):
     """Get Reddit connection status for current user"""
     try:
@@ -1498,7 +1494,7 @@ async def get_reddit_connection_status(current_user: dict = Depends(get_current_
         logger.error(f"Connection status check failed: {e}")
         return {"success": False, "error": str(e)}
 
-@router.get("/api/reddit/test-connection")
+@app.get("/api/reddit/test-connection")
 async def test_reddit_connection(current_user: dict = Depends(get_current_user)):
     """Test Reddit API connection for current user"""
     try:
@@ -1535,7 +1531,7 @@ async def test_reddit_connection(current_user: dict = Depends(get_current_user))
         return {"success": False, "error": str(e)}
 
 # User-specific manual posting
-@router.post("/api/reddit/post")
+@app.post("/api/reddit/post")
 async def manual_reddit_post(
     post_data: ManualPostRequest,
     current_user: dict = Depends(get_current_user)
@@ -1602,7 +1598,7 @@ async def manual_reddit_post(
         return {"success": False, "error": str(e)}
 
 # User-specific AI content generation
-@router.post("/api/automation/test-auto-post")
+@app.post("/api/automation/test-auto-post")
 async def test_auto_post(
     test_data: TestPostRequest,
     current_user: dict = Depends(get_current_user)
@@ -1679,7 +1675,7 @@ async def test_auto_post(
 
 
 # User-specific automation setup
-@router.post("/api/automation/setup-auto-posting")
+@app.post("/api/automation/setup-auto-posting")
 async def setup_auto_posting(
     config_data: AutoPostingRequest,
     current_user: dict = Depends(get_current_user)
@@ -1912,7 +1908,7 @@ async def setup_auto_posting(
 
 
 
-@router.get("/api/debug/automation-status")
+@app.get("/api/debug/automation-status")
 async def debug_automation_status(current_user: dict = Depends(get_current_user)):
     """Debug automation status for current user"""
     try:
@@ -1945,7 +1941,7 @@ async def debug_automation_status(current_user: dict = Depends(get_current_user)
         return {"success": False, "error": str(e)}
 
 
-@router.post("/api/automation/setup-auto-replies")
+@app.post("/api/automation/setup-auto-replies")
 async def setup_auto_replies(
     config_data: AutoReplyRequest,
     current_user: dict = Depends(get_current_user)
@@ -2034,7 +2030,7 @@ async def setup_auto_replies(
         logger.error(f"Auto-replies setup failed: {e}")
         return {"success": False, "error": str(e)}
 
-@router.get("/api/automation/status")
+@app.get("/api/automation/status")
 async def get_automation_status(current_user: dict = Depends(get_current_user)):
     """Get automation status for current user"""
     try:
@@ -2085,7 +2081,7 @@ async def get_automation_status(current_user: dict = Depends(get_current_user)):
         logger.error(f"Status check failed: {e}")
         return {"success": False, "error": str(e)}
 
-@router.post("/api/automation/update-schedule")
+@app.post("/api/automation/update-schedule")
 async def update_automation_schedule(
     update_data: ScheduleUpdateRequest,
     current_user: dict = Depends(get_current_user)
@@ -2128,7 +2124,7 @@ async def update_automation_schedule(
         return {"success": False, "error": str(e)}
 
 # User dashboard endpoint
-@router.get("/api/user/dashboard")
+@app.get("/api/user/dashboard")
 async def get_user_dashboard(current_user: dict = Depends(get_current_user)):
     """Get dashboard data for current user"""
     try:
@@ -2163,7 +2159,7 @@ async def get_user_dashboard(current_user: dict = Depends(get_current_user)):
         return {"success": False, "error": str(e)}
 
 # Disconnect Reddit for user
-@router.post("/api/reddit/disconnect")
+@app.post("/api/reddit/disconnect")
 async def disconnect_reddit(current_user: dict = Depends(get_current_user)):
     """Disconnect Reddit account for current user"""
     try:
@@ -2191,7 +2187,7 @@ async def disconnect_reddit(current_user: dict = Depends(get_current_user)):
         return {"success": False, "error": str(e)}
 
 # User profile management
-@router.get("/api/user/profile")
+@app.get("/api/user/profile")
 async def get_user_profile(current_user: dict = Depends(get_current_user)):
     """Get user profile information"""
     try:
@@ -2216,7 +2212,7 @@ async def get_user_profile(current_user: dict = Depends(get_current_user)):
         logger.error(f"Get user profile failed: {e}")
         return {"success": False, "error": str(e)}
 
-@router.put("/api/user/profile")
+@app.put("/api/user/profile")
 async def update_user_profile(
     profile_data: dict,
     current_user: dict = Depends(get_current_user)
@@ -2242,7 +2238,7 @@ async def update_user_profile(
         return {"success": False, "error": str(e)}
 
 # User activity and analytics
-@router.get("/api/user/activity")
+@app.get("/api/user/activity")
 async def get_user_activity(
     current_user: dict = Depends(get_current_user),
     days: int = Query(7, description="Number of days to fetch activity for")
@@ -2278,7 +2274,7 @@ async def get_user_activity(
         logger.error(f"Get user activity failed: {e}")
         return {"success": False, "error": str(e)}
 
-@router.get("/api/user/analytics")
+@app.get("/api/user/analytics")
 async def get_user_analytics(
     current_user: dict = Depends(get_current_user),
     period: str = Query("week", description="Analytics period: week, month, year")
@@ -2323,7 +2319,7 @@ async def get_user_analytics(
 
 
 
-@router.get("/api/debug/current-schedule")
+@app.get("/api/debug/current-schedule")
 async def debug_current_schedule(current_user: dict = Depends(get_current_user)):
     """Debug current automation schedule"""
     try:
@@ -2366,7 +2362,7 @@ async def debug_current_schedule(current_user: dict = Depends(get_current_user))
 
 
 
-@router.post("/api/debug/add-test-time")
+@app.post("/api/debug/add-test-time")
 async def add_test_time(current_user: dict = Depends(get_current_user)):
     """Add a test posting time 2 minutes from now"""
     try:
@@ -2470,7 +2466,7 @@ async def add_test_time(current_user: dict = Depends(get_current_user)):
 
 
 
-@router.get("/api/debug/scheduler-status")
+@app.get("/api/debug/scheduler-status")
 async def debug_scheduler_status(current_user: dict = Depends(get_current_user)):
     """Debug scheduler active configurations"""
     try:
@@ -2512,7 +2508,7 @@ async def debug_scheduler_status(current_user: dict = Depends(get_current_user))
 
 
 # Debug endpoints (for development and troubleshooting)
-@router.get("/api/debug/multi-user-sessions")
+@app.get("/api/debug/multi-user-sessions")
 async def debug_multi_user_sessions():
     """Debug multi-user session information"""
     return {
@@ -2539,7 +2535,7 @@ async def debug_multi_user_sessions():
         "timestamp": datetime.now().isoformat()
     }
 
-@router.get("/api/debug/reddit")
+@app.get("/api/debug/reddit")
 async def debug_reddit_connector():
     """Debug Reddit connector status"""
     return {
@@ -2562,7 +2558,7 @@ async def debug_reddit_connector():
         "timestamp": datetime.now().isoformat()
     }
 
-@router.get("/api/debug/ai")
+@app.get("/api/debug/ai")
 async def debug_ai_service():
     """Debug AI service status"""
     try:
@@ -2589,7 +2585,7 @@ async def debug_ai_service():
     except Exception as e:
         return {"success": False, "error": str(e)}
 
-@router.get("/api/debug/database")
+@app.get("/api/debug/database")
 async def debug_database():
     """Debug database status"""
     try:
@@ -2614,7 +2610,7 @@ async def debug_database():
         return {"success": False, "error": str(e)}
 
 # Backward compatibility endpoints (for users without authentication)
-@router.post("/api/auth/create-session")
+@app.post("/api/auth/create-session")
 async def create_session_fallback():
     """Create session for backward compatibility (deprecated)"""
     try:
@@ -2636,7 +2632,7 @@ async def create_session_fallback():
         logger.error(f"Create fallback session failed: {e}")
         return {"success": False, "error": str(e)}
 
-@router.get("/api/auth/check-existing-connection")
+@app.get("/api/auth/check-existing-connection")
 async def check_existing_connection_fallback(session_id: str = Header(None, alias="x-session-id")):
     """Check existing connection for backward compatibility"""
     return {
@@ -2654,7 +2650,7 @@ async def check_existing_connection_fallback(session_id: str = Header(None, alia
         }
     }
 
-@router.get("/api/debug/scheduler-active-configs")
+@app.get("/api/debug/scheduler-active-configs")
 async def debug_scheduler_active_configs(current_user: dict = Depends(get_current_user)):
     """Debug what the scheduler actually has in active_configs"""
     try:
@@ -2698,7 +2694,7 @@ async def debug_scheduler_active_configs(current_user: dict = Depends(get_curren
         return {"success": False, "error": str(e)}
 
 # System information endpoint
-@router.get("/api/system/info")
+@app.get("/api/system/info")
 async def get_system_info():
     """Get system information and capabilities"""
     return {
@@ -2740,7 +2736,7 @@ async def get_system_info():
     }
 
 
-@router.post("/api/debug/trigger-immediate-post")
+@app.post("/api/debug/trigger-immediate-post")
 async def trigger_immediate_post(current_user: dict = Depends(get_current_user)):
     """Trigger an immediate test post"""
     try:
@@ -2795,7 +2791,7 @@ async def trigger_immediate_post(current_user: dict = Depends(get_current_user))
         logger.error(f"Immediate post trigger failed: {e}")
         return {"success": False, "error": str(e)}
 
-@router.get("/api/debug/next-posting-debug")
+@app.get("/api/debug/next-posting-debug")
 async def debug_next_posting(current_user: dict = Depends(get_current_user)):
     """Debug next posting time calculation"""
     try:
@@ -2826,112 +2822,14 @@ async def debug_next_posting(current_user: dict = Depends(get_current_user)):
         return {"success": False, "error": str(e)}
 
 
-
-@router.get("/api/reddit/questions")  # ✅ GET method
-async def find_reddit_questions(
-    subreddits: str = Query("AskReddit,explainlikeimfive,NoStupidQuestions"),
-    keywords: str = Query("help,how,what,why"),
-    limit: int = Query(10),
-    current_user: dict = Depends(get_current_user)
-):
-    """Find questions in subreddits matching keywords"""
-    try:
-        user_id = current_user["id"]
-        
-        # Check Reddit connection
-        if user_id not in user_reddit_tokens:
-            raise HTTPException(status_code=400, detail="Reddit not connected")
-        
-        # Parse inputs
-        subreddit_list = [s.strip() for s in subreddits.split(',')]
-        keyword_list = [k.strip() for k in keywords.split(',')]
-        
-        # Search questions (implement your logic here)
-        questions = []
-        
-        return {
-            "success": True,
-            "questions": questions,
-            "count": len(questions)
-        }
-    except Exception as e:
-        logger.error(f"Find questions failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
 # Application startup
-# PORT = int(os.getenv("PORT", 10000))
-# if __name__ == "__main__":
-#     print("Starting Multi-User Reddit Automation Platform...")
-#     uvicorn.run(
-#         "main:app",
-#         host="0.0.0.0",
-#         port=PORT,
-#         reload=False,
-#         log_level="info"
-#     )
-
-
-
-
-# ============= INITIALIZATION FUNCTION =============
-async def initialize_reddit_services():
-    """Initialize all Reddit-related services"""
-    global database_manager, ai_service, reddit_oauth_connector, automation_scheduler
-    
-    logger.info("Initializing Reddit services...")
-    
-    # Initialize AI Service
-    if AIService:
-        try:
-            ai_service = AIService(settings)
-            logger.info("✅ Real AI service initialized")
-        except Exception as e:
-            logger.warning(f"AI service failed: {e}")
-            ai_service = MockAIService()
-    else:
-        ai_service = MockAIService()
-    
-    # Initialize Database
-    if DatabaseManager:
-        try:
-            database_manager = DatabaseManager(settings.mongodb_uri)
-            if hasattr(database_manager, 'connect'):
-                await database_manager.connect()
-            logger.info("✅ Database initialized")
-        except Exception as e:
-            logger.warning(f"Database failed: {e}")
-            database_manager = MockMultiUserDatabase()
-    else:
-        database_manager = MockMultiUserDatabase()
-    
-    # Initialize Reddit Connector
-    if RedditOAuthConnector:
-        try:
-            reddit_oauth_connector = RedditOAuthConnector(settings)
-            logger.info("✅ Reddit connector initialized")
-        except Exception as e:
-            logger.warning(f"Reddit connector failed: {e}")
-            reddit_oauth_connector = MockRedditConnector()
-    else:
-        reddit_oauth_connector = MockRedditConnector()
-    
-    # Initialize Scheduler
-    if AUTOMATION_AVAILABLE:
-        try:
-            from reddit_automation import RedditAutomationScheduler
-            # Use the correct parameter names expected by RedditAutomationScheduler
-            automation_scheduler = RedditAutomationScheduler(
-                reddit_oauth_connector=reddit_oauth_connector,
-                ai_service=ai_service,
-                database_manager=database_manager,
-                user_tokens=user_reddit_tokens
-            )
-            await automation_scheduler.start()
-            logger.info("✅ Scheduler started")
-        except Exception as e:
-            logger.warning(f"Scheduler failed: {e}")
-            automation_scheduler = MockAutomationScheduler()
-    else:
-        automation_scheduler = MockAutomationScheduler()
-    
-    logger.info("Reddit services ready!")
+PORT = int(os.getenv("PORT", 10000))
+if __name__ == "__main__":
+    print("Starting Multi-User Reddit Automation Platform...")
+    uvicorn.run(
+        "main:app",
+        host="0.0.0.0",
+        port=PORT,
+        reload=False,
+        log_level="info"
+    )
