@@ -1655,33 +1655,33 @@ async def options_me():
 
 
 
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+# from fastapi.staticfiles import StaticFiles
+# from fastapi.responses import FileResponse
 
 
 
-## ✅ 1. Define React build directory
-frontend_dir = os.path.join(os.path.dirname(__file__), "../frontend/dist")
+# ## ✅ 1. Define React build directory
+# frontend_dir = os.path.join(os.path.dirname(__file__), "../frontend/dist")
 
-# ✅ 2. Check and mount the assets directory (Vite uses "assets", not "static")
-assets_dir = os.path.join(frontend_dir, "assets")
-if os.path.exists(assets_dir):
-    app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
-else:
-    print("⚠️ No 'assets' directory found. Run `npm run build` in frontend first.")
+# # ✅ 2. Check and mount the assets directory (Vite uses "assets", not "static")
+# assets_dir = os.path.join(frontend_dir, "assets")
+# if os.path.exists(assets_dir):
+#     app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
+# else:
+#     print("⚠️ No 'assets' directory found. Run `npm run build` in frontend first.")
 
-# ✅ 3. Example API route (optional)
-@app.get("/api/hello")
-def hello():
-    return {"message": "Hello from FastAPI + React!"}
+# # ✅ 3. Example API route (optional)
+# @app.get("/api/hello")
+# def hello():
+#     return {"message": "Hello from FastAPI + React!"}
 
-# ✅ 4. Catch-all route for React Router (so refresh won't break)
-@app.get("/{full_path:path}")
-async def serve_react(full_path: str):
-    index_file = os.path.join(frontend_dir, "index.html")
-    if os.path.exists(index_file):
-        return FileResponse(index_file)
-    return {"error": "index.html not found"}
+# # ✅ 4. Catch-all route for React Router (so refresh won't break)
+# @app.get("/{full_path:path}")
+# async def serve_react(full_path: str):
+#     index_file = os.path.join(frontend_dir, "index.html")
+#     if os.path.exists(index_file):
+#         return FileResponse(index_file)
+#     return {"error": "index.html not found"}
 
 
 
@@ -1916,6 +1916,7 @@ try:
                 logger.warning(f"⚠️ main.create_app() failed: {e}")
     
     if reddit_app:
+        
         # DISABLED: app.mount("/api/reddit", reddit_app)
         logger.info("ℹ️ Reddit app found but NOT mounted (disabled)")
     else:
