@@ -1254,44 +1254,36 @@ app = FastAPI(
 )
 
 # CORS middleware
+# 🌍 Middleware Configuration
+# ============================================================
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "https://frontend-agentic-bnc2.onrender.com",
-        "https://velocitypost-ai.onrender.com",    # Frontend (React)
-        "https://velocitypost-984x.onrender.com",  # Backend Render URL
-        "http://localhost:5173",                   # Local (Vite)
-        "http://localhost:3000",                   # Local (React)
+        "https://velocitypost-ai.onrender.com",
+        "https://velocitypost-984x.onrender.com",
+        "http://localhost:5173",  # Vite dev
+        "http://localhost:3000",  # React dev
         "http://localhost:8000",
         "http://localhost:8080",
-        "*"  # ⚠️ Only for testing. Remove in production.
+        "*"  # ⚠️ for testing only — remove in production
     ],
     allow_credentials=True,
-    allow_methods=["*"],   # Includes GET, POST, PUT, DELETE, OPTIONS, PATCH
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["*"],
     expose_headers=["*"],
     max_age=3600
 )
 
-# =========================================================
-# 🧭 OPTIONS Handler for CORS Preflight
-# =========================================================
+# ✅ Handle Preflight OPTIONS Requests
 @app.options("/{path:path}")
 async def preflight_handler(path: str):
     return JSONResponse(content={"status": "ok"})
 
-# =========================================================
-# 🛡️ Trusted Host Middleware (for host header protection)
-# =========================================================
+# ✅ Trusted Host Middleware (Optional for Render / Vercel)
 app.add_middleware(
     TrustedHostMiddleware,
-    allowed_hosts=[
-        "velocitypost-984x.onrender.com",   # Backend domain
-        "velocitypost-ai.onrender.com",     # Frontend domain
-        "*.onrender.com",                   # Allow Render subdomains
-        "localhost",
-        "127.0.0.1"
-    ]
+    allowed_hosts=["*"]
 )
 
 # COPY-PASTE THIS: Request Logging Middleware
@@ -1798,55 +1790,30 @@ async def debug_users():
 # COPY-PASTE THIS: Improved Register Endpoint
 # Replace your register endpoint (around line 1646-1715)
 
+
+# ============================================================
+# 👤 AUTH ROUTES
+# ============================================================
+
 @app.post("/api/auth/register")
 async def register(request: RegisterRequest):
     """User registration with password hashing and JWT token"""
     try:
-        # ✅ DETAILED LOGGING
-        logger.info("=" * 60)
-        logger.info("📝 REGISTRATION REQUEST RECEIVED")
-        logger.info(f"Email: {request.email}")
-        logger.info(f"Name: {request.name}")
-        logger.info(f"Database manager available: {database_manager is not None}")
-        if database_manager:
-            logger.info(f"Database type: {type(database_manager).__name__}")
-            logger.info(f"Has users_collection: {hasattr(database_manager, 'users_collection')}")
-        logger.info("=" * 60)
-        
-        if not database_manager:
-            logger.error("❌ DATABASE MANAGER IS NONE!")
-            logger.error("Check if YouTube module initialized properly")
-            logger.error("Check MONGODB_URI environment variable")
-            raise HTTPException(status_code=503, detail="Database service not available")
-        
-        # ✅ ADDITIONAL CHECK
-        if not hasattr(database_manager, 'users_collection'):
-            logger.error("❌ DATABASE MANAGER HAS NO users_collection!")
-            raise HTTPException(status_code=503, detail="Database not properly initialized")
-        
-        logger.info("✅ Database checks passed")
-        
-        # Check if user exists
-        logger.info(f"Checking if user exists: {request.email}")
-        existing_user = await database_manager.users_collection.find_one(
-            {"email": request.email}
-        )
-        
+        logger.info("📝 Registration request received")
+
+        # ✅ Database Check
+        if not database_manager or not hasattr(database_manager, 'users_collection'):
+            raise HTTPException(status_code=503, detail="Database not available")
+
+        # ✅ Check if user already exists
+        existing_user = await database_manager.users_collection.find_one({"email": request.email})
         if existing_user:
-            logger.warning(f"⚠️ Email already registered: {request.email}")
             raise HTTPException(status_code=400, detail="Email already registered")
-        
-        logger.info("✅ Email is available")
-        
-        # Hash password
-        logger.info("🔒 Hashing password...")
-        hashed_password = bcrypt.hashpw(
-            request.password.encode('utf-8'),
-            bcrypt.gensalt()
-        ).decode('utf-8')
-        logger.info("✅ Password hashed")
-        
-        # Create user
+
+        # ✅ Hash password
+        hashed_password = bcrypt.hashpw(request.password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+
+        # ✅ Insert new user
         user_id = str(uuid.uuid4())
         user_data = {
             "_id": user_id,
@@ -1857,14 +1824,9 @@ async def register(request: RegisterRequest):
             "platforms_connected": [],
             "automation_enabled": False
         }
-        
-        logger.info(f"💾 Inserting user into database: {user_id}")
-        # Insert into database
         await database_manager.users_collection.insert_one(user_data)
-        logger.info("✅ User inserted into database")
-        
-        # Generate JWT token
-        logger.info("🔑 Generating JWT token...")
+
+        # ✅ Generate JWT token
         token = jwt.encode(
             {
                 "user_id": user_id,
@@ -1874,14 +1836,9 @@ async def register(request: RegisterRequest):
             os.getenv("JWT_SECRET", "your-secret-key-change-in-production"),
             algorithm="HS256"
         )
-        logger.info("✅ JWT token generated")
-        
-        logger.info("=" * 60)
-        logger.info(f"✅ REGISTRATION SUCCESSFUL: {request.email}")
-        logger.info(f"User ID: {user_id}")
-        logger.info(f"Token length: {len(token)} chars")
-        logger.info("=" * 60)
-        
+
+        logger.success(f"✅ User registered: {request.email}")
+
         return {
             "success": True,
             "message": "User registered successfully",
@@ -1893,93 +1850,48 @@ async def register(request: RegisterRequest):
                 "platforms_connected": []
             }
         }
-        
+
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("=" * 60)
-        logger.error(f"❌ REGISTRATION FAILED")
-        logger.error(f"Error: {e}")
-        logger.error(f"Error type: {type(e).__name__}")
-        import traceback
-        logger.error(f"Traceback:\n{traceback.format_exc()}")
-        logger.error("=" * 60)
+        logger.error(f"❌ Registration failed: {e}\n{traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=str(e))
 
-# Login endpoint
-# COPY-PASTE THIS: Improved Login Endpoint
-# Replace your login endpoint (around line 1719-1801)
 
+# ============================================================
+# 🔐 LOGIN
+# ============================================================
 @app.post("/api/auth/login")
 async def login(request: LoginRequest):
     """User login with password verification and JWT token"""
     try:
-        # ✅ DETAILED LOGGING
-        logger.info("=" * 60)
-        logger.info("🔐 LOGIN REQUEST RECEIVED")
-        logger.info(f"Email: {request.email}")
-        logger.info(f"Database manager available: {database_manager is not None}")
-        logger.info("=" * 60)
-        
+        logger.info("🔐 Login request received")
+
         if not database_manager:
-            logger.error("❌ DATABASE MANAGER IS NONE!")
-            raise HTTPException(status_code=503, detail="Database service not available")
-        
-        # Get user from database
-        logger.info(f"🔍 Looking up user: {request.email}")
-        user = await database_manager.users_collection.find_one(
-            {"email": request.email}
-        )
-        
+            raise HTTPException(status_code=503, detail="Database not available")
+
+        user = await database_manager.users_collection.find_one({"email": request.email})
         if not user:
-            logger.warning(f"❌ No user found with email: {request.email}")
             raise HTTPException(status_code=401, detail="Invalid credentials")
-        
-        logger.info(f"✅ User found: {user.get('_id')}")
-        
-        # Get stored password
+
         stored_password = user.get("password")
-        if not stored_password:
-            logger.error(f"❌ No password stored for user: {request.email}")
-            raise HTTPException(status_code=401, detail="Invalid credentials")
-        
-        logger.info("🔒 Verifying password...")
-        
-        # Verify password with bcrypt
+        password_match = False
+
         try:
-            password_match = bcrypt.checkpw(
-                request.password.encode('utf-8'),
-                stored_password.encode('utf-8')
-            )
-            logger.info(f"✅ bcrypt check: {'MATCH' if password_match else 'NO MATCH'}")
+            password_match = bcrypt.checkpw(request.password.encode('utf-8'), stored_password.encode('utf-8'))
         except Exception as e:
-            # If bcrypt fails, try plain text (for migration from old passwords)
-            logger.warning(f"⚠️ bcrypt check failed: {e}")
-            logger.warning("Trying plain text comparison for migration...")
-            password_match = (stored_password == request.password)
-            logger.info(f"Plain text check: {'MATCH' if password_match else 'NO MATCH'}")
-            
-            # If plain text match, migrate to hashed password
+            logger.warning(f"⚠️ bcrypt failed: {e}, trying plaintext comparison")
+            password_match = stored_password == request.password
             if password_match:
-                logger.info(f"🔄 Migrating user {request.email} to hashed password")
-                hashed = bcrypt.hashpw(
-                    request.password.encode('utf-8'),
-                    bcrypt.gensalt()
-                ).decode('utf-8')
+                hashed = bcrypt.hashpw(request.password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
                 await database_manager.users_collection.update_one(
                     {"email": request.email},
                     {"$set": {"password": hashed}}
                 )
-                logger.info("✅ Password migrated to hashed")
-        
+
         if not password_match:
-            logger.warning(f"❌ Password mismatch for user: {request.email}")
             raise HTTPException(status_code=401, detail="Invalid credentials")
-        
-        logger.info("✅ Password verified")
-        
-        # Generate JWT token
-        logger.info("🔑 Generating JWT token...")
+
         token = jwt.encode(
             {
                 "user_id": user["_id"],
@@ -1989,14 +1901,9 @@ async def login(request: LoginRequest):
             os.getenv("JWT_SECRET", "your-secret-key-change-in-production"),
             algorithm="HS256"
         )
-        logger.info("✅ JWT token generated")
-        
-        logger.info("=" * 60)
-        logger.info(f"✅ LOGIN SUCCESSFUL: {request.email}")
-        logger.info(f"User ID: {user['_id']}")
-        logger.info(f"Token length: {len(token)} chars")
-        logger.info("=" * 60)
-        
+
+        logger.success(f"✅ Login successful for {request.email}")
+
         return {
             "success": True,
             "message": "Login successful",
@@ -2008,58 +1915,40 @@ async def login(request: LoginRequest):
                 "platforms_connected": user.get("platforms_connected", [])
             }
         }
-        
+
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("=" * 60)
-        logger.error(f"❌ LOGIN FAILED")
-        logger.error(f"Error: {e}")
-        logger.error(f"Error type: {type(e).__name__}")
-        import traceback
-        logger.error(f"Traceback:\n{traceback.format_exc()}")
-        logger.error("=" * 60)
+        logger.error(f"❌ Login failed: {e}\n{traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=str(e))
-    
 
 
-# Get current user endpoint (optional but recommended)
+# ============================================================
+# 👥 GET CURRENT USER
+# ============================================================
 @app.get("/api/auth/me")
 async def get_current_user(authorization: str = Header(None)):
-    """Get current user from JWT token"""
+    """Get current user info from JWT token"""
     try:
         if not database_manager:
             raise HTTPException(status_code=503, detail="Database not available")
-        
+
         if not authorization or not authorization.startswith("Bearer "):
             raise HTTPException(status_code=401, detail="Not authenticated")
-        
+
         token = authorization.replace("Bearer ", "")
-        
-        # Decode JWT token
         payload = jwt.decode(
             token,
             os.getenv("JWT_SECRET", "your-secret-key-change-in-production"),
             algorithms=["HS256"]
         )
-        
+
         user_id = payload.get("user_id")
-        
-        # Get user from database
-        from bson import ObjectId
-        try:
-            user = await database_manager.users_collection.find_one(
-                {"_id": user_id}
-            )
-        except:
-            # If user_id is not ObjectId, try string
-            user = await database_manager.users_collection.find_one(
-                {"_id": user_id}
-            )
-        
+        user = await database_manager.users_collection.find_one({"_id": user_id})
+
         if not user:
             raise HTTPException(status_code=401, detail="User not found")
-        
+
         return {
             "success": True,
             "user": {
@@ -2069,7 +1958,7 @@ async def get_current_user(authorization: str = Header(None)):
                 "platforms_connected": user.get("platforms_connected", [])
             }
         }
-        
+
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token expired")
     except jwt.InvalidTokenError:
@@ -2077,7 +1966,6 @@ async def get_current_user(authorization: str = Header(None)):
     except Exception as e:
         logger.error(f"❌ Auth error: {e}")
         raise HTTPException(status_code=401, detail="Authentication failed")
-
 
 
 # ========================================================================
