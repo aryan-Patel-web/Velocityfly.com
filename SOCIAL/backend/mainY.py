@@ -1254,31 +1254,45 @@ app = FastAPI(
 )
 
 # CORS middleware
-origins = [
-    "https://velocitypost-ai.onrender.com",
-    "https://velocitypost-984x.onrender.com",
-    "http://localhost:5173",
-    "http://localhost:3000",
-    "http://127.0.0.1:8000",
-]
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=[
+        "https://frontend-agentic-bnc2.onrender.com",
+        "https://velocitypost-ai.onrender.com",    # Frontend (React)
+        "https://velocitypost-984x.onrender.com",  # Backend Render URL
+        "http://localhost:5173",                   # Local (Vite)
+        "http://localhost:3000",                   # Local (React)
+        "http://localhost:8000",
+        "http://localhost:8080",
+        "*"  # ⚠️ Only for testing. Remove in production.
+    ],
     allow_credentials=True,
-    allow_methods=["*"],       # includes OPTIONS, GET, POST, etc.
-    allow_headers=["*"],       # allow all headers
+    allow_methods=["*"],   # Includes GET, POST, PUT, DELETE, OPTIONS, PATCH
+    allow_headers=["*"],
+    expose_headers=["*"],
+    max_age=3600
 )
-)
+
+# =========================================================
+# 🧭 OPTIONS Handler for CORS Preflight
+# =========================================================
 @app.options("/{path:path}")
 async def preflight_handler(path: str):
     return JSONResponse(content={"status": "ok"})
 
-# Trusted hosts middleware
-# app.add_middleware(
-#     TrustedHostMiddleware,
-#     allowed_hosts=["*"]
-# )
+# =========================================================
+# 🛡️ Trusted Host Middleware (for host header protection)
+# =========================================================
+app.add_middleware(
+    TrustedHostMiddleware,
+    allowed_hosts=[
+        "velocitypost-984x.onrender.com",   # Backend domain
+        "velocitypost-ai.onrender.com",     # Frontend domain
+        "*.onrender.com",                   # Allow Render subdomains
+        "localhost",
+        "127.0.0.1"
+    ]
+)
 
 # COPY-PASTE THIS: Request Logging Middleware
 # Add this AFTER your CORS middleware (around line 1274)
