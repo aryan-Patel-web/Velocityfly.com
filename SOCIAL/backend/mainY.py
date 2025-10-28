@@ -1393,6 +1393,19 @@ async def root():
         "timestamp": datetime.now().isoformat()
     }
 
+
+@app.options("/")
+async def root_options():
+    """OPTIONS for root"""
+    return Response(
+        status_code=200,
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+            "Access-Control-Allow-Headers": "*",
+            "Access-Control-Allow-Credentials": "true",
+        }
+    )
 # @app.options("/")
 # async def options_root():
 #     """OPTIONS for root"""
@@ -1452,8 +1465,7 @@ async def options_health():
     return Response(status_code=200)
 
 
-# COPY-PASTE THIS: Fixed OPTIONS Handlers
-# Replace lines 1629-1639 in your mainY.py
+
 
 @app.options("/api/auth/register")
 async def options_register():
@@ -1467,17 +1479,7 @@ async def options_register():
         }
     )
 
-@app.options("/api/auth/register")
-async def options_register():
-    return Response(
-        status_code=200,
-        headers={
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Methods": "POST, OPTIONS",
-            "Access-Control-Allow-Headers": "*",
-            "Access-Control-Allow-Credentials": "true",
-        }
-    )
+
 
 @app.options("/api/auth/login")
 async def options_login():
@@ -1503,18 +1505,6 @@ async def options_me():
         }
     )
 
-@app.options("/")
-async def root_options():
-    """OPTIONS for root"""
-    return Response(
-        status_code=200,
-        headers={
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-            "Access-Control-Allow-Headers": "*",
-            "Access-Control-Allow-Credentials": "true",
-        }
-    )
 
 
 
