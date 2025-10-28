@@ -1259,14 +1259,14 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "https://frontend-agentic-bnc2.onrender.com",
+    
         "https://velocitypost-ai.onrender.com",
         "https://velocitypost-984x.onrender.com",
         "http://localhost:5173",  # Vite dev
         "http://localhost:3000",  # React dev
         "http://localhost:8000",
         "http://localhost:8080",
-        "*"  # ⚠️ for testing only — remove in production
+        # "*"  # ⚠️ for testing only — remove in production
     ],
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
