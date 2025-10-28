@@ -3008,12 +3008,15 @@ const Landing_Page = () => {
           
           {/* Navigation - RIGHT SIDE */}
           <nav className="landing-nav">
-            <button onClick={() => scrollToSection('features')} className="nav-link">
+
+            {/* <button onClick={() => scrollToSection('features')} className="nav-link">
               Features
-            </button>
-            <button onClick={() => scrollToSection('platforms')} className="nav-link">
+            </button> */}
+
+            {/* <button onClick={() => scrollToSection('platforms')} className="nav-link">
               Platforms
-            </button>
+            </button> */}
+
             <Link to="/pricing" className="nav-link">
               Pricing
             </Link>
