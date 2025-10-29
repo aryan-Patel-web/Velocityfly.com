@@ -8,7 +8,7 @@ import Landing_Page from './Landing_Page';
 import './App.css';
 
 // Lazy load platform components
-const RedditAUTO = lazy(() => import('./pages/RedditAUTO'));
+const   RedditAutomationmation = lazy(() => import('./pages/ RedditAutomation'));
 const SocialMediaAutomation = lazy(() => import('./pages/Fb'));
 const InstagramAutomation = lazy(() => import('./pages/INSTA'));
 const WhatsAppAutomation = lazy(() => import('./pages/WhatsApp'));
@@ -457,7 +457,7 @@ function App() {
               <ProtectedRoute>
                 <DashboardLayout>
                   <Suspense fallback={<LoadingSpinner platform="Reddit" />}>
-                    <RedditAUTO />
+                    < RedditAutomation />
                   </Suspense>
                 </DashboardLayout>
               </ProtectedRoute>
