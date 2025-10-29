@@ -1150,7 +1150,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "https://frontend-agentic.onrender.com",
-        "https://frontend-agentic-bnc2.onrender.com",
+        "https://velocitypost-984x.onrender.com",
         "http://localhost:5173",
         "http://localhost:3000",
         "http://localhost:8000",
@@ -1472,7 +1472,7 @@ async def youtube_oauth_callback_get(code: str, state: str):
         else:
             logger.error(f"✗ Invalid state format: {state}")
             return RedirectResponse(
-                url="https://frontend-agentic-bnc2.onrender.com/youtube-callback?error=invalid_state",
+                url="https://velocitypost-984x.onrender.com/youtube-callback?error=invalid_state",
                 status_code=302
             )
         
@@ -1480,7 +1480,7 @@ async def youtube_oauth_callback_get(code: str, state: str):
         if not youtube_connector:
             logger.error("✗ YouTube connector not available")
             return RedirectResponse(
-                url="https://frontend-agentic-bnc2.onrender.com/youtube-callback?error=service_unavailable",
+                url="https://velocitypost-984x.onrender.com/youtube-callback?error=service_unavailable",
                 status_code=302
             )
         
@@ -1498,7 +1498,7 @@ async def youtube_oauth_callback_get(code: str, state: str):
             error_msg = token_result.get('error', 'unknown')
             logger.error(f"✗ Token exchange failed: {error_msg}")
             return RedirectResponse(
-                url=f"https://frontend-agentic-bnc2.onrender.com/youtube-callback?error=token_failed&details={error_msg}",
+                url=f"https://velocitypost-984x.onrender.com/youtube-callback?error=token_failed&details={error_msg}",
                 status_code=302
             )
         
@@ -1528,14 +1528,14 @@ async def youtube_oauth_callback_get(code: str, state: str):
             else:
                 logger.error(f"✗ Failed to store credentials")
                 return RedirectResponse(
-                    url="https://frontend-agentic-bnc2.onrender.com/youtube-callback?error=storage_failed",
+                    url="https://velocitypost-984x.onrender.com/youtube-callback?error=storage_failed",
                     status_code=302
                 )
                 
         except Exception as db_error:
             logger.error(f"✗ Database error: {db_error}")
             return RedirectResponse(
-                url="https://frontend-agentic-bnc2.onrender.com/youtube-callback?error=database_error",
+                url="https://velocitypost-984x.onrender.com/youtube-callback?error=database_error",
                 status_code=302
             )
         
@@ -1547,7 +1547,7 @@ async def youtube_oauth_callback_get(code: str, state: str):
         logger.info(f"=== Redirecting to /youtube-callback ===")
         
         # CRITICAL: Redirect to /youtube-callback NOT /youtube
-        redirect_url = f"https://frontend-agentic-bnc2.onrender.com/youtube-callback?youtube_connected=true&channel={channel_title}"
+        redirect_url = f"https://velocitypost-984x.onrender.com/youtube-callback?youtube_connected=true&channel={channel_title}"
         logger.info(f"Redirect URL: {redirect_url}")
         
         return RedirectResponse(
@@ -1560,7 +1560,7 @@ async def youtube_oauth_callback_get(code: str, state: str):
         import traceback
         logger.error(traceback.format_exc())
         return RedirectResponse(
-            url="https://frontend-agentic-bnc2.onrender.com/youtube-callback?error=oauth_failed",
+            url="https://velocitypost-984x.onrender.com/youtube-callback?error=oauth_failed",
             status_code=302
         )
 
@@ -1577,14 +1577,14 @@ async def youtube_oauth_callback_get(code: str, state: str):
 #         else:
 #             logger.error(f"Invalid state format: {state}")
 #             return RedirectResponse(
-#                 url="https://frontend-agentic-bnc2.onrender.com/youtube?error=invalid_state",
+#                 url="https://velocitypost-984x.onrender.com/youtube?error=invalid_state",
 #                 status_code=302
 #             )
         
 #         if not youtube_connector:
 #             logger.error("YouTube connector not available")
 #             return RedirectResponse(
-#                 url="https://frontend-agentic-bnc2.onrender.com/youtube?error=service_unavailable",
+#                 url="https://velocitypost-984x.onrender.com/youtube?error=service_unavailable",
 #                 status_code=302
 #             )
         
@@ -1599,7 +1599,7 @@ async def youtube_oauth_callback_get(code: str, state: str):
 #         if not token_result["success"]:
 #             logger.error(f"Token exchange failed: {token_result.get('error')}")
 #             return RedirectResponse(
-#                 url="https://frontend-agentic-bnc2.onrender.com/youtube?error=token_exchange_failed",
+#                 url="https://velocitypost-984x.onrender.com/youtube?error=token_exchange_failed",
 #                 status_code=302
 #             )
         
@@ -1632,14 +1632,14 @@ async def youtube_oauth_callback_get(code: str, state: str):
 #         logger.info(f"YouTube OAuth SUCCESS - Channel: {channel_title}")
         
 #         return RedirectResponse(
-#             url=f"https://frontend-agentic-bnc2.onrender.com/youtube?youtube_connected=true&channel={channel_title}",
+#             url=f"https://velocitypost-984x.onrender.com/youtube?youtube_connected=true&channel={channel_title}",
 #             status_code=302
 #         )
         
 #     except Exception as e:
 #         logger.error(f"YouTube OAuth callback failed: {e}")
 #         return RedirectResponse(
-#             url="https://frontend-agentic-bnc2.onrender.com/youtube?error=oauth_failed",
+#             url="https://velocitypost-984x.onrender.com/youtube?error=oauth_failed",
 #             status_code=302
 #         )
 
