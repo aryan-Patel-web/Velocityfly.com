@@ -1167,4 +1167,4 @@ const Reddit = () => {
   );
 };
 
-export default RedditAutomation;
+export default RedditAUTO;
