@@ -27,14 +27,7 @@ const CONTENT_STYLES = {
   'professional': 'Professional & Formal' 
 };
 
-// Add these after your existing useState declarations
-const [aiOptions, setAiOptions] = useState({
-  topic: '',
-  postType: 'discussion',
-  tone: 'casual',
-  length: 'medium'
-});
-const [humanScore, setHumanScore] = useState(null);
+
 
 
 const RedditAutomation = () => {
@@ -78,6 +71,15 @@ const RedditAutomation = () => {
     contentType: 'text',
     isGenerating: false 
   });
+
+
+    const [aiOptions, setAiOptions] = useState({
+    topic: '',
+    postType: 'discussion',
+    tone: 'casual',
+    length: 'medium'
+  });
+  const [humanScore, setHumanScore] = useState(null);
 
   // Questions state
   const [questionForm, setQuestionForm] = useState({
