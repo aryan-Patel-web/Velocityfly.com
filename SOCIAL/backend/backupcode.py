@@ -1,3 +1,18 @@
+
+
+
+
+# python3.11 -m pip install --upgrade pip setuptools wheel && python3.11 -m pip install -r requirements.txt && python3.11 install_playwright.py
+
+
+
+
+
+
+
+
+
+
 """
 Complete Multi-User FastAPI Application with Individual Reddit Connections
 Each user has their own Reddit tokens and automation settings

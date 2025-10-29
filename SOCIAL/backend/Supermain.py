@@ -1180,6 +1180,159 @@ async def get_system_info():
         "timestamp": datetime.now().isoformat()
     }
 
+# //////////////////////////////////////////////
+
+@app.post("/api/reddit/generate-ai-post")
+async def generate_reddit_ai_post(request: Request, current_user: dict = Depends(get_current_user)):
+    """Generate subreddit + title + content with AI"""
+    try:
+        data = await request.json()
+        
+        topic = data.get("topic", "general topic")
+        post_type = data.get("post_type", "discussion")
+        tone = data.get("tone", "casual")
+        length = data.get("length", "medium")
+        business_type = data.get("business_type", "")
+        business_description = data.get("business_description", "")
+        
+        length_map = {
+            "short": "2-3 sentences, very brief",
+            "medium": "2-3 paragraphs, balanced detail",
+            "long": "4-5 paragraphs, comprehensive"
+        }
+        
+        prompt = f"""You are a Reddit user creating a post about {topic}.
+
+Generate a complete Reddit post with these specs:
+- Type: {post_type}
+- Tone: {tone}
+- Length: {length_map.get(length, 'medium')}
+- Business context: {business_type}
+- Description: {business_description}
+
+CRITICAL: Return ONLY valid JSON (no markdown, no extra text):
+{{
+    "subreddit": "best_subreddit_name",
+    "title": "engaging_title_under_300_chars",
+    "content": "natural_human_sounding_content"
+}}
+
+Requirements:
+- Subreddit must be real and active (e.g., test, AskReddit, learnprogramming, food, business)
+- Title must be engaging but NOT clickbait
+- Content must sound like a real person wrote it (use "I", "my", personal touches)
+- NO hashtags, NO marketing language, NO "Check out our..."
+- Add 1-2 questions to encourage discussion
+- Use casual language: "honestly", "tbh", "imo"
+- Break content into paragraphs
+- Make it conversational and authentic"""
+
+        groq_api_key = os.getenv("GROQ_API_KEY")
+        mistral_api_key = os.getenv("MISTRAL_API_KEY")
+        
+        ai_response = None
+        
+        if groq_api_key:
+            try:
+                from groq import AsyncGroq
+                client = AsyncGroq(api_key=groq_api_key)
+                
+                response = await client.chat.completions.create(
+                    model="llama-3.1-70b-versatile",
+                    messages=[
+                        {"role": "system", "content": "You generate natural Reddit posts in JSON format."},
+                        {"role": "user", "content": prompt}
+                    ],
+                    temperature=0.8,
+                    max_tokens=1000
+                )
+                
+                ai_response = response.choices[0].message.content
+            except Exception as e:
+                logger.error(f"Groq API error: {e}")
+        
+        if not ai_response and mistral_api_key:
+            try:
+                import httpx
+                async with httpx.AsyncClient() as client:
+                    response = await client.post(
+                        "https://api.mistral.ai/v1/chat/completions",
+                        headers={
+                            "Authorization": f"Bearer {mistral_api_key}",
+                            "Content-Type": "application/json"
+                        },
+                        json={
+                            "model": "mistral-large-latest",
+                            "messages": [
+                                {"role": "system", "content": "You generate natural Reddit posts in JSON format."},
+                                {"role": "user", "content": prompt}
+                            ],
+                            "temperature": 0.8,
+                            "max_tokens": 1000
+                        },
+                        timeout=30.0
+                    )
+                    
+                    result = response.json()
+                    ai_response = result["choices"][0]["message"]["content"]
+            except Exception as e:
+                logger.error(f"Mistral API error: {e}")
+        
+        if not ai_response:
+            raise HTTPException(status_code=500, detail="No AI service available")
+        
+        import json
+        import re
+        
+        cleaned = re.sub(r'```json\s*|\s*```', '', ai_response.strip())
+        ai_data = json.loads(cleaned)
+        
+        content = ai_data.get("content", "")
+        human_score = calculate_human_score(content)
+        
+        return {
+            "success": True,
+            "subreddit": ai_data.get("subreddit", "test"),
+            "title": ai_data.get("title", "Untitled"),
+            "content": content,
+            "human_score": human_score
+        }
+        
+    except json.JSONDecodeError as e:
+        logger.error(f"JSON decode error: {e}")
+        return {"success": False, "error": "AI returned invalid response"}
+    except Exception as e:
+        logger.error(f"Generation error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+def calculate_human_score(content: str) -> int:
+    """Calculate how human-like the content is"""
+    score = 100
+    
+    ai_words = ["delve", "utilize", "leverage", "facilitate", "comprehensive", 
+                "robust", "seamless", "cutting-edge", "game-changing"]
+    for word in ai_words:
+        if word.lower() in content.lower():
+            score -= 10
+    
+    exclamation_count = content.count("!")
+    if exclamation_count > 3:
+        score -= exclamation_count * 5
+    
+    conversational = ["I think", "I've noticed", "Has anyone", "honestly", 
+                      "tbh", "imo", "ngl"]
+    for phrase in conversational:
+        if phrase.lower() in content.lower():
+            score += 5
+    
+    question_count = content.count("?")
+    score += min(question_count * 10, 30)
+    
+    return max(10, min(score, 100))
+
+
+
 # ============================================================================
 # RUN APPLICATION
 # ============================================================================
