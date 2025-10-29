@@ -181,23 +181,23 @@ class ScheduleUpdateRequest(BaseModel):
     enabled: bool
 
 # Authentication dependency
-async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
-    """Get current authenticated user from JWT token"""
-    try:
-        token = credentials.credentials
-        if not database_manager or not hasattr(database_manager, 'get_user_by_token'):
-            raise HTTPException(status_code=500, detail="Authentication system not available")
+# async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
+#     """Get current authenticated user from JWT token"""
+#     try:
+#         token = credentials.credentials
+#         if not database_manager or not hasattr(database_manager, 'get_user_by_token'):
+#             raise HTTPException(status_code=500, detail="Authentication system not available")
         
-        user = await database_manager.get_user_by_token(token)
-        if not user:
-            raise HTTPException(status_code=401, detail="Invalid or expired token")
+#         user = await database_manager.get_user_by_token(token)
+#         if not user:
+#             raise HTTPException(status_code=401, detail="Invalid or expired token")
         
-        return user
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Authentication failed: {e}")
-        raise HTTPException(status_code=401, detail="Authentication failed")
+#         return user
+#     except HTTPException:
+#         raise
+#     except Exception as e:
+#         logger.error(f"Authentication failed: {e}")
+#         raise HTTPException(status_code=401, detail="Authentication failed")
 
 # Optional authentication (for endpoints that work with or without auth)
 async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
