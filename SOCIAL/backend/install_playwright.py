@@ -74,7 +74,7 @@ def install_playwright_with_retry(max_retries=3):
                 check=True,
                 capture_output=True,
                 text=True,
-                timeout=300  # 5 minute timeout
+                timeout=60  # 5 minute timeout
             )
             
             print("✅ Chromium installed successfully!")
