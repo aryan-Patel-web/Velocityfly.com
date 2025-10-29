@@ -1138,49 +1138,9 @@ async def get_platform_status(current_user: dict = Depends(get_current_user)):
 # ============================================================================
 # DEBUG ENDPOINT
 # ============================================================================
-@app.get("/api/debug/system-info")
-async def get_system_info():
-    """Get complete system information"""
-    return {
-        "success": True,
-        "system": {
-            "name": "VelocityPost Unified Platform",
-            "version": "3.1.0 - Production Ready",
-            "environment": "production" if not os.getenv("DEBUG") else "development"
-        },
-        "services": {
-            "database": {
-                "initialized": database_manager is not None,
-                "connected": database_manager.connected if database_manager else False,
-                "type": "MongoDB Atlas"
-            },
-            "youtube": {
-                "available": bool(youtube_services),
-                "components": list(youtube_services.keys()) if youtube_services else []
-            },
-            "reddit": {
-                "available": bool(reddit_services),
-                "components": list(reddit_services.keys()) if reddit_services else []
-            },
-            "playwright": {
-                "path": PLAYWRIGHT_PATH,
-                "skip_validation": os.getenv('PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS')
-            }
-        },
-        "environment_vars": {
-            "MONGODB_URI": "✓" if os.getenv("MONGODB_URI") else "✗",
-            "JWT_SECRET": "✓" if os.getenv("JWT_SECRET") else "✗",
-            "GOOGLE_CLIENT_ID": "✓" if os.getenv("GOOGLE_CLIENT_ID") else "✗",
-            "GOOGLE_CLIENT_SECRET": "✓" if os.getenv("GOOGLE_CLIENT_SECRET") else "✗",
-            "REDDIT_CLIENT_ID": "✓" if os.getenv("REDDIT_CLIENT_ID") else "✗",
-            "REDDIT_CLIENT_SECRET": "✓" if os.getenv("REDDIT_CLIENT_SECRET") else "✗",
-            "GROQ_API_KEY": "✓" if os.getenv("GROQ_API_KEY") else "✗",
-            "MISTRAL_API_KEY": "✓" if os.getenv("MISTRAL_API_KEY") else "✗"
-        },
-        "timestamp": datetime.now().isoformat()
-    }
 
-# //////////////////////////////////////////////
+
+
 
 @app.post("/api/reddit/generate-ai-post")
 async def generate_reddit_ai_post(request: Request, current_user: dict = Depends(get_current_user)):
@@ -1200,11 +1160,11 @@ async def generate_reddit_ai_post(request: Request, current_user: dict = Depends
         
         # Domain to subreddit mapping
         domain_subreddits = {
-            "education": ["learnprogramming", "studying", "college", "AskAcademia", "education"],
-            "restaurant": ["food", "FoodPorn", "Cooking", "recipes", "IndianFood"],
-            "tech": ["technology", "programming", "learnprogramming", "startups", "coding"],
-            "health": ["fitness", "HealthyFood", "loseit", "nutrition", "bodyweightfitness"],
-            "business": ["Entrepreneur", "smallbusiness", "startups", "business", "marketing"]
+            "education": ["learnprogramming", "studying", "college", "education", "test"],
+            "restaurant": ["food", "FoodPorn", "Cooking", "recipes", "test"],
+            "tech": ["technology", "programming", "learnprogramming", "startups", "test"],
+            "health": ["fitness", "HealthyFood", "loseit", "nutrition", "test"],
+            "business": ["Entrepreneur", "smallbusiness", "startups", "business", "test"]
         }
         
         # Get topic based on domain and business
@@ -1220,67 +1180,64 @@ async def generate_reddit_ai_post(request: Request, current_user: dict = Depends
         subreddit_options = domain_subreddits.get(domain, ["test"])
         
         length_map = {
-            "short": "2-3 sentences only, very brief and casual",
-            "medium": "2-3 short paragraphs, conversational",
-            "long": "4-5 paragraphs, detailed but still casual"
+            "short": "2-3 sentences only",
+            "medium": "2-3 short paragraphs",
+            "long": "4-5 paragraphs"
         }
         
         # Enhanced prompt for human-like content
-        prompt = f"""You are a real Reddit user posting about: {topic}
+        prompt = f"""You are a Reddit user posting about: {topic}
 
-Your profile:
-- Business: {business_type}
-- Description: {business_description}
-- Target audience: {target_audience}
-- Content style: {content_style}
+Profile: {business_type} - {business_description}
+Audience: {target_audience}
+Style: {content_style}
 
-Generate a Reddit post with these specs:
-- Type: {post_type}
+Create a {post_type} post with:
 - Tone: {tone}
 - Length: {length_map.get(length, 'medium')}
-- Subreddit: Choose from {subreddit_options}
+- Subreddit from: {subreddit_options}
 
-CRITICAL REQUIREMENTS FOR HUMAN-LIKE CONTENT:
-1. Make 1-2 intentional typos (common ones like "teh" instead of "the", "recieve" instead of "receive")
-2. Use casual language: "kinda", "gonna", "wanna", "tbh", "ngl", "imo"
-3. Add personal touches: "I recently...", "Has anyone else...", "Am I the only one..."
-4. Use lowercase for emphasis instead of caps
-5. Add natural hesitations: "...", "idk", "maybe"
-6. Include 1-2 questions to encourage discussion
-7. Break into short paragraphs (2-3 sentences each)
-8. NO hashtags, NO perfect grammar, NO marketing speak
-9. Sound like you're texting a friend, not writing an essay
+CRITICAL JSON FORMAT RULES:
+1. Return ONLY a single-line JSON object
+2. Use \\n for line breaks in content (not actual newlines)
+3. Escape all quotes inside strings
+4. No markdown formatting
 
-Return ONLY valid JSON (no markdown):
-{{
-    "subreddit": "best_matching_subreddit",
-    "title": "casual_engaging_title",
-    "content": "natural_human_content_with_typos"
-}}
+HUMAN-LIKE CONTENT RULES:
+- Add 1-2 typos (teh, recieve, definately)
+- Use casual: kinda, gonna, tbh, imo
+- Personal touch: "I recently", "Has anyone"
+- Questions to engage readers
+- Short paragraphs (2-3 sentences)
+- NO hashtags, NO perfect grammar
 
-Example good content style:
-"so i recently tried this new place and honestly its pretty good. the food was amazing but idk the service was kinda slow? anyone else been there? would love to hear your thoughts"
+JSON format (single line):
+{{"subreddit": "subreddit_name", "title": "post_title", "content": "content_with_\\n_for_breaks"}}
 
-IMPORTANT: Content must sound like a real person typed it quickly on their phone."""
+Example content style:
+"so i tried this place recently and honestly its pretty good. the food was amazing but service was kinda slow? \\n\\nhas anyone else been there? would love thoughts"
+"""
 
-        # Try Groq first
         groq_api_key = os.getenv("GROQ_API_KEY")
         mistral_api_key = os.getenv("MISTRAL_API_KEY")
         
         ai_response = None
         
+        # Try Groq first (FIXED - removed proxies argument)
         if groq_api_key:
             try:
                 from groq import AsyncGroq
+                
+                # ✅ FIXED: Simple initialization without proxies
                 client = AsyncGroq(api_key=groq_api_key)
                 
                 response = await client.chat.completions.create(
                     model="llama-3.1-70b-versatile",
                     messages=[
-                        {"role": "system", "content": "You are a casual Reddit user who types quickly with occasional typos. Generate natural, human-like posts in JSON format."},
+                        {"role": "system", "content": "You are a casual Reddit user. Return ONLY valid single-line JSON with \\n for line breaks."},
                         {"role": "user", "content": prompt}
                     ],
-                    temperature=0.9,  # Higher for more variation
+                    temperature=0.8,
                     max_tokens=1500
                 )
                 
@@ -1293,8 +1250,8 @@ IMPORTANT: Content must sound like a real person typed it quickly on their phone
         if not ai_response and mistral_api_key:
             try:
                 import httpx
-                async with httpx.AsyncClient() as client:
-                    response = await client.post(
+                async with httpx.AsyncClient(timeout=30.0) as http_client:
+                    response = await http_client.post(
                         "https://api.mistral.ai/v1/chat/completions",
                         headers={
                             "Authorization": f"Bearer {mistral_api_key}",
@@ -1303,13 +1260,12 @@ IMPORTANT: Content must sound like a real person typed it quickly on their phone
                         json={
                             "model": "mistral-large-latest",
                             "messages": [
-                                {"role": "system", "content": "You are a casual Reddit user who types quickly with occasional typos. Generate natural posts in JSON format."},
+                                {"role": "system", "content": "You are a casual Reddit user. Return ONLY valid single-line JSON with \\n for line breaks."},
                                 {"role": "user", "content": prompt}
                             ],
-                            "temperature": 0.9,
+                            "temperature": 0.8,
                             "max_tokens": 1500
-                        },
-                        timeout=30.0
+                        }
                     )
                     
                     result = response.json()
@@ -1321,25 +1277,54 @@ IMPORTANT: Content must sound like a real person typed it quickly on their phone
         if not ai_response:
             raise HTTPException(status_code=500, detail="No AI service available")
         
-        # Parse response
+        # ✅ ENHANCED JSON CLEANING - Remove control characters
         import json
         import re
         
+        # Step 1: Remove markdown code blocks
         cleaned = re.sub(r'```json\s*|\s*```', '', ai_response.strip())
-        ai_data = json.loads(cleaned)
+        
+        # Step 2: Remove invalid control characters (keep \n, \t, \r)
+        cleaned = re.sub(r'[\x00-\x08\x0B-\x0C\x0E-\x1F\x7F]', '', cleaned)
+        
+        # Step 3: Fix common JSON issues
+        cleaned = cleaned.replace('\n', ' ')  # Remove actual newlines
+        cleaned = cleaned.replace('\r', ' ')  # Remove carriage returns
+        cleaned = cleaned.replace('\t', ' ')  # Remove tabs
+        cleaned = re.sub(r'\s+', ' ', cleaned)  # Collapse multiple spaces
+        cleaned = cleaned.strip()
+        
+        logger.info(f"Cleaned JSON: {cleaned[:200]}...")
+        
+        # Parse JSON
+        try:
+            ai_data = json.loads(cleaned)
+        except json.JSONDecodeError as e:
+            logger.error(f"JSON parse failed: {e}")
+            logger.error(f"Attempted to parse: {cleaned[:500]}")
+            
+            # Fallback: Try to extract JSON manually
+            match = re.search(r'\{[^}]+\}', cleaned)
+            if match:
+                ai_data = json.loads(match.group())
+            else:
+                raise HTTPException(status_code=500, detail="AI returned invalid JSON")
         
         # Get generated content
         subreddit = ai_data.get("subreddit", subreddit_options[0])
         title = ai_data.get("title", "Untitled")
         content = ai_data.get("content", "")
         
-        # Add extra human touches if AI didn't add enough
+        # Replace \\n with actual newlines
+        content = content.replace('\\n', '\n')
+        
+        # Add extra human touches
         content = add_human_touches(content)
         
         # Calculate human score
         human_score = calculate_enhanced_human_score(content)
         
-        logger.info(f"✅ Generated post - Human score: {human_score}/100")
+        logger.info(f"✅ Generated post - Subreddit: {subreddit}, Human score: {human_score}/100")
         
         return {
             "success": True,
@@ -1355,104 +1340,76 @@ IMPORTANT: Content must sound like a real person typed it quickly on their phone
     except Exception as e:
         logger.error(f"Generation error: {e}")
         logger.error(traceback.format_exc())
-        raise HTTPException(status_code=500, detail=str(e))
+        return {"success": False, "error": str(e)}
 
 
 def add_human_touches(content: str) -> str:
     """Add human-like imperfections to content"""
     import random
     
-    # Common typos to add (10% chance)
+    # Common typos (10% chance each)
     typos = {
-        "the": "teh",
+        " the ": " teh ",
         "receive": "recieve",
         "definitely": "definately",
-        "separate": "seperate",
-        "occurred": "occured"
+        "separate": "seperate"
     }
     
     for correct, typo in typos.items():
-        if correct in content.lower() and random.random() < 0.1:
+        if correct in content and random.random() < 0.1:
             content = content.replace(correct, typo, 1)
     
     # Add casual language (20% chance)
-    casual_replacements = {
-        "really": "rly",
-        "you": "u",
-        "though": "tho",
-        "because": "bc",
+    casual = {
+        " really ": " rly ",
+        " you ": " u ",
+        " though ": " tho ",
+        " because ": " bc ",
         "kind of": "kinda",
-        "going to": "gonna",
-        "want to": "wanna"
+        "going to": "gonna"
     }
     
-    for formal, casual in casual_replacements.items():
-        if formal in content.lower() and random.random() < 0.2:
-            content = content.replace(formal, casual, 1)
-    
-    # Add hesitations (30% chance)
-    if random.random() < 0.3:
-        hesitations = ["idk", "maybe", "i think"]
-        sentences = content.split(". ")
-        if len(sentences) > 1:
-            idx = random.randint(0, len(sentences) - 1)
-            sentences[idx] = f"{random.choice(hesitations)}, {sentences[idx]}"
-            content = ". ".join(sentences)
+    for formal, cas in casual.items():
+        if formal in content and random.random() < 0.15:
+            content = content.replace(formal, cas, 1)
     
     return content
 
 
 def calculate_enhanced_human_score(content: str) -> int:
-    """Calculate how human-like the content is (with typos = higher score)"""
-    score = 50  # Start at 50, build up
+    """Calculate human-like score"""
+    score = 50
     
-    # REWARD human characteristics
-    human_markers = {
-        "typos": ["teh", "recieve", "definately", "seperate", "occured"],
-        "casual": ["kinda", "gonna", "wanna", "tbh", "ngl", "imo", "idk"],
-        "personal": ["I", "my", "honestly", "tbh"],
-        "questions": ["?"],
-        "lowercase_emphasis": ["rly", "u", "tho", "bc"],
-        "hesitations": ["...", "idk", "maybe", "i think"]
+    # REWARD human markers
+    rewards = {
+        "typos": ["teh", "recieve", "definately", "seperate"],
+        "casual": ["kinda", "gonna", "tbh", "imo", "idk", "ngl"],
+        "personal": [" i ", " my ", " me "],
+        "questions": ["?"]
     }
     
-    # Award points for each human marker
-    for marker_type, markers in human_markers.items():
+    for category, markers in rewards.items():
         for marker in markers:
             if marker in content.lower():
-                if marker_type == "typos":
-                    score += 15  # Typos are GOOD for human score
-                elif marker_type == "casual":
+                if category == "typos":
+                    score += 15
+                elif category == "casual":
                     score += 10
-                elif marker_type == "personal":
+                elif category == "personal":
                     score += 5
-                elif marker_type == "questions":
+                elif category == "questions":
                     score += 8
-                else:
-                    score += 5
     
-    # PENALIZE AI characteristics
-    ai_words = ["delve", "utilize", "leverage", "facilitate", "comprehensive", 
-                "robust", "seamless", "cutting-edge", "game-changing", "moreover",
-                "furthermore", "in conclusion"]
+    # PENALIZE AI words
+    ai_words = ["delve", "utilize", "leverage", "comprehensive", "robust"]
     for word in ai_words:
-        if word.lower() in content.lower():
+        if word in content.lower():
             score -= 15
     
-    # Penalize perfect grammar
-    if content.count(".") > 5 and content.count("?") == 0:
-        score -= 10  # Too formal
+    # Penalize too many exclamations
+    score -= content.count("!") * 5
     
-    # Penalize excessive exclamations
-    exclamation_count = content.count("!")
-    if exclamation_count > 3:
-        score -= exclamation_count * 8
-    
-    # Reward paragraph breaks
-    paragraph_count = content.count("\n\n")
-    score += min(paragraph_count * 5, 15)
-    
-    return max(10, min(score, 100))
+    return max(20, min(score, 100))
 
 # ============================================================================
 # RUN APPLICATION
