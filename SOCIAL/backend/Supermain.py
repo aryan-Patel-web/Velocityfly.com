@@ -1184,49 +1184,86 @@ async def get_system_info():
 
 @app.post("/api/reddit/generate-ai-post")
 async def generate_reddit_ai_post(request: Request, current_user: dict = Depends(get_current_user)):
-    """Generate subreddit + title + content with AI"""
+    """Generate subreddit + title + content with human-like imperfections"""
     try:
         data = await request.json()
         
-        topic = data.get("topic", "general topic")
+        # Get parameters
         post_type = data.get("post_type", "discussion")
         tone = data.get("tone", "casual")
         length = data.get("length", "medium")
-        business_type = data.get("business_type", "")
+        domain = data.get("domain", "tech")
+        business_type = data.get("business_type", "business")
         business_description = data.get("business_description", "")
+        target_audience = data.get("target_audience", "general_users")
+        content_style = data.get("content_style", "casual")
         
-        length_map = {
-            "short": "2-3 sentences, very brief",
-            "medium": "2-3 paragraphs, balanced detail",
-            "long": "4-5 paragraphs, comprehensive"
+        # Domain to subreddit mapping
+        domain_subreddits = {
+            "education": ["learnprogramming", "studying", "college", "AskAcademia", "education"],
+            "restaurant": ["food", "FoodPorn", "Cooking", "recipes", "IndianFood"],
+            "tech": ["technology", "programming", "learnprogramming", "startups", "coding"],
+            "health": ["fitness", "HealthyFood", "loseit", "nutrition", "bodyweightfitness"],
+            "business": ["Entrepreneur", "smallbusiness", "startups", "business", "marketing"]
         }
         
-        prompt = f"""You are a Reddit user creating a post about {topic}.
+        # Get topic based on domain and business
+        domain_topics = {
+            "education": f"my experience with {business_type}",
+            "restaurant": f"discovered this amazing {business_type}",
+            "tech": f"thoughts on {business_type}",
+            "health": f"my journey with {business_type}",
+            "business": f"lessons from running {business_type}"
+        }
+        
+        topic = domain_topics.get(domain, business_type)
+        subreddit_options = domain_subreddits.get(domain, ["test"])
+        
+        length_map = {
+            "short": "2-3 sentences only, very brief and casual",
+            "medium": "2-3 short paragraphs, conversational",
+            "long": "4-5 paragraphs, detailed but still casual"
+        }
+        
+        # Enhanced prompt for human-like content
+        prompt = f"""You are a real Reddit user posting about: {topic}
 
-Generate a complete Reddit post with these specs:
+Your profile:
+- Business: {business_type}
+- Description: {business_description}
+- Target audience: {target_audience}
+- Content style: {content_style}
+
+Generate a Reddit post with these specs:
 - Type: {post_type}
 - Tone: {tone}
 - Length: {length_map.get(length, 'medium')}
-- Business context: {business_type}
-- Description: {business_description}
+- Subreddit: Choose from {subreddit_options}
 
-CRITICAL: Return ONLY valid JSON (no markdown, no extra text):
+CRITICAL REQUIREMENTS FOR HUMAN-LIKE CONTENT:
+1. Make 1-2 intentional typos (common ones like "teh" instead of "the", "recieve" instead of "receive")
+2. Use casual language: "kinda", "gonna", "wanna", "tbh", "ngl", "imo"
+3. Add personal touches: "I recently...", "Has anyone else...", "Am I the only one..."
+4. Use lowercase for emphasis instead of caps
+5. Add natural hesitations: "...", "idk", "maybe"
+6. Include 1-2 questions to encourage discussion
+7. Break into short paragraphs (2-3 sentences each)
+8. NO hashtags, NO perfect grammar, NO marketing speak
+9. Sound like you're texting a friend, not writing an essay
+
+Return ONLY valid JSON (no markdown):
 {{
-    "subreddit": "best_subreddit_name",
-    "title": "engaging_title_under_300_chars",
-    "content": "natural_human_sounding_content"
+    "subreddit": "best_matching_subreddit",
+    "title": "casual_engaging_title",
+    "content": "natural_human_content_with_typos"
 }}
 
-Requirements:
-- Subreddit must be real and active (e.g., test, AskReddit, learnprogramming, food, business)
-- Title must be engaging but NOT clickbait
-- Content must sound like a real person wrote it (use "I", "my", personal touches)
-- NO hashtags, NO marketing language, NO "Check out our..."
-- Add 1-2 questions to encourage discussion
-- Use casual language: "honestly", "tbh", "imo"
-- Break content into paragraphs
-- Make it conversational and authentic"""
+Example good content style:
+"so i recently tried this new place and honestly its pretty good. the food was amazing but idk the service was kinda slow? anyone else been there? would love to hear your thoughts"
 
+IMPORTANT: Content must sound like a real person typed it quickly on their phone."""
+
+        # Try Groq first
         groq_api_key = os.getenv("GROQ_API_KEY")
         mistral_api_key = os.getenv("MISTRAL_API_KEY")
         
@@ -1240,17 +1277,19 @@ Requirements:
                 response = await client.chat.completions.create(
                     model="llama-3.1-70b-versatile",
                     messages=[
-                        {"role": "system", "content": "You generate natural Reddit posts in JSON format."},
+                        {"role": "system", "content": "You are a casual Reddit user who types quickly with occasional typos. Generate natural, human-like posts in JSON format."},
                         {"role": "user", "content": prompt}
                     ],
-                    temperature=0.8,
-                    max_tokens=1000
+                    temperature=0.9,  # Higher for more variation
+                    max_tokens=1500
                 )
                 
                 ai_response = response.choices[0].message.content
+                logger.info("✅ Groq API success")
             except Exception as e:
                 logger.error(f"Groq API error: {e}")
         
+        # Try Mistral if Groq fails
         if not ai_response and mistral_api_key:
             try:
                 import httpx
@@ -1264,36 +1303,48 @@ Requirements:
                         json={
                             "model": "mistral-large-latest",
                             "messages": [
-                                {"role": "system", "content": "You generate natural Reddit posts in JSON format."},
+                                {"role": "system", "content": "You are a casual Reddit user who types quickly with occasional typos. Generate natural posts in JSON format."},
                                 {"role": "user", "content": prompt}
                             ],
-                            "temperature": 0.8,
-                            "max_tokens": 1000
+                            "temperature": 0.9,
+                            "max_tokens": 1500
                         },
                         timeout=30.0
                     )
                     
                     result = response.json()
                     ai_response = result["choices"][0]["message"]["content"]
+                    logger.info("✅ Mistral API success")
             except Exception as e:
                 logger.error(f"Mistral API error: {e}")
         
         if not ai_response:
             raise HTTPException(status_code=500, detail="No AI service available")
         
+        # Parse response
         import json
         import re
         
         cleaned = re.sub(r'```json\s*|\s*```', '', ai_response.strip())
         ai_data = json.loads(cleaned)
         
+        # Get generated content
+        subreddit = ai_data.get("subreddit", subreddit_options[0])
+        title = ai_data.get("title", "Untitled")
         content = ai_data.get("content", "")
-        human_score = calculate_human_score(content)
+        
+        # Add extra human touches if AI didn't add enough
+        content = add_human_touches(content)
+        
+        # Calculate human score
+        human_score = calculate_enhanced_human_score(content)
+        
+        logger.info(f"✅ Generated post - Human score: {human_score}/100")
         
         return {
             "success": True,
-            "subreddit": ai_data.get("subreddit", "test"),
-            "title": ai_data.get("title", "Untitled"),
+            "subreddit": subreddit,
+            "title": title,
             "content": content,
             "human_score": human_score
         }
@@ -1303,35 +1354,105 @@ Requirements:
         return {"success": False, "error": "AI returned invalid response"}
     except Exception as e:
         logger.error(f"Generation error: {e}")
+        logger.error(traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(e))
 
 
-def calculate_human_score(content: str) -> int:
-    """Calculate how human-like the content is"""
-    score = 100
+def add_human_touches(content: str) -> str:
+    """Add human-like imperfections to content"""
+    import random
     
+    # Common typos to add (10% chance)
+    typos = {
+        "the": "teh",
+        "receive": "recieve",
+        "definitely": "definately",
+        "separate": "seperate",
+        "occurred": "occured"
+    }
+    
+    for correct, typo in typos.items():
+        if correct in content.lower() and random.random() < 0.1:
+            content = content.replace(correct, typo, 1)
+    
+    # Add casual language (20% chance)
+    casual_replacements = {
+        "really": "rly",
+        "you": "u",
+        "though": "tho",
+        "because": "bc",
+        "kind of": "kinda",
+        "going to": "gonna",
+        "want to": "wanna"
+    }
+    
+    for formal, casual in casual_replacements.items():
+        if formal in content.lower() and random.random() < 0.2:
+            content = content.replace(formal, casual, 1)
+    
+    # Add hesitations (30% chance)
+    if random.random() < 0.3:
+        hesitations = ["idk", "maybe", "i think"]
+        sentences = content.split(". ")
+        if len(sentences) > 1:
+            idx = random.randint(0, len(sentences) - 1)
+            sentences[idx] = f"{random.choice(hesitations)}, {sentences[idx]}"
+            content = ". ".join(sentences)
+    
+    return content
+
+
+def calculate_enhanced_human_score(content: str) -> int:
+    """Calculate how human-like the content is (with typos = higher score)"""
+    score = 50  # Start at 50, build up
+    
+    # REWARD human characteristics
+    human_markers = {
+        "typos": ["teh", "recieve", "definately", "seperate", "occured"],
+        "casual": ["kinda", "gonna", "wanna", "tbh", "ngl", "imo", "idk"],
+        "personal": ["I", "my", "honestly", "tbh"],
+        "questions": ["?"],
+        "lowercase_emphasis": ["rly", "u", "tho", "bc"],
+        "hesitations": ["...", "idk", "maybe", "i think"]
+    }
+    
+    # Award points for each human marker
+    for marker_type, markers in human_markers.items():
+        for marker in markers:
+            if marker in content.lower():
+                if marker_type == "typos":
+                    score += 15  # Typos are GOOD for human score
+                elif marker_type == "casual":
+                    score += 10
+                elif marker_type == "personal":
+                    score += 5
+                elif marker_type == "questions":
+                    score += 8
+                else:
+                    score += 5
+    
+    # PENALIZE AI characteristics
     ai_words = ["delve", "utilize", "leverage", "facilitate", "comprehensive", 
-                "robust", "seamless", "cutting-edge", "game-changing"]
+                "robust", "seamless", "cutting-edge", "game-changing", "moreover",
+                "furthermore", "in conclusion"]
     for word in ai_words:
         if word.lower() in content.lower():
-            score -= 10
+            score -= 15
     
+    # Penalize perfect grammar
+    if content.count(".") > 5 and content.count("?") == 0:
+        score -= 10  # Too formal
+    
+    # Penalize excessive exclamations
     exclamation_count = content.count("!")
     if exclamation_count > 3:
-        score -= exclamation_count * 5
+        score -= exclamation_count * 8
     
-    conversational = ["I think", "I've noticed", "Has anyone", "honestly", 
-                      "tbh", "imo", "ngl"]
-    for phrase in conversational:
-        if phrase.lower() in content.lower():
-            score += 5
-    
-    question_count = content.count("?")
-    score += min(question_count * 10, 30)
+    # Reward paragraph breaks
+    paragraph_count = content.count("\n\n")
+    score += min(paragraph_count * 5, 15)
     
     return max(10, min(score, 100))
-
-
 
 # ============================================================================
 # RUN APPLICATION
