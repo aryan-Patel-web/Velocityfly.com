@@ -1,1168 +1,1864 @@
-import React, { useState, useEffect } from 'react';
-import axios from 'axios';
-import toast from 'react-hot-toast';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useAuth } from '../quickpage/AuthContext';
 
-const Reddit = () => {
-  // State management
-  const [activeTab, setActiveTab] = useState('testing');
-  const [connected, setConnected] = useState(false);
-  const [username, setUsername] = useState('');
+const DOMAIN_CONFIGS = { 
+  education: { icon: '🎓', description: 'Educational services', sampleBusiness: 'JEE coaching institute' }, 
+  restaurant: { icon: '🍽️', description: 'Food & restaurants', sampleBusiness: 'Traditional Indian restaurant' }, 
+  tech: { icon: '💻', description: 'Technology & programming', sampleBusiness: 'AI automation platform' }, 
+  health: { icon: '💚', description: 'Health & wellness', sampleBusiness: 'Fitness coaching center' }, 
+  business: { icon: '💼', description: 'Business & entrepreneurship', sampleBusiness: 'Business consulting firm' } 
+};
+
+const TARGET_AUDIENCES = { 
+  'indian_students': { label: 'Indian Students', icon: '🎓' }, 
+  'food_lovers': { label: 'Food Lovers', icon: '🍕' }, 
+  'tech_professionals': { label: 'Tech Professionals', icon: '💻' }, 
+  'health_conscious': { label: 'Health Conscious', icon: '💚' }, 
+  'entrepreneurs': { label: 'Entrepreneurs', icon: '💼' }, 
+  'general_users': { label: 'General Users', icon: '👥' } 
+};
+
+const CONTENT_STYLES = { 
+  'engaging': 'Engaging & Interactive', 
+  'informative': 'Informative & Educational', 
+  'promotional': 'Promotional & Marketing', 
+  'helpful': 'Helpful & Supportive', 
+  'casual': 'Casual & Friendly', 
+  'professional': 'Professional & Formal' 
+};
+
+const RedditAutomation = () => {
+  const { user, makeAuthenticatedRequest, updateUser } = useAuth();
+  
+  // Core state
+  const [activeTab, setActiveTab] = useState('setup');
   const [loading, setLoading] = useState(false);
-  const [automationStatus, setAutomationStatus] = useState(null);
+  const [notifications, setNotifications] = useState([]);
   
-  // Form states
-  const [postForm, setPostForm] = useState({
+  // Reddit connection state
+  const [redditConnected, setRedditConnected] = useState(false);
+  const [redditUsername, setRedditUsername] = useState('');
+  
+  // Scheduling state
+  const [schedules, setSchedules] = useState([]);
+  const [automationActive, setAutomationActive] = useState(false);
+  const [newSchedule, setNewSchedule] = useState({
+    time: '',
     subreddit: 'test',
-    title: '',
-    content: '',
-    language: 'en',
-    contentType: 'text'
+    useAI: true
+  });
+  const [scheduledPosts, setScheduledPosts] = useState([]);
+  
+  // User profile state
+  const [userProfile, setUserProfile] = useState({ 
+    domain: 'tech', 
+    businessType: 'AI automation platform', 
+    businessDescription: 'We help businesses automate their Reddit presence', 
+    targetAudience: 'tech_professionals', 
+    contentStyle: 'engaging', 
+    isConfigured: false 
   });
   
-  const [autoPostForm, setAutoPostForm] = useState({
-    domain: 'education',
-    businessType: '',
-    targetAudience: 'indian_students',
-    contentStyle: 'engaging',
+  // Post form state
+  const [postForm, setPostForm] = useState({ 
+    subreddit: 'test',
+    title: '', 
+    content: '', 
     language: 'en',
-    numPosts: 1
+    contentType: 'text',
+    isGenerating: false 
   });
-  
+
+  // Questions state
   const [questionForm, setQuestionForm] = useState({
     subreddits: 'AskReddit,explainlikeimfive,NoStupidQuestions,india',
     keywords: 'help,how,what,why,study,learn',
     limit: 10
   });
-  
-  const [domainForm, setDomainForm] = useState({
-    domain: 'education',
-    businessType: '',
-    topic: 'study tips',
-    language: 'en',
-    contentStyle: 'engaging',
-    targetAudience: 'students'
-  });
-  
-  const [aiForm, setAiForm] = useState({
-    platform: 'reddit',
-    contentType: 'post',
-    topic: '',
-    tone: 'professional',
-    language: 'en',
-    targetAudience: '',
-    domain: '',
-    additionalContext: ''
-  });
-
   const [questions, setQuestions] = useState([]);
-  const [generatedContent, setGeneratedContent] = useState('');
-  const [analytics, setAnalytics] = useState(null);
+  
+  // Performance state
+  const [performanceData, setPerformanceData] = useState({ 
+    postsToday: 0, 
+    totalEngagement: 0, 
+    successRate: 95,
+    questionsFound: 0
+  });
 
-  const API_BASE = 'http://localhost:8000';
-
-  // API call helper
-  const makeApiRequest = async (endpoint, method = 'GET', data = null) => {
-    try {
-      const config = {
-        method,
-        url: `${API_BASE}${endpoint}`,
-        headers: { 'Content-Type': 'application/json' },
-        ...(data && { data })
-      };
-      
-      const response = await axios(config);
-      return response.data;
-    } catch (error) {
-      const message = error.response?.data?.detail || error.message || 'An error occurred';
-      toast.error(message);
-      return { success: false, error: message };
-    }
-  };
-
-  // Initialize data
-  useEffect(() => {
-    checkConnection();
-    checkAutomationStatus();
-    checkSystemHealth();
+  // Notification system
+  const showNotification = useCallback((message, type = 'success') => {
+    const notification = { id: Date.now(), message, type };
+    setNotifications(prev => [...prev, notification]);
+    setTimeout(() => setNotifications(prev => prev.filter(n => n.id !== notification.id)), 5000);
   }, []);
 
-  const checkSystemHealth = async () => {
-    const response = await makeApiRequest('/health');
-    if (response.success) {
-      toast.success('System is healthy');
-    }
-  };
-
-  const checkConnection = async () => {
-    const response = await makeApiRequest('/api/reddit/connection-status');
-    if (response.connected) {
-      setConnected(true);
-      setUsername(response.reddit_username);
-    }
-  };
-
-  const checkAutomationStatus = async () => {
-    const response = await makeApiRequest('/api/automation/status');
-    setAutomationStatus(response);
-  };
-
-  const connectReddit = async () => {
-    const response = await makeApiRequest('/api/oauth/reddit/authorize');
-    if (response.success) {
-      window.open(response.redirect_url, '_blank');
-      toast.success('Reddit authorization opened in new tab');
-    }
-  };
-
-  const simulateConnection = () => {
-    setConnected(true);
-    setUsername('test_user');
-    toast.success('Simulated Reddit connection!');
-  };
-
-  const handleManualPost = async (e) => {
-    e.preventDefault();
-    if (!postForm.title || !postForm.content) {
-      toast.error('Please enter both title and content');
-      return;
-    }
-
-    setLoading(true);
-    const response = await makeApiRequest('/api/reddit/post', 'POST', postForm);
+  // Check Reddit connection on mount
+  useEffect(() => {
+    if (!user?.email) return;
     
-    if (response.success) {
-      toast.success('Post created successfully!');
-      setPostForm({ subreddit: 'test', title: '', content: '', language: 'en', contentType: 'text' });
-    }
-    setLoading(false);
-  };
+    const checkRedditConnection = async () => {
+      // Check URL parameters first (OAuth callback)
+      const urlParams = new URLSearchParams(window.location.search);
+      const redditConnected = urlParams.get('reddit_connected');
+      const username = urlParams.get('username');
+      const error = urlParams.get('error');
 
-  const generateAutoPost = async () => {
-    if (!autoPostForm.businessType) {
-      toast.error('Please enter your business type');
-      return;
+      if (error) { 
+        showNotification(`Connection failed: ${error}`, 'error'); 
+        window.history.replaceState({}, '', window.location.pathname); 
+        return; 
+      }
+
+      if (redditConnected === 'true' && username) {
+        setRedditConnected(true); 
+        setRedditUsername(username);
+        updateUser({ reddit_connected: true, reddit_username: username });
+        showNotification(`✅ Reddit connected! Welcome u/${username}!`, 'success');
+        
+        localStorage.setItem(`reddit_connected_${user.email}`, 'true');
+        localStorage.setItem(`reddit_username_${user.email}`, username);
+        
+        window.history.replaceState({}, '', window.location.pathname); 
+        return;
+      }
+
+      // Check localStorage
+      const savedConnection = localStorage.getItem(`reddit_connected_${user.email}`);
+      const savedUsername = localStorage.getItem(`reddit_username_${user.email}`);
+      
+      if (savedConnection === 'true' && savedUsername) {
+        setRedditConnected(true);
+        setRedditUsername(savedUsername);
+        return;
+      }
+
+      // Check backend
+      try {
+        const response = await makeAuthenticatedRequest('/api/reddit/connection-status');
+        const result = await response.json();
+        
+        if (result.success && result.connected) {
+          setRedditConnected(true); 
+          setRedditUsername(result.reddit_username || result.username);
+          localStorage.setItem(`reddit_connected_${user.email}`, 'true');
+          localStorage.setItem(`reddit_username_${user.email}`, result.reddit_username || result.username);
+        }
+      } catch (error) { 
+        console.error('Failed to check Reddit connection:', error); 
+      }
+
+      // Load user profile
+      try {
+        const savedProfile = localStorage.getItem(`redditUserProfile_${user.email}`);
+        if (savedProfile) { 
+          const profile = JSON.parse(savedProfile); 
+          setUserProfile(profile); 
+        }
+      } catch (error) { 
+        console.error('Error loading profile:', error); 
+      }
+    };
+
+    checkRedditConnection();
+  }, [user, makeAuthenticatedRequest, updateUser, showNotification]);
+
+  // Connect Reddit account
+  const handleRedditConnect = useCallback(async () => {
+    try {
+      setLoading(true);
+      showNotification('Connecting to Reddit...', 'info');
+      
+      const response = await makeAuthenticatedRequest('/api/oauth/reddit/authorize');
+      const result = await response.json();
+      
+      if (result.success && result.redirect_url) {
+        window.location.href = result.redirect_url;
+      } else { 
+        showNotification(result.error || 'Failed to start Reddit authorization', 'error'); 
+      }
+    } catch (error) { 
+      showNotification(`Connection failed: ${error.message}`, 'error'); 
+    } finally { 
+      setLoading(false); 
+    }
+  }, [makeAuthenticatedRequest, showNotification]);
+
+  // Save user profile
+  const saveUserProfile = useCallback(() => {
+    try {
+      const profileToSave = { ...userProfile, isConfigured: true };
+      localStorage.setItem(`redditUserProfile_${user.email}`, JSON.stringify(profileToSave));
+      setUserProfile(profileToSave);
+      showNotification('✅ Profile saved successfully!', 'success');
+    } catch (error) { 
+      showNotification('Failed to save profile', 'error'); 
+    }
+  }, [userProfile, user?.email, showNotification]);
+
+  // Generate AI content (FIXED - added subreddits)
+  const generateRedditContent = useCallback(async () => {
+    if (!userProfile.businessType) { 
+      showNotification('Please configure your profile first', 'error'); 
+      return; 
     }
 
-    setLoading(true);
-    for (let i = 0; i < autoPostForm.numPosts; i++) {
-      const response = await makeApiRequest('/api/ai/generate-domain-content', 'POST', {
-        domain: autoPostForm.domain,
-        business_type: autoPostForm.businessType,
-        target_audience: autoPostForm.targetAudience,
-        language: autoPostForm.language,
-        content_style: autoPostForm.contentStyle
+    try {
+      setPostForm(prev => ({ ...prev, isGenerating: true }));
+      showNotification('Generating Reddit content with AI...', 'info');
+      
+      const response = await makeAuthenticatedRequest('/api/automation/test-auto-post', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          platform: 'reddit',
+          domain: userProfile.domain,
+          business_type: userProfile.businessType,
+          business_description: userProfile.businessDescription,
+          target_audience: userProfile.targetAudience,
+          content_style: userProfile.contentStyle,
+          language: 'en',
+          subreddits: ['test', 'learnprogramming', 'artificial']  // ✅ FIXED: Added subreddits
+        })
       });
 
-      if (response.success) {
-        toast.success(`Content ${i + 1} generated successfully!`);
+      const result = await response.json();
+
+      if (result.success) {
+        setPostForm(prev => ({
+          ...prev,
+          title: result.title || '',
+          content: result.content_preview || result.content || ''
+        }));
+        showNotification(`✅ Content generated! Human authenticity: ${result.human_score || 95}%`, 'success');
+      } else { 
+        showNotification(result.error || result.message || 'Content generation failed', 'error'); 
       }
+    } catch (error) { 
+      console.error('AI generation error:', error);
+      showNotification('AI generation failed: ' + error.message, 'error'); 
+    } finally { 
+      setPostForm(prev => ({ ...prev, isGenerating: false })); 
     }
-    setLoading(false);
-  };
+  }, [makeAuthenticatedRequest, showNotification, userProfile]);
 
-  const findQuestions = async () => {
-    setLoading(true);
-    const response = await makeApiRequest('/api/reddit/questions', 'GET', {
-      subreddits: questionForm.subreddits,
-      keywords: questionForm.keywords,
-      limit: questionForm.limit
-    });
-
-    if (response.success) {
-      setQuestions(response.questions || []);
-      toast.success(`Found ${response.questions?.length || 0} questions`);
+  // Publish Reddit post
+  const publishRedditPost = useCallback(async (e) => {
+    e.preventDefault();
+    if (!postForm.title || !postForm.content) { 
+      showNotification('Please add both title and content', 'error'); 
+      return; 
     }
-    setLoading(false);
-  };
+    if (!redditConnected) { 
+      showNotification('Please connect your Reddit account first', 'error'); 
+      return; 
+    }
 
-  const generateDomainContent = async () => {
-    if (!domainForm.businessType || !domainForm.topic) {
-      toast.error('Please fill in business type and topic');
+    try {
+      setLoading(true);
+      showNotification('Publishing to Reddit...', 'info');
+      
+      const response = await makeAuthenticatedRequest('/api/automation/post-now', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: postForm.title,
+          content: postForm.content,
+          subreddit: postForm.subreddit,
+          contentType: postForm.contentType
+        })
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        showNotification('✅ Posted to Reddit successfully!', 'success');
+        setPostForm({ subreddit: 'test', title: '', content: '', language: 'en', contentType: 'text', isGenerating: false });
+        setPerformanceData(prev => ({ ...prev, postsToday: prev.postsToday + 1 }));
+        
+        if (result.post_url) {
+          setTimeout(() => window.open(result.post_url, '_blank'), 1000);
+        }
+      } else { 
+        showNotification(result.error || 'Failed to post', 'error'); 
+      }
+    } catch (error) { 
+      showNotification('Publishing failed: ' + error.message, 'error'); 
+    } finally { 
+      setLoading(false); 
+    }
+  }, [postForm, redditConnected, makeAuthenticatedRequest, showNotification]);
+
+  // Find questions
+  const findQuestions = useCallback(async () => {
+    if (!redditConnected) {
+      showNotification('Please connect Reddit first', 'error');
       return;
     }
 
-    setLoading(true);
-    const response = await makeApiRequest('/api/ai/generate-domain-content', 'POST', {
-      domain: domainForm.domain,
-      business_type: domainForm.businessType,
-      target_audience: domainForm.targetAudience,
-      language: domainForm.language,
-      content_style: domainForm.contentStyle
-    });
+    try {
+      setLoading(true);
+      showNotification('Searching for questions...', 'info');
+      
+      const response = await makeAuthenticatedRequest(`/api/automation/questions?subreddits=${encodeURIComponent(questionForm.subreddits)}&keywords=${encodeURIComponent(questionForm.keywords)}&limit=${questionForm.limit}`);
+      
+      const result = await response.json();
 
-    if (response.success) {
-      setGeneratedContent(`Title: ${response.title}\n\nContent: ${response.body}`);
-      toast.success('Domain content generated!');
+      if (result.success) {
+        setQuestions(result.questions || []);
+        setPerformanceData(prev => ({ ...prev, questionsFound: result.questions?.length || 0 }));
+        showNotification(`✅ Found ${result.questions?.length || 0} questions!`, 'success');
+      } else {
+        showNotification(result.error || 'Failed to find questions', 'error');
+      }
+    } catch (error) {
+      showNotification('Search failed: ' + error.message, 'error');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
+  }, [questionForm, redditConnected, makeAuthenticatedRequest, showNotification]);
+
+  // ============= SCHEDULING FUNCTIONS =============
+  
+  // Get minimum schedule time (3 minutes from now)
+  const getMinScheduleTime = () => {
+    const now = new Date();
+    now.setMinutes(now.getMinutes() + 3);
+    return now.toISOString().slice(0, 16);
   };
 
-  const generateAIContent = async () => {
-    if (!aiForm.topic) {
-      toast.error('Please enter a topic');
+  // Get maximum schedule time (6 hours from now)
+  const getMaxScheduleTime = () => {
+    const max = new Date();
+    max.setHours(max.getHours() + 6);
+    return max.toISOString().slice(0, 16);
+  };
+
+  // Add schedule
+  const addSchedule = useCallback(() => {
+    if (!newSchedule.time) {
+      showNotification('Please select a time', 'error');
       return;
     }
 
-    setLoading(true);
-    const response = await makeApiRequest('/api/ai/generate-content', 'POST', aiForm);
-
-    if (response.success) {
-      setGeneratedContent(response.content);
-      toast.success('AI content generated!');
+    if (schedules.length >= 5) {
+      showNotification('Maximum 5 schedules per day', 'error');
+      return;
     }
-    setLoading(false);
-  };
 
-  const setupAutoPosting = async () => {
-    const config = {
-      domain: 'education',
-      business_type: 'JEE coaching institute',
-      target_audience: 'indian_students',
-      subreddits: ['JEE', 'NEET', 'IndianStudents'],
-      posts_per_day: 3,
-      posting_times: ['09:00', '14:00', '19:00'],
-      content_style: 'engaging'
+    const scheduleTime = new Date(newSchedule.time);
+    const now = new Date();
+    const minTime = new Date(now.getTime() + 3 * 60000);
+
+    if (scheduleTime < minTime) {
+      showNotification('Schedule time must be at least 3 minutes from now', 'error');
+      return;
+    }
+
+    const newSched = {
+      id: Date.now(),
+      time: newSchedule.time,
+      subreddit: newSchedule.subreddit,
+      useAI: newSchedule.useAI,
+      status: 'pending',
+      createdAt: new Date().toISOString()
     };
 
-    const response = await makeApiRequest('/api/automation/setup-auto-posting', 'POST', config);
-    if (response.success) {
-      toast.success('Auto-posting enabled!');
-      checkAutomationStatus();
+    setSchedules(prev => [...prev, newSched]);
+    showNotification('✅ Schedule added!', 'success');
+    
+    setNewSchedule({ time: '', subreddit: 'test', useAI: true });
+  }, [newSchedule, schedules, showNotification]);
+
+  // Remove schedule
+  const removeSchedule = useCallback((scheduleId) => {
+    setSchedules(prev => prev.filter(s => s.id !== scheduleId));
+    showNotification('Schedule removed', 'info');
+  }, [showNotification]);
+
+  // Start automation
+  const startAutomation = useCallback(async () => {
+    if (schedules.length === 0) {
+      showNotification('Please add at least one schedule', 'error');
+      return;
     }
+
+    if (!redditConnected) {
+      showNotification('Please connect Reddit first', 'error');
+      return;
+    }
+
+    if (!userProfile.isConfigured) {
+      showNotification('Please complete your profile setup first', 'error');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      showNotification('🚀 Starting automation...', 'info');
+
+      const response = await makeAuthenticatedRequest('/api/automation/setup/posting', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          domain: userProfile.domain,
+          business_type: userProfile.businessType,
+          business_description: userProfile.businessDescription,
+          target_audience: userProfile.targetAudience,
+          language: 'en',
+          content_style: userProfile.contentStyle,
+          posts_per_day: schedules.length,
+          posting_times: schedules.map(s => {
+            const date = new Date(s.time);
+            return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+          }),
+          subreddits: schedules.map(s => s.subreddit),
+          manual_time_entry: true,
+          custom_post_count: true
+        })
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        setAutomationActive(true);
+        showNotification('✅ Automation started! Posts will be published at scheduled times', 'success');
+        monitorScheduledPosts();
+      } else {
+        showNotification(result.error || 'Failed to start automation', 'error');
+      }
+    } catch (error) {
+      showNotification('Failed to start automation: ' + error.message, 'error');
+    } finally {
+      setLoading(false);
+    }
+  }, [schedules, redditConnected, userProfile, makeAuthenticatedRequest, showNotification]);
+
+  // Stop automation
+  const stopAutomation = useCallback(async () => {
+    try {
+      setLoading(true);
+      
+      const response = await makeAuthenticatedRequest('/api/automation/schedule/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'auto_posting',
+          enabled: false
+        })
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        setAutomationActive(false);
+        showNotification('⏸️ Automation stopped', 'info');
+      } else {
+        showNotification(result.error || 'Failed to stop automation', 'error');
+      }
+    } catch (error) {
+      showNotification('Failed to stop automation: ' + error.message, 'error');
+    } finally {
+      setLoading(false);
+    }
+  }, [makeAuthenticatedRequest, showNotification]);
+
+  // Monitor scheduled posts
+  const monitorScheduledPosts = useCallback(() => {
+    const interval = setInterval(async () => {
+      try {
+        const response = await makeAuthenticatedRequest('/api/automation/stats');
+        const result = await response.json();
+        
+        if (result.success) {
+          setScheduledPosts(result.scheduled_posts || []);
+          setPerformanceData(prev => ({
+            ...prev,
+            postsToday: result.posts_today || 0,
+            totalEngagement: result.total_karma || 0
+          }));
+        }
+      } catch (error) {
+        console.error('Failed to fetch stats:', error);
+      }
+    }, 30000);
+
+    return () => clearInterval(interval);
+  }, [makeAuthenticatedRequest]);
+
+  // Format time display
+  const formatScheduleTime = (timeString) => {
+    const date = new Date(timeString);
+    const now = new Date();
+    const diff = date - now;
+    
+    if (diff < 0) return 'Past';
+    
+    const minutes = Math.floor(diff / 60000);
+    const hours = Math.floor(minutes / 60);
+    
+    if (hours > 0) {
+      return `in ${hours}h ${minutes % 60}m`;
+    }
+    return `in ${minutes}m`;
   };
 
-  const setupAutoReplies = async () => {
-    const config = {
-      domain: 'education',
-      expertise_level: 'intermediate',
-      subreddits: ['JEE', 'NEET', 'IndianStudents'],
-      keywords: ['help', 'advice', 'JEE', 'preparation'],
-      max_replies_per_hour: 2,
-      response_delay_minutes: 15
-    };
-
-    const response = await makeApiRequest('/api/automation/setup-auto-replies', 'POST', config);
-    if (response.success) {
-      toast.success('Auto-replies enabled!');
-      checkAutomationStatus();
-    }
-  };
-
-  const fetchAnalytics = async () => {
-    const response = await makeApiRequest('/api/automation/performance-analytics');
-    if (response.success) {
-      setAnalytics(response.performance);
-    }
-  };
-
+  // ============= RENDER =============
+  
   return (
-    <div style={{ 
-      minHeight: '100vh', 
-      backgroundColor: '#f9fafb', 
-      fontFamily: 'system-ui, -apple-system, sans-serif' 
+    <div style={{
+      minHeight: '100vh',
+      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+      padding: '20px',
+      paddingTop: '80px'
     }}>
-      {/* Header */}
+      {/* Notifications */}
       <div style={{
-        backgroundColor: 'white',
-        borderBottom: '1px solid #e5e7eb',
-        padding: '16px 24px',
-        marginBottom: '24px'
-      }}>
-        <h1 style={{
-          fontSize: '32px',
-          fontWeight: 'bold',
-          color: '#111827',
-          margin: 0,
-          marginBottom: '8px'
-        }}>
-          Reddit Automation Platform
-        </h1>
-        <p style={{
-          color: '#6b7280',
-          margin: 0,
-          fontSize: '16px'
-        }}>
-          Automate your Reddit presence with AI-powered content generation
-        </p>
-      </div>
-
-      {/* Connection Status Bar */}
-      <div style={{
-        backgroundColor: 'white',
-        border: '1px solid #e5e7eb',
-        borderRadius: '8px',
-        padding: '16px',
-        margin: '0 24px 24px 24px',
+        position: 'fixed',
+        top: '20px',
+        right: '20px',
+        zIndex: 9999,
         display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center'
+        flexDirection: 'column',
+        gap: '12px',
+        maxWidth: '90vw'
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <div style={{
-            width: '12px',
-            height: '12px',
-            borderRadius: '50%',
-            backgroundColor: connected ? '#10b981' : '#ef4444'
-          }}></div>
-          <span style={{ fontWeight: '500', color: '#374151' }}>
-            {connected ? `Connected as: ${username}` : 'Not connected to Reddit'}
-          </span>
-        </div>
-        <div style={{ display: 'flex', gap: '12px' }}>
-          {!connected && (
-            <>
-              <button
-                onClick={connectReddit}
-                style={{
-                  backgroundColor: '#3b82f6',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '6px',
-                  padding: '8px 16px',
-                  cursor: 'pointer',
-                  fontWeight: '500'
-                }}
-              >
-                Connect Reddit
-              </button>
-              <button
-                onClick={simulateConnection}
-                style={{
-                  backgroundColor: '#6b7280',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '6px',
-                  padding: '8px 16px',
-                  cursor: 'pointer',
-                  fontWeight: '500'
-                }}
-              >
-                Simulate Connection
-              </button>
-            </>
-          )}
-        </div>
-      </div>
-
-      {/* Tab Navigation */}
-      <div style={{
-        margin: '0 24px',
-        borderBottom: '1px solid #e5e7eb',
-        marginBottom: '24px'
-      }}>
-        <div style={{ display: 'flex', gap: '32px' }}>
-          {['testing', 'automation', 'questions', 'domain', 'ai', 'analytics'].map(tab => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              style={{
-                background: 'none',
-                border: 'none',
-                padding: '12px 0',
-                fontSize: '16px',
-                fontWeight: '500',
-                color: activeTab === tab ? '#3b82f6' : '#6b7280',
-                borderBottom: activeTab === tab ? '2px solid #3b82f6' : '2px solid transparent',
-                cursor: 'pointer',
-                textTransform: 'capitalize'
-              }}
-            >
-              {tab === 'testing' ? 'Manual Testing' : 
-               tab === 'automation' ? 'Auto Setup' :
-               tab === 'questions' ? 'Question Monitor' :
-               tab === 'domain' ? 'Domain Content' :
-               tab === 'ai' ? 'AI Generator' : 'Analytics'}
-            </button>
-          ))}
-        </div>
+        {notifications.map(notif => (
+          <div key={notif.id} style={{
+            background: notif.type === 'success' ? '#d4edda' : notif.type === 'error' ? '#f8d7da' : '#d1ecf1',
+            color: notif.type === 'success' ? '#155724' : notif.type === 'error' ? '#721c24' : '#0c5460',
+            padding: '16px 24px',
+            borderRadius: '12px',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+            fontWeight: '600',
+            fontSize: '14px',
+            animation: 'slideIn 0.3s ease-out',
+            wordBreak: 'break-word'
+          }}>
+            {notif.message}
+          </div>
+        ))}
       </div>
 
       {/* Main Content */}
-      <div style={{ padding: '0 24px', maxWidth: '1200px', margin: '0 auto' }}>
-        
-        {/* Manual Testing Tab */}
-        {activeTab === 'testing' && (
-          <div>
-            <h2 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '24px', color: '#111827' }}>
-              Manual Reddit Post Testing
-            </h2>
-            
-            <div style={{
-              backgroundColor: 'white',
-              border: '1px solid #e5e7eb',
-              borderRadius: '8px',
-              padding: '24px'
+      <div style={{
+        maxWidth: '1400px',
+        margin: '0 auto'
+      }}>
+        <div style={{
+          background: 'rgba(255, 255, 255, 0.95)',
+          borderRadius: '20px',
+          padding: '20px',
+          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2)',
+          marginBottom: '20px'
+        }}>
+          <h1 style={{
+            margin: '0 0 12px 0',
+            color: '#FF4500',
+            fontSize: 'clamp(24px, 5vw, 32px)',
+            fontWeight: '700'
+          }}>
+            🤖 Reddit Automation
+          </h1>
+          <p style={{
+            margin: 0,
+            color: '#666',
+            fontSize: 'clamp(14px, 2.5vw, 16px)'
+          }}>
+            Welcome, {user?.name || 'User'}! {redditConnected && `• Connected as u/${redditUsername}`}
+          </p>
+        </div>
+
+        {/* Tab Navigation */}
+        <div style={{
+          display: 'flex',
+          gap: '8px',
+          marginBottom: '20px',
+          flexWrap: 'wrap',
+          overflowX: 'auto',
+          padding: '4px'
+        }}>
+          {[
+            { id: 'setup', icon: '⚙️', label: 'Setup' },
+            { id: 'profile', icon: '👤', label: 'Profile' },
+            { id: 'schedule', icon: '📅', label: 'Schedule' },
+            { id: 'create', icon: '✍️', label: 'Create' },
+            { id: 'questions', icon: '❓', label: 'Questions' },
+            { id: 'analytics', icon: '📊', label: 'Analytics' }
+          ].map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              style={{
+                padding: 'clamp(10px, 2vw, 12px) clamp(16px, 3vw, 24px)',
+                background: activeTab === tab.id ? 'linear-gradient(135deg, #FF4500, #FF8717)' : '#f5f5f5',
+                color: activeTab === tab.id ? 'white' : '#333',
+                border: 'none',
+                borderRadius: '12px',
+                cursor: 'pointer',
+                fontWeight: '600',
+                fontSize: 'clamp(13px, 2.5vw, 15px)',
+                whiteSpace: 'nowrap',
+                transition: 'all 0.3s ease'
+              }}
+            >
+              <span style={{ marginRight: '6px' }}>{tab.icon}</span>
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Setup Tab */}
+        {activeTab === 'setup' && (
+          <div style={{
+            background: 'rgba(255, 255, 255, 0.95)',
+            borderRadius: '20px',
+            padding: 'clamp(20px, 4vw, 40px)',
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2)'
+          }}>
+            <h2 style={{
+              color: '#FF4500',
+              marginBottom: '24px',
+              fontSize: 'clamp(22px, 4vw, 28px)',
+              fontWeight: '700'
             }}>
-              <form onSubmit={handleManualPost}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
-                  <div>
-                    <label style={{ display: 'block', marginBottom: '8px', fontWeight: '500', color: '#374151' }}>
-                      Subreddit
-                    </label>
-                    <select
-                      value={postForm.subreddit}
-                      onChange={(e) => setPostForm({...postForm, subreddit: e.target.value})}
-                      style={{
-                        width: '100%',
-                        padding: '8px 12px',
-                        border: '1px solid #d1d5db',
-                        borderRadius: '6px',
-                        fontSize: '14px'
-                      }}
-                    >
-                      <option value="test">test</option>
-                      <option value="india">india</option>
-                      <option value="indiaspeaks">indiaspeaks</option>
-                      <option value="bangalore">bangalore</option>
-                      <option value="AskReddit">AskReddit</option>
-                    </select>
-                  </div>
-                  
-                  <div>
-                    <label style={{ display: 'block', marginBottom: '8px', fontWeight: '500', color: '#374151' }}>
-                      Language
-                    </label>
-                    <select
-                      value={postForm.language}
-                      onChange={(e) => setPostForm({...postForm, language: e.target.value})}
-                      style={{
-                        width: '100%',
-                        padding: '8px 12px',
-                        border: '1px solid #d1d5db',
-                        borderRadius: '6px',
-                        fontSize: '14px'
-                      }}
-                    >
-                      <option value="en">English</option>
-                      <option value="hi">Hindi</option>
-                    </select>
-                  </div>
+              Reddit Connection Setup
+            </h2>
+
+            {!redditConnected ? (
+              <div>
+                <div style={{
+                  background: '#fff3cd',
+                  border: '1px solid #ffeaa7',
+                  borderRadius: '12px',
+                  padding: '20px',
+                  marginBottom: '24px'
+                }}>
+                  <p style={{ margin: 0, color: '#856404', fontSize: 'clamp(14px, 2.5vw, 16px)' }}>
+                    ⚠️ Connect your Reddit account to start automating your posts
+                  </p>
                 </div>
-                
-                <div style={{ marginTop: '16px' }}>
-                  <label style={{ display: 'block', marginBottom: '8px', fontWeight: '500', color: '#374151' }}>
-                    Post Title
+
+                <button
+                  onClick={handleRedditConnect}
+                  disabled={loading}
+                  style={{
+                    background: loading ? '#ccc' : 'linear-gradient(135deg, #FF4500, #FF8717)',
+                    padding: 'clamp(14px, 3vw, 18px) clamp(32px, 6vw, 48px)',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '12px',
+                    fontSize: 'clamp(16px, 3vw, 18px)',
+                    fontWeight: '700',
+                    cursor: loading ? 'not-allowed' : 'pointer',
+                    width: '100%',
+                    maxWidth: '400px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '12px',
+                    margin: '0 auto 24px auto'
+                  }}
+                >
+                  {loading ? '⏳ Connecting...' : '🤖 Connect Reddit Account'}
+                </button>
+
+                <div style={{
+                  background: '#f8f9fa',
+                  borderRadius: '12px',
+                  padding: '20px'
+                }}>
+                  <h3 style={{
+                    color: '#FF4500',
+                    marginTop: 0,
+                    marginBottom: '16px',
+                    fontSize: 'clamp(16px, 3vw, 18px)'
+                  }}>
+                    What you'll get:
+                  </h3>
+                  <ul style={{
+                    margin: 0,
+                    paddingLeft: '24px',
+                    color: '#333',
+                    lineHeight: '1.8',
+                    fontSize: 'clamp(13px, 2.5vw, 15px)'
+                  }}>
+                    <li>AI-powered content generation for Reddit</li>
+                    <li>Auto-generate engaging posts and comments</li>
+                    <li>Find and answer questions in your niche</li>
+                    <li>Schedule and automate posts</li>
+                    <li>Track performance analytics</li>
+                  </ul>
+                </div>
+              </div>
+            ) : (
+              <div style={{
+                background: '#d4edda',
+                border: '1px solid #c3e6cb',
+                borderRadius: '12px',
+                padding: '20px',
+                textAlign: 'center'
+              }}>
+                <p style={{
+                  margin: '0 0 12px 0',
+                  color: '#155724',
+                  fontSize: 'clamp(16px, 3vw, 18px)',
+                  fontWeight: '600'
+                }}>
+                  ✅ Reddit Connected!
+                </p>
+                <p style={{
+                  margin: 0,
+                  color: '#155724',
+                  fontSize: 'clamp(14px, 2.5vw, 16px)'
+                }}>
+                  You're logged in as <strong>u/{redditUsername}</strong>
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Profile Tab */}
+        {activeTab === 'profile' && (
+          <div style={{
+            background: 'rgba(255, 255, 255, 0.95)',
+            borderRadius: '20px',
+            padding: 'clamp(20px, 4vw, 40px)',
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2)'
+          }}>
+            <h2 style={{
+              color: '#FF4500',
+              marginBottom: '24px',
+              fontSize: 'clamp(22px, 4vw, 28px)',
+              fontWeight: '700'
+            }}>
+              👤 Your Profile
+            </h2>
+
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+              gap: '20px',
+              marginBottom: '24px'
+            }}>
+              {/* Domain Selection */}
+              <div>
+                <label style={{
+                  display: 'block',
+                  marginBottom: '8px',
+                  color: '#333',
+                  fontWeight: '600',
+                  fontSize: 'clamp(14px, 2.5vw, 16px)'
+                }}>
+                  🎯 Domain
+                </label>
+                <select
+                  value={userProfile.domain}
+                  onChange={(e) => setUserProfile(prev => ({
+                    ...prev,
+                    domain: e.target.value,
+                    businessType: DOMAIN_CONFIGS[e.target.value].sampleBusiness
+                  }))}
+                  style={{
+                    width: '100%',
+                    padding: 'clamp(12px, 2.5vw, 16px)',
+                    borderRadius: '12px',
+                    border: '2px solid #ddd',
+                    fontSize: 'clamp(14px, 2.5vw, 16px)'
+                  }}
+                >
+                  {Object.entries(DOMAIN_CONFIGS).map(([key, config]) => (
+                    <option key={key} value={key}>
+                      {config.icon} {config.description}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Business Type */}
+              <div>
+                <label style={{
+                  display: 'block',
+                  marginBottom: '8px',
+                  color: '#333',
+                  fontWeight: '600',
+                  fontSize: 'clamp(14px, 2.5vw, 16px)'
+                }}>
+                  🏢 Business Type
+                </label>
+                <input
+                  type="text"
+                  value={userProfile.businessType}
+                  onChange={(e) => setUserProfile(prev => ({...prev, businessType: e.target.value}))}
+                  placeholder="e.g., AI automation platform"
+                  style={{
+                    width: '100%',
+                    padding: 'clamp(12px, 2.5vw, 16px)',
+                    borderRadius: '12px',
+                    border: '2px solid #ddd',
+                    fontSize: 'clamp(14px, 2.5vw, 16px)'
+                  }}
+                />
+              </div>
+
+              {/* Target Audience */}
+              <div>
+                <label style={{
+                  display: 'block',
+                  marginBottom: '8px',
+                  color: '#333',
+                  fontWeight: '600',
+                  fontSize: 'clamp(14px, 2.5vw, 16px)'
+                }}>
+                  👥 Target Audience
+                </label>
+                <select
+                  value={userProfile.targetAudience}
+                  onChange={(e) => setUserProfile(prev => ({...prev, targetAudience: e.target.value}))}
+                  style={{
+                    width: '100%',
+                    padding: 'clamp(12px, 2.5vw, 16px)',
+                    borderRadius: '12px',
+                    border: '2px solid #ddd',
+                    fontSize: 'clamp(14px, 2.5vw, 16px)'
+                  }}
+                >
+                  {Object.entries(TARGET_AUDIENCES).map(([key, audience]) => (
+                    <option key={key} value={key}>
+                      {audience.icon} {audience.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Content Style */}
+              <div>
+                <label style={{
+                  display: 'block',
+                  marginBottom: '8px',
+                  color: '#333',
+                  fontWeight: '600',
+                  fontSize: 'clamp(14px, 2.5vw, 16px)'
+                }}>
+                  ✨ Content Style
+                </label>
+                <select
+                  value={userProfile.contentStyle}
+                  onChange={(e) => setUserProfile(prev => ({...prev, contentStyle: e.target.value}))}
+                  style={{
+                    width: '100%',
+                    padding: 'clamp(12px, 2.5vw, 16px)',
+                    borderRadius: '12px',
+                    border: '2px solid #ddd',
+                    fontSize: 'clamp(14px, 2.5vw, 16px)'
+                  }}
+                >
+                  {Object.entries(CONTENT_STYLES).map(([key, label]) => (
+                    <option key={key} value={key}>{label}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Business Description */}
+            <div style={{ marginBottom: '24px' }}>
+              <label style={{
+                display: 'block',
+                marginBottom: '8px',
+                color: '#333',
+                fontWeight: '600',
+                fontSize: 'clamp(14px, 2.5vw, 16px)'
+              }}>
+                📝 Business Description
+              </label>
+              <textarea
+                value={userProfile.businessDescription}
+                onChange={(e) => setUserProfile(prev => ({...prev, businessDescription: e.target.value}))}
+                placeholder="Describe your business in detail..."
+                rows={4}
+                style={{
+                  width: '100%',
+                  padding: 'clamp(12px, 2.5vw, 16px)',
+                  borderRadius: '12px',
+                  border: '2px solid #ddd',
+                  fontSize: 'clamp(14px, 2.5vw, 16px)',
+                  resize: 'vertical',
+                  fontFamily: 'inherit'
+                }}
+              />
+            </div>
+
+            <button
+              onClick={saveUserProfile}
+              style={{
+                background: 'linear-gradient(135deg, #FF4500, #FF8717)',
+                padding: 'clamp(14px, 3vw, 16px) clamp(32px, 6vw, 48px)',
+                color: 'white',
+                border: 'none',
+                borderRadius: '12px',
+                fontSize: 'clamp(16px, 3vw, 18px)',
+                fontWeight: '700',
+                cursor: 'pointer',
+                width: '100%',
+                maxWidth: '300px',
+                display: 'block',
+                margin: '0 auto'
+              }}
+            >
+              💾 Save Profile
+            </button>
+          </div>
+        )}
+
+        {/* Schedule Tab */}
+        {activeTab === 'schedule' && (
+          <div style={{
+            background: 'rgba(255, 255, 255, 0.95)',
+            borderRadius: '20px',
+            padding: 'clamp(20px, 4vw, 40px)',
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2)'
+          }}>
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: '24px',
+              flexWrap: 'wrap',
+              gap: '12px'
+            }}>
+              <h2 style={{
+                color: '#FF4500',
+                margin: 0,
+                fontSize: 'clamp(22px, 4vw, 28px)',
+                fontWeight: '700'
+              }}>
+                📅 Schedule Posts
+              </h2>
+              
+              {automationActive && (
+                <div style={{
+                  background: '#d4edda',
+                  color: '#155724',
+                  padding: '8px 16px',
+                  borderRadius: '8px',
+                  fontWeight: '600',
+                  fontSize: 'clamp(13px, 2.5vw, 14px)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}>
+                  <span style={{ fontSize: '20px' }}>🟢</span>
+                  Automation Active
+                </div>
+              )}
+            </div>
+
+            {!redditConnected ? (
+              <div style={{
+                background: '#f8d7da',
+                border: '1px solid #f5c6cb',
+                borderRadius: '12px',
+                padding: '20px'
+              }}>
+                <p style={{ margin: 0, color: '#721c24', fontSize: 'clamp(14px, 2.5vw, 16px)' }}>
+                  ❌ Connect Reddit to schedule posts
+                </p>
+              </div>
+            ) : (
+              <>
+                {/* Add New Schedule */}
+                <div style={{
+                  background: '#f8f9fa',
+                  padding: '20px',
+                  borderRadius: '12px',
+                  marginBottom: '24px'
+                }}>
+                  <h3 style={{
+                    color: '#FF4500',
+                    marginTop: 0,
+                    marginBottom: '16px',
+                    fontSize: 'clamp(18px, 3vw, 20px)',
+                    fontWeight: '600'
+                  }}>
+                    ➕ Add New Schedule
+                  </h3>
+
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                    gap: '16px',
+                    marginBottom: '16px'
+                  }}>
+                    <div>
+                      <label style={{
+                        display: 'block',
+                        marginBottom: '8px',
+                        color: '#333',
+                        fontWeight: '600',
+                        fontSize: 'clamp(13px, 2.5vw, 14px)'
+                      }}>
+                        📅 Schedule Time
+                      </label>
+                      <input
+                        type="datetime-local"
+                        min={getMinScheduleTime()}
+                        max={getMaxScheduleTime()}
+                        value={newSchedule.time}
+                        onChange={(e) => setNewSchedule(prev => ({...prev, time: e.target.value}))}
+                        style={{
+                          width: '100%',
+                          padding: '12px',
+                          borderRadius: '8px',
+                          border: '2px solid #ddd',
+                          fontSize: 'clamp(13px, 2.5vw, 14px)'
+                        }}
+                      />
+                      <small style={{ color: '#666', fontSize: 'clamp(11px, 2vw, 12px)' }}>
+                        Min: 3 min from now • Max: 6 hours
+                      </small>
+                    </div>
+
+                    <div>
+                      <label style={{
+                        display: 'block',
+                        marginBottom: '8px',
+                        color: '#333',
+                        fontWeight: '600',
+                        fontSize: 'clamp(13px, 2.5vw, 14px)'
+                      }}>
+                        📍 Subreddit
+                      </label>
+                      <input
+                        type="text"
+                        value={newSchedule.subreddit}
+                        onChange={(e) => setNewSchedule(prev => ({...prev, subreddit: e.target.value}))}
+                        placeholder="e.g. test"
+                        style={{
+                          width: '100%',
+                          padding: '12px',
+                          borderRadius: '8px',
+                          border: '2px solid #ddd',
+                          fontSize: 'clamp(13px, 2.5vw, 14px)'
+                        }}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{
+                        display: 'block',
+                        marginBottom: '8px',
+                        color: '#333',
+                        fontWeight: '600',
+                        fontSize: 'clamp(13px, 2.5vw, 14px)'
+                      }}>
+                        🤖 Content Source
+                      </label>
+                      <select
+                        value={newSchedule.useAI}
+                        onChange={(e) => setNewSchedule(prev => ({...prev, useAI: e.target.value === 'true'}))}
+                        style={{
+                          width: '100%',
+                          padding: '12px',
+                          borderRadius: '8px',
+                          border: '2px solid #ddd',
+                          fontSize: 'clamp(13px, 2.5vw, 14px)'
+                        }}
+                      >
+                        <option value="true">AI Generated</option>
+                        <option value="false">Manual</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={addSchedule}
+                    disabled={!newSchedule.time || schedules.length >= 5}
+                    style={{
+                      background: schedules.length >= 5 ? '#ccc' : 'linear-gradient(135deg, #FF4500, #FF8717)',
+                      padding: 'clamp(10px, 2vw, 12px) clamp(24px, 4vw, 32px)',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '8px',
+                      fontSize: 'clamp(14px, 2.5vw, 16px)',
+                      fontWeight: '600',
+                      cursor: schedules.length >= 5 ? 'not-allowed' : 'pointer',
+                      width: '100%',
+                      maxWidth: '300px',
+                      display: 'block',
+                      margin: '0 auto'
+                    }}
+                  >
+                    ➕ Add Schedule ({schedules.length}/5)
+                  </button>
+                </div>
+
+                {/* Scheduled Posts List */}
+                {schedules.length > 0 && (
+                  <div style={{ marginBottom: '24px' }}>
+                    <h3 style={{
+                      color: '#FF4500',
+                      marginBottom: '16px',
+                      fontSize: 'clamp(18px, 3vw, 20px)',
+                      fontWeight: '600'
+                    }}>
+                      📋 Scheduled Posts ({schedules.length})
+                    </h3>
+
+                    <div style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '12px'
+                    }}>
+                      {schedules
+                        .sort((a, b) => new Date(a.time) - new Date(b.time))
+                        .map((schedule) => (
+                        <div key={schedule.id} style={{
+                          background: '#fff',
+                          padding: '16px',
+                          borderRadius: '12px',
+                          border: '2px solid #ddd',
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          flexWrap: 'wrap',
+                          gap: '12px'
+                        }}>
+                          <div style={{ flex: 1, minWidth: '200px' }}>
+                            <div style={{
+                              fontSize: 'clamp(14px, 2.5vw, 16px)',
+                              fontWeight: '600',
+                              color: '#333',
+                              marginBottom: '8px'
+                            }}>
+                              🕐 {new Date(schedule.time).toLocaleString()}
+                              <span style={{
+                                marginLeft: '12px',
+                                fontSize: 'clamp(12px, 2vw, 14px)',
+                                color: '#FF4500',
+                                fontWeight: '500'
+                              }}>
+                                {formatScheduleTime(schedule.time)}
+                              </span>
+                            </div>
+                            <div style={{ fontSize: 'clamp(12px, 2vw, 14px)', color: '#666' }}>
+                              📍 r/{schedule.subreddit} • {schedule.useAI ? '🤖 AI Generated' : '✍️ Manual'}
+                            </div>
+                          </div>
+
+                          <button
+                            onClick={() => removeSchedule(schedule.id)}
+                            style={{
+                              background: '#dc3545',
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: '8px',
+                              padding: '8px 16px',
+                              cursor: 'pointer',
+                              fontWeight: '600',
+                              fontSize: 'clamp(12px, 2vw, 14px)'
+                            }}
+                          >
+                            🗑️ Remove
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Start/Stop Automation */}
+                <div style={{
+                  background: automationActive ? '#d4edda' : '#fff3cd',
+                  padding: '20px',
+                  borderRadius: '12px',
+                  border: `2px solid ${automationActive ? '#c3e6cb' : '#ffeaa7'}`,
+                  marginBottom: '24px'
+                }}>
+                  <h3 style={{
+                    color: '#FF4500',
+                    marginTop: 0,
+                    marginBottom: '16px',
+                    fontSize: 'clamp(18px, 3vw, 20px)',
+                    fontWeight: '600'
+                  }}>
+                    {automationActive ? '⏸️ Automation Control' : '🚀 Ready to Start'}
+                  </h3>
+
+                  <p style={{
+                    marginBottom: '16px',
+                    color: '#333',
+                    fontSize: 'clamp(13px, 2.5vw, 15px)'
+                  }}>
+                    {automationActive 
+                      ? 'Automation is running. Posts will be published at scheduled times with AI-generated content.'
+                      : `You have ${schedules.length} post${schedules.length !== 1 ? 's' : ''} scheduled. Click "Start Automation" to begin.`
+                    }
+                  </p>
+
+                  {!automationActive ? (
+                    <button
+                      onClick={startAutomation}
+                      disabled={loading || schedules.length === 0 || !userProfile.isConfigured}
+                      style={{
+                        background: (loading || schedules.length === 0 || !userProfile.isConfigured) 
+                          ? '#ccc' 
+                          : 'linear-gradient(135deg, #28a745, #20c997)',
+                        padding: 'clamp(14px, 3vw, 16px) clamp(32px, 6vw, 48px)',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '12px',
+                        fontSize: 'clamp(16px, 3vw, 18px)',
+                        fontWeight: '700',
+                        cursor: (loading || schedules.length === 0 || !userProfile.isConfigured) 
+                          ? 'not-allowed' 
+                          : 'pointer',
+                        width: '100%',
+                        maxWidth: '400px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '12px',
+                        margin: '0 auto'
+                      }}
+                    >
+                      {loading ? '⏳ Starting...' : '🚀 Start Automation'}
+                    </button>
+                  ) : (
+                    <button
+                      onClick={stopAutomation}
+                      disabled={loading}
+                      style={{
+                        background: loading ? '#ccc' : '#dc3545',
+                        padding: 'clamp(14px, 3vw, 16px) clamp(32px, 6vw, 48px)',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '12px',
+                        fontSize: 'clamp(16px, 3vw, 18px)',
+                        fontWeight: '700',
+                        cursor: loading ? 'not-allowed' : 'pointer',
+                        width: '100%',
+                        maxWidth: '400px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '12px',
+                        margin: '0 auto'
+                      }}
+                    >
+                      {loading ? '⏳ Stopping...' : '⏸️ Stop Automation'}
+                    </button>
+                  )}
+
+                  {!userProfile.isConfigured && schedules.length > 0 && (
+                    <p style={{
+                      marginTop: '12px',
+                      color: '#856404',
+                      fontSize: 'clamp(12px, 2vw, 14px)',
+                      fontWeight: '500',
+                      textAlign: 'center'
+                    }}>
+                      ⚠️ Please complete your profile setup first
+                    </p>
+                  )}
+                </div>
+
+                {/* Active Schedule Status */}
+                {automationActive && scheduledPosts.length > 0 && (
+                  <div>
+                    <h3 style={{
+                      color: '#FF4500',
+                      marginBottom: '16px',
+                      fontSize: 'clamp(18px, 3vw, 20px)',
+                      fontWeight: '600'
+                    }}>
+                      📊 Active Schedule Status
+                    </h3>
+
+                    <div style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+                      gap: '16px'
+                    }}>
+                      {scheduledPosts.map((post, index) => (
+                        <div key={index} style={{
+                          background: post.status === 'posted' ? '#d4edda' : '#fff',
+                          padding: '16px',
+                          borderRadius: '12px',
+                          border: '2px solid #ddd'
+                        }}>
+                          <div style={{
+                            fontSize: 'clamp(12px, 2vw, 14px)',
+                            fontWeight: '600',
+                            color: '#333',
+                            marginBottom: '8px'
+                          }}>
+                            {post.status === 'posted' ? '✅' : '⏳'} {post.time}
+                          </div>
+                          <div style={{ fontSize: 'clamp(11px, 2vw, 12px)', color: '#666' }}>
+                            r/{post.subreddit}
+                          </div>
+                          {post.post_url && (
+                            <a
+                              href={post.post_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              style={{
+                                fontSize: 'clamp(11px, 2vw, 12px)',
+                                color: '#FF4500',
+                                textDecoration: 'none',
+                                fontWeight: '600'
+                              }}
+                            >
+                              View Post →
+                            </a>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Quick Test Info */}
+                <div style={{
+                  marginTop: '24px',
+                  background: '#e7f3ff',
+                  padding: '20px',
+                  borderRadius: '12px',
+                  border: '2px solid #b3d9ff'
+                }}>
+                  <h4 style={{
+                    color: '#0066cc',
+                    marginTop: 0,
+                    marginBottom: '12px',
+                    fontSize: 'clamp(16px, 3vw, 18px)',
+                    fontWeight: '600'
+                  }}>
+                    🧪 Quick Test Mode
+                  </h4>
+                  <p style={{
+                    margin: 0,
+                    color: '#333',
+                    fontSize: 'clamp(12px, 2vw, 14px)',
+                    lineHeight: '1.6'
+                  }}>
+                    Want to test scheduling? Set a time 3-5 minutes from now and click "Start Automation".
+                    The system will generate AI content and post it automatically at the scheduled time.
+                    You'll receive a notification when the post is published!
+                  </p>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* Create Post Tab */}
+        {activeTab === 'create' && (
+          <div style={{
+            background: 'rgba(255, 255, 255, 0.95)',
+            borderRadius: '20px',
+            padding: 'clamp(20px, 4vw, 40px)',
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2)'
+          }}>
+            <h2 style={{
+              color: '#FF4500',
+              marginBottom: '24px',
+              fontSize: 'clamp(22px, 4vw, 28px)',
+              fontWeight: '700'
+            }}>
+              ✍️ Create Reddit Post
+            </h2>
+
+            {!redditConnected ? (
+              <div style={{
+                background: '#f8d7da',
+                border: '1px solid #f5c6cb',
+                borderRadius: '12px',
+                padding: '20px'
+              }}>
+                <p style={{ margin: 0, color: '#721c24', fontSize: 'clamp(14px, 2.5vw, 16px)' }}>
+                  ❌ Connect Reddit to create posts
+                </p>
+              </div>
+            ) : (
+              <form onSubmit={publishRedditPost}>
+                <div style={{ marginBottom: '20px' }}>
+                  <label style={{
+                    display: 'block',
+                    marginBottom: '8px',
+                    color: '#333',
+                    fontWeight: '600',
+                    fontSize: 'clamp(14px, 2.5vw, 16px)'
+                  }}>
+                    📍 Subreddit
+                  </label>
+                  <input
+                    type="text"
+                    value={postForm.subreddit}
+                    onChange={(e) => setPostForm(prev => ({...prev, subreddit: e.target.value}))}
+                    placeholder="e.g. test, learnprogramming"
+                    style={{
+                      width: '100%',
+                      padding: 'clamp(12px, 2.5vw, 16px)',
+                      borderRadius: '12px',
+                      border: '2px solid #ddd',
+                      fontSize: 'clamp(14px, 2.5vw, 16px)'
+                    }}
+                  />
+                </div>
+
+                <div style={{ marginBottom: '20px' }}>
+                  <label style={{
+                    display: 'block',
+                    marginBottom: '8px',
+                    color: '#333',
+                    fontWeight: '600',
+                    fontSize: 'clamp(14px, 2.5vw, 16px)'
+                  }}>
+                    📝 Title
                   </label>
                   <input
                     type="text"
                     value={postForm.title}
-                    onChange={(e) => setPostForm({...postForm, title: e.target.value})}
-                    placeholder="Enter your post title..."
+                    onChange={(e) => setPostForm(prev => ({...prev, title: e.target.value}))}
+                    placeholder="Enter post title..."
                     style={{
                       width: '100%',
-                      padding: '8px 12px',
-                      border: '1px solid #d1d5db',
-                      borderRadius: '6px',
-                      fontSize: '14px'
+                      padding: 'clamp(12px, 2.5vw, 16px)',
+                      borderRadius: '12px',
+                      border: '2px solid #ddd',
+                      fontSize: 'clamp(14px, 2.5vw, 16px)'
                     }}
-                    required
                   />
                 </div>
-                
-                <div style={{ marginTop: '16px' }}>
-                  <label style={{ display: 'block', marginBottom: '8px', fontWeight: '500', color: '#374151' }}>
-                    Post Content
+
+                <div style={{ marginBottom: '20px' }}>
+                  <label style={{
+                    display: 'block',
+                    marginBottom: '8px',
+                    color: '#333',
+                    fontWeight: '600',
+                    fontSize: 'clamp(14px, 2.5vw, 16px)'
+                  }}>
+                    💬 Content
                   </label>
                   <textarea
                     value={postForm.content}
-                    onChange={(e) => setPostForm({...postForm, content: e.target.value})}
-                    placeholder="Enter your post content..."
+                    onChange={(e) => setPostForm(prev => ({...prev, content: e.target.value}))}
+                    placeholder="Enter post content..."
                     rows={6}
                     style={{
                       width: '100%',
-                      padding: '8px 12px',
-                      border: '1px solid #d1d5db',
-                      borderRadius: '6px',
-                      fontSize: '14px',
-                      resize: 'vertical'
+                      padding: 'clamp(12px, 2.5vw, 16px)',
+                      borderRadius: '12px',
+                      border: '2px solid #ddd',
+                      fontSize: 'clamp(14px, 2.5vw, 16px)',
+                      resize: 'vertical',
+                      fontFamily: 'inherit'
                     }}
-                    required
                   />
                 </div>
-                
+
+                <div style={{
+                  display: 'flex',
+                  gap: '12px',
+                  flexWrap: 'wrap'
+                }}>
+                  <button
+                    type="button"
+                    onClick={generateRedditContent}
+                    disabled={postForm.isGenerating || !userProfile.isConfigured}
+                    style={{
+                      flex: '1 1 200px',
+                      background: (postForm.isGenerating || !userProfile.isConfigured) ? '#ccc' : 'linear-gradient(135deg, #667eea, #764ba2)',
+                      padding: 'clamp(14px, 3vw, 16px) clamp(24px, 5vw, 32px)',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '12px',
+                      fontSize: 'clamp(14px, 2.5vw, 16px)',
+                      fontWeight: '700',
+                      cursor: (postForm.isGenerating || !userProfile.isConfigured) ? 'not-allowed' : 'pointer'
+                    }}
+                  >
+                    {postForm.isGenerating ? '⏳ Generating...' : '🤖 Generate with AI'}
+                  </button>
+
+                  <button
+                    type="submit"
+                    disabled={loading || !postForm.title || !postForm.content}
+                    style={{
+                      flex: '1 1 200px',
+                      background: (loading || !postForm.title || !postForm.content) ? '#ccc' : 'linear-gradient(135deg, #FF4500, #FF8717)',
+                      padding: 'clamp(14px, 3vw, 16px) clamp(24px, 5vw, 32px)',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '12px',
+                      fontSize: 'clamp(14px, 2.5vw, 16px)',
+                      fontWeight: '700',
+                      cursor: (loading || !postForm.title || !postForm.content) ? 'not-allowed' : 'pointer'
+                    }}
+                  >
+                    {loading ? '⏳ Publishing...' : '🚀 Publish to Reddit'}
+                  </button>
+                </div>
+
+                {!userProfile.isConfigured && (
+                  <p style={{
+                    marginTop: '12px',
+                    color: '#856404',
+                    fontSize: 'clamp(12px, 2vw, 14px)',
+                    textAlign: 'center'
+                  }}>
+                    ⚠️ Complete your profile to use AI generation
+                  </p>
+                )}
+              </form>
+            )}
+          </div>
+        )}
+
+        {/* Questions Tab */}
+        {activeTab === 'questions' && (
+          <div style={{
+            background: 'rgba(255, 255, 255, 0.95)',
+            borderRadius: '20px',
+            padding: 'clamp(20px, 4vw, 40px)',
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2)'
+          }}>
+            <h2 style={{
+              color: '#FF4500',
+              marginBottom: '24px',
+              fontSize: 'clamp(22px, 4vw, 28px)',
+              fontWeight: '700'
+            }}>
+              ❓ Find Questions
+            </h2>
+
+            {!redditConnected ? (
+              <div style={{
+                background: '#f8d7da',
+                border: '1px solid #f5c6cb',
+                borderRadius: '12px',
+                padding: '20px'
+              }}>
+                <p style={{ margin: 0, color: '#721c24', fontSize: 'clamp(14px, 2.5vw, 16px)' }}>
+                  ❌ Connect Reddit to find questions
+                </p>
+              </div>
+            ) : (
+              <div>
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+                  gap: '16px',
+                  marginBottom: '20px'
+                }}>
+                  <div>
+                    <label style={{
+                      display: 'block',
+                      marginBottom: '8px',
+                      color: '#333',
+                      fontWeight: '600',
+                      fontSize: 'clamp(14px, 2.5vw, 16px)'
+                    }}>
+                      📍 Subreddits (comma-separated)
+                    </label>
+                    <input
+                      type="text"
+                      value={questionForm.subreddits}
+                      onChange={(e) => setQuestionForm(prev => ({...prev, subreddits: e.target.value}))}
+                      placeholder="AskReddit,explainlikeimfive"
+                      style={{
+                        width: '100%',
+                        padding: '12px',
+                        borderRadius: '12px',
+                        border: '2px solid #ddd',
+                        fontSize: 'clamp(14px, 2.5vw, 16px)'
+                      }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{
+                      display: 'block',
+                      marginBottom: '8px',
+                      color: '#333',
+                      fontWeight: '600',
+                      fontSize: 'clamp(14px, 2.5vw, 16px)'
+                    }}>
+                      🔑 Keywords (comma-separated)
+                    </label>
+                    <input
+                      type="text"
+                      value={questionForm.keywords}
+                      onChange={(e) => setQuestionForm(prev => ({...prev, keywords: e.target.value}))}
+                      placeholder="help,how,what,why"
+                      style={{
+                        width: '100%',
+                        padding: '12px',
+                        borderRadius: '12px',
+                        border: '2px solid #ddd',
+                        fontSize: 'clamp(14px, 2.5vw, 16px)'
+                      }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{
+                      display: 'block',
+                      marginBottom: '8px',
+                      color: '#333',
+                      fontWeight: '600',
+                      fontSize: 'clamp(14px, 2.5vw, 16px)'
+                    }}>
+                      🔢 Limit
+                    </label>
+                    <input
+                      type="number"
+                      value={questionForm.limit}
+                      onChange={(e) => setQuestionForm(prev => ({...prev, limit: parseInt(e.target.value)}))}
+                      min="1"
+                      max="50"
+                      style={{
+                        width: '100%',
+                        padding: '12px',
+                        borderRadius: '12px',
+                        border: '2px solid #ddd',
+                        fontSize: 'clamp(14px, 2.5vw, 16px)'
+                      }}
+                    />
+                  </div>
+                </div>
+
                 <button
-                  type="submit"
+                  onClick={findQuestions}
                   disabled={loading}
                   style={{
-                    backgroundColor: loading ? '#9ca3af' : '#3b82f6',
+                    background: loading ? '#ccc' : 'linear-gradient(135deg, #FF4500, #FF8717)',
+                    padding: 'clamp(14px, 3vw, 16px) clamp(32px, 6vw, 48px)',
                     color: 'white',
                     border: 'none',
-                    borderRadius: '6px',
-                    padding: '12px 24px',
-                    marginTop: '24px',
+                    borderRadius: '12px',
+                    fontSize: 'clamp(16px, 3vw, 18px)',
+                    fontWeight: '700',
                     cursor: loading ? 'not-allowed' : 'pointer',
-                    fontWeight: '500',
-                    fontSize: '16px'
+                    width: '100%',
+                    maxWidth: '400px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '12px',
+                    margin: '0 auto 24px auto'
                   }}
                 >
-                  {loading ? 'Posting...' : 'Post to Reddit'}
+                  {loading ? '⏳ Searching...' : '🔍 Find Questions'}
                 </button>
-              </form>
-            </div>
-          </div>
-        )}
 
-        {/* Automation Setup Tab */}
-        {activeTab === 'automation' && (
-          <div>
-            <h2 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '24px', color: '#111827' }}>
-              Automation Setup
-            </h2>
-            
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
-              <div style={{
-                backgroundColor: 'white',
-                border: '1px solid #e5e7eb',
-                borderRadius: '8px',
-                padding: '24px'
-              }}>
-                <h3 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '16px', color: '#111827' }}>
-                  Auto-Posting
-                </h3>
-                <p style={{ color: '#6b7280', marginBottom: '16px', fontSize: '14px' }}>
-                  Automatically post content 3 times daily based on your business domain
-                </p>
-                <button
-                  onClick={setupAutoPosting}
-                  style={{
-                    backgroundColor: '#10b981',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '6px',
-                    padding: '12px 24px',
-                    cursor: 'pointer',
-                    fontWeight: '500',
-                    width: '100%'
-                  }}
-                >
-                  Enable Auto-Posting
-                </button>
-              </div>
-              
-              <div style={{
-                backgroundColor: 'white',
-                border: '1px solid #e5e7eb',
-                borderRadius: '8px',
-                padding: '24px'
-              }}>
-                <h3 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '16px', color: '#111827' }}>
-                  Auto-Replies
-                </h3>
-                <p style={{ color: '#6b7280', marginBottom: '16px', fontSize: '14px' }}>
-                  Monitor questions and automatically provide helpful answers
-                </p>
-                <button
-                  onClick={setupAutoReplies}
-                  style={{
-                    backgroundColor: '#8b5cf6',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '6px',
-                    padding: '12px 24px',
-                    cursor: 'pointer',
-                    fontWeight: '500',
-                    width: '100%'
-                  }}
-                >
-                  Enable Auto-Replies
-                </button>
-              </div>
-            </div>
-            
-            {/* Automation Status */}
-            {automationStatus && (
-              <div style={{
-                backgroundColor: 'white',
-                border: '1px solid #e5e7eb',
-                borderRadius: '8px',
-                padding: '24px',
-                marginTop: '24px'
-              }}>
-                <h3 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '16px', color: '#111827' }}>
-                  Current Status
-                </h3>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                {questions.length > 0 && (
                   <div>
-                    <h4 style={{ fontWeight: '500', marginBottom: '8px', color: '#374151' }}>Auto-Posting</h4>
-                    <span style={{
-                      color: automationStatus.auto_posting?.enabled ? '#10b981' : '#6b7280',
-                      fontSize: '14px'
+                    <h3 style={{
+                      color: '#FF4500',
+                      marginBottom: '16px',
+                      fontSize: 'clamp(18px, 3vw, 22px)',
+                      fontWeight: '600'
                     }}>
-                      {automationStatus.auto_posting?.enabled ? 'Active' : 'Inactive'}
-                    </span>
-                  </div>
-                  <div>
-                    <h4 style={{ fontWeight: '500', marginBottom: '8px', color: '#374151' }}>Auto-Replies</h4>
-                    <span style={{
-                      color: automationStatus.auto_replies?.enabled ? '#10b981' : '#6b7280',
-                      fontSize: '14px'
+                      Found {questions.length} Questions:
+                    </h3>
+                    <div style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '16px'
                     }}>
-                      {automationStatus.auto_replies?.enabled ? 'Active' : 'Inactive'}
-                    </span>
+                      {questions.map((question, index) => (
+                        <div key={index} style={{
+                          background: '#f8f9fa',
+                          padding: '20px',
+                          borderRadius: '12px',
+                          border: '2px solid #ddd'
+                        }}>
+                          <h4 style={{
+                            margin: '0 0 8px 0',
+                            color: '#FF4500',
+                            fontSize: 'clamp(16px, 3vw, 18px)',
+                            fontWeight: '600',
+                            wordBreak: 'break-word'
+                          }}>
+                            {question.title || 'Question ' + (index + 1)}
+                          </h4>
+                          <p style={{
+                            margin: '0 0 12px 0',
+                            color: '#666',
+                            fontSize: 'clamp(12px, 2vw, 14px)'
+                          }}>
+                            r/{question.subreddit || 'unknown'} • {question.score || 0} points
+                          </p>
+                          {question.url && (
+                            <a
+                              href={question.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              style={{
+                                color: '#FF4500',
+                                textDecoration: 'none',
+                                fontWeight: '600',
+                                fontSize: 'clamp(12px, 2vw, 14px)'
+                              }}
+                            >
+                              View on Reddit →
+                            </a>
+                          )}
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
             )}
-          </div>
-        )}
-
-        {/* Question Monitor Tab */}
-        {activeTab === 'questions' && (
-          <div>
-            <h2 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '24px', color: '#111827' }}>
-              Reddit Question Monitor
-            </h2>
-            
-            <div style={{
-              backgroundColor: 'white',
-              border: '1px solid #e5e7eb',
-              borderRadius: '8px',
-              padding: '24px',
-              marginBottom: '24px'
-            }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
-                <div>
-                  <label style={{ display: 'block', marginBottom: '8px', fontWeight: '500', color: '#374151' }}>
-                    Subreddits to Monitor
-                  </label>
-                  <input
-                    type="text"
-                    value={questionForm.subreddits}
-                    onChange={(e) => setQuestionForm({...questionForm, subreddits: e.target.value})}
-                    placeholder="Comma-separated subreddits"
-                    style={{
-                      width: '100%',
-                      padding: '8px 12px',
-                      border: '1px solid #d1d5db',
-                      borderRadius: '6px',
-                      fontSize: '14px'
-                    }}
-                  />
-                </div>
-                
-                <div>
-                  <label style={{ display: 'block', marginBottom: '8px', fontWeight: '500', color: '#374151' }}>
-                    Filter Keywords
-                  </label>
-                  <input
-                    type="text"
-                    value={questionForm.keywords}
-                    onChange={(e) => setQuestionForm({...questionForm, keywords: e.target.value})}
-                    placeholder="Comma-separated keywords"
-                    style={{
-                      width: '100%',
-                      padding: '8px 12px',
-                      border: '1px solid #d1d5db',
-                      borderRadius: '6px',
-                      fontSize: '14px'
-                    }}
-                  />
-                </div>
-              </div>
-              
-              <button
-                onClick={findQuestions}
-                disabled={loading}
-                style={{
-                  backgroundColor: loading ? '#9ca3af' : '#f59e0b',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '6px',
-                  padding: '12px 24px',
-                  cursor: loading ? 'not-allowed' : 'pointer',
-                  fontWeight: '500'
-                }}
-              >
-                {loading ? 'Searching...' : 'Find Questions to Answer'}
-              </button>
-            </div>
-            
-            {/* Questions List */}
-            {questions.length > 0 && (
-              <div style={{ space: '16px' }}>
-                {questions.map((question, index) => (
-                  <div key={index} style={{
-                    backgroundColor: 'white',
-                    border: '1px solid #e5e7eb',
-                    borderRadius: '8px',
-                    padding: '16px',
-                    marginBottom: '16px'
-                  }}>
-                    <h4 style={{ fontWeight: '600', marginBottom: '8px', color: '#111827' }}>
-                      Q{index + 1}: {question.title}
-                    </h4>
-                    <p style={{ color: '#6b7280', fontSize: '14px', marginBottom: '8px' }}>
-                      r/{question.subreddit} • {question.score} upvotes • {question.num_comments} comments
-                    </p>
-                    <p style={{ color: '#374151', fontSize: '14px' }}>
-                      {question.content?.substring(0, 200)}...
-                    </p>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Domain Content Tab */}
-        {activeTab === 'domain' && (
-          <div>
-            <h2 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '24px', color: '#111827' }}>
-              Domain-Specific Content Generation
-            </h2>
-            
-            <div style={{
-              backgroundColor: 'white',
-              border: '1px solid #e5e7eb',
-              borderRadius: '8px',
-              padding: '24px'
-            }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                <div>
-                  <label style={{ display: 'block', marginBottom: '8px', fontWeight: '500', color: '#374151' }}>
-                    Business Domain
-                  </label>
-                  <select
-                    value={domainForm.domain}
-                    onChange={(e) => setDomainForm({...domainForm, domain: e.target.value})}
-                    style={{
-                      width: '100%',
-                      padding: '8px 12px',
-                      border: '1px solid #d1d5db',
-                      borderRadius: '6px',
-                      fontSize: '14px'
-                    }}
-                  >
-                    <option value="education">Education</option>
-                    <option value="restaurant">Restaurant</option>
-                    <option value="tech">Technology</option>
-                    <option value="health">Health</option>
-                    <option value="business">Business</option>
-                  </select>
-                </div>
-                
-                <div>
-                  <label style={{ display: 'block', marginBottom: '8px', fontWeight: '500', color: '#374151' }}>
-                    Content Topic
-                  </label>
-                  <input
-                    type="text"
-                    value={domainForm.topic}
-                    onChange={(e) => setDomainForm({...domainForm, topic: e.target.value})}
-                    placeholder="e.g., study tips, exam preparation"
-                    style={{
-                      width: '100%',
-                      padding: '8px 12px',
-                      border: '1px solid #d1d5db',
-                      borderRadius: '6px',
-                      fontSize: '14px'
-                    }}
-                  />
-                </div>
-              </div>
-              
-              <div style={{ marginTop: '16px' }}>
-                <label style={{ display: 'block', marginBottom: '8px', fontWeight: '500', color: '#374151' }}>
-                  Business Type
-                </label>
-                <input
-                  type="text"
-                  value={domainForm.businessType}
-                  onChange={(e) => setDomainForm({...domainForm, businessType: e.target.value})}
-                  placeholder="e.g., IIT JEE coaching center in Delhi"
-                  style={{
-                    width: '100%',
-                    padding: '8px 12px',
-                    border: '1px solid #d1d5db',
-                    borderRadius: '6px',
-                    fontSize: '14px'
-                  }}
-                />
-              </div>
-              
-              <button
-                onClick={generateDomainContent}
-                disabled={loading}
-                style={{
-                  backgroundColor: loading ? '#9ca3af' : '#10b981',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '6px',
-                  padding: '12px 24px',
-                  marginTop: '16px',
-                  cursor: loading ? 'not-allowed' : 'pointer',
-                  fontWeight: '500'
-                }}
-              >
-                {loading ? 'Generating...' : 'Generate Domain Content'}
-              </button>
-              
-              {generatedContent && (
-                <div style={{ marginTop: '24px' }}>
-                  <label style={{ display: 'block', marginBottom: '8px', fontWeight: '500', color: '#374151' }}>
-                    Generated Content
-                  </label>
-                  <textarea
-                    value={generatedContent}
-                    readOnly
-                    rows={10}
-                    style={{
-                      width: '100%',
-                      padding: '12px',
-                      border: '1px solid #d1d5db',
-                      borderRadius: '6px',
-                      fontSize: '14px',
-                      backgroundColor: '#f9fafb'
-                    }}
-                  />
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* AI Generator Tab */}
-        {activeTab === 'ai' && (
-          <div>
-            <h2 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '24px', color: '#111827' }}>
-              AI Content Generator
-            </h2>
-            
-            <div style={{
-              backgroundColor: 'white',
-              border: '1px solid #e5e7eb',
-              borderRadius: '8px',
-              padding: '24px'
-            }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                <div>
-                  <label style={{ display: 'block', marginBottom: '8px', fontWeight: '500', color: '#374151' }}>
-                    Platform
-                  </label>
-                  <select
-                    value={aiForm.platform}
-                    onChange={(e) => setAiForm({...aiForm, platform: e.target.value})}
-                    style={{
-                      width: '100%',
-                      padding: '8px 12px',
-                      border: '1px solid #d1d5db',
-                      borderRadius: '6px',
-                      fontSize: '14px'
-                    }}
-                  >
-                    <option value="reddit">Reddit</option>
-                    <option value="twitter">Twitter</option>
-                    <option value="stackoverflow">StackOverflow</option>
-                  </select>
-                </div>
-                
-                <div>
-                  <label style={{ display: 'block', marginBottom: '8px', fontWeight: '500', color: '#374151' }}>
-                    Content Type
-                  </label>
-                  <select
-                    value={aiForm.contentType}
-                    onChange={(e) => setAiForm({...aiForm, contentType: e.target.value})}
-                    style={{
-                      width: '100%',
-                      padding: '8px 12px',
-                      border: '1px solid #d1d5db',
-                      borderRadius: '6px',
-                      fontSize: '14px'
-                    }}
-                  >
-                    <option value="post">Post</option>
-                    <option value="comment">Comment</option>
-                    <option value="answer">Answer</option>
-                  </select>
-                </div>
-                
-                <div>
-                  <label style={{ display: 'block', marginBottom: '8px', fontWeight: '500', color: '#374151' }}>
-                    Tone
-                  </label>
-                  <select
-                    value={aiForm.tone}
-                    onChange={(e) => setAiForm({...aiForm, tone: e.target.value})}
-                    style={{
-                      width: '100%',
-                      padding: '8px 12px',
-                      border: '1px solid #d1d5db',
-                      borderRadius: '6px',
-                      fontSize: '14px'
-                    }}
-                  >
-                    <option value="professional">Professional</option>
-                    <option value="casual">Casual</option>
-                    <option value="friendly">Friendly</option>
-                    <option value="informative">Informative</option>
-                  </select>
-                </div>
-                
-                <div>
-                  <label style={{ display: 'block', marginBottom: '8px', fontWeight: '500', color: '#374151' }}>
-                    Language
-                  </label>
-                  <select
-                    value={aiForm.language}
-                    onChange={(e) => setAiForm({...aiForm, language: e.target.value})}
-                    style={{
-                      width: '100%',
-                      padding: '8px 12px',
-                      border: '1px solid #d1d5db',
-                      borderRadius: '6px',
-                      fontSize: '14px'
-                    }}
-                  >
-                    <option value="en">English</option>
-                    <option value="hi">Hindi</option>
-                  </select>
-                </div>
-              </div>
-              
-              <div style={{ marginTop: '16px' }}>
-                <label style={{ display: 'block', marginBottom: '8px', fontWeight: '500', color: '#374151' }}>
-                  Topic
-                </label>
-                <input
-                  type="text"
-                  value={aiForm.topic}
-                  onChange={(e) => setAiForm({...aiForm, topic: e.target.value})}
-                  placeholder="Enter content topic..."
-                  style={{
-                    width: '100%',
-                    padding: '8px 12px',
-                    border: '1px solid #d1d5db',
-                    borderRadius: '6px',
-                    fontSize: '14px'
-                  }}
-                />
-              </div>
-              
-              <div style={{ marginTop: '16px' }}>
-                <label style={{ display: 'block', marginBottom: '8px', fontWeight: '500', color: '#374151' }}>
-                  Target Audience
-                </label>
-                <input
-                  type="text"
-                  value={aiForm.targetAudience}
-                  onChange={(e) => setAiForm({...aiForm, targetAudience: e.target.value})}
-                  placeholder="e.g., Indian students, professionals"
-                  style={{
-                    width: '100%',
-                    padding: '8px 12px',
-                    border: '1px solid #d1d5db',
-                    borderRadius: '6px',
-                    fontSize: '14px'
-                  }}
-                />
-              </div>
-              
-              <div style={{ marginTop: '16px' }}>
-                <label style={{ display: 'block', marginBottom: '8px', fontWeight: '500', color: '#374151' }}>
-                  Additional Context
-                </label>
-                <textarea
-                  value={aiForm.additionalContext}
-                  onChange={(e) => setAiForm({...aiForm, additionalContext: e.target.value})}
-                  placeholder="Any specific requirements..."
-                  rows={3}
-                  style={{
-                    width: '100%',
-                    padding: '8px 12px',
-                    border: '1px solid #d1d5db',
-                    borderRadius: '6px',
-                    fontSize: '14px',
-                    resize: 'vertical'
-                  }}
-                />
-              </div>
-              
-              <button
-                onClick={generateAIContent}
-                disabled={loading}
-                style={{
-                  backgroundColor: loading ? '#9ca3af' : '#8b5cf6',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '6px',
-                  padding: '12px 24px',
-                  marginTop: '16px',
-                  cursor: loading ? 'not-allowed' : 'pointer',
-                  fontWeight: '500'
-                }}
-              >
-                {loading ? 'Generating...' : 'Generate AI Content'}
-              </button>
-              
-              {generatedContent && (
-                <div style={{ marginTop: '24px' }}>
-                  <label style={{ display: 'block', marginBottom: '8px', fontWeight: '500', color: '#374151' }}>
-                    Generated Content
-                  </label>
-                  <textarea
-                    value={generatedContent}
-                    readOnly
-                    rows={8}
-                    style={{
-                      width: '100%',
-                      padding: '12px',
-                      border: '1px solid #d1d5db',
-                      borderRadius: '6px',
-                      fontSize: '14px',
-                      backgroundColor: '#f9fafb'
-                    }}
-                  />
-                </div>
-              )}
-            </div>
           </div>
         )}
 
         {/* Analytics Tab */}
         {activeTab === 'analytics' && (
-          <div>
-            <h2 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '24px', color: '#111827' }}>
-              Analytics Dashboard
+          <div style={{
+            background: 'rgba(255, 255, 255, 0.95)',
+            borderRadius: '20px',
+            padding: 'clamp(20px, 4vw, 40px)',
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2)'
+          }}>
+            <h2 style={{
+              color: '#FF4500',
+              marginBottom: '24px',
+              fontSize: 'clamp(22px, 4vw, 28px)',
+              fontWeight: '700'
+            }}>
+              📊 Analytics & Performance
             </h2>
-            
-            <button
-              onClick={fetchAnalytics}
-              disabled={loading}
-              style={{
-                backgroundColor: loading ? '#9ca3af' : '#3b82f6',
-                color: 'white',
-                border: 'none',
-                borderRadius: '6px',
-                padding: '12px 24px',
-                marginBottom: '24px',
-                cursor: loading ? 'not-allowed' : 'pointer',
-                fontWeight: '500'
-              }}
-            >
-              {loading ? 'Loading...' : 'Refresh Analytics'}
-            </button>
-            
-            {/* Key Metrics */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '24px' }}>
+
+            {!redditConnected ? (
               <div style={{
-                backgroundColor: 'white',
-                border: '1px solid #e5e7eb',
-                borderRadius: '8px',
-                padding: '16px',
-                textAlign: 'center'
+                background: '#f8d7da',
+                border: '1px solid #f5c6cb',
+                borderRadius: '12px',
+                padding: '20px'
               }}>
-                <h3 style={{ fontSize: '14px', fontWeight: '500', color: '#6b7280', marginBottom: '8px' }}>
-                  Posts Today
-                </h3>
-                <p style={{ fontSize: '24px', fontWeight: 'bold', color: '#3b82f6', margin: 0 }}>
-                  {analytics?.auto_posts?.total_this_month || 12}
+                <p style={{ margin: 0, color: '#721c24', fontSize: 'clamp(14px, 2.5vw, 16px)' }}>
+                  ❌ Connect Reddit to view analytics
                 </p>
-                <p style={{ fontSize: '12px', color: '#10b981', margin: 0 }}>+3</p>
               </div>
-              
-              <div style={{
-                backgroundColor: 'white',
-                border: '1px solid #e5e7eb',
-                borderRadius: '8px',
-                padding: '16px',
-                textAlign: 'center'
-              }}>
-                <h3 style={{ fontSize: '14px', fontWeight: '500', color: '#6b7280', marginBottom: '8px' }}>
-                  Auto Replies
-                </h3>
-                <p style={{ fontSize: '24px', fontWeight: 'bold', color: '#10b981', margin: 0 }}>
-                  {analytics?.auto_replies?.total_this_month || 8}
-                </p>
-                <p style={{ fontSize: '12px', color: '#10b981', margin: 0 }}>+2</p>
-              </div>
-              
-              <div style={{
-                backgroundColor: 'white',
-                border: '1px solid #e5e7eb',
-                borderRadius: '8px',
-                padding: '16px',
-                textAlign: 'center'
-              }}>
-                <h3 style={{ fontSize: '14px', fontWeight: '500', color: '#6b7280', marginBottom: '8px' }}>
-                  Karma Gained
-                </h3>
-                <p style={{ fontSize: '24px', fontWeight: 'bold', color: '#f59e0b', margin: 0 }}>
-                  {analytics?.engagement_metrics?.karma_gained || 456}
-                </p>
-                <p style={{ fontSize: '12px', color: '#10b981', margin: 0 }}>+45</p>
-              </div>
-              
-              <div style={{
-                backgroundColor: 'white',
-                border: '1px solid #e5e7eb',
-                borderRadius: '8px',
-                padding: '16px',
-                textAlign: 'center'
-              }}>
-                <h3 style={{ fontSize: '14px', fontWeight: '500', color: '#6b7280', marginBottom: '8px' }}>
-                  Success Rate
-                </h3>
-                <p style={{ fontSize: '24px', fontWeight: 'bold', color: '#8b5cf6', margin: 0 }}>
-                  {analytics?.auto_posts?.success_rate || 87}%
-                </p>
-                <p style={{ fontSize: '12px', color: '#10b981', margin: 0 }}>+5%</p>
-              </div>
-            </div>
-            
-            {/* Performance Details */}
-            {analytics && (
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
+            ) : (
+              <>
                 <div style={{
-                  backgroundColor: 'white',
-                  border: '1px solid #e5e7eb',
-                  borderRadius: '8px',
-                  padding: '24px'
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+                  gap: '20px',
+                  marginBottom: '24px'
                 }}>
-                  <h3 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '16px', color: '#111827' }}>
-                    Best Performing Content
+                  <div style={{
+                    background: 'linear-gradient(135deg, #FF4500, #FF8717)',
+                    borderRadius: '16px',
+                    padding: '24px',
+                    color: 'white',
+                    textAlign: 'center'
+                  }}>
+                    <div style={{ fontSize: 'clamp(36px, 8vw, 48px)', fontWeight: 'bold', marginBottom: '12px' }}>
+                      {performanceData.postsToday}
+                    </div>
+                    <div style={{ fontSize: 'clamp(14px, 2.5vw, 16px)', opacity: 0.9 }}>
+                      Posts Today
+                    </div>
+                  </div>
+
+                  <div style={{
+                    background: 'linear-gradient(135deg, #FF8717, #FFA500)',
+                    borderRadius: '16px',
+                    padding: '24px',
+                    color: 'white',
+                    textAlign: 'center'
+                  }}>
+                    <div style={{ fontSize: 'clamp(36px, 8vw, 48px)', fontWeight: 'bold', marginBottom: '12px' }}>
+                      {performanceData.totalEngagement}
+                    </div>
+                    <div style={{ fontSize: 'clamp(14px, 2.5vw, 16px)', opacity: 0.9 }}>
+                      Total Karma
+                    </div>
+                  </div>
+
+                  <div style={{
+                    background: 'linear-gradient(135deg, #667eea, #764ba2)',
+                    borderRadius: '16px',
+                    padding: '24px',
+                    color: 'white',
+                    textAlign: 'center'
+                  }}>
+                    <div style={{ fontSize: 'clamp(36px, 8vw, 48px)', fontWeight: 'bold', marginBottom: '12px' }}>
+                      {performanceData.successRate}%
+                    </div>
+                    <div style={{ fontSize: 'clamp(14px, 2.5vw, 16px)', opacity: 0.9 }}>
+                      Success Rate
+                    </div>
+                  </div>
+
+                  <div style={{
+                    background: 'linear-gradient(135deg, #00C851, #00A047)',
+                    borderRadius: '16px',
+                    padding: '24px',
+                    color: 'white',
+                    textAlign: 'center'
+                  }}>
+                    <div style={{ fontSize: 'clamp(36px, 8vw, 48px)', fontWeight: 'bold', marginBottom: '12px' }}>
+                      {performanceData.questionsFound}
+                    </div>
+                    <div style={{ fontSize: 'clamp(14px, 2.5vw, 16px)', opacity: 0.9 }}>
+                      Questions Found
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{
+                  background: '#e8f5e8',
+                  borderRadius: '12px',
+                  padding: '20px'
+                }}>
+                  <h3 style={{
+                    color: '#FF4500',
+                    marginBottom: '16px',
+                    fontSize: 'clamp(16px, 3vw, 18px)'
+                  }}>
+                    Tips for Better Engagement on Reddit
                   </h3>
-                  <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-                    {analytics.trending_performance?.most_engaging_topics?.map((topic, index) => (
-                      <li key={index} style={{ 
-                        padding: '8px 0', 
-                        borderBottom: '1px solid #f3f4f6',
-                        color: '#374151',
-                        fontSize: '14px'
-                      }}>
-                        • {topic}
-                      </li>
-                    ))}
+                  <ul style={{
+                    margin: 0,
+                    paddingLeft: '24px',
+                    color: '#333',
+                    lineHeight: '1.8',
+                    fontSize: 'clamp(13px, 2.5vw, 15px)'
+                  }}>
+                    <li>Post in relevant subreddits with active communities</li>
+                    <li>Use descriptive, engaging titles</li>
+                    <li>Provide value - don't just self-promote</li>
+                    <li>Engage authentically with commenters</li>
+                    <li>Follow subreddit rules and reddiquette</li>
+                    <li>Post during peak activity hours</li>
                   </ul>
                 </div>
-                
-                <div style={{
-                  backgroundColor: 'white',
-                  border: '1px solid #e5e7eb',
-                  borderRadius: '8px',
-                  padding: '24px'
-                }}>
-                  <h3 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '16px', color: '#111827' }}>
-                    Optimal Subreddits
-                  </h3>
-                  <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-                    {analytics.trending_performance?.optimal_subreddits?.map((subreddit, index) => (
-                      <li key={index} style={{ 
-                        padding: '8px 0', 
-                        borderBottom: '1px solid #f3f4f6',
-                        color: '#374151',
-                        fontSize: '14px'
-                      }}>
-                        • {subreddit}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
+              </>
             )}
           </div>
         )}
       </div>
+
+      {/* CSS Animations */}
+      <style>{`
+        @keyframes slideIn {
+          from {
+            transform: translateX(100%);
+            opacity: 0;
+          }
+          to {
+            transform: translateX(0);
+            opacity: 1;
+          }
+        }
+      `}</style>
     </div>
   );
 };
