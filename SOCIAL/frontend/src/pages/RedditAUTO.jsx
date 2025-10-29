@@ -27,9 +27,6 @@ const CONTENT_STYLES = {
   'professional': 'Professional & Formal' 
 };
 
-
-
-
 const RedditAutomation = () => {
   const { user, makeAuthenticatedRequest, updateUser } = useAuth();
   
@@ -72,15 +69,6 @@ const RedditAutomation = () => {
     isGenerating: false 
   });
 
-
-    const [aiOptions, setAiOptions] = useState({
-    topic: '',
-    postType: 'discussion',
-    tone: 'casual',
-    length: 'medium'
-  });
-  const [humanScore, setHumanScore] = useState(null);
-
   // Questions state
   const [questionForm, setQuestionForm] = useState({
     subreddits: 'AskReddit,explainlikeimfive,NoStupidQuestions,india',
@@ -105,10 +93,6 @@ const RedditAutomation = () => {
   }, []);
 
   // Check Reddit connection on mount
-
-
-
-
   useEffect(() => {
     if (!user?.email) return;
     
@@ -176,7 +160,7 @@ const RedditAutomation = () => {
     };
 
     checkRedditConnection();
-  }, [user, makeAuthenticatedRequest, updateUser]);
+  }, [user, makeAuthenticatedRequest, updateUser, showNotification]);
 
   // Connect Reddit account
   const handleRedditConnect = useCallback(async () => {
@@ -212,61 +196,51 @@ const RedditAutomation = () => {
   }, [userProfile, user?.email, showNotification]);
 
   // Generate AI content (FIXED - added subreddits)
-const generateRedditContent = useCallback(async () => {
-  if (!userProfile.isConfigured) { 
-    showNotification('Please configure your profile first', 'error'); 
-    return; 
-  }
-
-  if (!aiOptions.topic.trim()) {
-    showNotification('Please enter a topic for your post', 'error');
-    return;
-  }
-
-  try {
-    setPostForm(prev => ({ ...prev, isGenerating: true }));
-    showNotification('Generating all fields with AI...', 'info');
-    
-    const response = await makeAuthenticatedRequest('/api/reddit/generate-ai-post', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        topic: aiOptions.topic,
-        post_type: aiOptions.postType,
-        tone: aiOptions.tone,
-        length: aiOptions.length,
-        business_type: userProfile.businessType,
-        business_description: userProfile.businessDescription
-      })
-    });
-
-    const result = await response.json();
-
-    if (result.success) {
-      setPostForm(prev => ({
-        ...prev,
-        subreddit: result.subreddit || 'test',
-        title: result.title || '',
-        content: result.content || '',
-        isGenerating: false
-      }));
-      
-      setHumanScore(result.human_score || 85);
-      showNotification(`✅ Generated! Human score: ${result.human_score || 85}/100`, 'success');
-      
-      if (result.human_score && result.human_score < 70) {
-        showNotification('⚠️ Low human score. Consider regenerating.', 'warning');
-      }
-    } else { 
-      showNotification(result.error || 'Generation failed', 'error'); 
-      setPostForm(prev => ({ ...prev, isGenerating: false }));
+  const generateRedditContent = useCallback(async () => {
+    if (!userProfile.businessType) { 
+      showNotification('Please configure your profile first', 'error'); 
+      return; 
     }
-  } catch (error) { 
-    console.error('AI generation error:', error);
-    showNotification('Generation failed: ' + error.message, 'error'); 
-    setPostForm(prev => ({ ...prev, isGenerating: false }));
-  }
-}, [makeAuthenticatedRequest, showNotification, userProfile, aiOptions]);
+
+    try {
+      setPostForm(prev => ({ ...prev, isGenerating: true }));
+      showNotification('Generating Reddit content with AI...', 'info');
+      
+      const response = await makeAuthenticatedRequest('/api/automation/test-auto-post', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          platform: 'reddit',
+          domain: userProfile.domain,
+          business_type: userProfile.businessType,
+          business_description: userProfile.businessDescription,
+          target_audience: userProfile.targetAudience,
+          content_style: userProfile.contentStyle,
+          language: 'en',
+          subreddits: ['test', 'learnprogramming', 'artificial']  // ✅ FIXED: Added subreddits
+        })
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        setPostForm(prev => ({
+          ...prev,
+          title: result.title || '',
+          content: result.content_preview || result.content || ''
+        }));
+        showNotification(`✅ Content generated! Human authenticity: ${result.human_score || 95}%`, 'success');
+      } else { 
+        showNotification(result.error || result.message || 'Content generation failed', 'error'); 
+      }
+    } catch (error) { 
+      console.error('AI generation error:', error);
+      showNotification('AI generation failed: ' + error.message, 'error'); 
+    } finally { 
+      setPostForm(prev => ({ ...prev, isGenerating: false })); 
+    }
+  }, [makeAuthenticatedRequest, showNotification, userProfile]);
+
   // Publish Reddit post
   const publishRedditPost = useCallback(async (e) => {
     e.preventDefault();
@@ -1386,152 +1360,183 @@ const generateRedditContent = useCallback(async () => {
 
         
 
-{/* Create Post Tab */}
-{activeTab === 'create' && (
-  <div style={{
-    background: 'rgba(255, 255, 255, 0.95)',
-    borderRadius: '20px',
-    padding: 'clamp(20px, 4vw, 40px)',
-    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2)'
-  }}>
-    <h2 style={{
-      color: '#FF4500',
-      marginBottom: '24px',
-      fontSize: 'clamp(22px, 4vw, 28px)',
-      fontWeight: '700'
-    }}>
-      ✍️ Create Reddit Post
-    </h2>
+        {/* Create Post Tab */}
+        {activeTab === 'create' && (
+          <div style={{
+            background: 'rgba(255, 255, 255, 0.95)',
+            borderRadius: '20px',
+            padding: 'clamp(20px, 4vw, 40px)',
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2)'
+          }}>
+            <h2 style={{
+              color: '#FF4500',
+              marginBottom: '24px',
+              fontSize: 'clamp(22px, 4vw, 28px)',
+              fontWeight: '700'
+            }}>
+              ✍️ Create Reddit Post
+            </h2>
 
-    {!redditConnected ? (
-      <div style={{
-        background: '#f8d7da',
-        border: '1px solid #f5c6cb',
-        borderRadius: '12px',
-        padding: '20px'
-      }}>
-        <p style={{ margin: 0, color: '#721c24', fontSize: 'clamp(14px, 2.5vw, 16px)' }}>
-          ❌ Connect Reddit to create posts
-        </p>
-      </div>
-    ) : (
-      <form onSubmit={publishRedditPost}>
-        <div style={{ marginBottom: '20px', background: 'linear-gradient(135deg, #667eea15, #764ba215)', borderRadius: '16px', padding: 'clamp(16px, 3vw, 24px)', border: '2px solid #667eea50' }}>
-          <h3 style={{ color: '#667eea', marginBottom: '16px', fontSize: 'clamp(18px, 3vw, 22px)', fontWeight: '700' }}>🤖 AI Generator</h3>
-          
-          <input
-            type="text"
-            value={aiOptions.topic}
-            onChange={(e) => setAiOptions(prev => ({...prev, topic: e.target.value}))}
-            placeholder="What's your post about? (e.g., Indian restaurant)"
-            style={{ width: '100%', padding: 'clamp(12px, 2.5vw, 16px)', borderRadius: '12px', border: '2px solid #ddd', fontSize: 'clamp(14px, 2.5vw, 16px)', marginBottom: '12px' }}
-          />
+            {!redditConnected ? (
+              <div style={{
+                background: '#f8d7da',
+                border: '1px solid #f5c6cb',
+                borderRadius: '12px',
+                padding: '20px'
+              }}>
+                <p style={{ margin: 0, color: '#721c24', fontSize: 'clamp(14px, 2.5vw, 16px)' }}>
+                  ❌ Connect Reddit to create posts
+                </p>
+              </div>
+            ) : (
+              <form onSubmit={publishRedditPost}>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '12px', marginBottom: '12px' }}>
-            <select value={aiOptions.postType} onChange={(e) => setAiOptions(prev => ({...prev, postType: e.target.value}))} style={{ padding: 'clamp(10px, 2.5vw, 14px)', borderRadius: '10px', border: '2px solid #ddd', fontSize: 'clamp(13px, 2.5vw, 15px)' }}>
-              <option value="discussion">💬 Discussion</option>
-              <option value="question">❓ Question</option>
-              <option value="story">📖 Story</option>
-              <option value="review">⭐ Review</option>
-              <option value="advice">💡 Advice</option>
-            </select>
 
-            <select value={aiOptions.tone} onChange={(e) => setAiOptions(prev => ({...prev, tone: e.target.value}))} style={{ padding: 'clamp(10px, 2.5vw, 14px)', borderRadius: '10px', border: '2px solid #ddd', fontSize: 'clamp(13px, 2.5vw, 15px)' }}>
-              <option value="casual">😊 Casual</option>
-              <option value="professional">👔 Professional</option>
-              <option value="humorous">😄 Humorous</option>
-              <option value="informative">📚 Informative</option>
-            </select>
 
-            <select value={aiOptions.length} onChange={(e) => setAiOptions(prev => ({...prev, length: e.target.value}))} style={{ padding: 'clamp(10px, 2.5vw, 14px)', borderRadius: '10px', border: '2px solid #ddd', fontSize: 'clamp(13px, 2.5vw, 15px)' }}>
-              <option value="short">Short</option>
-              <option value="medium">Medium</option>
-              <option value="long">Long</option>
-            </select>
+                
+                <div style={{ marginBottom: '20px' }}>
+                  <label style={{
+                    display: 'block',
+                    marginBottom: '8px',
+                    color: '#333',
+                    fontWeight: '600',
+                    fontSize: 'clamp(14px, 2.5vw, 16px)'
+                  }}>
+                    📍 Subreddit
+                  </label>
+                  <input
+                    type="text"
+                    value={postForm.subreddit}
+                    onChange={(e) => setPostForm(prev => ({...prev, subreddit: e.target.value}))}
+                    placeholder="e.g. test, learnprogramming"
+                    style={{
+                      width: '100%',
+                      padding: 'clamp(12px, 2.5vw, 16px)',
+                      borderRadius: '12px',
+                      border: '2px solid #ddd',
+                      fontSize: 'clamp(14px, 2.5vw, 16px)'
+                    }}
+                  />
+                </div>
+
+                <div style={{ marginBottom: '20px' }}>
+                  <label style={{
+                    display: 'block',
+                    marginBottom: '8px',
+                    color: '#333',
+                    fontWeight: '600',
+                    fontSize: 'clamp(14px, 2.5vw, 16px)'
+                  }}>
+                    📝 Title
+                  </label>
+                  <input
+                    type="text"
+                    value={postForm.title}
+                    onChange={(e) => setPostForm(prev => ({...prev, title: e.target.value}))}
+                    placeholder="Enter post title..."
+                    style={{
+                      width: '100%',
+                      padding: 'clamp(12px, 2.5vw, 16px)',
+                      borderRadius: '12px',
+                      border: '2px solid #ddd',
+                      fontSize: 'clamp(14px, 2.5vw, 16px)'
+                    }}
+                  />
+                </div>
+
+                <div style={{ marginBottom: '20px' }}>
+                  <label style={{
+                    display: 'block',
+                    marginBottom: '8px',
+                    color: '#333',
+                    fontWeight: '600',
+                    fontSize: 'clamp(14px, 2.5vw, 16px)'
+                  }}>
+                    💬 Content
+                  </label>
+                  <textarea
+                    value={postForm.content}
+                    onChange={(e) => setPostForm(prev => ({...prev, content: e.target.value}))}
+                    placeholder="Enter post content..."
+                    rows={6}
+                    style={{
+                      width: '100%',
+                      padding: 'clamp(12px, 2.5vw, 16px)',
+                      borderRadius: '12px',
+                      border: '2px solid #ddd',
+                      fontSize: 'clamp(14px, 2.5vw, 16px)',
+                      resize: 'vertical',
+                      fontFamily: 'inherit'
+                    }}
+                  />
+                </div>
+
+                <div style={{
+                  display: 'flex',
+                  gap: '12px',
+                  flexWrap: 'wrap'
+                }}>
+                  <button
+                    type="button"
+                    onClick={generateRedditContent}
+                    disabled={postForm.isGenerating || !userProfile.isConfigured}
+                    style={{
+                      flex: '1 1 200px',
+                      background: (postForm.isGenerating || !userProfile.isConfigured) ? '#ccc' : 'linear-gradient(135deg, #667eea, #764ba2)',
+                      padding: 'clamp(14px, 3vw, 16px) clamp(24px, 5vw, 32px)',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '12px',
+                      fontSize: 'clamp(14px, 2.5vw, 16px)',
+                      fontWeight: '700',
+                      cursor: (postForm.isGenerating || !userProfile.isConfigured) ? 'not-allowed' : 'pointer'
+                    }}
+                  >
+                    {postForm.isGenerating ? '⏳ Generating...' : '🤖 Generate with AI'}
+                  </button>
+
+                  <button
+                    type="submit"
+                    disabled={loading || !postForm.title || !postForm.content}
+                    style={{
+                      flex: '1 1 200px',
+                      background: (loading || !postForm.title || !postForm.content) ? '#ccc' : 'linear-gradient(135deg, #FF4500, #FF8717)',
+                      padding: 'clamp(14px, 3vw, 16px) clamp(24px, 5vw, 32px)',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '12px',
+                      fontSize: 'clamp(14px, 2.5vw, 16px)',
+                      fontWeight: '700',
+                      cursor: (loading || !postForm.title || !postForm.content) ? 'not-allowed' : 'pointer'
+                    }}
+                  >
+                    {loading ? '⏳ Publishing...' : '🚀 Publish to Reddit'}
+                  </button>
+                </div>
+
+
+
+
+
+
+
+
+
+
+                {!userProfile.isConfigured && (
+                  <p style={{
+                    marginTop: '12px',
+                    color: '#856404',
+                    fontSize: 'clamp(12px, 2vw, 14px)',
+                    textAlign: 'center'
+                  }}>
+                    ⚠️ Complete your profile to use AI generation
+                  </p>
+                )}
+              </form>
+            )}
           </div>
-
-          {humanScore && (
-            <div style={{ background: humanScore > 70 ? '#d4edda' : '#fff3cd', border: `2px solid ${humanScore > 70 ? '#28a745' : '#ffc107'}`, borderRadius: '10px', padding: '10px', marginBottom: '12px', fontSize: 'clamp(13px, 2.5vw, 15px)', fontWeight: '600' }}>
-              🎯 Human Score: {humanScore}/100 {humanScore < 70 && '⚠️'}
-            </div>
-          )}
-        </div>
-
-        <div style={{ marginBottom: '20px' }}>
-          <label style={{ display: 'block', marginBottom: '8px', color: '#333', fontWeight: '600', fontSize: 'clamp(14px, 2.5vw, 16px)' }}>📍 Subreddit</label>
-          <input
-            type="text"
-            value={postForm.subreddit}
-            onChange={(e) => setPostForm(prev => ({...prev, subreddit: e.target.value}))}
-            placeholder="e.g. test, learnprogramming"
-            style={{ width: '100%', padding: 'clamp(12px, 2.5vw, 16px)', borderRadius: '12px', border: '2px solid #ddd', fontSize: 'clamp(14px, 2.5vw, 16px)' }}
-          />
-        </div>
-
-        <div style={{ marginBottom: '20px' }}>
-          <label style={{ display: 'block', marginBottom: '8px', color: '#333', fontWeight: '600', fontSize: 'clamp(14px, 2.5vw, 16px)' }}>📝 Title</label>
-          <input
-            type="text"
-            value={postForm.title}
-            onChange={(e) => setPostForm(prev => ({...prev, title: e.target.value}))}
-            placeholder="Enter post title..."
-            style={{ width: '100%', padding: 'clamp(12px, 2.5vw, 16px)', borderRadius: '12px', border: '2px solid #ddd', fontSize: 'clamp(14px, 2.5vw, 16px)' }}
-          />
-        </div>
-
-        <div style={{ marginBottom: '20px' }}>
-          <label style={{ display: 'block', marginBottom: '8px', color: '#333', fontWeight: '600', fontSize: 'clamp(14px, 2.5vw, 16px)' }}>💬 Content</label>
-          <textarea
-            value={postForm.content}
-            onChange={(e) => setPostForm(prev => ({...prev, content: e.target.value}))}
-            placeholder="Enter post content..."
-            rows={6}
-            style={{ width: '100%', padding: 'clamp(12px, 2.5vw, 16px)', borderRadius: '12px', border: '2px solid #ddd', fontSize: 'clamp(14px, 2.5vw, 16px)', resize: 'vertical', fontFamily: 'inherit' }}
-          />
-        </div>
-
-        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-          <button
-            type="button"
-            onClick={generateRedditContent}
-            disabled={postForm.isGenerating || !aiOptions.topic || !userProfile.isConfigured}
-            style={{ flex: '1 1 200px', background: (postForm.isGenerating || !aiOptions.topic || !userProfile.isConfigured) ? '#ccc' : 'linear-gradient(135deg, #667eea, #764ba2)', padding: 'clamp(14px, 3vw, 16px) clamp(24px, 5vw, 32px)', color: 'white', border: 'none', borderRadius: '12px', fontSize: 'clamp(14px, 2.5vw, 16px)', fontWeight: '700', cursor: (postForm.isGenerating || !aiOptions.topic || !userProfile.isConfigured) ? 'not-allowed' : 'pointer' }}
-          >
-            {postForm.isGenerating ? '⏳ Generating...' : '🤖 Generate All (AI)'}
-          </button>
-
-          <button
-            type="submit"
-            disabled={loading || !postForm.title || !postForm.content}
-            style={{ flex: '1 1 200px', background: (loading || !postForm.title || !postForm.content) ? '#ccc' : 'linear-gradient(135deg, #FF4500, #FF8717)', padding: 'clamp(14px, 3vw, 16px) clamp(24px, 5vw, 32px)', color: 'white', border: 'none', borderRadius: '12px', fontSize: 'clamp(14px, 2.5vw, 16px)', fontWeight: '700', cursor: (loading || !postForm.title || !postForm.content) ? 'not-allowed' : 'pointer' }}
-          >
-            {loading ? '⏳ Publishing...' : '🚀 Publish to Reddit'}
-          </button>
-        </div>
-
-        {!userProfile.isConfigured && (
-          <p style={{ marginTop: '12px', color: '#856404', fontSize: 'clamp(12px, 2vw, 14px)', textAlign: 'center' }}>
-            ⚠️ Complete your profile to use AI generation
-          </p>
         )}
-      </form>
-    )}
-  </div>
-)}
-
-{/* Questions Tab */}
-
-
-
-
-
-
-
-
-
-
-
-
 
         {/* Questions Tab */}
         {activeTab === 'questions' && (
