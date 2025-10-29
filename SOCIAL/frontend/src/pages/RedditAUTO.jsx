@@ -1502,7 +1502,7 @@ const generateRedditContent = useCallback(async () => {
   disabled={postForm.isGenerating || !userProfile.isConfigured}
   style={{ flex: '1 1 200px', background: (postForm.isGenerating || !userProfile.isConfigured) ? '#ccc' : 'linear-gradient(135deg, #667eea, #764ba2)', padding: 'clamp(14px, 3vw, 16px) clamp(24px, 5vw, 32px)', color: 'white', border: 'none', borderRadius: '12px', fontSize: 'clamp(14px, 2.5vw, 16px)', fontWeight: '700', cursor: (postForm.isGenerating || !userProfile.isConfigured) ? 'not-allowed' : 'pointer' }}
 >
-  {postForm.isGenerating ? '⏳ Generating...' : '🤖 Generate All (AI)'}
+  {postForm.isGenerating ? '⏳ Generating...' : '🤖 Generate post with (AI)'}
 </button>
 
 
