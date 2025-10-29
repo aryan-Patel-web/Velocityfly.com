@@ -1167,7 +1167,7 @@ async def generate_reddit_ai_post(request: Request, current_user: dict = Depends
             "business": ["Entrepreneur", "smallbusiness", "startups", "business", "test"]
         }
         
-        # Get topic based on domain and business
+        # Get topic based on domain
         domain_topics = {
             "education": f"my experience with {business_type}",
             "restaurant": f"discovered this amazing {business_type}",
@@ -1180,76 +1180,48 @@ async def generate_reddit_ai_post(request: Request, current_user: dict = Depends
         subreddit_options = domain_subreddits.get(domain, ["test"])
         
         length_map = {
-            "short": "2-3 sentences only",
-            "medium": "2-3 short paragraphs",
-            "long": "4-5 paragraphs"
+            "short": "2-3 sentences total",
+            "medium": "2 short paragraphs",
+            "long": "3-4 paragraphs"
         }
         
-        # Enhanced prompt for human-like content
-        prompt = f"""You are a Reddit user posting about: {topic}
+        # ✅ IMPROVED PROMPT - Forces better JSON
+        prompt = f"""Create a Reddit {post_type} post about: {topic}
 
-Profile: {business_type} - {business_description}
-Audience: {target_audience}
-Style: {content_style}
+Context: {business_type} - {business_description}
+Tone: {tone}
+Length: {length_map.get(length, 'medium')}
+Subreddit options: {', '.join(subreddit_options)}
 
-Create a {post_type} post with:
-- Tone: {tone}
-- Length: {length_map.get(length, 'medium')}
-- Subreddit from: {subreddit_options}
+RESPONSE FORMAT - Return EXACTLY this structure with no extra text:
+SUBREDDIT: choose_one_subreddit
+TITLE: write_engaging_title_here
+CONTENT: write_post_content_here
 
-CRITICAL JSON FORMAT RULES:
-1. Return ONLY a single-line JSON object
-2. Use \\n for line breaks in content (not actual newlines)
-3. Escape all quotes inside strings
-4. No markdown formatting
-
-HUMAN-LIKE CONTENT RULES:
+CONTENT REQUIREMENTS:
 - Add 1-2 typos (teh, recieve, definately)
-- Use casual: kinda, gonna, tbh, imo
-- Personal touch: "I recently", "Has anyone"
-- Questions to engage readers
-- Short paragraphs (2-3 sentences)
-- NO hashtags, NO perfect grammar
+- Use casual: kinda, gonna, tbh, imo, idk
+- Personal: "i recently", "has anyone"
+- Add question marks
+- Use lowercase
+- NO hashtags
+- Sound like texting a friend
 
-JSON format (single line):
-{{"subreddit": "subreddit_name", "title": "post_title", "content": "content_with_\\n_for_breaks"}}
+Example:
+SUBREDDIT: food
+TITLE: tried this new indian place and wow
+CONTENT: so i went to this restaurant yesterday and honestly the food was amazing. like teh butter chicken was perfect and service was pretty good too. has anyone else been there? would love to hear thoughts tbh"""
 
-Example content style:
-"so i tried this place recently and honestly its pretty good. the food was amazing but service was kinda slow? \\n\\nhas anyone else been there? would love thoughts"
-"""
-
-        groq_api_key = os.getenv("GROQ_API_KEY")
         mistral_api_key = os.getenv("MISTRAL_API_KEY")
+        groq_api_key = os.getenv("GROQ_API_KEY")
         
         ai_response = None
         
-        # Try Groq first (FIXED - removed proxies argument)
-        if groq_api_key:
-            try:
-                from groq import AsyncGroq
-                
-                # ✅ FIXED: Simple initialization without proxies
-                client = AsyncGroq(api_key=groq_api_key)
-                
-                response = await client.chat.completions.create(
-                    model="llama-3.1-70b-versatile",
-                    messages=[
-                        {"role": "system", "content": "You are a casual Reddit user. Return ONLY valid single-line JSON with \\n for line breaks."},
-                        {"role": "user", "content": prompt}
-                    ],
-                    temperature=0.8,
-                    max_tokens=1500
-                )
-                
-                ai_response = response.choices[0].message.content
-                logger.info("✅ Groq API success")
-            except Exception as e:
-                logger.error(f"Groq API error: {e}")
-        
-        # Try Mistral if Groq fails
-        if not ai_response and mistral_api_key:
+        # ✅ TRY MISTRAL FIRST (Primary)
+        if mistral_api_key:
             try:
                 import httpx
+                
                 async with httpx.AsyncClient(timeout=30.0) as http_client:
                     response = await http_client.post(
                         "https://api.mistral.ai/v1/chat/completions",
@@ -1260,7 +1232,7 @@ Example content style:
                         json={
                             "model": "mistral-large-latest",
                             "messages": [
-                                {"role": "system", "content": "You are a casual Reddit user. Return ONLY valid single-line JSON with \\n for line breaks."},
+                                {"role": "system", "content": "You are a casual Reddit user. Return responses in SUBREDDIT/TITLE/CONTENT format only."},
                                 {"role": "user", "content": prompt}
                             ],
                             "temperature": 0.8,
@@ -1274,49 +1246,55 @@ Example content style:
             except Exception as e:
                 logger.error(f"Mistral API error: {e}")
         
+        # ✅ FALLBACK TO GROQ (if Mistral fails)
+        if not ai_response and groq_api_key:
+            try:
+                import httpx
+                
+                # Use httpx instead of Groq client to avoid proxies issue
+                async with httpx.AsyncClient(timeout=30.0) as http_client:
+                    response = await http_client.post(
+                        "https://api.groq.com/openai/v1/chat/completions",
+                        headers={
+                            "Authorization": f"Bearer {groq_api_key}",
+                            "Content-Type": "application/json"
+                        },
+                        json={
+                            "model": "llama-3.1-70b-versatile",
+                            "messages": [
+                                {"role": "system", "content": "You are a casual Reddit user. Return responses in SUBREDDIT/TITLE/CONTENT format only."},
+                                {"role": "user", "content": prompt}
+                            ],
+                            "temperature": 0.8,
+                            "max_tokens": 1500
+                        }
+                    )
+                    
+                    result = response.json()
+                    ai_response = result["choices"][0]["message"]["content"]
+                    logger.info("✅ Groq API success")
+            except Exception as e:
+                logger.error(f"Groq API error: {e}")
+        
         if not ai_response:
             raise HTTPException(status_code=500, detail="No AI service available")
         
-        # ✅ ENHANCED JSON CLEANING - Remove control characters
-        import json
+        # ✅ PARSE RESPONSE (Structure-based, not JSON)
         import re
         
-        # Step 1: Remove markdown code blocks
-        cleaned = re.sub(r'```json\s*|\s*```', '', ai_response.strip())
+        logger.info(f"Raw AI response: {ai_response[:300]}")
         
-        # Step 2: Remove invalid control characters (keep \n, \t, \r)
-        cleaned = re.sub(r'[\x00-\x08\x0B-\x0C\x0E-\x1F\x7F]', '', cleaned)
+        # Extract fields using regex
+        subreddit_match = re.search(r'SUBREDDIT:\s*([^\n]+)', ai_response, re.IGNORECASE)
+        title_match = re.search(r'TITLE:\s*([^\n]+)', ai_response, re.IGNORECASE)
+        content_match = re.search(r'CONTENT:\s*(.+?)(?:$|SUBREDDIT:|TITLE:)', ai_response, re.IGNORECASE | re.DOTALL)
         
-        # Step 3: Fix common JSON issues
-        cleaned = cleaned.replace('\n', ' ')  # Remove actual newlines
-        cleaned = cleaned.replace('\r', ' ')  # Remove carriage returns
-        cleaned = cleaned.replace('\t', ' ')  # Remove tabs
-        cleaned = re.sub(r'\s+', ' ', cleaned)  # Collapse multiple spaces
-        cleaned = cleaned.strip()
+        subreddit = subreddit_match.group(1).strip() if subreddit_match else subreddit_options[0]
+        title = title_match.group(1).strip() if title_match else "Check this out"
+        content = content_match.group(1).strip() if content_match else "Interesting thoughts..."
         
-        logger.info(f"Cleaned JSON: {cleaned[:200]}...")
-        
-        # Parse JSON
-        try:
-            ai_data = json.loads(cleaned)
-        except json.JSONDecodeError as e:
-            logger.error(f"JSON parse failed: {e}")
-            logger.error(f"Attempted to parse: {cleaned[:500]}")
-            
-            # Fallback: Try to extract JSON manually
-            match = re.search(r'\{[^}]+\}', cleaned)
-            if match:
-                ai_data = json.loads(match.group())
-            else:
-                raise HTTPException(status_code=500, detail="AI returned invalid JSON")
-        
-        # Get generated content
-        subreddit = ai_data.get("subreddit", subreddit_options[0])
-        title = ai_data.get("title", "Untitled")
-        content = ai_data.get("content", "")
-        
-        # Replace \\n with actual newlines
-        content = content.replace('\\n', '\n')
+        # Clean up content
+        content = content.replace('\\n', '\n').strip()
         
         # Add extra human touches
         content = add_human_touches(content)
@@ -1324,7 +1302,7 @@ Example content style:
         # Calculate human score
         human_score = calculate_enhanced_human_score(content)
         
-        logger.info(f"✅ Generated post - Subreddit: {subreddit}, Human score: {human_score}/100")
+        logger.info(f"✅ Generated - Sub: {subreddit}, Score: {human_score}/100")
         
         return {
             "success": True,
@@ -1334,9 +1312,6 @@ Example content style:
             "human_score": human_score
         }
         
-    except json.JSONDecodeError as e:
-        logger.error(f"JSON decode error: {e}")
-        return {"success": False, "error": "AI returned invalid response"}
     except Exception as e:
         logger.error(f"Generation error: {e}")
         logger.error(traceback.format_exc())
@@ -1344,33 +1319,30 @@ Example content style:
 
 
 def add_human_touches(content: str) -> str:
-    """Add human-like imperfections to content"""
+    """Add human-like imperfections"""
     import random
     
-    # Common typos (10% chance each)
+    # Add typos (10% chance)
     typos = {
         " the ": " teh ",
         "receive": "recieve",
-        "definitely": "definately",
-        "separate": "seperate"
+        "definitely": "definately"
     }
     
     for correct, typo in typos.items():
-        if correct in content and random.random() < 0.1:
+        if correct in content.lower() and random.random() < 0.1:
             content = content.replace(correct, typo, 1)
     
-    # Add casual language (20% chance)
+    # Add casual language (15% chance)
     casual = {
         " really ": " rly ",
-        " you ": " u ",
         " though ": " tho ",
-        " because ": " bc ",
         "kind of": "kinda",
         "going to": "gonna"
     }
     
     for formal, cas in casual.items():
-        if formal in content and random.random() < 0.15:
+        if formal in content.lower() and random.random() < 0.15:
             content = content.replace(formal, cas, 1)
     
     return content
@@ -1380,34 +1352,21 @@ def calculate_enhanced_human_score(content: str) -> int:
     """Calculate human-like score"""
     score = 50
     
-    # REWARD human markers
-    rewards = {
-        "typos": ["teh", "recieve", "definately", "seperate"],
-        "casual": ["kinda", "gonna", "tbh", "imo", "idk", "ngl"],
-        "personal": [" i ", " my ", " me "],
-        "questions": ["?"]
-    }
+    # Rewards
+    if "teh" in content or "recieve" in content or "definately" in content:
+        score += 20
+    if any(w in content.lower() for w in ["kinda", "gonna", "tbh", "imo", "idk"]):
+        score += 15
+    if any(w in content.lower() for w in [" i ", " my ", " me "]):
+        score += 10
+    if "?" in content:
+        score += 10
     
-    for category, markers in rewards.items():
-        for marker in markers:
-            if marker in content.lower():
-                if category == "typos":
-                    score += 15
-                elif category == "casual":
-                    score += 10
-                elif category == "personal":
-                    score += 5
-                elif category == "questions":
-                    score += 8
-    
-    # PENALIZE AI words
-    ai_words = ["delve", "utilize", "leverage", "comprehensive", "robust"]
-    for word in ai_words:
-        if word in content.lower():
-            score -= 15
-    
-    # Penalize too many exclamations
-    score -= content.count("!") * 5
+    # Penalties
+    if any(w in content.lower() for w in ["delve", "utilize", "leverage", "comprehensive"]):
+        score -= 20
+    if content.count("!") > 3:
+        score -= 15
     
     return max(20, min(score, 100))
 
