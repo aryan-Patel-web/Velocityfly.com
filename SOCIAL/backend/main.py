@@ -200,14 +200,28 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
         raise HTTPException(status_code=401, detail="Authentication failed")
 
 # Optional authentication (for endpoints that work with or without auth)
-async def get_current_user_optional(credentials: HTTPAuthorizationCredentials = Depends(security)):
-    """Get current user but don't fail if not authenticated"""
+async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    """Get current authenticated user from JWT token"""
     try:
-        if credentials:
-            return await get_current_user(credentials)
-        return None
-    except:
-        return None
+        token = credentials.credentials
+        
+        # ✅ CHECK IF DATABASE MANAGER EXISTS
+        if not database_manager:
+            raise HTTPException(status_code=500, detail="Database not initialized")
+        
+        # ✅ USE THE MOCK DATABASE METHOD
+        user = await database_manager.get_user_by_token(token)
+        
+        if not user:
+            raise HTTPException(status_code=401, detail="Invalid or expired token")
+        
+        return user
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Authentication failed: {e}")
+        raise HTTPException(status_code=401, detail=f"Authentication error: {str(e)}")
 
 # Helper functions for backward compatibility
 def generate_user_id() -> str:
@@ -510,51 +524,42 @@ class MockMultiUserDatabase:
     # OAUTH STATE MANAGEMENT METHODS - ADDED FOR REDDIT CONNECTION FIX
     async def store_oauth_state(self, state: str, user_id: str, expires_at: datetime) -> Dict[str, Any]:
         """Store OAuth state in mock database"""
-        if not hasattr(self, 'oauth_states'):
-            self.oauth_states = {}
-        
         self.oauth_states[state] = {
             "user_id": user_id,
             "expires_at": expires_at,
             "created_at": datetime.utcnow()
         }
-        logger.info(f"OAuth state stored in mock DB: {state} for user {user_id}")
+        logger.info(f"OAuth state stored: {state} for user {user_id}")
         return {"success": True}
 
     async def get_oauth_state(self, state: str) -> Optional[Dict[str, Any]]:
         """Get OAuth state from mock database"""
-        if not hasattr(self, 'oauth_states'):
-            self.oauth_states = {}
-        
         state_data = self.oauth_states.get(state)
         if not state_data:
-            logger.warning(f"OAuth state not found in mock DB: {state}")
+            logger.warning(f"OAuth state not found: {state}")
             return None
-        
         if state_data["expires_at"] <= datetime.utcnow():
-            logger.warning(f"OAuth state expired in mock DB: {state}")
+            logger.warning(f"OAuth state expired: {state}")
             del self.oauth_states[state]
             return None
-        
-        logger.info(f"OAuth state found in mock DB: {state} for user {state_data['user_id']}")
         return state_data
 
     async def cleanup_oauth_state(self, state: str) -> Dict[str, Any]:
         """Remove OAuth state from mock database"""
-        if not hasattr(self, 'oauth_states'):
-            self.oauth_states = {}
-        
         if state in self.oauth_states:
             del self.oauth_states[state]
-            logger.info(f"OAuth state cleaned up from mock DB: {state}")
             return {"success": True}
-        return {"success": False, "message": "State not found"}
+        return {"success": False}
 
     async def get_all_oauth_states(self) -> List[str]:
-        """Debug method to see all stored states in mock database"""
-        if not hasattr(self, 'oauth_states'):
-            self.oauth_states = {}
+        """Get all OAuth states for debugging"""
         return list(self.oauth_states.keys())
+
+
+
+
+
+
 
 
 class MockAIService:
