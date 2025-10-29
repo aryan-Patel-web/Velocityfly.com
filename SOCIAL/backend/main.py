@@ -287,6 +287,7 @@ class MockMultiUserDatabase:
         self.reddit_tokens = {}
         self.automation_configs = {}
         self.user_sessions = {}  # Store real user data from login
+        self.oauth_states = {}
         
     async def connect(self): 
         logger.info("Mock database connected - storing real user data")
@@ -866,6 +867,7 @@ app.add_middleware(
         "Access-Control-Request-Headers"
     ],
     expose_headers=["*"],
+    
     max_age=3600
 )
 
@@ -1007,100 +1009,100 @@ async def health_check():
 
 
 
-# User-specific Reddit endpoints
-@app.get("/api/reddit/connection-status")
-async def get_reddit_connection_status(current_user: dict = Depends(get_current_user)):
-    """Get Reddit connection status for current user"""
-    try:
-        user_id = current_user["id"]
+# # User-specific Reddit endpoints
+# @app.get("/api/reddit/connection-status")
+# async def get_reddit_connection_status(current_user: dict = Depends(get_current_user)):
+#     """Get Reddit connection status for current user"""
+#     try:
+#         user_id = current_user["id"]
         
-        # Check database for user's Reddit connection
-        if database_manager and hasattr(database_manager, 'check_reddit_connection'):
-            db_status = await database_manager.check_reddit_connection(user_id)
+#         # Check database for user's Reddit connection
+#         if database_manager and hasattr(database_manager, 'check_reddit_connection'):
+#             db_status = await database_manager.check_reddit_connection(user_id)
             
-            if db_status.get("connected"):
-                # Load token into memory if not already there
-                if user_id not in user_reddit_tokens:
-                    tokens = await database_manager.get_reddit_tokens(user_id)
-                    if tokens and tokens.get("is_valid"):
-                        user_reddit_tokens[user_id] = {
-                            "access_token": tokens["access_token"],
-                            "refresh_token": tokens.get("refresh_token", ""),
-                            "reddit_username": tokens["reddit_username"],
-                            "connected_at": datetime.now().isoformat()
-                        }
-                        logger.info(f"Loaded Reddit token for user {user_id}")
+#             if db_status.get("connected"):
+#                 # Load token into memory if not already there
+#                 if user_id not in user_reddit_tokens:
+#                     tokens = await database_manager.get_reddit_tokens(user_id)
+#                     if tokens and tokens.get("is_valid"):
+#                         user_reddit_tokens[user_id] = {
+#                             "access_token": tokens["access_token"],
+#                             "refresh_token": tokens.get("refresh_token", ""),
+#                             "reddit_username": tokens["reddit_username"],
+#                             "connected_at": datetime.now().isoformat()
+#                         }
+#                         logger.info(f"Loaded Reddit token for user {user_id}")
                 
-                return {
-                    "success": True,
-                    "connected": True,
-                    "user_id": user_id,
-                    "reddit_username": db_status.get("reddit_username"),
-                    "expires_at": db_status.get("expires_at"),
-                    "message": f"Reddit connected as {db_status.get('reddit_username')}",
-                    "source": "database"
-                }
+#                 return {
+#                     "success": True,
+#                     "connected": True,
+#                     "user_id": user_id,
+#                     "reddit_username": db_status.get("reddit_username"),
+#                     "expires_at": db_status.get("expires_at"),
+#                     "message": f"Reddit connected as {db_status.get('reddit_username')}",
+#                     "source": "database"
+#                 }
         
-        # Fallback to memory check
-        if user_id in user_reddit_tokens:
-            creds = user_reddit_tokens[user_id]
-            username = creds.get("reddit_username")
-            return {
-                "success": True,
-                "connected": True,
-                "user_id": user_id,
-                "reddit_username": username,
-                "connected_at": creds.get("connected_at"),
-                "message": f"Reddit connected as {username}",
-                "source": "memory"
-            }
+#         # Fallback to memory check
+#         if user_id in user_reddit_tokens:
+#             creds = user_reddit_tokens[user_id]
+#             username = creds.get("reddit_username")
+#             return {
+#                 "success": True,
+#                 "connected": True,
+#                 "user_id": user_id,
+#                 "reddit_username": username,
+#                 "connected_at": creds.get("connected_at"),
+#                 "message": f"Reddit connected as {username}",
+#                 "source": "memory"
+#             }
         
-        return {
-            "success": True,
-            "connected": False,
-            "user_id": user_id,
-            "message": "No Reddit connection found"
-        }
+#         return {
+#             "success": True,
+#             "connected": False,
+#             "user_id": user_id,
+#             "message": "No Reddit connection found"
+#         }
         
-    except Exception as e:
-        logger.error(f"Connection status check failed: {e}")
-        return {"success": False, "error": str(e)}
+#     except Exception as e:
+#         logger.error(f"Connection status check failed: {e}")
+#         return {"success": False, "error": str(e)}
 
-@app.get("/api/reddit/test-connection")
-async def test_reddit_connection(current_user: dict = Depends(get_current_user)):
-    """Test Reddit API connection for current user"""
-    try:
-        user_id = current_user["id"]
+# @app.get("/api/reddit/test-connection")
+# async def test_reddit_connection(current_user: dict = Depends(get_current_user)):
+#     """Test Reddit API connection for current user"""
+#     try:
+#         user_id = current_user["id"]
         
-        # Check if user has Reddit tokens
-        if user_id not in user_reddit_tokens:
-            return {
-                "success": False,
-                "error": "Reddit not connected",
-                "message": "Please connect your Reddit account first"
-            }
+#         # Check if user has Reddit tokens
+#         if user_id not in user_reddit_tokens:
+#             return {
+#                 "success": False,
+#                 "error": "Reddit not connected",
+#                 "message": "Please connect your Reddit account first"
+#             }
         
-        # Test with Reddit connector
-        if isinstance(reddit_oauth_connector, MockRedditConnector):
-            return {
-                "success": False,
-                "error": "Mock connector active",
-                "message": "Configure REDDIT_CLIENT_ID and REDDIT_CLIENT_SECRET for real connection"
-            }
+#         # Test with Reddit connector
+#         if isinstance(reddit_oauth_connector, MockRedditConnector):
+#             return {
+#                 "success": False,
+#                 "error": "Mock connector active",
+#                 "message": "Configure REDDIT_CLIENT_ID and REDDIT_CLIENT_SECRET for real connection"
+#             }
         
-        username = user_reddit_tokens[user_id].get("reddit_username")
-        logger.info(f"Testing Reddit connection for {username}")
+#         username = user_reddit_tokens[user_id].get("reddit_username")
+#         logger.info(f"Testing Reddit connection for {username}")
         
-        return {
-            "success": True,
-            "message": f"Reddit connection verified for {username}",
-            "username": username,
-            "real_connection": True
-        }
+#         return {
+#             "success": True,
+#             "message": f"Reddit connection verified for {username}",
+#             "username": username,
+#             "real_connection": True
+#         }
         
-    except Exception as e:
-        logger.error(f"Reddit connection test failed: {e}")
-        return {"success": False, "error": str(e)}
+#     except Exception as e:
+#         logger.error(f"Reddit connection test failed: {e}")
+#         return {"success": False, "error": str(e)}
 
 # Completion of health check endpoint (from Part 1)
 @app.get("/health")
