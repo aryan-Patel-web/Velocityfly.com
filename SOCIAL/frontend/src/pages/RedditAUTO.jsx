@@ -1410,8 +1410,6 @@ const generateRedditContent = useCallback(async () => {
       </div>
     ) : (
       <form onSubmit={publishRedditPost}>
-
-        {/* AI Options - ADD THIS */}
         <div style={{ marginBottom: '20px', background: 'linear-gradient(135deg, #667eea15, #764ba215)', borderRadius: '16px', padding: 'clamp(16px, 3vw, 24px)', border: '2px solid #667eea50' }}>
           <h3 style={{ color: '#667eea', marginBottom: '16px', fontSize: 'clamp(18px, 3vw, 22px)', fontWeight: '700' }}>🤖 AI Generator</h3>
           
@@ -1504,34 +1502,30 @@ const generateRedditContent = useCallback(async () => {
             {loading ? '⏳ Publishing...' : '🚀 Publish to Reddit'}
           </button>
         </div>
-      {/* </form> */}
-    {/* )} */}
-  {/* </div> */}
-{/* // )} */}
 
-
-
-
-
-
-
-
-
-
-                {!userProfile.isConfigured && (
-                  <p style={{
-                    marginTop: '12px',
-                    color: '#856404',
-                    fontSize: 'clamp(12px, 2vw, 14px)',
-                    textAlign: 'center'
-                  }}>
-                    ⚠️ Complete your profile to use AI generation
-                  </p>
-                )}
-              </form>
-            )}
-          </div>
+        {!userProfile.isConfigured && (
+          <p style={{ marginTop: '12px', color: '#856404', fontSize: 'clamp(12px, 2vw, 14px)', textAlign: 'center' }}>
+            ⚠️ Complete your profile to use AI generation
+          </p>
         )}
+      </form>
+    )}
+  </div>
+)}
+
+{/* Questions Tab */}
+
+
+
+
+
+
+
+
+
+
+
+
 
         {/* Questions Tab */}
         {activeTab === 'questions' && (
