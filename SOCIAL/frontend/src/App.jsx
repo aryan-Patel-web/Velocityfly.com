@@ -8,7 +8,7 @@ import Landing_Page from './Landing_Page';
 import './App.css';
 
 // Lazy load platform components
-const  RedditAutomation = lazy(() => import('./pages/RedditAUTO'));
+const RedditAUTO = lazy(() => import('./pages/RedditAUTO'));
 const SocialMediaAutomation = lazy(() => import('./pages/Fb'));
 const InstagramAutomation = lazy(() => import('./pages/INSTA'));
 const WhatsAppAutomation = lazy(() => import('./pages/WhatsApp'));
