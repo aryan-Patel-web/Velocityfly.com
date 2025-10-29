@@ -351,38 +351,113 @@ class LoginRequest(BaseModel):
 # ============================================================================
 # AUTHENTICATION DEPENDENCY
 # ============================================================================
+
+
+# ADD THESE METHODS TO UnifiedDatabaseManager class
+
+# ========== USER TOKEN MANAGEMENT (for JWT) ==========
+async def get_user_by_token(self, token: str) -> Optional[dict]:
+    """Get user by JWT token - for authentication"""
+    try:
+        import jwt
+        
+        # Decode JWT
+        payload = jwt.decode(
+            token, 
+            os.getenv("JWT_SECRET", "your_secret_key"), 
+            algorithms=["HS256"]
+        )
+        user_id = payload.get("user_id")
+        
+        if not user_id:
+            return None
+        
+        # Get user from database
+        user = await self.get_user_by_id(user_id)
+        
+        if user:
+            return {
+                "id": user["_id"],
+                "email": user["email"],
+                "name": user["name"],
+                "platforms_connected": user.get("platforms_connected", [])
+            }
+        
+        return None
+        
+    except jwt.ExpiredSignatureError:
+        logger.warning("Token expired")
+        return None
+    except jwt.InvalidTokenError:
+        logger.warning("Invalid token")
+        return None
+    except Exception as e:
+        logger.error(f"Get user by token failed: {e}")
+        return None
+
+# ========== REDDIT ACTIVITY LOGGING ==========
+async def log_reddit_activity(self, user_id: str, activity_type: str, activity_data: dict) -> bool:
+    """Log Reddit activity for analytics"""
+    try:
+        collection = self.db.reddit_activities
+        await collection.insert_one({
+            "user_id": user_id,
+            "activity_type": activity_type,
+            "activity_data": activity_data,
+            "timestamp": datetime.now()
+        })
+        return True
+    except Exception as e:
+        logger.error(f"Log Reddit activity failed: {e}")
+        return False
+
+# ========== ALL ACTIVE AUTOMATIONS ==========
+async def get_all_active_automations(self, config_type: str) -> list:
+    """Get all active automation configs for a type"""
+    try:
+        cursor = self.automation_configs.find({
+            "config_type": config_type,
+            "enabled": True
+        })
+        
+        results = []
+        async for doc in cursor:
+            results.append({
+                "user_id": doc["user_id"],
+                "config_data": doc["config_data"],
+                "enabled": doc["enabled"]
+            })
+        
+        return results
+    except Exception as e:
+        logger.error(f"Get all active automations failed: {e}")
+        return []
+
 async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
     """Get current authenticated user from JWT token"""
     try:
         token = credentials.credentials
         
-        # Decode JWT
-        payload = jwt.decode(token, os.getenv("JWT_SECRET", "your_secret_key"), algorithms=["HS256"])
-        user_id = payload.get("user_id")
+        # ✅ CHECK IF DATABASE EXISTS
+        if not database_manager:
+            raise HTTPException(status_code=500, detail="Database not initialized")
         
-        if not user_id:
-            raise HTTPException(status_code=401, detail="Invalid token")
-        
-        # Get user from database
-        user = await database_manager.get_user_by_id(user_id)
+        # ✅ USE UNIFIED DATABASE METHOD
+        user = await database_manager.get_user_by_token(token)
         
         if not user:
-            raise HTTPException(status_code=401, detail="User not found")
+            raise HTTPException(status_code=401, detail="Invalid or expired token")
         
-        return {
-            "id": user["_id"],
-            "email": user["email"],
-            "name": user["name"],
-            "platforms_connected": user.get("platforms_connected", [])
-        }
+        return user
         
-    except jwt.ExpiredSignatureError:
-        raise HTTPException(status_code=401, detail="Token expired")
-    except jwt.InvalidTokenError:
-        raise HTTPException(status_code=401, detail="Invalid token")
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Authentication failed: {e}")
-        raise HTTPException(status_code=401, detail="Authentication failed")
+        raise HTTPException(status_code=401, detail=f"Authentication error: {str(e)}")
+
+
+
 
 # ============================================================================
 # SERVICE INITIALIZATION
@@ -447,6 +522,11 @@ async def initialize_all_services():
         logger.error(f"❌ YouTube initialization error: {e}")
         logger.error(traceback.format_exc())
     
+
+
+
+
+
     # Initialize Reddit services
     try:
         logger.info("Initializing Reddit services...")
@@ -531,6 +611,14 @@ async def cleanup_all_services():
         logger.error(f"Database cleanup error: {e}")
     
     logger.info("✅ Services cleaned up")
+
+
+
+
+
+
+
+
 
 # ============================================================================
 # FASTAPI LIFESPAN
@@ -881,8 +969,29 @@ except Exception as e:
     logger.error(f"❌ YouTube routes registration failed: {e}")
     logger.error(traceback.format_exc())
 
+
+
+
+
+
+# Reddit Routes
 # Reddit Routes
 try:
+    # ✅ STEP 1: Import main module (not functions yet)
+    import main as reddit_main
+    
+    # ✅ STEP 2: CRITICAL - Replace main.py's database with Supermain's
+    reddit_main.database_manager = database_manager
+    
+    # ✅ STEP 3: Also replace other global instances if needed
+    if reddit_services:
+        reddit_main.ai_service = reddit_services.get("ai_service")
+        reddit_main.reddit_oauth_connector = reddit_services.get("oauth")
+        reddit_main.automation_scheduler = reddit_services.get("scheduler")
+    
+    logger.info("✅ Patched main.py globals with Supermain instances")
+    
+    # ✅ STEP 4: NOW import functions (they'll use patched globals)
     from main import (
         # OAuth
         reddit_oauth_authorize,
@@ -916,7 +1025,7 @@ try:
         debug_scheduler_active_configs
     )
     
-    # Register Reddit routes
+    # Register Reddit routes (same as before)
     app.get("/api/oauth/reddit/authorize")(reddit_oauth_authorize)
     app.get("/api/oauth/reddit/callback")(reddit_oauth_callback)
     app.get("/api/reddit/connection-status")(get_reddit_connection_status)
@@ -939,11 +1048,16 @@ try:
     app.get("/api/debug/next-posting-debug")(debug_next_posting)
     app.get("/api/debug/scheduler-active-configs")(debug_scheduler_active_configs)
     
-    logger.info("✅ Reddit routes registered")
+    logger.info("✅ Reddit routes registered with patched globals")
     
 except Exception as e:
     logger.error(f"❌ Reddit routes registration failed: {e}")
     logger.error(traceback.format_exc())
+
+
+
+
+
 
 # ============================================================================
 # PLATFORM STATUS ENDPOINT
