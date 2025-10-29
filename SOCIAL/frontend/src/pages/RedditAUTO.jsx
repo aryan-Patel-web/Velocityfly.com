@@ -105,6 +105,10 @@ const RedditAutomation = () => {
   }, []);
 
   // Check Reddit connection on mount
+
+
+
+
   useEffect(() => {
     if (!user?.email) return;
     
@@ -172,7 +176,7 @@ const RedditAutomation = () => {
     };
 
     checkRedditConnection();
-  }, [user, makeAuthenticatedRequest, updateUser, showNotification]);
+  }, [user, makeAuthenticatedRequest, updateUser]);
 
   // Connect Reddit account
   const handleRedditConnect = useCallback(async () => {
