@@ -29,9 +29,9 @@ from pydantic import BaseModel, EmailStr
 # ============================================================================
 # ✅ CRITICAL: SET PLAYWRIGHT PATH BEFORE ANY IMPORTS (matches mainY.py)
 # ============================================================================
-PLAYWRIGHT_PATH = '/opt/render/project/.playwright'
-os.environ['PLAYWRIGHT_BROWSERS_PATH'] = PLAYWRIGHT_PATH
-os.environ['PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS'] = '1'
+# PLAYWRIGHT_PATH = '/opt/render/project/.playwright'
+# os.environ['PLAYWRIGHT_BROWSERS_PATH'] = PLAYWRIGHT_PATH
+# os.environ['PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS'] = '1'
 
 # Configure logging
 logging.basicConfig(
