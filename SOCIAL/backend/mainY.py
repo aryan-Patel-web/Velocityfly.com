@@ -1433,7 +1433,7 @@ async def youtube_oauth_url(request: YouTubeOAuthRequest):
             )
         
         # FORCED backend redirect URI - hardcoded to ensure correctness
-        backend_redirect_uri = "https://agentic-u5lx.onrender.com/api/youtube/oauth-callback"
+        backend_redirect_uri = "https://velocitypost-984x.onrender.com/api/youtube/oauth-callback"
         
         logger.info(f"Using FORCED BACKEND redirect URI: {backend_redirect_uri}")
         
@@ -1485,7 +1485,7 @@ async def youtube_oauth_callback_get(code: str, state: str):
             )
         
         # Exchange code for token
-        backend_redirect_uri = "https://agentic-u5lx.onrender.com/api/youtube/oauth-callback"
+        backend_redirect_uri = "https://velocitypost-984x.onrender.com/api/youtube/oauth-callback"
         logger.info(f"Token exchange with redirect_uri: {backend_redirect_uri}")
             
         token_result = await youtube_connector.exchange_code_for_token(
@@ -1588,7 +1588,7 @@ async def youtube_oauth_callback_get(code: str, state: str):
 #                 status_code=302
 #             )
         
-#         backend_redirect_uri = "https://agentic-u5lx.onrender.com/api/youtube/oauth-callback"
+#         backend_redirect_uri = "https://velocitypost-984x.onrender.com/api/youtube/oauth-callback"
 #         logger.info(f"Token exchange with redirect_uri: {backend_redirect_uri}")
             
 #         token_result = await youtube_connector.exchange_code_for_token(
@@ -1684,10 +1684,10 @@ async def debug_youtube_status():
             "GOOGLE_CLIENT_ID": "✓" if os.getenv("GOOGLE_CLIENT_ID") else "✗",
             "GOOGLE_CLIENT_SECRET": "✓" if os.getenv("GOOGLE_CLIENT_SECRET") else "✗",
             "GOOGLE_OAUTH_REDIRECT_URI": os.getenv("GOOGLE_OAUTH_REDIRECT_URI"),
-            "BACKEND_URL": os.getenv("BACKEND_URL", "https://agentic-u5lx.onrender.com"),
+            "BACKEND_URL": os.getenv("BACKEND_URL", "https://velocitypost-984x.onrender.com"),
             "MONGODB_URI": "✓" if os.getenv("MONGODB_URI") else "✗"
         },
-        "expected_redirect_uri": f"{os.getenv('BACKEND_URL', 'https://agentic-u5lx.onrender.com')}/api/youtube/oauth-callback"
+        "expected_redirect_uri": f"{os.getenv('BACKEND_URL', 'https://velocitypost-984x.onrender.com')}/api/youtube/oauth-callback"
     }
 
 

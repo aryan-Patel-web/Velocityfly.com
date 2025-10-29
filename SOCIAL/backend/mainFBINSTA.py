@@ -936,14 +936,14 @@ async def lifespan(app: FastAPI):
     facebook_connector = FacebookOAuthConnector(
         app_id=os.getenv('FB_APP_ID', '788457114351565'),
         app_secret=os.getenv('FB_APP_SECRET', '3a6fba32779a94c001b274ab91c026ee'),
-        redirect_uri=os.getenv('FB_REDIRECT_URI', 'https://agentic-u5lx.onrender.com/api/oauth/facebook/callback')
+        redirect_uri=os.getenv('FB_REDIRECT_URI', 'https://velocitypost-984x.onrender.com/api/oauth/facebook/callback')
     )
     
     # Initialize Instagram Connector
     instagram_connector = InstagramOAuthConnector(
         app_id=os.getenv('INSTAGRAM_APP_ID', '2247747609000742'),
         app_secret=os.getenv('INSTAGRAM_APP_SECRET', '55d50918f00e10f38a64c5e7b8dabdc8'),
-        redirect_uri=os.getenv('INSTAGRAM_REDIRECT_URI', 'https://agentic-u5lx.onrender.com/api/oauth/instagram/callback')
+        redirect_uri=os.getenv('INSTAGRAM_REDIRECT_URI', 'https://velocitypost-984x.onrender.com/api/oauth/instagram/callback')
     )
     
     # Initialize WhatsApp Handler with Fallback Logic
