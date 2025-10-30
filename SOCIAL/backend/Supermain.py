@@ -1372,6 +1372,189 @@ def calculate_enhanced_human_score(content: str) -> int:
         score -= 10
     
     return max(20, min(score, 100))
+# ////////////////////////////////////////////////////////////////////
+
+@app.post("/api/automation/post-now")
+async def post_now_to_reddit(request: Request, current_user: dict = Depends(get_current_user)):
+    """Publish a post to Reddit immediately"""
+    try:
+        data = await request.json()
+        
+        title = data.get("title", "")
+        content = data.get("content", "")
+        subreddit = data.get("subreddit", "test")
+        
+        if not title or not content:
+            return {"success": False, "error": "Title and content are required"}
+        
+        user_id = current_user.get("id")
+        
+        if not user_id:
+            return {"success": False, "error": "User ID not found"}
+        
+        # ✅ USE DATABASE MANAGER (async) instead of direct collection access
+        if not database_manager or not database_manager.connected:
+            return {"success": False, "error": "Database not connected"}
+        
+        # ✅ Get Reddit tokens using async method
+        reddit_token_data = await database_manager.get_reddit_tokens(user_id)
+        
+        if not reddit_token_data or not reddit_token_data.get("is_valid"):
+            return {"success": False, "error": "Reddit not connected. Please connect Reddit first."}
+        
+        access_token = reddit_token_data.get("access_token")
+        
+        if not access_token:
+            return {"success": False, "error": "No Reddit access token found"}
+        
+        # ✅ Post to Reddit using httpx
+        import httpx
+        
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(
+                "https://oauth.reddit.com/api/submit",
+                headers={
+                    "Authorization": f"Bearer {access_token}",
+                    "User-Agent": "VelocityPost/1.0 by /u/New-Health-4575"
+                },
+                data={
+                    "sr": subreddit,
+                    "kind": "self",
+                    "title": title,
+                    "text": content,
+                    "api_type": "json"
+                }
+            )
+            
+            result = response.json()
+            
+            logger.info(f"Reddit API response: {result}")
+            
+            # Check if successful
+            if result.get("success") or (result.get("json") and result["json"].get("data")):
+                post_url = None
+                
+                # Get post URL
+                if result.get("json", {}).get("data", {}).get("url"):
+                    post_url = result["json"]["data"]["url"]
+                elif result.get("json", {}).get("data", {}).get("id"):
+                    post_id = result["json"]["data"]["id"]
+                    post_url = f"https://reddit.com/r/{subreddit}/comments/{post_id}"
+                
+                logger.info(f"✅ Posted to r/{subreddit} - {post_url}")
+                
+                # ✅ Log activity
+                await database_manager.log_reddit_activity(
+                    user_id,
+                    "manual_post",
+                    {
+                        "subreddit": subreddit,
+                        "title": title,
+                        "post_url": post_url,
+                        "timestamp": datetime.now().isoformat()
+                    }
+                )
+                
+                return {
+                    "success": True,
+                    "message": f"Posted to r/{subreddit} successfully!",
+                    "post_url": post_url
+                }
+            else:
+                # Get error message
+                errors = result.get("json", {}).get("errors", [])
+                if errors:
+                    error_msg = errors[0][1] if len(errors[0]) > 1 else "Unknown error"
+                else:
+                    error_msg = result.get("message", "Failed to post")
+                
+                logger.error(f"Reddit post error: {error_msg}")
+                return {"success": False, "error": error_msg}
+                
+    except httpx.TimeoutException:
+        logger.error("Reddit API timeout")
+        return {"success": False, "error": "Request timeout. Please try again."}
+    except Exception as e:
+        logger.error(f"Post now error: {e}")
+        logger.error(traceback.format_exc())
+        return {"success": False, "error": f"Failed to post: {str(e)}"}
+
+@app.post("/api/automation/setup/posting")
+async def setup_reddit_automation(request: Request, current_user: dict = Depends(get_current_user)):
+    """Setup Reddit automation schedule"""
+    try:
+        data = await request.json()
+        user_id = current_user.get("id")
+        
+        if not user_id:
+            return {"success": False, "error": "User ID not found"}
+        
+        # Store automation config
+        config_data = {
+            "domain": data.get("domain"),
+            "business_type": data.get("business_type"),
+            "business_description": data.get("business_description"),
+            "target_audience": data.get("target_audience"),
+            "content_style": data.get("content_style"),
+            "posts_per_day": data.get("posts_per_day", 1),
+            "posting_times": data.get("posting_times", []),
+            "subreddits": data.get("subreddits", ["test"]),
+            "enabled": True,
+            "created_at": datetime.now().isoformat()
+        }
+        
+        success = await database_manager.store_automation_config(
+            user_id,
+            "reddit_posting",
+            config_data
+        )
+        
+        if success:
+            logger.info(f"✅ Reddit automation configured for user {user_id}")
+            return {
+                "success": True,
+                "message": "Automation configured successfully",
+                "config": config_data
+            }
+        else:
+            return {"success": False, "error": "Failed to save configuration"}
+            
+    except Exception as e:
+        logger.error(f"Setup automation error: {e}")
+        logger.error(traceback.format_exc())
+        return {"success": False, "error": str(e)}
+
+
+@app.get("/api/automation/stats")
+async def get_automation_stats(current_user: dict = Depends(get_current_user)):
+    """Get automation statistics"""
+    try:
+        user_id = current_user.get("id")
+        
+        if not user_id:
+            return {"success": False, "error": "User ID not found"}
+        
+        # Get config
+        config = await database_manager.get_automation_config(user_id, "reddit_posting")
+        
+        # Get activity count
+        collection = database_manager.db.reddit_activities
+        posts_today = await collection.count_documents({
+            "user_id": user_id,
+            "timestamp": {"$gte": datetime.now().replace(hour=0, minute=0, second=0)}
+        })
+        
+        return {
+            "success": True,
+            "posts_today": posts_today,
+            "scheduled_posts": [],
+            "automation_enabled": config.get("enabled", False) if config else False
+        }
+        
+    except Exception as e:
+        logger.error(f"Get stats error: {e}")
+        return {"success": False, "error": str(e)}
+
 
 # ============================================================================
 # RUN APPLICATION
