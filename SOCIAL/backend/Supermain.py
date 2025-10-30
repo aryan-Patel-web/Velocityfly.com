@@ -543,7 +543,7 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
 # SERVICE INITIALIZATION - FIXED
 # ============================================================================
 async def initialize_all_services():
-    """Initialize YouTube and Reddit services - FIXED"""
+    """Initialize YouTube and Reddit services - ENHANCED WITH TOKEN LOADING"""
     global database_manager, youtube_services, reddit_services
     
     logger.info("="*60)
@@ -564,6 +564,41 @@ async def initialize_all_services():
             raise Exception("Database connection failed")
         
         logger.info("✅ Unified database initialized and connected")
+        
+        # ✅ NEW: Load existing Reddit tokens from database into memory
+        try:
+            logger.info("Loading existing Reddit user tokens from database...")
+            
+            # Get all active Reddit tokens
+            reddit_tokens_cursor = database_manager.reddit_tokens.find({
+                "is_active": True
+            })
+            
+            token_count = 0
+            loaded_users = []
+            
+            async for token_doc in reddit_tokens_cursor:
+                user_id = token_doc["user_id"]
+                reddit_username = token_doc.get("reddit_username", "Unknown")
+                
+                loaded_users.append({
+                    "user_id": user_id,
+                    "reddit_username": reddit_username,
+                    "access_token": token_doc.get("access_token", "")[:20] + "..."
+                })
+                
+                token_count += 1
+                logger.info(f"Loaded Reddit token for user {user_id}: {reddit_username}")
+            
+            logger.info(f"✅ Loaded {token_count} existing Reddit tokens from database")
+            
+            # Store for later patching into main.py
+            if token_count > 0:
+                logger.info(f"Users with Reddit tokens: {[u['reddit_username'] for u in loaded_users]}")
+            
+        except Exception as e:
+            logger.error(f"⚠️ Failed to load existing Reddit tokens: {e}")
+            logger.error(traceback.format_exc())
         
     except Exception as e:
         logger.error(f"❌ Database initialization failed: {e}")
@@ -612,12 +647,65 @@ async def initialize_all_services():
         reddit_main.database_manager = database_manager
         logger.info("✅ Patched main.py database_manager")
         
+        # ✅ NEW: Load Reddit tokens into main.py's user_reddit_tokens
+        try:
+            logger.info("Loading Reddit tokens into main.py memory...")
+            
+            reddit_tokens_cursor = database_manager.reddit_tokens.find({
+                "is_active": True
+            })
+            
+            token_count = 0
+            async for token_doc in reddit_tokens_cursor:
+                user_id = token_doc["user_id"]
+                reddit_username = token_doc.get("reddit_username", "Unknown")
+                
+                # Store in main.py's user_reddit_tokens dictionary
+                reddit_main.user_reddit_tokens[user_id] = {
+                    "access_token": token_doc["access_token"],
+                    "refresh_token": token_doc.get("refresh_token", ""),
+                    "reddit_username": reddit_username,
+                    "reddit_user_id": token_doc.get("reddit_user_id", ""),
+                    "expires_in": token_doc.get("expires_in", 3600),
+                    "connected_at": token_doc.get("created_at", datetime.now()).isoformat(),
+                    "user_info": {
+                        "name": reddit_username,
+                        "id": token_doc.get("reddit_user_id", "")
+                    }
+                }
+                
+                token_count += 1
+                logger.info(f"Loaded token into main.py for user {user_id}: {reddit_username}")
+            
+            logger.info(f"✅ Loaded {token_count} tokens into main.py user_reddit_tokens")
+            
+        except Exception as e:
+            logger.error(f"⚠️ Failed to load tokens into main.py: {e}")
+        
         # Import Reddit classes
-        from main import (
-            RedditOAuthConnector,
-            AIService,
-            RedditAutomationScheduler
-        )
+        try:
+            from main import (
+                RedditOAuthConnector,
+                AIService,
+                RedditAutomationScheduler
+            )
+            logger.info("✅ Imported Reddit classes from main.py")
+        except ImportError as ie:
+            logger.warning(f"⚠️ Could not import Reddit classes: {ie}")
+            # Create simple fallback classes
+            class RedditOAuthConnector:
+                def __init__(self, config):
+                    self.config = config
+                    self.is_configured = True
+            
+            class AIService:
+                pass
+            
+            class RedditAutomationScheduler:
+                def __init__(self, *args, **kwargs):
+                    self.is_running = False
+                def start_scheduler(self):
+                    pass
         
         # Initialize Reddit OAuth
         reddit_config = {
@@ -638,7 +726,7 @@ async def initialize_all_services():
                 reddit_oauth,
                 reddit_ai,
                 database_manager,
-                {}  # user_reddit_tokens managed by database
+                reddit_main.user_reddit_tokens  # ✅ Pass loaded tokens
             )
             reddit_scheduler.start_scheduler()
             
@@ -654,6 +742,7 @@ async def initialize_all_services():
             reddit_main.automation_scheduler = reddit_scheduler
             
             logger.info("✅ Reddit services initialized and patched")
+            logger.info(f"Reddit scheduler has {len(reddit_main.user_reddit_tokens)} user tokens")
         else:
             logger.warning("⚠️ Reddit credentials missing")
             
@@ -661,15 +750,76 @@ async def initialize_all_services():
         logger.error(f"❌ Reddit initialization error: {e}")
         logger.error(traceback.format_exc())
     
+    # ✅ NEW: Load automation configs from database
+    try:
+        logger.info("Loading automation configs from database...")
+        
+        import main as reddit_main
+        
+        # Load auto-posting configs
+        auto_posting_cursor = database_manager.automation_configs.find({
+            "config_type": "auto_posting",
+            "enabled": True
+        })
+        
+        config_count = 0
+        async for config_doc in auto_posting_cursor:
+            user_id = config_doc["user_id"]
+            
+            if user_id not in reddit_main.automation_configs:
+                reddit_main.automation_configs[user_id] = {}
+            
+            reddit_main.automation_configs[user_id]["auto_posting"] = {
+                "config": config_doc["config_data"],
+                "enabled": config_doc.get("enabled", True),
+                "created_at": config_doc.get("updated_at", datetime.now()).isoformat()
+            }
+            
+            config_count += 1
+            logger.info(f"Loaded auto-posting config for user {user_id}")
+        
+        # Load auto-reply configs
+        auto_reply_cursor = database_manager.automation_configs.find({
+            "config_type": "auto_replies",
+            "enabled": True
+        })
+        
+        async for config_doc in auto_reply_cursor:
+            user_id = config_doc["user_id"]
+            
+            if user_id not in reddit_main.automation_configs:
+                reddit_main.automation_configs[user_id] = {}
+            
+            reddit_main.automation_configs[user_id]["auto_replies"] = {
+                "config": config_doc["config_data"],
+                "enabled": config_doc.get("enabled", True),
+                "created_at": config_doc.get("updated_at", datetime.now()).isoformat()
+            }
+            
+            config_count += 1
+            logger.info(f"Loaded auto-reply config for user {user_id}")
+        
+        logger.info(f"✅ Loaded {config_count} automation configs from database")
+        
+    except Exception as e:
+        logger.error(f"⚠️ Failed to load automation configs: {e}")
+    
     logger.info("="*60)
     logger.info("✅ SERVICE INITIALIZATION COMPLETE")
     logger.info(f"Database: {'✓' if database_manager and database_manager.connected else '✗'}")
     logger.info(f"YouTube: {'✓' if youtube_services else '✗'}")
     logger.info(f"Reddit: {'✓' if reddit_services else '✗'}")
+    logger.info(f"Reddit User Tokens: {len(reddit_main.user_reddit_tokens) if 'reddit_main' in locals() else 0}")
+    logger.info(f"Automation Configs: {len(reddit_main.automation_configs) if 'reddit_main' in locals() else 0}")
     logger.info(f"Playwright: {PLAYWRIGHT_PATH}")
     logger.info("="*60)
     
     return True
+
+
+
+
+
 
 async def cleanup_all_services():
     """Cleanup all services on shutdown"""
@@ -1162,11 +1312,16 @@ async def generate_reddit_ai_post(request: Request, current_user: dict = Depends
         
         # Domain to subreddit mapping
         domain_subreddits = {
-            "education": ["learnprogramming", "studying", "college", "test"],
-            "restaurant": ["food", "Cooking", "recipes", "test"],
-            "tech": ["technology", "programming", "learnprogramming", "test"],
-            "health": ["fitness", "HealthyFood", "loseit", "test"],
-            "business": ["Entrepreneur", "smallbusiness", "startups", "test"]
+            # "education": ["learnprogramming", "studying", "college", "test"],
+            "education": ["test", "CasualConversation", "self"],
+            # "restaurant": ["food", "Cooking", "recipes", "test"],
+            "restaurant": ["test", "CasualConversation", "self"],
+            # "tech": ["technology", "programming", "learnprogramming", "test"],
+            "tech": ["test", "CasualConversation", "self"],
+            # "health": ["fitness", "HealthyFood", "loseit", "test"],
+            "health": ["test", "CasualConversation", "self"],
+            # "business": ["Entrepreneur", "smallbusiness", "startups", "test"]
+            "business": ["test", "CasualConversation", "self"]
         }
         
         # Get topic based on domain
@@ -1374,9 +1529,13 @@ def calculate_enhanced_human_score(content: str) -> int:
     return max(20, min(score, 100))
 # ////////////////////////////////////////////////////////////////////
 
+
+
+
+
 @app.post("/api/automation/post-now")
 async def post_now_to_reddit(request: Request, current_user: dict = Depends(get_current_user)):
-    """Publish a post to Reddit immediately"""
+    """Publish a post to Reddit immediately - IMPROVED ERROR HANDLING"""
     try:
         data = await request.json()
         
@@ -1392,11 +1551,11 @@ async def post_now_to_reddit(request: Request, current_user: dict = Depends(get_
         if not user_id:
             return {"success": False, "error": "User ID not found"}
         
-        # ✅ USE DATABASE MANAGER (async) instead of direct collection access
+        # ✅ USE DATABASE MANAGER (async)
         if not database_manager or not database_manager.connected:
             return {"success": False, "error": "Database not connected"}
         
-        # ✅ Get Reddit tokens using async method
+        # ✅ Get Reddit tokens
         reddit_token_data = await database_manager.get_reddit_tokens(user_id)
         
         if not reddit_token_data or not reddit_token_data.get("is_valid"):
@@ -1407,7 +1566,14 @@ async def post_now_to_reddit(request: Request, current_user: dict = Depends(get_
         if not access_token:
             return {"success": False, "error": "No Reddit access token found"}
         
-        # ✅ Post to Reddit using httpx
+        # ✅ SAFE SUBREDDIT CHECK - Redirect to 'test' if problematic
+        safe_subreddits = ["test", "CasualConversation", "self", "testingground4bots"]
+        
+        if subreddit.lower() in ["technology", "programming", "learnprogramming"]:
+            logger.warning(f"Redirecting from {subreddit} to 'test' (requires flair/link posts only)")
+            subreddit = "test"
+        
+        # ✅ Post to Reddit
         import httpx
         
         async with httpx.AsyncClient(timeout=30.0) as client:
@@ -1430,11 +1596,41 @@ async def post_now_to_reddit(request: Request, current_user: dict = Depends(get_
             
             logger.info(f"Reddit API response: {result}")
             
-            # Check if successful
+            # ✅ IMPROVED ERROR HANDLING
+            errors = result.get("json", {}).get("errors", [])
+            
+            if errors:
+                error_type = errors[0][0] if errors[0] else "UNKNOWN"
+                error_msg = errors[0][1] if len(errors[0]) > 1 else "Unknown error"
+                
+                logger.error(f"Reddit post error: {error_type} - {error_msg}")
+                
+                # ✅ SPECIFIC ERROR MESSAGES
+                if error_type == "SUBMIT_VALIDATION_FLAIR_REQUIRED":
+                    return {
+                        "success": False,
+                        "error": f"r/{subreddit} requires post flair",
+                        "suggestion": "Try posting to r/test or r/CasualConversation instead"
+                    }
+                elif error_type == "NO_SELFS":
+                    return {
+                        "success": False,
+                        "error": f"r/{subreddit} doesn't allow text posts",
+                        "suggestion": "Try r/test or r/self instead (they allow text posts)"
+                    }
+                elif error_type == "SUBMIT_VALIDATION_BODY_NOT_ALLOWED":
+                    return {
+                        "success": False,
+                        "error": f"r/{subreddit} doesn't allow body text",
+                        "suggestion": "Try a different subreddit like r/test"
+                    }
+                else:
+                    return {"success": False, "error": error_msg}
+            
+            # ✅ SUCCESS
             if result.get("success") or (result.get("json") and result["json"].get("data")):
                 post_url = None
                 
-                # Get post URL
                 if result.get("json", {}).get("data", {}).get("url"):
                     post_url = result["json"]["data"]["url"]
                 elif result.get("json", {}).get("data", {}).get("id"):
@@ -1443,7 +1639,7 @@ async def post_now_to_reddit(request: Request, current_user: dict = Depends(get_
                 
                 logger.info(f"✅ Posted to r/{subreddit} - {post_url}")
                 
-                # ✅ Log activity
+                # Log activity
                 await database_manager.log_reddit_activity(
                     user_id,
                     "manual_post",
@@ -1460,16 +1656,8 @@ async def post_now_to_reddit(request: Request, current_user: dict = Depends(get_
                     "message": f"Posted to r/{subreddit} successfully!",
                     "post_url": post_url
                 }
-            else:
-                # Get error message
-                errors = result.get("json", {}).get("errors", [])
-                if errors:
-                    error_msg = errors[0][1] if len(errors[0]) > 1 else "Unknown error"
-                else:
-                    error_msg = result.get("message", "Failed to post")
-                
-                logger.error(f"Reddit post error: {error_msg}")
-                return {"success": False, "error": error_msg}
+            
+            return {"success": False, "error": "Failed to post (unknown error)"}
                 
     except httpx.TimeoutException:
         logger.error("Reddit API timeout")
@@ -1478,6 +1666,11 @@ async def post_now_to_reddit(request: Request, current_user: dict = Depends(get_
         logger.error(f"Post now error: {e}")
         logger.error(traceback.format_exc())
         return {"success": False, "error": f"Failed to post: {str(e)}"}
+
+
+
+
+
 
 @app.post("/api/automation/setup/posting")
 async def setup_reddit_automation(request: Request, current_user: dict = Depends(get_current_user)):
