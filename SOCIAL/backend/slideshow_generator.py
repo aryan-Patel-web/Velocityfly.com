@@ -21,6 +21,8 @@ class SlideshowGenerator:
     
     # Quality tiers (resolution, CRF, preset)
     QUALITY_TIERS = [
+        {"name": "1080p", "resolution": (1080, 1920), "crf": 20, "preset": "medium"},
+        {"name": "720p", "resolution": (720, 1280), "crf": 23, "preset": "fast"},
         {"name": "540p", "resolution": (540, 960), "crf": 28, "preset": "ultrafast"},
         {"name": "480p", "resolution": (480, 854), "crf": 30, "preset": "ultrafast"},
         {"name": "360p", "resolution": (360, 640), "crf": 32, "preset": "ultrafast"}
