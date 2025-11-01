@@ -1322,18 +1322,58 @@ async def generate_reddit_ai_post(request: Request, current_user: dict = Depends
         business_description = data.get("business_description", "")
         
         # Domain to subreddit mapping
+        # domain_subreddits = {
+        #     # "education": ["learnprogramming", "studying", "college", "test"],
+        #     "education": ["test", "CasualConversation", "self"],
+        #     # "restaurant": ["food", "Cooking", "recipes", "test"],
+        #     "restaurant": ["test", "CasualConversation", "self"],
+        #     # "tech": ["technology", "programming", "learnprogramming", "test"],
+        #     "tech": ["test", "CasualConversation", "self"],
+        #     # "health": ["fitness", "HealthyFood", "loseit", "test"],
+        #     "health": ["test", "CasualConversation", "self"],
+        #     # "business": ["Entrepreneur", "smallbusiness", "startups", "test"]
+        #     "business": ["test", "CasualConversation", "self"]
+        # }
+
+
         domain_subreddits = {
-            # "education": ["learnprogramming", "studying", "college", "test"],
-            "education": ["test", "CasualConversation", "self"],
-            # "restaurant": ["food", "Cooking", "recipes", "test"],
-            "restaurant": ["test", "CasualConversation", "self"],
-            # "tech": ["technology", "programming", "learnprogramming", "test"],
-            "tech": ["test", "CasualConversation", "self"],
-            # "health": ["fitness", "HealthyFood", "loseit", "test"],
-            "health": ["test", "CasualConversation", "self"],
-            # "business": ["Entrepreneur", "smallbusiness", "startups", "test"]
-            "business": ["test", "CasualConversation", "self"]
-        }
+    "education": [
+        "LearnProgramming",        # large, friendly to tutorials & automation tools
+        "edtech",                  # AI + education discussions allowed
+        "StudyTips",               # accepts learning hacks (AI tools fit well)
+        "CasualConversation",      # natural discussion blending in
+        "AskAcademia"              # good for thoughtful posts
+    ],
+    "restaurant": [
+        "FoodPorn",                # great for AI-generated food visuals
+        "Cooking",                 # accepts recipe automation posts
+        "Foodie",                  # good for lifestyle & tool recommendations
+        "CasualConversation",      # soft-entry subreddit for any domain
+        "SideProject"              # allows app/tool showcases (AI menus etc.)
+    ],
+    "tech": [
+        "AITools",                 # best for AI tool showcases
+        "ChatGPTPro",              # creative AI automation content accepted
+        "SideProject",             # tech demos & app promotions allowed
+        "Futurology",              # future of automation & AI discussion
+        "CasualConversation"       # safe fallback for natural tone posts
+    ],
+    "health": [
+        "Biohackers",              # AI health optimizations & data tracking
+        "Fitness",                 # AI-based fitness routines are accepted
+        "HealthyFood",             # meal automation & health AI ideas
+        "DecidingToBeBetter",      # human-improvement context fits AI posts
+        "CasualConversation"       # natural fallback
+    ],
+    "business": [
+        "EntrepreneurRideAlong",   # startup builders, allows AI automation
+        "SmallBusiness",           # automation tools for business growth
+        "Startup",                 # new projects & launches
+        "Productivity",            # AI-driven workflows are popular here
+        "CasualConversation"       # again, human-like engagement subreddit
+    ]
+}
+
         
         # Get topic based on domain
         domain_topics = {
@@ -1397,7 +1437,7 @@ Make it sound human:
                                 {"role": "system", "content": "You are a casual Reddit user. Use SUBREDDIT/TITLE/CONTENT format."},
                                 {"role": "user", "content": prompt}
                             ],
-                            "temperature": 0.8,
+                            "temperature": 0.1,
                             "max_tokens": 1000
                         }
                     )
