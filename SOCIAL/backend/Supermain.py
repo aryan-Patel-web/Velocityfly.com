@@ -151,49 +151,49 @@ class UnifiedDatabaseManager:
     # ✅ CRITICAL: get_user_by_token method (was missing - caused "Database not initialized" error)
 
 
-async def get_user_by_token(self, token: str) -> Optional[dict]:
-    """Get user by JWT token - for authentication"""
-    try:
-        if not self.connected:
-            logger.error("Database not connected")
+    async def get_user_by_token(self, token: str) -> Optional[dict]:
+        """Get user by JWT token - for authentication"""
+        try:
+            if not self.connected:
+                logger.error("Database not connected")
+                return None
+            
+            # Decode JWT
+            payload = jwt.decode(
+                token, 
+                os.getenv("JWT_SECRET", "your_secret_key"), 
+                algorithms=["HS256"]
+            )
+            user_id = payload.get("user_id")
+            
+            if not user_id:
+                logger.warning("No user_id in token payload")
+                return None
+            
+            # Get user from database
+            user = await self.get_user_by_id(user_id)
+            
+            if user:
+                # Return both "id" and "user_id" for compatibility
+                return {
+                    "id": user["_id"],
+                    "user_id": user["_id"],  # Add for compatibility
+                    "email": user["email"],
+                    "name": user["name"],
+                    "platforms_connected": user.get("platforms_connected", [])
+                }
+            
             return None
-        
-        # Decode JWT
-        payload = jwt.decode(
-            token, 
-            os.getenv("JWT_SECRET", "your_secret_key"), 
-            algorithms=["HS256"]
-        )
-        user_id = payload.get("user_id")
-        
-        if not user_id:
-            logger.warning("No user_id in token payload")
+            
+        except jwt.ExpiredSignatureError:
+            logger.warning("Token expired")
             return None
-        
-        # Get user from database
-        user = await self.get_user_by_id(user_id)
-        
-        if user:
-            # ✅ RETURN BOTH "id" AND "user_id" FOR COMPATIBILITY
-            return {
-                "id": user["_id"],
-                "user_id": user["_id"],  # ✅ Add this for compatibility
-                "email": user["email"],
-                "name": user["name"],
-                "platforms_connected": user.get("platforms_connected", [])
-            }
-        
-        return None
-        
-    except jwt.ExpiredSignatureError:
-        logger.warning("Token expired")
-        return None
-    except jwt.InvalidTokenError as e:
-        logger.warning(f"Invalid token: {e}")
-        return None
-    except Exception as e:
-        logger.error(f"Get user by token failed: {e}")
-        return None
+        except jwt.InvalidTokenError as e:
+            logger.warning(f"Invalid token: {e}")
+            return None
+        except Exception as e:
+            logger.error(f"Get user by token failed: {e}")
+            return None
     
 
 
