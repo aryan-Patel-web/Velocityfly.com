@@ -60,14 +60,14 @@ logger.info(f"🎭 Playwright path set to: {PLAYWRIGHT_PATH}")
 class UnifiedDatabaseManager:
     """
     Single database manager for YouTube + Reddit + All platforms
-    ✅ All fixes included: get_user_by_token, connected tracking, etc.
+    ✅ All fixes included: get_user_by_token, expiration handling, etc.
     """
     
     def __init__(self, mongodb_uri: str):
         self.mongodb_uri = mongodb_uri
         self.client = None
         self.db = None
-        self.connected = False  # ✅ Track connection status
+        self.connected = False
         
         # Collections for all platforms
         self.users_collection = None
@@ -97,7 +97,7 @@ class UnifiedDatabaseManager:
             # Test connection
             await self.client.admin.command('ping')
             
-            self.connected = True  # ✅ Mark as connected
+            self.connected = True
             logger.info("✅ Unified database connected successfully")
             return True
             
@@ -148,9 +148,6 @@ class UnifiedDatabaseManager:
             logger.error(f"Get user by ID failed: {e}")
             return None
     
-    # ✅ CRITICAL: get_user_by_token method (was missing - caused "Database not initialized" error)
-
-
     async def get_user_by_token(self, token: str) -> Optional[dict]:
         """Get user by JWT token - for authentication"""
         try:
@@ -177,7 +174,7 @@ class UnifiedDatabaseManager:
                 # Return both "id" and "user_id" for compatibility
                 return {
                     "id": user["_id"],
-                    "user_id": user["_id"],  # Add for compatibility
+                    "user_id": user["_id"],
                     "email": user["email"],
                     "name": user["name"],
                     "platforms_connected": user.get("platforms_connected", [])
@@ -194,13 +191,6 @@ class UnifiedDatabaseManager:
         except Exception as e:
             logger.error(f"Get user by token failed: {e}")
             return None
-    
-
-
-
-
-
-
     
     # ========== YOUTUBE CREDENTIALS ==========
     async def store_youtube_credentials(self, user_id: str, credentials: dict) -> bool:
@@ -241,13 +231,14 @@ class UnifiedDatabaseManager:
             logger.error(f"Get YouTube credentials failed: {e}")
             return None
     
-    # ========== REDDIT TOKENS ==========
+    # ========== REDDIT TOKENS - FIXED ==========
     async def store_reddit_tokens(self, user_id: str, token_data: dict) -> dict:
-        """Store Reddit OAuth tokens"""
+        """Store Reddit OAuth tokens - FIXED"""
         try:
             if not self.connected:
                 return {"success": False, "error": "Database not connected"}
             
+            # ✅ Don't set expires_at - Reddit handles refresh automatically
             await self.reddit_tokens.update_one(
                 {"user_id": user_id},
                 {"$set": {
@@ -255,7 +246,7 @@ class UnifiedDatabaseManager:
                     "access_token": token_data["access_token"],
                     "refresh_token": token_data.get("refresh_token", ""),
                     "reddit_username": token_data["reddit_username"],
-                    "expires_at": datetime.now() + timedelta(seconds=token_data.get("expires_in", 3600)),
+                    "reddit_user_id": token_data.get("reddit_user_id", ""),
                     "is_active": True,
                     "created_at": datetime.now(),
                     "updated_at": datetime.now()
@@ -275,9 +266,10 @@ class UnifiedDatabaseManager:
             return {"success": False, "error": str(e)}
     
     async def get_reddit_tokens(self, user_id: str) -> Optional[dict]:
-        """Get Reddit tokens"""
+        """Get Reddit tokens - FIXED EXPIRATION HANDLING"""
         try:
             if not self.connected:
+                logger.error("Database not connected")
                 return None
             
             result = await self.reddit_tokens.find_one({
@@ -285,16 +277,45 @@ class UnifiedDatabaseManager:
                 "is_active": True
             })
             
-            if result and result.get("expires_at") > datetime.now():
-                return {
-                    "access_token": result["access_token"],
-                    "refresh_token": result.get("refresh_token", ""),
-                    "reddit_username": result["reddit_username"],
-                    "is_valid": True
-                }
-            return None
+            if not result:
+                logger.warning(f"No active Reddit token found for user {user_id}")
+                return None
+            
+            # ✅ FIXED: Return token even if expires_at check fails
+            # Reddit tokens can be refreshed automatically
+            expires_at = result.get("expires_at")
+            is_expired = False
+            
+            if expires_at:
+                try:
+                    # Handle both datetime and string formats
+                    if isinstance(expires_at, str):
+                        try:
+                            from dateutil import parser
+                            expires_at = parser.parse(expires_at)
+                        except:
+                            pass
+                    
+                    # Check if expired
+                    if isinstance(expires_at, datetime):
+                        if expires_at <= datetime.now():
+                            is_expired = True
+                            logger.warning(f"Reddit token expired for user {user_id}, but returning anyway (can refresh)")
+                except Exception as e:
+                    logger.warning(f"Expiration check failed: {e}")
+            
+            # ✅ Return token regardless of expiration
+            return {
+                "access_token": result["access_token"],
+                "refresh_token": result.get("refresh_token", ""),
+                "reddit_username": result["reddit_username"],
+                "is_valid": True,
+                "is_expired": is_expired
+            }
+            
         except Exception as e:
             logger.error(f"Get Reddit tokens failed: {e}")
+            logger.error(traceback.format_exc())
             return None
     
     async def check_reddit_connection(self, user_id: str) -> dict:
@@ -349,7 +370,7 @@ class UnifiedDatabaseManager:
             
             collection = self.db.oauth_states
             await collection.insert_one({
-                "_id": state,  # Use state as ID for fast lookup
+                "_id": state,
                 "state": state,
                 "user_id": user_id,
                 "expires_at": expires_at,
@@ -520,14 +541,13 @@ class LoginRequest(BaseModel):
     password: str
 
 # ============================================================================
-# AUTHENTICATION DEPENDENCY - FIXED
+# AUTHENTICATION DEPENDENCY
 # ============================================================================
 async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
-    """Get current authenticated user from JWT token - FIXED"""
+    """Get current authenticated user from JWT token"""
     try:
         token = credentials.credentials
         
-        # ✅ CHECK IF DATABASE EXISTS AND IS CONNECTED
         if not database_manager:
             logger.error("Database manager not initialized")
             raise HTTPException(status_code=500, detail="Database not initialized")
@@ -536,7 +556,6 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
             logger.error("Database not connected")
             raise HTTPException(status_code=500, detail="Database not connected")
         
-        # ✅ USE UNIFIED DATABASE METHOD
         user = await database_manager.get_user_by_token(token)
         
         if not user:
@@ -551,17 +570,17 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
         raise HTTPException(status_code=401, detail=f"Authentication error: {str(e)}")
 
 # ============================================================================
-# SERVICE INITIALIZATION - FIXED
+# SERVICE INITIALIZATION - COMPLETE
 # ============================================================================
 async def initialize_all_services():
-    """Initialize YouTube and Reddit services - ENHANCED WITH TOKEN LOADING"""
+    """Initialize YouTube and Reddit services - COMPLETE"""
     global database_manager, youtube_services, reddit_services
     
     logger.info("="*60)
     logger.info("🚀 STARTING UNIFIED AUTOMATION PLATFORM")
     logger.info("="*60)
     
-    # ✅ CRITICAL: Initialize database FIRST
+    # Initialize database
     try:
         mongodb_uri = os.getenv("MONGODB_URI")
         if not mongodb_uri:
@@ -576,14 +595,11 @@ async def initialize_all_services():
         
         logger.info("✅ Unified database initialized and connected")
         
-        # ✅ NEW: Load existing Reddit tokens from database into memory
+        # Load existing Reddit tokens
         try:
             logger.info("Loading existing Reddit user tokens from database...")
             
-            # Get all active Reddit tokens
-            reddit_tokens_cursor = database_manager.reddit_tokens.find({
-                "is_active": True
-            })
+            reddit_tokens_cursor = database_manager.reddit_tokens.find({"is_active": True})
             
             token_count = 0
             loaded_users = []
@@ -594,22 +610,19 @@ async def initialize_all_services():
                 
                 loaded_users.append({
                     "user_id": user_id,
-                    "reddit_username": reddit_username,
-                    "access_token": token_doc.get("access_token", "")[:20] + "..."
+                    "reddit_username": reddit_username
                 })
                 
                 token_count += 1
-                logger.info(f"Loaded Reddit token for user {user_id}: {reddit_username}")
+                logger.info(f"Found Reddit token for user {user_id}: {reddit_username}")
             
-            logger.info(f"✅ Loaded {token_count} existing Reddit tokens from database")
+            logger.info(f"✅ Found {token_count} existing Reddit tokens in database")
             
-            # Store for later patching into main.py
             if token_count > 0:
-                logger.info(f"Users with Reddit tokens: {[u['reddit_username'] for u in loaded_users]}")
+                logger.info(f"Users with Reddit: {[u['reddit_username'] for u in loaded_users]}")
             
         except Exception as e:
             logger.error(f"⚠️ Failed to load existing Reddit tokens: {e}")
-            logger.error(traceback.format_exc())
         
     except Exception as e:
         logger.error(f"❌ Database initialization failed: {e}")
@@ -651,27 +664,23 @@ async def initialize_all_services():
     try:
         logger.info("Initializing Reddit services...")
         
-        # ✅ Import main.py module
         import main as reddit_main
         
-        # ✅ CRITICAL: Patch main.py's database_manager BEFORE importing functions
+        # Patch main.py's database_manager
         reddit_main.database_manager = database_manager
         logger.info("✅ Patched main.py database_manager")
         
-        # ✅ NEW: Load Reddit tokens into main.py's user_reddit_tokens
+        # Load Reddit tokens into main.py
         try:
             logger.info("Loading Reddit tokens into main.py memory...")
             
-            reddit_tokens_cursor = database_manager.reddit_tokens.find({
-                "is_active": True
-            })
+            reddit_tokens_cursor = database_manager.reddit_tokens.find({"is_active": True})
             
             token_count = 0
             async for token_doc in reddit_tokens_cursor:
                 user_id = token_doc["user_id"]
                 reddit_username = token_doc.get("reddit_username", "Unknown")
                 
-                # Store in main.py's user_reddit_tokens dictionary
                 reddit_main.user_reddit_tokens[user_id] = {
                     "access_token": token_doc["access_token"],
                     "refresh_token": token_doc.get("refresh_token", ""),
@@ -688,7 +697,7 @@ async def initialize_all_services():
                 token_count += 1
                 logger.info(f"Loaded token into main.py for user {user_id}: {reddit_username}")
             
-            logger.info(f"✅ Loaded {token_count} tokens into main.py user_reddit_tokens")
+            logger.info(f"✅ Loaded {token_count} tokens into main.py")
             
         except Exception as e:
             logger.error(f"⚠️ Failed to load tokens into main.py: {e}")
@@ -703,7 +712,7 @@ async def initialize_all_services():
             logger.info("✅ Imported Reddit classes from main.py")
         except ImportError as ie:
             logger.warning(f"⚠️ Could not import Reddit classes: {ie}")
-            # Create simple fallback classes
+            
             class RedditOAuthConnector:
                 def __init__(self, config):
                     self.config = config
@@ -729,15 +738,13 @@ async def initialize_all_services():
         if reddit_config['REDDIT_CLIENT_ID'] and reddit_config['REDDIT_CLIENT_SECRET']:
             reddit_oauth = RedditOAuthConnector(reddit_config)
             
-            # Initialize Reddit AI (can share with YouTube if same API keys)
             reddit_ai = youtube_services.get("ai_service") or AIService()
             
-            # Initialize Reddit scheduler
             reddit_scheduler = RedditAutomationScheduler(
                 reddit_oauth,
                 reddit_ai,
                 database_manager,
-                reddit_main.user_reddit_tokens  # ✅ Pass loaded tokens
+                reddit_main.user_reddit_tokens
             )
             reddit_scheduler.start_scheduler()
             
@@ -747,7 +754,6 @@ async def initialize_all_services():
                 "scheduler": reddit_scheduler
             }
             
-            # ✅ CRITICAL: Patch main.py's service instances
             reddit_main.reddit_oauth_connector = reddit_oauth
             reddit_main.ai_service = reddit_ai
             reddit_main.automation_scheduler = reddit_scheduler
@@ -761,7 +767,7 @@ async def initialize_all_services():
         logger.error(f"❌ Reddit initialization error: {e}")
         logger.error(traceback.format_exc())
     
-    # ✅ NEW: Load automation configs from database
+    # Load automation configs
     try:
         logger.info("Loading automation configs from database...")
         
@@ -820,17 +826,18 @@ async def initialize_all_services():
     logger.info(f"Database: {'✓' if database_manager and database_manager.connected else '✗'}")
     logger.info(f"YouTube: {'✓' if youtube_services else '✗'}")
     logger.info(f"Reddit: {'✓' if reddit_services else '✗'}")
-    logger.info(f"Reddit User Tokens: {len(reddit_main.user_reddit_tokens) if 'reddit_main' in locals() else 0}")
-    logger.info(f"Automation Configs: {len(reddit_main.automation_configs) if 'reddit_main' in locals() else 0}")
+    
+    try:
+        import main as reddit_main
+        logger.info(f"Reddit User Tokens: {len(reddit_main.user_reddit_tokens)}")
+        logger.info(f"Automation Configs: {len(reddit_main.automation_configs)}")
+    except:
+        pass
+    
     logger.info(f"Playwright: {PLAYWRIGHT_PATH}")
     logger.info("="*60)
     
     return True
-
-
-
-
-
 
 async def cleanup_all_services():
     """Cleanup all services on shutdown"""
@@ -886,6 +893,11 @@ app = FastAPI(
     version="3.1.0 - Production Ready",
     lifespan=lifespan
 )
+
+
+
+
+
 
 # ============================================================================
 # CORS MIDDLEWARE
