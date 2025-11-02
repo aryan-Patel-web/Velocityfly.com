@@ -1,10 +1,9 @@
 """
-Supermain.py - COMPLETE PRODUCTION VERSION
-✅ All database fixes included
-✅ Consistent Playwright path: /opt/render/project/.playwright
-✅ YouTube (mainY.py) + Reddit (main.py) integration
-✅ All routes, functions, and features working
-✅ Error-free for Render deployment
+Supermain.py - COMPLETE PRODUCTION VERSION - MULTI-USER READY
+✅ Dynamic Reddit usernames for multiple users
+✅ Enhanced error handling
+✅ Token refresh with user-specific User-Agent
+✅ Optimized for Render deployment
 """
 
 from fastapi import FastAPI, HTTPException, Request, Depends
@@ -26,13 +25,14 @@ import bcrypt
 import jwt
 from pydantic import BaseModel, EmailStr
 import base64
+import httpx
 
 import json
 import re
 import random
 
 # ============================================================================
-# ✅ CRITICAL: SET PLAYWRIGHT PATH BEFORE ANY IMPORTS (matches mainY.py)
+# ✅ CRITICAL: SET PLAYWRIGHT PATH BEFORE ANY IMPORTS
 # ============================================================================
 PLAYWRIGHT_PATH = '/opt/render/project/.playwright'
 os.environ['PLAYWRIGHT_BROWSERS_PATH'] = PLAYWRIGHT_PATH
@@ -56,12 +56,11 @@ load_dotenv()
 logger.info(f"🎭 Playwright path set to: {PLAYWRIGHT_PATH}")
 
 # ============================================================================
-# UNIFIED DATABASE MANAGER - COMPLETE WITH ALL FIXES
+# UNIFIED DATABASE MANAGER - MULTI-USER OPTIMIZED
 # ============================================================================
 class UnifiedDatabaseManager:
     """
-    Single database manager for YouTube + Reddit + All platforms
-    ✅ All fixes included: get_user_by_token, expiration handling, token refresh
+    ✅ MULTI-USER READY: Dynamic Reddit usernames, token refresh, error handling
     """
     
     def __init__(self, mongodb_uri: str):
@@ -231,9 +230,9 @@ class UnifiedDatabaseManager:
             logger.error(f"Get YouTube credentials failed: {e}")
             return None
     
-    # ========== REDDIT TOKENS ==========
+    # ========== REDDIT TOKENS - MULTI-USER ==========
     async def store_reddit_tokens(self, user_id: str, token_data: dict) -> dict:
-        """Store Reddit OAuth tokens"""
+        """Store Reddit OAuth tokens - MULTI-USER"""
         try:
             if not self.connected:
                 return {"success": False, "error": "Database not connected"}
@@ -258,14 +257,14 @@ class UnifiedDatabaseManager:
                 {"$addToSet": {"platforms_connected": "reddit"}}
             )
             
-            logger.info(f"Reddit tokens stored for user {user_id}")
+            logger.info(f"✅ Reddit tokens stored for user {user_id} (u/{token_data['reddit_username']})")
             return {"success": True, "message": "Reddit tokens stored"}
         except Exception as e:
             logger.error(f"Store Reddit tokens failed: {e}")
             return {"success": False, "error": str(e)}
     
     async def get_reddit_tokens(self, user_id: str) -> Optional[dict]:
-        """Get Reddit tokens"""
+        """Get Reddit tokens - MULTI-USER"""
         try:
             if not self.connected:
                 logger.error("Database not connected")
@@ -303,6 +302,7 @@ class UnifiedDatabaseManager:
                 "access_token": result["access_token"],
                 "refresh_token": result.get("refresh_token", ""),
                 "reddit_username": result["reddit_username"],
+                "reddit_user_id": result.get("reddit_user_id", ""),
                 "is_valid": True,
                 "is_expired": is_expired
             }
@@ -313,7 +313,7 @@ class UnifiedDatabaseManager:
             return None
     
     async def refresh_reddit_token(self, user_id: str) -> Optional[dict]:
-        """Refresh expired Reddit token using refresh_token"""
+        """✅ MULTI-USER: Refresh expired Reddit token with dynamic username"""
         try:
             if not self.connected:
                 logger.error("Database not connected")
@@ -329,6 +329,7 @@ class UnifiedDatabaseManager:
                 return None
             
             refresh_token = result["refresh_token"]
+            reddit_username = result.get("reddit_username", "VelocityPostUser")  # ✅ Dynamic username
             
             reddit_client_id = os.getenv("REDDIT_CLIENT_ID")
             reddit_client_secret = os.getenv("REDDIT_CLIENT_SECRET")
@@ -341,13 +342,15 @@ class UnifiedDatabaseManager:
             auth_bytes = auth_string.encode('ascii')
             auth_b64 = base64.b64encode(auth_bytes).decode('ascii')
             
-            import httpx
+            # ✅ DYNAMIC USER-AGENT with actual Reddit username
+            user_agent = f"VelocityPost/1.0 by /u/{reddit_username}"
+            
             async with httpx.AsyncClient(timeout=30.0) as client:
                 response = await client.post(
                     "https://www.reddit.com/api/v1/access_token",
                     headers={
                         "Authorization": f"Basic {auth_b64}",
-                        "User-Agent": "VelocityPost/1.0 by /u/New-Health-4575"
+                        "User-Agent": user_agent  # ✅ Dynamic per user
                     },
                     data={
                         "grant_type": "refresh_token",
@@ -368,17 +371,19 @@ class UnifiedDatabaseManager:
                             }}
                         )
                         
-                        logger.info(f"✅ Refreshed Reddit token for user {user_id}")
+                        logger.info(f"✅ Refreshed Reddit token for user {user_id} (u/{reddit_username})")
                         
                         return {
                             "access_token": new_access_token,
                             "refresh_token": refresh_token,
-                            "reddit_username": result["reddit_username"],
+                            "reddit_username": reddit_username,
                             "is_valid": True,
                             "is_expired": False
                         }
                     else:
                         logger.error("No access_token in refresh response")
+                elif response.status_code == 429:
+                    logger.error("⚠️ Reddit rate limit during token refresh")
                 else:
                     logger.error(f"Token refresh failed: {response.status_code} - {response.text}")
             
@@ -390,7 +395,7 @@ class UnifiedDatabaseManager:
             return None
     
     async def check_reddit_connection(self, user_id: str) -> dict:
-        """Check Reddit connection status"""
+        """Check Reddit connection status - MULTI-USER"""
         try:
             if not self.connected:
                 return {"connected": False, "reddit_username": None}
@@ -404,6 +409,7 @@ class UnifiedDatabaseManager:
                 return {
                     "connected": True,
                     "reddit_username": result["reddit_username"],
+                    "reddit_user_id": result.get("reddit_user_id", ""),
                     "expires_at": result.get("expires_at")
                 }
             return {"connected": False, "reddit_username": None}
@@ -611,10 +617,6 @@ class LoginRequest(BaseModel):
     email: EmailStr
     password: str
 
-
-
-
-
 # ============================================================================
 # AUTHENTICATION DEPENDENCY
 # ============================================================================
@@ -645,10 +647,10 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
         raise HTTPException(status_code=401, detail=f"Authentication error: {str(e)}")
 
 # ============================================================================
-# SERVICE INITIALIZATION - COMPLETE
+# SERVICE INITIALIZATION
 # ============================================================================
 async def initialize_all_services():
-    """Initialize YouTube and Reddit services - COMPLETE"""
+    """Initialize YouTube and Reddit services"""
     global database_manager, youtube_services, reddit_services
     
     logger.info("="*60)
@@ -689,7 +691,7 @@ async def initialize_all_services():
                 })
                 
                 token_count += 1
-                logger.info(f"Found Reddit token for user {user_id}: {reddit_username}")
+                logger.info(f"Found Reddit token for user {user_id}: u/{reddit_username}")
             
             logger.info(f"✅ Found {token_count} existing Reddit tokens in database")
             
@@ -770,7 +772,7 @@ async def initialize_all_services():
                 }
                 
                 token_count += 1
-                logger.info(f"Loaded token into main.py for user {user_id}: {reddit_username}")
+                logger.info(f"Loaded token into main.py for user {user_id}: u/{reddit_username}")
             
             logger.info(f"✅ Loaded {token_count} tokens into main.py")
             
@@ -965,14 +967,9 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="VelocityPost - Unified Social Media Automation",
     description="YouTube + Reddit + Multi-Platform Automation System",
-    version="3.1.0 - Production Ready",
+    version="3.2.0 - Multi-User Production Ready",
     lifespan=lifespan
 )
-
-
-
-
-
 
 # ============================================================================
 # CORS MIDDLEWARE
@@ -998,6 +995,11 @@ app.add_middleware(
     TrustedHostMiddleware,
     allowed_hosts=["*"]
 )
+
+
+
+
+
 
 # ============================================================================
 # OPTIONS HANDLER
@@ -1169,7 +1171,7 @@ async def root():
     return {
         "status": "running",
         "message": "VelocityPost - Unified Multi-Platform Automation",
-        "version": "3.1.0",
+        "version": "3.2.0 - Multi-User Ready",
         "database_connected": database_manager.connected if database_manager else False,
         "platforms": {
             "youtube": bool(youtube_services),
@@ -1337,18 +1339,12 @@ except Exception as e:
     logger.error(f"❌ Reddit routes registration failed: {e}")
     logger.error(traceback.format_exc())
 
-
-
-
-
-
-
 # ============================================================================
-# PLATFORM STATUS ENDPOINT
+# PLATFORM STATUS ENDPOINT - MULTI-USER
 # ============================================================================
 @app.get("/api/platforms/status")
 async def get_platform_status(current_user: dict = Depends(get_current_user)):
-    """Get connection status for all platforms"""
+    """Get connection status for all platforms - MULTI-USER"""
     try:
         user_id = current_user["id"]
         
@@ -1361,7 +1357,7 @@ async def get_platform_status(current_user: dict = Depends(get_current_user)):
                 youtube_connected = True
                 youtube_channel = youtube_creds.get("channel_info", {}).get("title")
         
-        # Check Reddit
+        # ✅ Check Reddit - MULTI-USER
         reddit_connected = False
         reddit_username = None
         if reddit_services and database_manager and database_manager.connected:
@@ -1379,11 +1375,12 @@ async def get_platform_status(current_user: dict = Depends(get_current_user)):
                 },
                 "reddit": {
                     "connected": reddit_connected,
-                    "username": reddit_username,
+                    "username": reddit_username,  # ✅ Dynamic per user
                     "available": bool(reddit_services)
                 }
             },
-            "user_id": user_id
+            "user_id": user_id,
+            "user_name": current_user.get("name", "User")
         }
         
     except Exception as e:
@@ -1394,15 +1391,11 @@ async def get_platform_status(current_user: dict = Depends(get_current_user)):
         }
 
 # ============================================================================
-# DEBUG ENDPOINT
+# AI POST GENERATION - ENHANCED + MULTI-USER
 # ============================================================================
-
-
-
-
 @app.post("/api/reddit/generate-ai-post")
 async def generate_reddit_ai_post(request: Request, current_user: dict = Depends(get_current_user)):
-    """Generate subreddit + title + content with human-like imperfections"""
+    """Generate subreddit + title + content - ENHANCED + MULTI-USER"""
     try:
         data = await request.json()
         
@@ -1414,59 +1407,14 @@ async def generate_reddit_ai_post(request: Request, current_user: dict = Depends
         business_type = data.get("business_type", "business")
         business_description = data.get("business_description", "")
         
-        # Domain to subreddit mapping
-        # domain_subreddits = {
-        #     # "education": ["learnprogramming", "studying", "college", "test"],
-        #     "education": ["test", "CasualConversation", "self"],
-        #     # "restaurant": ["food", "Cooking", "recipes", "test"],
-        #     "restaurant": ["test", "CasualConversation", "self"],
-        #     # "tech": ["technology", "programming", "learnprogramming", "test"],
-        #     "tech": ["test", "CasualConversation", "self"],
-        #     # "health": ["fitness", "HealthyFood", "loseit", "test"],
-        #     "health": ["test", "CasualConversation", "self"],
-        #     # "business": ["Entrepreneur", "smallbusiness", "startups", "test"]
-        #     "business": ["test", "CasualConversation", "self"]
-        # }
-
-
+        # ✅ BEGINNER-FRIENDLY SUBREDDITS
         domain_subreddits = {
-    "education": [
-        "LearnProgramming",        # large, friendly to tutorials & automation tools
-        "edtech",                  # AI + education discussions allowed
-        "StudyTips",               # accepts learning hacks (AI tools fit well)
-        "CasualConversation",      # natural discussion blending in
-        "AskAcademia"              # good for thoughtful posts
-    ],
-    "restaurant": [
-        "FoodPorn",                # great for AI-generated food visuals
-        "Cooking",                 # accepts recipe automation posts
-        "Foodie",                  # good for lifestyle & tool recommendations
-        "CasualConversation",      # soft-entry subreddit for any domain
-        "SideProject"              # allows app/tool showcases (AI menus etc.)
-    ],
-    "tech": [
-        "AITools",                 # best for AI tool showcases
-        "ChatGPTPro",              # creative AI automation content accepted
-        "SideProject",             # tech demos & app promotions allowed
-        "Futurology",              # future of automation & AI discussion
-        "CasualConversation"       # safe fallback for natural tone posts
-    ],
-    "health": [
-        "Biohackers",              # AI health optimizations & data tracking
-        "Fitness",                 # AI-based fitness routines are accepted
-        "HealthyFood",             # meal automation & health AI ideas
-        "DecidingToBeBetter",      # human-improvement context fits AI posts
-        "CasualConversation"       # natural fallback
-    ],
-    "business": [
-        "EntrepreneurRideAlong",   # startup builders, allows AI automation
-        "SmallBusiness",           # automation tools for business growth
-        "Startup",                 # new projects & launches
-        "Productivity",            # AI-driven workflows are popular here
-        "CasualConversation"       # again, human-like engagement subreddit
-    ]
-}
-
+            "education": ["test", "CasualConversation", "self", "LearnProgramming"],
+            "restaurant": ["test", "CasualConversation", "self", "FoodPorn"],
+            "tech": ["test", "CasualConversation", "self", "SideProject"],
+            "health": ["test", "CasualConversation", "self", "DecidingToBeBetter"],
+            "business": ["test", "CasualConversation", "self", "Entrepreneur"]
+        }
         
         # Get topic based on domain
         domain_topics = {
@@ -1486,37 +1434,44 @@ async def generate_reddit_ai_post(request: Request, current_user: dict = Depends
             "long": "3-4 paragraphs"
         }
         
-        # Simplified prompt
+        # ✅ IMPROVED PROMPT - No formatting symbols
         prompt = f"""Create a casual Reddit post about: {topic}
 
 Type: {post_type}
 Tone: {tone}
 Length: {length_map.get(length, 'medium')}
-Subreddit: Pick from {', '.join(subreddit_options)}
+Subreddit: ALWAYS use "test" for new accounts (safest option)
 
-Write in this exact format:
-SUBREDDIT: subreddit_name
-TITLE: post_title
-CONTENT: post_content_here
+CRITICAL RULES:
+- NO asterisks (*) or markdown formatting
+- NO bullet points or lists
+- NO hashtags
+- Write like texting a friend
+- Use lowercase for casual tone
+- Add natural typos: "teh" instead of "the"
+- Use casual words: kinda, gonna, tbh, imo
+- Start with: "so i recently...", "has anyone..."
+- End with a question
+- Keep it conversational
 
-Make it sound human:
-- Add 1 typo (teh, recieve)
-- Use casual words: kinda, gonna, tbh
-- Personal: "i recently", "has anyone"
-- Add a question
-- Keep it lowercase and casual
-- NO hashtags"""
+Format exactly like this:
+SUBREDDIT: test
+TITLE: [casual title]
+CONTENT: [natural paragraph text]
+
+Example:
+"so i tried this new thing and honestly its pretty good. like the interface is kinda intuitive and saved me time. has anyone else used it? would love to hear thoughts tbh"
+"""
 
         mistral_api_key = os.getenv("MISTRAL_API_KEY")
         groq_api_key = os.getenv("GROQ_API_KEY")
         
         ai_response = None
+        ai_service_used = None
         
-        # Try Mistral
+        # ✅ TRY MISTRAL
         if mistral_api_key:
             try:
-                import httpx
-                
                 async with httpx.AsyncClient(timeout=30.0) as client:
                     response = await client.post(
                         "https://api.mistral.ai/v1/chat/completions",
@@ -1527,10 +1482,13 @@ Make it sound human:
                         json={
                             "model": "mistral-large-latest",
                             "messages": [
-                                {"role": "system", "content": "You are a casual Reddit user. Use SUBREDDIT/TITLE/CONTENT format."},
+                                {
+                                    "role": "system", 
+                                    "content": "You are a casual Reddit user. Write naturally without formatting symbols. No asterisks, no markdown, no bullets. Just plain text."
+                                },
                                 {"role": "user", "content": prompt}
                             ],
-                            "temperature": 0.1,
+                            "temperature": 0.8,
                             "max_tokens": 1000
                         }
                     )
@@ -1538,19 +1496,21 @@ Make it sound human:
                     if response.status_code == 200:
                         result = response.json()
                         ai_response = result["choices"][0]["message"]["content"]
+                        ai_service_used = "mistral"
                         logger.info("✅ Mistral success")
                     elif response.status_code == 429:
-                        logger.warning("⚠️ Mistral rate limit, trying Groq...")
+                        logger.warning("⚠️ Mistral rate limit (429), waiting 2s...")
+                        await asyncio.sleep(2)
                     else:
                         logger.error(f"Mistral error: {response.status_code}")
                         
             except Exception as e:
                 logger.error(f"Mistral error: {e}")
         
-        # Fallback to Groq
+        # ✅ FALLBACK TO GROQ
         if not ai_response and groq_api_key:
             try:
-                import httpx
+                await asyncio.sleep(1)  # Delay to avoid parallel limits
                 
                 async with httpx.AsyncClient(timeout=30.0) as client:
                     response = await client.post(
@@ -1562,10 +1522,13 @@ Make it sound human:
                         json={
                             "model": "llama-3.1-70b-versatile",
                             "messages": [
-                                {"role": "system", "content": "You are a casual Reddit user. Use SUBREDDIT/TITLE/CONTENT format."},
+                                {
+                                    "role": "system", 
+                                    "content": "You are a casual Reddit user. Write naturally without formatting symbols. No asterisks, no markdown, no bullets."
+                                },
                                 {"role": "user", "content": prompt}
                             ],
-                            "temperature": 0.8,
+                            "temperature": 0.9,
                             "max_tokens": 1000
                         }
                     )
@@ -1573,77 +1536,124 @@ Make it sound human:
                     if response.status_code == 200:
                         result = response.json()
                         ai_response = result["choices"][0]["message"]["content"]
+                        ai_service_used = "groq"
                         logger.info("✅ Groq success")
+                    elif response.status_code == 429:
+                        logger.warning("⚠️ Groq rate limit (429)")
                     else:
                         logger.error(f"Groq error: {response.status_code}")
                         
             except Exception as e:
                 logger.error(f"Groq error: {e}")
         
-        # If both fail, use fallback content
+        # ✅ FALLBACK CONTENT
         if not ai_response:
-            logger.warning("⚠️ Using fallback content")
-            ai_response = f"""SUBREDDIT: {subreddit_options[0]}
+            logger.warning("⚠️ Using fallback content (both AI services failed)")
+            ai_service_used = "fallback"
+            ai_response = f"""SUBREDDIT: test
 TITLE: my experience with {business_type}
 CONTENT: so i recently tried {business_type} and honestly its pretty good. the experience was great and i kinda liked it. has anyone else tried this? would love to hear your thoughts tbh"""
+        
+        # ✅ CLEAN AI RESPONSE
+        ai_response = clean_ai_formatting(ai_response)
         
         # Parse response
         subreddit_match = re.search(r'SUBREDDIT:\s*([^\n]+)', ai_response, re.IGNORECASE)
         title_match = re.search(r'TITLE:\s*([^\n]+)', ai_response, re.IGNORECASE)
         content_match = re.search(r'CONTENT:\s*(.+?)(?:$|\n\n|SUBREDDIT:|TITLE:)', ai_response, re.IGNORECASE | re.DOTALL)
         
-        subreddit = subreddit_match.group(1).strip() if subreddit_match else subreddit_options[0]
-        title = title_match.group(1).strip() if title_match else f"Thoughts on {business_type}"
-        content = content_match.group(1).strip() if content_match else f"Recently tried {business_type} and it was great!"
+        subreddit = subreddit_match.group(1).strip() if subreddit_match else "test"
+        title = title_match.group(1).strip() if title_match else f"thoughts on {business_type}"
+        content = content_match.group(1).strip() if content_match else f"recently tried {business_type} and it was great"
         
-        # Clean subreddit name
+        # ✅ Clean subreddit name
         subreddit = subreddit.replace('r/', '').strip()
         
-        # Add human touches
-        content = add_human_touches(content)
+        # ✅ Force safe subreddit
+        if subreddit not in ["test", "CasualConversation", "self"]:
+            logger.info(f"Changing subreddit from {subreddit} to test (safer)")
+            subreddit = "test"
         
-        # Calculate score
+        # ✅ Add human touches
+        content = add_enhanced_human_touches(content)
+        
+        # ✅ Calculate score
         human_score = calculate_enhanced_human_score(content)
         
-        logger.info(f"✅ Generated - Sub: {subreddit}, Score: {human_score}")
+        logger.info(f"✅ Generated for {current_user.get('email')} - Sub: {subreddit}, Score: {human_score}, AI: {ai_service_used}")
         
         return {
             "success": True,
             "subreddit": subreddit,
             "title": title,
             "content": content,
-            "human_score": human_score
+            "human_score": human_score,
+            "ai_service": ai_service_used
         }
         
     except Exception as e:
         logger.error(f"Generation error: {e}")
         logger.error(traceback.format_exc())
         
-        # Return fallback instead of error
         return {
             "success": True,
             "subreddit": "test",
             "title": "sharing my thoughts",
             "content": "hey everyone, wanted to share my experience with this. its been pretty good so far and i think others might find it useful too. what do you all think?",
-            "human_score": 75
+            "human_score": 75,
+            "ai_service": "fallback"
         }
 
 
-def add_human_touches(content: str) -> str:
+def clean_ai_formatting(text: str) -> str:
+    """Remove all AI formatting symbols"""
+    text = re.sub(r'\*+', '', text)  # Remove asterisks
+    text = re.sub(r'^#+\s+', '', text, flags=re.MULTILINE)  # Remove headers
+    text = re.sub(r'^\s*[-•]\s+', '', text, flags=re.MULTILINE)  # Remove bullets
+    text = re.sub(r'^\s*\d+\.\s+', '', text, flags=re.MULTILINE)  # Remove numbered lists
+    text = re.sub(r'\s+', ' ', text)  # Remove multiple spaces
+    text = re.sub(r'\n{3,}', '\n\n', text)  # Keep max 2 newlines
+    return text.strip()
+
+
+def add_enhanced_human_touches(content: str) -> str:
     """Add human-like imperfections"""
-    # Add typos (10% chance)
-    if " the " in content and random.random() < 0.1:
-        content = content.replace(" the ", " teh ", 1)
-    if "receive" in content and random.random() < 0.1:
-        content = content.replace("receive", "recieve", 1)
     
-    # Add casual language (15% chance)
-    if " really " in content and random.random() < 0.15:
-        content = content.replace(" really ", " rly ", 1)
-    if " though " in content and random.random() < 0.15:
-        content = content.replace(" though ", " tho ", 1)
-    if "kind of" in content and random.random() < 0.15:
-        content = content.replace("kind of", "kinda", 1)
+    # ✅ Typos (20% chance)
+    typos = [
+        (" the ", " teh ", 0.15),
+        ("receive", "recieve", 0.2),
+        ("definitely", "definately", 0.15),
+        (" and ", " nad ", 0.1),
+        ("because", "becuase", 0.1)
+    ]
+    
+    for original, typo, chance in typos:
+        if original in content.lower() and random.random() < chance:
+            content = content.replace(original, typo, 1)
+    
+    # ✅ Casual language (30% chance)
+    casual_replacements = [
+        (" really ", " rly ", 0.2),
+        (" though ", " tho ", 0.25),
+        ("kind of", "kinda", 0.3),
+        ("going to", "gonna", 0.3),
+        ("want to", "wanna", 0.25),
+        (" a lot ", " alot ", 0.15),
+        ("probably", "prolly", 0.2)
+    ]
+    
+    for original, casual, chance in casual_replacements:
+        if original in content.lower() and random.random() < chance:
+            content = content.replace(original, casual, 1)
+    
+    # ✅ Lowercase first letter (50% chance)
+    if content and random.random() < 0.5:
+        content = content[0].lower() + content[1:]
+    
+    # ✅ Remove period at end (30% chance)
+    if content.endswith('.') and random.random() < 0.3:
+        content = content[:-1]
     
     return content
 
@@ -1651,33 +1661,46 @@ def add_human_touches(content: str) -> str:
 def calculate_enhanced_human_score(content: str) -> int:
     """Calculate human-like score"""
     score = 50
+    content_lower = content.lower()
     
-    # Rewards
-    human_words = ["teh", "recieve", "kinda", "gonna", "tbh", "imo", "idk", " i ", " my "]
-    for word in human_words:
-        if word in content.lower():
-            score += 8
+    # ✅ Rewards
+    human_indicators = [
+        ("teh", 12), ("recieve", 12), ("kinda", 10), ("gonna", 10),
+        ("wanna", 10), ("tbh", 15), ("imo", 12), ("idk", 12),
+        (" i ", 8), (" my ", 8), ("rly", 10), ("tho", 10), ("alot", 8)
+    ]
+    
+    for word, points in human_indicators:
+        if word in content_lower:
+            score += points
     
     if "?" in content:
+        score += 15
+    
+    if content and content[0].islower():
         score += 10
     
-    # Penalties
-    ai_words = ["delve", "utilize", "leverage", "comprehensive", "robust"]
+    # ✅ Penalties
+    ai_words = ["delve", "utilize", "leverage", "comprehensive", "robust", "paradigm", "synergy"]
     for word in ai_words:
-        if word in content.lower():
-            score -= 15
+        if word in content_lower:
+            score -= 20
     
-    if content.count("!") > 3:
-        score -= 10
+    if content.count("!") > 2:
+        score -= 15
+    
+    if "*" in content:
+        score -= 25
     
     return max(20, min(score, 100))
-# ////////////////////////////////////////////////////////////////////
 
 
-
+# ============================================================================
+# POST NOW - MULTI-USER WITH DYNAMIC USERNAME
+# ============================================================================
 @app.post("/api/automation/post-now")
 async def post_now_to_reddit(request: Request, current_user: dict = Depends(get_current_user)):
-    """Publish a post to Reddit immediately - WITH TOKEN REFRESH"""
+    """✅ MULTI-USER: Publish post with dynamic Reddit username"""
     try:
         data = await request.json()
         
@@ -1698,8 +1721,7 @@ async def post_now_to_reddit(request: Request, current_user: dict = Depends(get_
         if not database_manager or not database_manager.connected:
             return {"success": False, "error": "Database not connected"}
         
-        # Get Reddit tokens
-        logger.info(f"🔍 Fetching Reddit tokens for user_id: {user_id}")
+        # ✅ Get Reddit tokens
         reddit_token_data = await database_manager.get_reddit_tokens(user_id)
         
         if not reddit_token_data:
@@ -1708,7 +1730,7 @@ async def post_now_to_reddit(request: Request, current_user: dict = Depends(get_
                 "error": "Reddit not connected. Please reconnect your Reddit account."
             }
         
-        # ✅ CHECK IF TOKEN IS EXPIRED AND REFRESH IF NEEDED
+        # ✅ CHECK IF TOKEN EXPIRED AND REFRESH
         if reddit_token_data.get("is_expired"):
             logger.warning(f"⚠️ Reddit token expired for user {user_id}, refreshing...")
             
@@ -1716,7 +1738,7 @@ async def post_now_to_reddit(request: Request, current_user: dict = Depends(get_
             
             if refreshed_token:
                 reddit_token_data = refreshed_token
-                logger.info(f"✅ Token refreshed successfully for user {user_id}")
+                logger.info(f"✅ Token refreshed for user {user_id}")
             else:
                 return {
                     "success": False,
@@ -1725,28 +1747,27 @@ async def post_now_to_reddit(request: Request, current_user: dict = Depends(get_
                 }
         
         access_token = reddit_token_data.get("access_token")
+        reddit_username = reddit_token_data.get("reddit_username", "VelocityPostUser")  # ✅ Dynamic
         
         if not access_token:
             return {"success": False, "error": "No Reddit access token found"}
         
-        # Safe subreddit check
-        safe_subreddits = ["test", "CasualConversation", "self", "testingground4bots"]
-        
-        if subreddit.lower() in ["technology", "programming", "learnprogramming"]:
-            logger.warning(f"Redirecting from {subreddit} to 'test'")
+        # ✅ Force safe subreddit
+        if subreddit.lower() not in ["test", "casualconversation", "self"]:
+            logger.warning(f"Redirecting from r/{subreddit} to r/test (safer)")
             subreddit = "test"
         
-        # ✅ IMPROVED: Check response status before parsing JSON
-        import httpx
-        
         logger.info(f"📤 Posting to r/{subreddit}: {title[:50]}...")
+        
+        # ✅ DYNAMIC USER-AGENT
+        user_agent = f"VelocityPost/1.0 by /u/{reddit_username}"
         
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(
                 "https://oauth.reddit.com/api/submit",
                 headers={
                     "Authorization": f"Bearer {access_token}",
-                    "User-Agent": "VelocityPost/1.0 by /u/New-Health-4575"
+                    "User-Agent": user_agent  # ✅ Dynamic per user
                 },
                 data={
                     "sr": subreddit,
@@ -1757,37 +1778,47 @@ async def post_now_to_reddit(request: Request, current_user: dict = Depends(get_
                 }
             )
             
-            # ✅ CHECK STATUS CODE BEFORE PARSING JSON
+            # ✅ COMPREHENSIVE ERROR HANDLING
             if response.status_code == 401:
-                logger.error("❌ 401 Unauthorized - Token invalid even after refresh")
+                logger.error("❌ 401 Unauthorized")
                 return {
                     "success": False,
                     "error": "Reddit authentication failed. Please reconnect your account.",
                     "action_required": "reconnect"
                 }
             
+            if response.status_code == 429:
+                logger.error("❌ 429 Too Many Requests")
+                return {
+                    "success": False,
+                    "error": "Reddit rate limit reached. Please wait 10 minutes before posting again.",
+                    "retry_after": "600"
+                }
+            
+            if response.status_code == 403:
+                logger.error("❌ 403 Forbidden")
+                return {
+                    "success": False,
+                    "error": "Your Reddit account may be restricted. Try posting to r/test first to build karma."
+                }
+            
             if response.status_code != 200:
                 logger.error(f"❌ Reddit API error: {response.status_code}")
-                logger.error(f"Response text: {response.text[:200]}")
                 return {
                     "success": False,
                     "error": f"Reddit API error: {response.status_code}"
                 }
             
-            # Now it's safe to parse JSON
+            # ✅ PARSE JSON
             try:
                 result = response.json()
             except Exception as json_error:
                 logger.error(f"Failed to parse Reddit response: {json_error}")
-                logger.error(f"Response text: {response.text[:200]}")
-                return {
-                    "success": False,
-                    "error": "Failed to parse Reddit response"
-                }
+                return {"success": False, "error": "Failed to parse Reddit response"}
             
             logger.info(f"📥 Reddit API response: {result}")
             
-            # Check for errors
+            # ✅ CHECK FOR ERRORS
             errors = result.get("json", {}).get("errors", [])
             
             if errors:
@@ -1799,19 +1830,35 @@ async def post_now_to_reddit(request: Request, current_user: dict = Depends(get_
                 if error_type == "SUBMIT_VALIDATION_FLAIR_REQUIRED":
                     return {
                         "success": False,
-                        "error": f"r/{subreddit} requires post flair",
-                        "suggestion": "Try posting to r/test instead"
+                        "error": f"r/{subreddit} requires post flair. Try r/test instead.",
+                        "suggestion": "Post to r/test (no flair required)"
                     }
                 elif error_type == "NO_SELFS":
                     return {
                         "success": False,
-                        "error": f"r/{subreddit} doesn't allow text posts",
-                        "suggestion": "Try r/test instead"
+                        "error": f"r/{subreddit} doesn't allow text posts. Try r/test instead.",
+                        "suggestion": "Post to r/test (allows text posts)"
+                    }
+                elif error_type == "SUBREDDIT_NOTALLOWED":
+                    return {
+                        "success": False,
+                        "error": f"r/{subreddit} only allows trusted members. You need more karma!",
+                        "suggestion": "Build karma by posting to r/test and r/CasualConversation first (10+ karma needed)"
+                    }
+                elif error_type == "RATELIMIT":
+                    return {
+                        "success": False,
+                        "error": "Reddit rate limit. You're posting too frequently.",
+                        "suggestion": "Wait 10 minutes before posting again"
                     }
                 else:
-                    return {"success": False, "error": error_msg}
+                    return {
+                        "success": False,
+                        "error": error_msg,
+                        "suggestion": "Try posting to r/test instead"
+                    }
             
-            # Success
+            # ✅ SUCCESS
             if result.get("success") or (result.get("json") and result["json"].get("data")):
                 post_url = None
                 
@@ -1821,9 +1868,9 @@ async def post_now_to_reddit(request: Request, current_user: dict = Depends(get_
                     post_id = result["json"]["data"]["id"]
                     post_url = f"https://reddit.com/r/{subreddit}/comments/{post_id}"
                 
-                logger.info(f"✅ Posted to r/{subreddit} - {post_url}")
+                logger.info(f"✅ Posted to r/{subreddit} by u/{reddit_username} - {post_url}")
                 
-                # Log activity
+                # ✅ Log activity
                 await database_manager.log_reddit_activity(
                     user_id,
                     "manual_post",
@@ -1831,31 +1878,38 @@ async def post_now_to_reddit(request: Request, current_user: dict = Depends(get_
                         "subreddit": subreddit,
                         "title": title,
                         "post_url": post_url,
+                        "reddit_username": reddit_username,
                         "timestamp": datetime.now().isoformat()
                     }
                 )
                 
                 return {
                     "success": True,
-                    "message": f"Posted to r/{subreddit} successfully!",
-                    "post_url": post_url
+                    "message": f"✅ Posted to r/{subreddit} successfully!",
+                    "post_url": post_url,
+                    "posted_as": f"u/{reddit_username}"
                 }
             
             return {"success": False, "error": "Failed to post (unknown error)"}
                 
     except httpx.TimeoutException:
         logger.error("❌ Reddit API timeout")
-        return {"success": False, "error": "Request timeout. Please try again."}
+        return {"success": False, "error": "Request timeout. Reddit may be slow, try again."}
+    except httpx.ConnectError:
+        logger.error("❌ Connection error")
+        return {"success": False, "error": "Cannot connect to Reddit. Check your internet."}
     except Exception as e:
         logger.error(f"❌ Post now error: {e}")
         logger.error(traceback.format_exc())
         return {"success": False, "error": f"Failed to post: {str(e)}"}
 
 
-
+# ============================================================================
+# AUTOMATION SETUP
+# ============================================================================
 @app.post("/api/automation/setup/posting")
 async def setup_reddit_automation(request: Request, current_user: dict = Depends(get_current_user)):
-    """Setup Reddit automation schedule"""
+    """Setup Reddit automation schedule - MULTI-USER"""
     try:
         data = await request.json()
         user_id = current_user.get("id")
@@ -1863,7 +1917,6 @@ async def setup_reddit_automation(request: Request, current_user: dict = Depends
         if not user_id:
             return {"success": False, "error": "User ID not found"}
         
-        # Store automation config
         config_data = {
             "domain": data.get("domain"),
             "business_type": data.get("business_type"),
@@ -1901,17 +1954,15 @@ async def setup_reddit_automation(request: Request, current_user: dict = Depends
 
 @app.get("/api/automation/stats")
 async def get_automation_stats(current_user: dict = Depends(get_current_user)):
-    """Get automation statistics"""
+    """Get automation statistics - MULTI-USER"""
     try:
         user_id = current_user.get("id")
         
         if not user_id:
             return {"success": False, "error": "User ID not found"}
         
-        # Get config
         config = await database_manager.get_automation_config(user_id, "reddit_posting")
         
-        # Get activity count
         collection = database_manager.db.reddit_activities
         posts_today = await collection.count_documents({
             "user_id": user_id,
@@ -1928,24 +1979,22 @@ async def get_automation_stats(current_user: dict = Depends(get_current_user)):
     except Exception as e:
         logger.error(f"Get stats error: {e}")
         return {"success": False, "error": str(e)}
-    
 
-# ////////////////////////////////////////////////////////
+
+# ============================================================================
+# DEBUG ENDPOINT - MULTI-USER
+# ============================================================================
 @app.get("/api/debug/my-reddit-connection")
 async def debug_my_reddit_connection(current_user: dict = Depends(get_current_user)):
-    """Debug current user's Reddit connection"""
+    """Debug current user's Reddit connection - MULTI-USER"""
     try:
         user_id = current_user.get("id") or current_user.get("user_id")
         
         logger.info(f"🔍 DEBUG - Current user: {current_user}")
-        logger.info(f"🔍 DEBUG - User ID: {user_id}")
         
-        # Check database
         if database_manager and database_manager.connected:
-            # Get Reddit tokens
             reddit_tokens = await database_manager.get_reddit_tokens(user_id)
             
-            # Get all tokens for comparison
             all_tokens = []
             cursor = database_manager.reddit_tokens.find({"is_active": True})
             async for token_doc in cursor:
@@ -1974,7 +2023,6 @@ async def debug_my_reddit_connection(current_user: dict = Depends(get_current_us
         logger.error(f"Debug endpoint error: {e}")
         logger.error(traceback.format_exc())
         return {"success": False, "error": str(e)}
-
 
 
 # ============================================================================
