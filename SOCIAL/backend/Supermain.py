@@ -1395,7 +1395,7 @@ async def get_platform_status(current_user: dict = Depends(get_current_user)):
 # ============================================================================
 @app.post("/api/reddit/generate-ai-post")
 async def generate_reddit_ai_post(request: Request, current_user: dict = Depends(get_current_user)):
-    """Generate subreddit + title + content - ENHANCED + MULTI-USER"""
+    """✅ FIXED: Generate subreddit + title + content with proper field separation"""
     try:
         data = await request.json()
         
@@ -1407,7 +1407,7 @@ async def generate_reddit_ai_post(request: Request, current_user: dict = Depends
         business_type = data.get("business_type", "business")
         business_description = data.get("business_description", "")
         
-        # ✅ BEGINNER-FRIENDLY SUBREDDITS
+        # Beginner-friendly subreddits
         domain_subreddits = {
             "education": ["test", "CasualConversation", "self", "LearnProgramming"],
             "restaurant": ["test", "CasualConversation", "self", "FoodPorn"],
@@ -1416,7 +1416,6 @@ async def generate_reddit_ai_post(request: Request, current_user: dict = Depends
             "business": ["test", "CasualConversation", "self", "Entrepreneur"]
         }
         
-        # Get topic based on domain
         domain_topics = {
             "education": f"my experience with {business_type}",
             "restaurant": f"found this great {business_type}",
@@ -1434,33 +1433,39 @@ async def generate_reddit_ai_post(request: Request, current_user: dict = Depends
             "long": "3-4 paragraphs"
         }
         
-        # ✅ IMPROVED PROMPT - No formatting symbols
+        # ✅ IMPROVED PROMPT - Clear separation between title and content
         prompt = f"""Create a casual Reddit post about: {topic}
 
 Type: {post_type}
 Tone: {tone}
 Length: {length_map.get(length, 'medium')}
-Subreddit: ALWAYS use "test" for new accounts (safest option)
+Subreddit: ALWAYS use "test"
 
-CRITICAL RULES:
-- NO asterisks (*) or markdown formatting
-- NO bullet points or lists
-- NO hashtags
-- Write like texting a friend
-- Use lowercase for casual tone
-- Add natural typos: "teh" instead of "the"
-- Use casual words: kinda, gonna, tbh, imo
-- Start with: "so i recently...", "has anyone..."
-- End with a question
-- Keep it conversational
+CRITICAL FORMATTING RULES:
+1. TITLE must be SHORT (5-15 words max) - like a headline
+2. CONTENT must be LONGER (multiple sentences) - the actual post body
+3. Title and content MUST be completely different
+4. NO asterisks (*) or markdown formatting anywhere
+5. NO bullet points or lists
+6. NO hashtags
 
-Format exactly like this:
+Write in this EXACT format:
 SUBREDDIT: test
-TITLE: [casual title]
-CONTENT: [natural paragraph text]
+TITLE: [short catchy question or statement, 5-15 words]
+CONTENT: [longer paragraph explaining your thoughts, multiple sentences]
 
-Example:
-"so i tried this new thing and honestly its pretty good. like the interface is kinda intuitive and saved me time. has anyone else used it? would love to hear thoughts tbh"
+Example of CORRECT format:
+SUBREDDIT: test
+TITLE: ai automation tools - worth it or overhyped?
+CONTENT: so i recently started using one of these ai automation platforms and honestly im torn. on one hand it saves tons of time with repetitive stuff. but then theres this feeling like maybe im relying on it too much. has anyone else tried these long term?
+
+IMPORTANT: 
+- Title should be a QUESTION or SHORT STATEMENT
+- Content should be a DETAILED EXPLANATION with personal experience
+- They must be DIFFERENT texts
+- Use casual words: kinda, gonna, tbh, imo
+- Add typos: teh, recieve
+- Keep it conversational
 """
 
         mistral_api_key = os.getenv("MISTRAL_API_KEY")
@@ -1469,7 +1474,7 @@ Example:
         ai_response = None
         ai_service_used = None
         
-        # ✅ TRY MISTRAL
+        # Try Mistral
         if mistral_api_key:
             try:
                 async with httpx.AsyncClient(timeout=30.0) as client:
@@ -1484,7 +1489,7 @@ Example:
                             "messages": [
                                 {
                                     "role": "system", 
-                                    "content": "You are a casual Reddit user. Write naturally without formatting symbols. No asterisks, no markdown, no bullets. Just plain text."
+                                    "content": "You are a casual Reddit user. CRITICAL: Title must be SHORT (5-15 words). Content must be LONG (multiple sentences). They must be DIFFERENT. No formatting symbols."
                                 },
                                 {"role": "user", "content": prompt}
                             ],
@@ -1499,7 +1504,7 @@ Example:
                         ai_service_used = "mistral"
                         logger.info("✅ Mistral success")
                     elif response.status_code == 429:
-                        logger.warning("⚠️ Mistral rate limit (429), waiting 2s...")
+                        logger.warning("⚠️ Mistral rate limit, waiting 2s...")
                         await asyncio.sleep(2)
                     else:
                         logger.error(f"Mistral error: {response.status_code}")
@@ -1507,10 +1512,10 @@ Example:
             except Exception as e:
                 logger.error(f"Mistral error: {e}")
         
-        # ✅ FALLBACK TO GROQ
+        # Fallback to Groq
         if not ai_response and groq_api_key:
             try:
-                await asyncio.sleep(1)  # Delay to avoid parallel limits
+                await asyncio.sleep(1)
                 
                 async with httpx.AsyncClient(timeout=30.0) as client:
                     response = await client.post(
@@ -1524,7 +1529,7 @@ Example:
                             "messages": [
                                 {
                                     "role": "system", 
-                                    "content": "You are a casual Reddit user. Write naturally without formatting symbols. No asterisks, no markdown, no bullets."
+                                    "content": "You are a casual Reddit user. CRITICAL: Title must be SHORT. Content must be LONG. They must be DIFFERENT. No formatting symbols."
                                 },
                                 {"role": "user", "content": prompt}
                             ],
@@ -1539,25 +1544,25 @@ Example:
                         ai_service_used = "groq"
                         logger.info("✅ Groq success")
                     elif response.status_code == 429:
-                        logger.warning("⚠️ Groq rate limit (429)")
+                        logger.warning("⚠️ Groq rate limit")
                     else:
                         logger.error(f"Groq error: {response.status_code}")
                         
             except Exception as e:
                 logger.error(f"Groq error: {e}")
         
-        # ✅ FALLBACK CONTENT
+        # Fallback content
         if not ai_response:
-            logger.warning("⚠️ Using fallback content (both AI services failed)")
+            logger.warning("⚠️ Using fallback content")
             ai_service_used = "fallback"
             ai_response = f"""SUBREDDIT: test
-TITLE: my experience with {business_type}
+TITLE: thoughts on {business_type}?
 CONTENT: so i recently tried {business_type} and honestly its pretty good. the experience was great and i kinda liked it. has anyone else tried this? would love to hear your thoughts tbh"""
         
         # ✅ CLEAN AI RESPONSE
         ai_response = clean_ai_formatting(ai_response)
         
-        # Parse response
+        # ✅ PARSE WITH BETTER LOGIC
         subreddit_match = re.search(r'SUBREDDIT:\s*([^\n]+)', ai_response, re.IGNORECASE)
         title_match = re.search(r'TITLE:\s*([^\n]+)', ai_response, re.IGNORECASE)
         content_match = re.search(r'CONTENT:\s*(.+?)(?:$|\n\n|SUBREDDIT:|TITLE:)', ai_response, re.IGNORECASE | re.DOTALL)
@@ -1566,40 +1571,59 @@ CONTENT: so i recently tried {business_type} and honestly its pretty good. the e
         title = title_match.group(1).strip() if title_match else f"thoughts on {business_type}"
         content = content_match.group(1).strip() if content_match else f"recently tried {business_type} and it was great"
         
-        # ✅ Clean subreddit name
+        # ✅ CLEAN SUBREDDIT
         subreddit = subreddit.replace('r/', '').strip()
         
-        # ✅ Force safe subreddit
+        # ✅ FORCE SAFE SUBREDDIT
         if subreddit not in ["test", "CasualConversation", "self"]:
-            logger.info(f"Changing subreddit from {subreddit} to test (safer)")
             subreddit = "test"
         
-        # ✅ Add human touches
+        # ✅ CRITICAL: VALIDATE TITLE LENGTH
+        title_words = title.split()
+        if len(title_words) > 20:  # If title is too long, it might be content
+            logger.warning(f"⚠️ Title too long ({len(title_words)} words), truncating...")
+            title = ' '.join(title_words[:15]) + "..."
+        
+        # ✅ CRITICAL: ENSURE CONTENT IS LONGER THAN TITLE
+        if len(content) < len(title) * 2:  # Content should be at least 2x title length
+            logger.warning("⚠️ Content too short, using fallback")
+            content = f"so i recently tried {business_type} and honestly its pretty interesting. the experience has been good so far and i kinda like how it works. has anyone else tried this? would love to hear your thoughts and experiences tbh"
+        
+        # ✅ ADD HUMAN TOUCHES
         content = add_enhanced_human_touches(content)
         
-        # ✅ Calculate score
+        # ✅ CALCULATE SCORE
         human_score = calculate_enhanced_human_score(content)
         
-        logger.info(f"✅ Generated for {current_user.get('email')} - Sub: {subreddit}, Score: {human_score}, AI: {ai_service_used}")
+        logger.info(f"✅ Generated - Sub: {subreddit}, Title: {len(title)} chars, Content: {len(content)} chars, Score: {human_score}")
         
+        # ✅ RETURN WITH CLEAR FIELD SEPARATION
         return {
             "success": True,
             "subreddit": subreddit,
-            "title": title,
-            "content": content,
+            "title": title,  # ✅ SHORT - for title field
+            "content": content,  # ✅ LONG - for content field
             "human_score": human_score,
-            "ai_service": ai_service_used
+            "ai_service": ai_service_used,
+            # ✅ ADD METADATA FOR FRONTEND VALIDATION
+            "metadata": {
+                "title_length": len(title),
+                "content_length": len(content),
+                "title_word_count": len(title.split()),
+                "content_word_count": len(content.split())
+            }
         }
         
     except Exception as e:
         logger.error(f"Generation error: {e}")
         logger.error(traceback.format_exc())
         
+        # ✅ SAFE FALLBACK WITH PROPER SEPARATION
         return {
             "success": True,
             "subreddit": "test",
-            "title": "sharing my thoughts",
-            "content": "hey everyone, wanted to share my experience with this. its been pretty good so far and i think others might find it useful too. what do you all think?",
+            "title": "sharing my thoughts",  # ✅ SHORT
+            "content": "hey everyone, wanted to share my experience with this. its been pretty good so far and i think others might find it useful too. what do you all think about these kinds of tools?",  # ✅ LONG
             "human_score": 75,
             "ai_service": "fallback"
         }
