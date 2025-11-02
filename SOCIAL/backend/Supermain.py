@@ -25,6 +25,7 @@ import uuid
 import bcrypt
 import jwt
 from pydantic import BaseModel, EmailStr
+import base64
 
 import json
 import re
@@ -60,7 +61,7 @@ logger.info(f"🎭 Playwright path set to: {PLAYWRIGHT_PATH}")
 class UnifiedDatabaseManager:
     """
     Single database manager for YouTube + Reddit + All platforms
-    ✅ All fixes included: get_user_by_token, expiration handling, etc.
+    ✅ All fixes included: get_user_by_token, expiration handling, token refresh
     """
     
     def __init__(self, mongodb_uri: str):
@@ -171,7 +172,6 @@ class UnifiedDatabaseManager:
             user = await self.get_user_by_id(user_id)
             
             if user:
-                # Return both "id" and "user_id" for compatibility
                 return {
                     "id": user["_id"],
                     "user_id": user["_id"],
@@ -231,14 +231,13 @@ class UnifiedDatabaseManager:
             logger.error(f"Get YouTube credentials failed: {e}")
             return None
     
-    # ========== REDDIT TOKENS - FIXED ==========
+    # ========== REDDIT TOKENS ==========
     async def store_reddit_tokens(self, user_id: str, token_data: dict) -> dict:
-        """Store Reddit OAuth tokens - FIXED"""
+        """Store Reddit OAuth tokens"""
         try:
             if not self.connected:
                 return {"success": False, "error": "Database not connected"}
             
-            # ✅ Don't set expires_at - Reddit handles refresh automatically
             await self.reddit_tokens.update_one(
                 {"user_id": user_id},
                 {"$set": {
@@ -266,7 +265,7 @@ class UnifiedDatabaseManager:
             return {"success": False, "error": str(e)}
     
     async def get_reddit_tokens(self, user_id: str) -> Optional[dict]:
-        """Get Reddit tokens - FIXED EXPIRATION HANDLING"""
+        """Get Reddit tokens"""
         try:
             if not self.connected:
                 logger.error("Database not connected")
@@ -281,14 +280,11 @@ class UnifiedDatabaseManager:
                 logger.warning(f"No active Reddit token found for user {user_id}")
                 return None
             
-            # ✅ FIXED: Return token even if expires_at check fails
-            # Reddit tokens can be refreshed automatically
             expires_at = result.get("expires_at")
             is_expired = False
             
             if expires_at:
                 try:
-                    # Handle both datetime and string formats
                     if isinstance(expires_at, str):
                         try:
                             from dateutil import parser
@@ -296,15 +292,13 @@ class UnifiedDatabaseManager:
                         except:
                             pass
                     
-                    # Check if expired
                     if isinstance(expires_at, datetime):
                         if expires_at <= datetime.now():
                             is_expired = True
-                            logger.warning(f"Reddit token expired for user {user_id}, but returning anyway (can refresh)")
+                            logger.warning(f"Reddit token expired for user {user_id}")
                 except Exception as e:
                     logger.warning(f"Expiration check failed: {e}")
             
-            # ✅ Return token regardless of expiration
             return {
                 "access_token": result["access_token"],
                 "refresh_token": result.get("refresh_token", ""),
@@ -315,6 +309,83 @@ class UnifiedDatabaseManager:
             
         except Exception as e:
             logger.error(f"Get Reddit tokens failed: {e}")
+            logger.error(traceback.format_exc())
+            return None
+    
+    async def refresh_reddit_token(self, user_id: str) -> Optional[dict]:
+        """Refresh expired Reddit token using refresh_token"""
+        try:
+            if not self.connected:
+                logger.error("Database not connected")
+                return None
+            
+            result = await self.reddit_tokens.find_one({
+                "user_id": user_id,
+                "is_active": True
+            })
+            
+            if not result or not result.get("refresh_token"):
+                logger.error(f"No refresh token found for user {user_id}")
+                return None
+            
+            refresh_token = result["refresh_token"]
+            
+            reddit_client_id = os.getenv("REDDIT_CLIENT_ID")
+            reddit_client_secret = os.getenv("REDDIT_CLIENT_SECRET")
+            
+            if not reddit_client_id or not reddit_client_secret:
+                logger.error("Reddit credentials not configured")
+                return None
+            
+            auth_string = f"{reddit_client_id}:{reddit_client_secret}"
+            auth_bytes = auth_string.encode('ascii')
+            auth_b64 = base64.b64encode(auth_bytes).decode('ascii')
+            
+            import httpx
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.post(
+                    "https://www.reddit.com/api/v1/access_token",
+                    headers={
+                        "Authorization": f"Basic {auth_b64}",
+                        "User-Agent": "VelocityPost/1.0 by /u/New-Health-4575"
+                    },
+                    data={
+                        "grant_type": "refresh_token",
+                        "refresh_token": refresh_token
+                    }
+                )
+                
+                if response.status_code == 200:
+                    token_data = response.json()
+                    new_access_token = token_data.get("access_token")
+                    
+                    if new_access_token:
+                        await self.reddit_tokens.update_one(
+                            {"user_id": user_id},
+                            {"$set": {
+                                "access_token": new_access_token,
+                                "updated_at": datetime.now()
+                            }}
+                        )
+                        
+                        logger.info(f"✅ Refreshed Reddit token for user {user_id}")
+                        
+                        return {
+                            "access_token": new_access_token,
+                            "refresh_token": refresh_token,
+                            "reddit_username": result["reddit_username"],
+                            "is_valid": True,
+                            "is_expired": False
+                        }
+                    else:
+                        logger.error("No access_token in refresh response")
+                else:
+                    logger.error(f"Token refresh failed: {response.status_code} - {response.text}")
+            
+            return None
+            
+        except Exception as e:
+            logger.error(f"Refresh Reddit token failed: {e}")
             logger.error(traceback.format_exc())
             return None
     
@@ -539,6 +610,10 @@ class RegisterRequest(BaseModel):
 class LoginRequest(BaseModel):
     email: EmailStr
     password: str
+
+
+
+
 
 # ============================================================================
 # AUTHENTICATION DEPENDENCY
@@ -1262,6 +1337,12 @@ except Exception as e:
     logger.error(f"❌ Reddit routes registration failed: {e}")
     logger.error(traceback.format_exc())
 
+
+
+
+
+
+
 # ============================================================================
 # PLATFORM STATUS ENDPOINT
 # ============================================================================
@@ -1596,7 +1677,7 @@ def calculate_enhanced_human_score(content: str) -> int:
 
 @app.post("/api/automation/post-now")
 async def post_now_to_reddit(request: Request, current_user: dict = Depends(get_current_user)):
-    """Publish a post to Reddit immediately - WITH DEBUG LOGGING"""
+    """Publish a post to Reddit immediately - WITH TOKEN REFRESH"""
     try:
         data = await request.json()
         
@@ -1607,79 +1688,55 @@ async def post_now_to_reddit(request: Request, current_user: dict = Depends(get_
         if not title or not content:
             return {"success": False, "error": "Title and content are required"}
         
-        # ✅ DEBUG: Log current user info
-        logger.info(f"🔍 POST NOW - Current user: {current_user}")
-        logger.info(f"🔍 POST NOW - User keys: {list(current_user.keys())}")
-        
-        # ✅ TRY BOTH "id" and "user_id" keys
         user_id = current_user.get("id") or current_user.get("user_id")
         
         if not user_id:
-            logger.error(f"❌ No user_id found in current_user: {current_user}")
-            return {"success": False, "error": "User ID not found in token"}
+            return {"success": False, "error": "User ID not found"}
         
-        logger.info(f"🔍 POST NOW - Using user_id: {user_id}")
+        logger.info(f"🔍 POST NOW - User: {current_user.get('email')} ({user_id})")
         
-        # ✅ Database check
         if not database_manager or not database_manager.connected:
-            logger.error("❌ Database not connected")
             return {"success": False, "error": "Database not connected"}
         
-        logger.info(f"✅ Database connected")
-        
-        # ✅ Get Reddit tokens with detailed logging
+        # Get Reddit tokens
         logger.info(f"🔍 Fetching Reddit tokens for user_id: {user_id}")
         reddit_token_data = await database_manager.get_reddit_tokens(user_id)
         
-        logger.info(f"🔍 Reddit token data: {reddit_token_data}")
-        
         if not reddit_token_data:
-            logger.error(f"❌ No Reddit tokens found for user_id: {user_id}")
-            
-            # ✅ DEBUG: Check all tokens in database
-            try:
-                all_tokens = []
-                cursor = database_manager.reddit_tokens.find({"is_active": True})
-                async for token_doc in cursor:
-                    all_tokens.append({
-                        "user_id": token_doc["user_id"],
-                        "reddit_username": token_doc.get("reddit_username", "Unknown")
-                    })
-                
-                logger.info(f"🔍 All active Reddit tokens in DB: {all_tokens}")
-            except Exception as e:
-                logger.error(f"Failed to fetch all tokens: {e}")
-            
             return {
                 "success": False, 
-                "error": "Reddit not connected. Please connect Reddit first.",
-                "debug": {
-                    "user_id_used": user_id,
-                    "current_user": current_user,
-                    "all_tokens_in_db": all_tokens if 'all_tokens' in locals() else []
-                }
+                "error": "Reddit not connected. Please reconnect your Reddit account."
             }
         
-        if not reddit_token_data.get("is_valid"):
-            logger.error(f"❌ Reddit token invalid for user_id: {user_id}")
-            return {"success": False, "error": "Reddit token expired or invalid"}
+        # ✅ CHECK IF TOKEN IS EXPIRED AND REFRESH IF NEEDED
+        if reddit_token_data.get("is_expired"):
+            logger.warning(f"⚠️ Reddit token expired for user {user_id}, refreshing...")
+            
+            refreshed_token = await database_manager.refresh_reddit_token(user_id)
+            
+            if refreshed_token:
+                reddit_token_data = refreshed_token
+                logger.info(f"✅ Token refreshed successfully for user {user_id}")
+            else:
+                return {
+                    "success": False,
+                    "error": "Reddit token expired. Please reconnect your Reddit account.",
+                    "action_required": "reconnect"
+                }
         
         access_token = reddit_token_data.get("access_token")
         
         if not access_token:
-            logger.error(f"❌ No access token in reddit_token_data")
             return {"success": False, "error": "No Reddit access token found"}
         
-        logger.info(f"✅ Found valid Reddit token for user {user_id}")
-        
-        # ✅ Safe subreddit check
+        # Safe subreddit check
         safe_subreddits = ["test", "CasualConversation", "self", "testingground4bots"]
         
         if subreddit.lower() in ["technology", "programming", "learnprogramming"]:
             logger.warning(f"Redirecting from {subreddit} to 'test'")
             subreddit = "test"
         
-        # ✅ Post to Reddit
+        # ✅ IMPROVED: Check response status before parsing JSON
         import httpx
         
         logger.info(f"📤 Posting to r/{subreddit}: {title[:50]}...")
@@ -1700,7 +1757,33 @@ async def post_now_to_reddit(request: Request, current_user: dict = Depends(get_
                 }
             )
             
-            result = response.json()
+            # ✅ CHECK STATUS CODE BEFORE PARSING JSON
+            if response.status_code == 401:
+                logger.error("❌ 401 Unauthorized - Token invalid even after refresh")
+                return {
+                    "success": False,
+                    "error": "Reddit authentication failed. Please reconnect your account.",
+                    "action_required": "reconnect"
+                }
+            
+            if response.status_code != 200:
+                logger.error(f"❌ Reddit API error: {response.status_code}")
+                logger.error(f"Response text: {response.text[:200]}")
+                return {
+                    "success": False,
+                    "error": f"Reddit API error: {response.status_code}"
+                }
+            
+            # Now it's safe to parse JSON
+            try:
+                result = response.json()
+            except Exception as json_error:
+                logger.error(f"Failed to parse Reddit response: {json_error}")
+                logger.error(f"Response text: {response.text[:200]}")
+                return {
+                    "success": False,
+                    "error": "Failed to parse Reddit response"
+                }
             
             logger.info(f"📥 Reddit API response: {result}")
             
@@ -1767,8 +1850,6 @@ async def post_now_to_reddit(request: Request, current_user: dict = Depends(get_
         logger.error(f"❌ Post now error: {e}")
         logger.error(traceback.format_exc())
         return {"success": False, "error": f"Failed to post: {str(e)}"}
-
-
 
 
 
