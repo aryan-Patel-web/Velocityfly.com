@@ -109,44 +109,88 @@ const RedditAutomation = () => {
 
 
 
+// ✅ FIXED: Properly handle OAuth callback and connection status
 useEffect(() => {
-  if (!user?.email) return;
+  // Don't run if user is not loaded yet
+  if (!user?.email) {
+    console.log('⏳ Waiting for user to load...');
+    return;
+  }
   
   const checkRedditConnection = async () => {
-    // ✅ CLEAR old state first when user changes
-    setRedditConnected(false);
-    setRedditUsername('');
+    console.log('=' .repeat(60));
+    console.log('🔍 REDDIT CONNECTION CHECK STARTED');
+    console.log(`Current user: ${user.email}`);
+    console.log(`Current URL: ${window.location.href}`);
+    console.log('=' .repeat(60));
     
-    // Check URL parameters first (OAuth callback)
+    // ✅ STEP 1: Check URL parameters FIRST (OAuth callback)
     const urlParams = new URLSearchParams(window.location.search);
-    const redditConnected = urlParams.get('reddit_connected');
-    const username = urlParams.get('username');
-    const error = urlParams.get('error');
+    const redditConnectedParam = urlParams.get('reddit_connected');
+    const usernameParam = urlParams.get('username');
+    const errorParam = urlParams.get('error');
 
-    if (error) {
-      showNotification(`Connection failed: ${error}`, 'error');
+    console.log('📋 URL Parameters:');
+    console.log(`  - reddit_connected: ${redditConnectedParam}`);
+    console.log(`  - username: ${usernameParam}`);
+    console.log(`  - error: ${errorParam}`);
+
+    // ✅ Handle OAuth Error
+    if (errorParam) {
+      console.error('❌ OAuth error detected:', errorParam);
+      showNotification(`Connection failed: ${errorParam}`, 'error');
+      
+      // Clear URL
       window.history.replaceState({}, '', window.location.pathname);
+      
+      // Clear any stale state
+      setRedditConnected(false);
+      setRedditUsername('');
+      
       return;
     }
 
-    if (redditConnected === 'true' && username) {
-      console.log(`✅ OAuth callback successful: u/${username} for ${user.email}`);
+    // ✅ Handle Successful OAuth Callback
+    if (redditConnectedParam === 'true' && usernameParam) {
+      console.log('=' .repeat(60));
+      console.log('✅ OAUTH CALLBACK DETECTED!');
+      console.log(`Username from URL: ${usernameParam}`);
+      console.log(`User email: ${user.email}`);
+      console.log('=' .repeat(60));
       
+      // ✅ IMMEDIATELY UPDATE STATE
       setRedditConnected(true);
-      setRedditUsername(username);
-      updateUser({ reddit_connected: true, reddit_username: username });
-      showNotification(`✅ Reddit connected! Welcome u/${username}!`, 'success');
+      setRedditUsername(usernameParam);
       
+      // ✅ Update localStorage
       localStorage.setItem(`reddit_connected_${user.email}`, 'true');
-      localStorage.setItem(`reddit_username_${user.email}`, username);
+      localStorage.setItem(`reddit_username_${user.email}`, usernameParam);
       
+      // ✅ Update user context
+      updateUser({ 
+        reddit_connected: true, 
+        reddit_username: usernameParam 
+      });
+      
+      // ✅ Show success notification
+      showNotification(`✅ Reddit connected! Welcome u/${usernameParam}!`, 'success');
+      
+      console.log('✅ State updated successfully!');
+      console.log(`  - redditConnected: true`);
+      console.log(`  - redditUsername: ${usernameParam}`);
+      
+      // ✅ Clean URL (remove parameters)
       window.history.replaceState({}, '', window.location.pathname);
+      
+      // ✅ STOP HERE - don't make API call
       return;
     }
 
-    // ✅ CRITICAL: Check backend API FIRST (not localStorage)
+    // ✅ STEP 2: No URL params - Check backend API
+    console.log('📡 No OAuth callback detected, checking backend...');
+    
     try {
-      console.log(`🔍 Fetching Reddit connection for: ${user.email}`);
+      console.log(`🔍 Fetching Reddit status for: ${user.email}`);
       
       const response = await makeAuthenticatedRequest('/api/platforms/status', {
         method: 'GET',
@@ -157,57 +201,80 @@ useEffect(() => {
         }
       });
       
+      if (!response.ok) {
+        console.error(`❌ Backend returned ${response.status}`);
+        throw new Error(`HTTP ${response.status}`);
+      }
+      
       const result = await response.json();
       
       console.log('📥 Backend response:', result);
       
       if (result.success && result.platforms?.reddit?.connected) {
-        const redditUser = result.platforms.reddit.username;
+        const backendUsername = result.platforms.reddit.username;
         
-        console.log(`✅ Reddit connected: u/${redditUser} for ${user.email}`);
+        console.log('=' .repeat(60));
+        console.log('✅ BACKEND SHOWS REDDIT CONNECTED!');
+        console.log(`Username from backend: ${backendUsername}`);
+        console.log('=' .repeat(60));
         
+        // ✅ Update state
         setRedditConnected(true);
-        setRedditUsername(redditUser);
+        setRedditUsername(backendUsername);
         
-        // Update localStorage with fresh data
+        // ✅ Update localStorage
         localStorage.setItem(`reddit_connected_${user.email}`, 'true');
-        localStorage.setItem(`reddit_username_${user.email}`, redditUser);
+        localStorage.setItem(`reddit_username_${user.email}`, backendUsername);
         
-        updateUser({ reddit_connected: true, reddit_username: redditUser });
+        // ✅ Update user context
+        updateUser({ 
+          reddit_connected: true, 
+          reddit_username: backendUsername 
+        });
+        
+        console.log('✅ State synced with backend!');
       } else {
-        console.log(`❌ No Reddit connection for ${user.email}`);
+        console.log('=' .repeat(60));
+        console.log('❌ BACKEND SHOWS NO REDDIT CONNECTION');
+        console.log('=' .repeat(60));
         
-        // Clear any stale localStorage
-        localStorage.removeItem(`reddit_connected_${user.email}`);
-        localStorage.removeItem(`reddit_username_${user.email}`);
-        
+        // ✅ Clear state
         setRedditConnected(false);
         setRedditUsername('');
+        
+        // ✅ Clear localStorage
+        localStorage.removeItem(`reddit_connected_${user.email}`);
+        localStorage.removeItem(`reddit_username_${user.email}`);
       }
     } catch (error) {
-      console.error('Failed to check Reddit connection:', error);
+      console.error('❌ Failed to check backend:', error);
       
-      // On error, clear state (don't trust localStorage)
+      // On error, clear state (don't trust cache)
       setRedditConnected(false);
       setRedditUsername('');
     }
 
-    // Load user profile
+    // ✅ STEP 3: Load user profile from localStorage
     try {
       const savedProfile = localStorage.getItem(`redditUserProfile_${user.email}`);
       if (savedProfile) {
         const profile = JSON.parse(savedProfile);
         setUserProfile(profile);
+        console.log('✅ Loaded user profile from localStorage');
       }
     } catch (error) {
-      console.error('Error loading profile:', error);
+      console.error('⚠️ Error loading profile:', error);
     }
+    
+    console.log('=' .repeat(60));
+    console.log('✅ REDDIT CONNECTION CHECK COMPLETE');
+    console.log('=' .repeat(60));
   };
 
+  // Run the check
   checkRedditConnection();
+  
 }, [user?.email, makeAuthenticatedRequest, updateUser, showNotification]);
-
-
 
 
 
@@ -239,26 +306,45 @@ const handleLogout = useCallback(() => {
 }, [user?.email]);
 
 
-  // Connect Reddit account
-  const handleRedditConnect = useCallback(async () => {
-    try {
-      setLoading(true);
-      showNotification('Connecting to Reddit...', 'info');
+const handleRedditConnect = useCallback(async () => {
+  try {
+    setLoading(true);
+    
+    // ✅ Clear old state BEFORE connecting
+    console.log('🧹 Clearing old Reddit state before connecting...');
+    setRedditConnected(false);
+    setRedditUsername('');
+    localStorage.removeItem(`reddit_connected_${user.email}`);
+    localStorage.removeItem(`reddit_username_${user.email}`);
+    
+    showNotification('Connecting to Reddit...', 'info');
+    
+    console.log(`🔗 Starting OAuth for: ${user.email}`);
+    
+    const response = await makeAuthenticatedRequest('/api/oauth/reddit/authorize');
+    const result = await response.json();
+    
+    console.log('📥 OAuth authorize response:', result);
+    
+    if (result.success && result.redirect_url) {
+      console.log('✅ Redirecting to Reddit OAuth...');
+      console.log(`Redirect URL: ${result.redirect_url}`);
       
-      const response = await makeAuthenticatedRequest('/api/oauth/reddit/authorize');
-      const result = await response.json();
-      
-      if (result.success && result.redirect_url) {
-        window.location.href = result.redirect_url;
-      } else { 
-        showNotification(result.error || 'Failed to start Reddit authorization', 'error'); 
-      }
-    } catch (error) { 
-      showNotification(`Connection failed: ${error.message}`, 'error'); 
-    } finally { 
-      setLoading(false); 
+      // Redirect to Reddit
+      window.location.href = result.redirect_url;
+    } else {
+      console.error('❌ OAuth authorization failed:', result);
+      showNotification(result.error || 'Failed to start Reddit authorization', 'error');
     }
-  }, [makeAuthenticatedRequest, showNotification]);
+  } catch (error) {
+    console.error('❌ Connect Reddit error:', error);
+    showNotification(`Connection failed: ${error.message}`, 'error');
+  } finally {
+    setLoading(false);
+  }
+}, [makeAuthenticatedRequest, showNotification, user?.email]);
+
+
 
   // Save user profile
   const saveUserProfile = useCallback(() => {

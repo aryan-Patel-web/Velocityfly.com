@@ -4788,6 +4788,9 @@ async def check_ffmpeg():
 from YTscrapADS import get_product_scraper
 
 
+
+
+
 async def shorten_url(long_url: str) -> str:
     """Shorten URL using TinyURL (free, no API needed)"""
     try:
@@ -4801,6 +4804,10 @@ async def shorten_url(long_url: str) -> str:
     except Exception as e:
         logger.error(f"URL shortening failed: {e}")
     return long_url
+
+
+
+
 
 @app.post("/api/product-video/generate")
 async def generate_product_promo_video(request: dict):
