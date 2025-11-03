@@ -149,9 +149,11 @@ useEffect(() => {
       console.log(`🔍 Fetching Reddit connection for: ${user.email}`);
       
       const response = await makeAuthenticatedRequest('/api/platforms/status', {
+        method: 'GET',
         headers: {
           'Cache-Control': 'no-cache, no-store, must-revalidate',
-          'Pragma': 'no-cache'
+          'Pragma': 'no-cache',
+          'Expires': '0'
         }
       });
       
@@ -204,6 +206,10 @@ useEffect(() => {
 
   checkRedditConnection();
 }, [user?.email, makeAuthenticatedRequest, updateUser, showNotification]);
+
+
+
+
 
 
 // ✅ Clear Reddit state on logout
