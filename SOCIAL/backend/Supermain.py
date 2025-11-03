@@ -1942,6 +1942,134 @@ async def post_now_to_reddit(request: Request, current_user: dict = Depends(get_
         return {"success": False, "error": f"Failed to post: {str(e)}"}
 
 
+
+
+
+
+
+@app.get("/api/debug/current-reddit-user")
+async def debug_current_reddit_user(current_user: dict = Depends(get_current_user)):
+    """Debug which Reddit account is connected to current logged-in user"""
+    try:
+        user_id = current_user.get("id") or current_user.get("user_id")
+        user_email = current_user.get("email")
+        
+        logger.info(f"🔍 DEBUG - Current logged-in user: {user_email} (ID: {user_id})")
+        
+        if not database_manager or not database_manager.connected:
+            return {
+                "success": False,
+                "error": "Database not connected"
+            }
+        
+        # Get Reddit connection for THIS user
+        reddit_tokens = await database_manager.get_reddit_tokens(user_id)
+        
+        # Get ALL Reddit connections in database
+        all_connections = []
+        cursor = database_manager.reddit_tokens.find({"is_active": True})
+        async for token_doc in cursor:
+            all_connections.append({
+                "user_id": token_doc["user_id"],
+                "reddit_username": token_doc.get("reddit_username", "Unknown"),
+                "user_email": "hidden"  # Don't expose emails
+            })
+        
+        return {
+            "success": True,
+            "current_logged_in_user": {
+                "user_id": user_id,
+                "email": user_email,
+                "name": current_user.get("name")
+            },
+            "reddit_connection_for_this_user": {
+                "connected": bool(reddit_tokens),
+                "reddit_username": reddit_tokens.get("reddit_username") if reddit_tokens else None,
+                "reddit_user_id": reddit_tokens.get("reddit_user_id") if reddit_tokens else None
+            },
+            "all_reddit_connections_in_db": all_connections,
+            "total_reddit_accounts": len(all_connections)
+        }
+        
+    except Exception as e:
+        logger.error(f"Debug endpoint error: {e}")
+        logger.error(traceback.format_exc())
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+
+@app.get("/api/platforms/status")
+async def get_platform_status(current_user: dict = Depends(get_current_user)):
+    """Get connection status - ALWAYS FRESH FROM DATABASE"""
+    try:
+        user_id = current_user["id"]
+        user_email = current_user.get("email", "Unknown")
+        
+        logger.info(f"🔍 Platform status check for: {user_email} (ID: {user_id})")
+        
+        # Check YouTube
+        youtube_connected = False
+        youtube_channel = None
+        if youtube_services and database_manager and database_manager.connected:
+            youtube_creds = await database_manager.get_youtube_credentials(user_id)
+            if youtube_creds:
+                youtube_connected = True
+                youtube_channel = youtube_creds.get("channel_info", {}).get("title")
+        
+        # ✅ CRITICAL: Get Reddit status FRESH from database (no cache)
+        reddit_connected = False
+        reddit_username = None
+        reddit_user_id = None
+        
+        if reddit_services and database_manager and database_manager.connected:
+            # Force fresh query
+            reddit_tokens = await database_manager.get_reddit_tokens(user_id)
+            
+            if reddit_tokens:
+                reddit_connected = True
+                reddit_username = reddit_tokens.get("reddit_username")
+                reddit_user_id = reddit_tokens.get("reddit_user_id")
+                
+                logger.info(f"✅ Reddit connected for {user_email}: u/{reddit_username}")
+            else:
+                logger.warning(f"⚠️ No Reddit connection found for {user_email}")
+        
+        return {
+            "success": True,
+            "platforms": {
+                "youtube": {
+                    "connected": youtube_connected,
+                    "channel_name": youtube_channel,
+                    "available": bool(youtube_services)
+                },
+                "reddit": {
+                    "connected": reddit_connected,
+                    "username": reddit_username,
+                    "user_id": reddit_user_id,
+                    "available": bool(reddit_services)
+                }
+            },
+            "user_id": user_id,
+            "user_email": user_email,
+            "user_name": current_user.get("name", "User"),
+            # ✅ Add timestamp to prevent caching
+            "fetched_at": datetime.now().isoformat()
+        }
+        
+    except Exception as e:
+        logger.error(f"Platform status check failed: {e}")
+        logger.error(traceback.format_exc())
+        return {
+            "success": False,
+            "error": str(e)
+        }
+    
+
+
+
+    
 # ============================================================================
 # AUTOMATION SETUP
 # ============================================================================
