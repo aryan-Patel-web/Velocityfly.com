@@ -27,6 +27,12 @@ import requests
 import base64
 import bcrypt
 import jwt
+import httpx
+
+
+
+
+
 
 # CRITICAL: Load environment variables FIRST
 from dotenv import load_dotenv
@@ -1231,26 +1237,51 @@ async def get_current_user_info(current_user: dict = Depends(get_current_user)):
 
 @app.get("/api/oauth/reddit/authorize")
 async def reddit_oauth_authorize(current_user: dict = Depends(get_current_user)):
-    """Start Reddit OAuth flow for authenticated user - FIXED VERSION"""
+    """Start Reddit OAuth flow - FIXED FOR MULTI-USER"""
     try:
         user_id = current_user["id"]
+        user_email = current_user.get("email", "Unknown")
         
-        # Generate OAuth state
-        state = f"oauth_{user_id}_{uuid.uuid4().hex[:12]}"
+        logger.info(f"🔵 Starting OAuth for user: {user_email} (ID: {user_id})")
         
-        # FIXED: Store in database with expiration (15 minutes)
-        expires_at = datetime.utcnow() + timedelta(minutes=15)
-        await database_manager.store_oauth_state(state, user_id, expires_at)
+        # ✅ CRITICAL FIX: Encode user_id in state parameter
+        import base64
+        import json
+        import secrets
+        
+        state_data = {
+            'user_id': user_id,
+            'random': secrets.token_urlsafe(16)
+        }
+        
+        # Base64 encode the state
+        state = base64.b64encode(
+            json.dumps(state_data).encode('utf-8')
+        ).decode('utf-8')
+        
+        logger.info(f"🔐 Generated state with encoded user_id: {state[:20]}...")
         
         reddit_client_id = os.getenv("REDDIT_CLIENT_ID")
-        reddit_redirect_uri = os.getenv("REDDIT_REDIRECT_URI", "https://velocitypost-984x.onrender.com/api/oauth/reddit/callback")
+        reddit_redirect_uri = os.getenv(
+            "REDDIT_REDIRECT_URI",
+            "https://velocitypost-984x.onrender.com/api/oauth/reddit/callback"
+        )
         
         if not reddit_client_id:
             raise HTTPException(status_code=500, detail="Reddit credentials not configured")
         
-        oauth_url = f"https://www.reddit.com/api/v1/authorize?client_id={reddit_client_id}&response_type=code&state={state}&redirect_uri={reddit_redirect_uri}&duration=permanent&scope=identity,submit,edit,read"
+        # Build OAuth URL
+        oauth_url = (
+            f"https://www.reddit.com/api/v1/authorize?"
+            f"client_id={reddit_client_id}"
+            f"&response_type=code"
+            f"&state={state}"
+            f"&redirect_uri={reddit_redirect_uri}"
+            f"&duration=permanent"
+            f"&scope=identity,submit,edit,read"
+        )
         
-        logger.info(f"Starting OAuth for user {user_id} ({current_user['email']}) - state: {state}")
+        logger.info(f"✅ OAuth URL generated for user {user_email}")
         
         return {
             "success": True,
@@ -1260,180 +1291,374 @@ async def reddit_oauth_authorize(current_user: dict = Depends(get_current_user))
         }
         
     except Exception as e:
-        logger.error(f"Reddit OAuth authorize failed: {e}")
+        logger.error(f"❌ OAuth authorize failed: {e}")
+        logger.error(traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(e))
+
+import httpx
+import base64
+import traceback
+from datetime import datetime, timedelta
+from fastapi.responses import RedirectResponse
+import os
+
+
+
+
+
+
+
+
 
 
 
 @app.get("/api/oauth/reddit/callback")
-async def reddit_oauth_callback(code: str, state: str):
-    """Handle Reddit OAuth callback for authenticated user - FIXED VERSION"""
+async def reddit_oauth_callback(
+    code: str = None,
+    state: str = None,
+    error: str = None,
+    request: Request = None
+):
+    """
+    Reddit OAuth callback - CRITICAL: Must associate tokens with correct user
+    """
     try:
-        # FIXED: Get user_id from database instead of memory
-        state_data = await database_manager.get_oauth_state(state)
-        if not state_data:
-            logger.error(f"Invalid OAuth state from database: {state}")
-            logger.error(f"Available states in database: {await database_manager.get_all_oauth_states() if hasattr(database_manager, 'get_all_oauth_states') else 'method not available'}")
+        logger.info("=" * 80)
+        logger.info("🔵 REDDIT OAUTH CALLBACK STARTED")
+        logger.info(f"📥 Received - Code: {bool(code)}, State: {state}, Error: {error}")
+        
+        frontend_url = "https://frontend-agentic.onrender.com"  # Change to your frontend URL
+        
+        if error:
+            logger.error(f"❌ OAuth error: {error}")
             return RedirectResponse(
-                url="https://velocitypost-ai.onrender.com/?error=invalid_oauth_state",
+                url=f"{frontend_url}?error={error}",
                 status_code=302
             )
         
-        user_id = state_data["user_id"]
-        logger.info(f"Processing OAuth callback for user {user_id} (state found in database)")
+        if not code or not state:
+            logger.error("❌ Missing code or state parameter")
+            return RedirectResponse(
+                url=f"{frontend_url}?error=missing_parameters",
+                status_code=302
+            )
         
-        # ... rest of your existing callback code remains the same
+        # ✅ CRITICAL: Decode state to get user_id
+        try:
+            import base64
+            import json
+            
+            # State contains user_id (set during /api/oauth/reddit/authorize)
+            decoded_state = base64.b64decode(state).decode('utf-8')
+            state_data = json.loads(decoded_state)
+            user_id = state_data.get('user_id')
+            
+            logger.info(f"🔍 Decoded state - User ID: {user_id}")
+            
+            if not user_id:
+                logger.error("❌ No user_id in state")
+                return RedirectResponse(
+                    url=f"{frontend_url}?error=invalid_state",
+                    status_code=302
+                )
+        except Exception as decode_error:
+            logger.error(f"❌ Failed to decode state: {decode_error}")
+            return RedirectResponse(
+                url=f"{frontend_url}?error=invalid_state",
+                status_code=302
+            )
         
-        # Exchange code for token
+        # Exchange code for tokens
         reddit_client_id = os.getenv("REDDIT_CLIENT_ID")
         reddit_client_secret = os.getenv("REDDIT_CLIENT_SECRET")
-        reddit_redirect_uri = os.getenv("REDDIT_REDIRECT_URI")
+        reddit_redirect_uri = os.getenv("REDDIT_REDIRECT_URI", "https://velocitypost-984x.onrender.com/api/oauth/reddit/callback")
         
         if not reddit_client_id or not reddit_client_secret:
-            logger.error("Reddit credentials missing from environment")
             return RedirectResponse(
-                url="https://velocitypost-ai.onrender.com/?error=missing_credentials",
+                url=f"{frontend_url}?error=missing_credentials",
                 status_code=302
             )
         
-        # Token exchange request
+        token_data = {
+            'grant_type': 'authorization_code',
+            'code': code,
+            'redirect_uri': reddit_redirect_uri
+        }
+        
         auth_string = f"{reddit_client_id}:{reddit_client_secret}"
         auth_bytes = auth_string.encode('ascii')
         auth_b64 = base64.b64encode(auth_bytes).decode('ascii')
         
         headers = {
             'Authorization': f'Basic {auth_b64}',
-            'User-Agent': 'IndianAutomationPlatform/1.0 by YourRedditUsername'
+            'User-Agent': 'VelocityPost/1.0'
         }
         
-        data = {
-            'grant_type': 'authorization_code',
-            'code': code,
-            'redirect_uri': reddit_redirect_uri
-        }
+        logger.info("🔄 Exchanging code for tokens...")
         
-        logger.info("Exchanging code for access token...")
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            token_response = await client.post(
+                'https://www.reddit.com/api/v1/access_token',
+                data=token_data,
+                headers=headers
+            )
         
-        response = requests.post(
-            'https://www.reddit.com/api/v1/access_token',
-            headers=headers,
-            data=data,
-            timeout=30
-        )
-        
-        if response.status_code == 200:
-            token_data = response.json()
-            access_token = token_data.get('access_token')
-            
-            if access_token:
-                # Get Reddit user info with proper error handling
-                user_headers = {
-                    'Authorization': f'Bearer {access_token}',
-                    'User-Agent': 'IndianAutomationPlatform/1.0 by YourRedditUsername'
-                }
-                
-                username = None
-                reddit_user_id = ""
-                user_info = {}
-                
-                try:
-                    logger.info("Fetching Reddit user info...")
-                    user_response = requests.get(
-                        'https://oauth.reddit.com/api/v1/me',
-                        headers=user_headers,
-                        timeout=15
-                    )
-                    
-                    logger.info(f"Reddit user info response: {user_response.status_code}")
-                    
-                    if user_response.status_code == 200:
-                        user_info = user_response.json()
-                        username = user_info.get('name')
-                        reddit_user_id = user_info.get('id', '')
-                        
-                        logger.info(f"Reddit API returned username: {username}")
-                        
-                        if not username:
-                            logger.error("No username in Reddit API response")
-                            logger.error(f"Full user info response: {user_info}")
-                            username = f"User_{reddit_user_id[:8]}" if reddit_user_id else f"User_{uuid.uuid4().hex[:8]}"
-                    else:
-                        logger.error(f"Reddit user info request failed: {user_response.status_code}")
-                        logger.error(f"Response text: {user_response.text}")
-                        username = f"User_{uuid.uuid4().hex[:8]}"
-                        user_info = {"name": username, "id": reddit_user_id}
-                        
-                except Exception as e:
-                    logger.error(f"User info request failed: {e}")
-                    username = f"User_{uuid.uuid4().hex[:8]}"
-                    user_info = {"name": username, "id": reddit_user_id}
-                
-                # Ensure we always have a username
-                if not username:
-                    username = f"User_{uuid.uuid4().hex[:8]}"
-                    logger.warning(f"Using fallback username: {username}")
-                
-                logger.info(f"REAL Reddit OAuth successful for user: {username}")
-                
-                # Store tokens in DATABASE permanently for this specific user
-                db_token_data = {
-                    "access_token": access_token,
-                    "refresh_token": token_data.get("refresh_token", ""),
-                    "expires_in": token_data.get("expires_in", 3600),
-                    "reddit_username": username,
-                    "reddit_user_id": reddit_user_id,
-                    "token_type": "bearer",
-                    "scope": "submit,edit,read"
-                }
-                
-                # Store in database for this user
-                if database_manager and hasattr(database_manager, 'store_reddit_tokens'):
-                    try:
-                        db_result = await database_manager.store_reddit_tokens(user_id, db_token_data)
-                        if db_result.get("success"):
-                            logger.info(f"Reddit tokens stored permanently for user {user_id} as {username}")
-                        else:
-                            logger.error(f"Failed to store tokens in database: {db_result.get('error')}")
-                    except Exception as e:
-                        logger.error(f"Database storage error: {e}")
-                
-                # Also store in memory for immediate use
-                user_reddit_tokens[user_id] = {
-                    "access_token": access_token,
-                    "refresh_token": token_data.get("refresh_token", ""),
-                    "reddit_username": username,
-                    "connected_at": datetime.now().isoformat(),
-                    "user_info": user_info or {"name": username, "id": reddit_user_id}
-                }
-                
-                # Clean up OAuth state
-                oauth_states.pop(state, None)
-                
-                # Redirect to main page instead of /reddit-auto to avoid 404
-                return RedirectResponse(
-                    url=f"https://velocitypost-ai.onrender.com/?reddit_connected=true&username={username}",
-                    status_code=302
-                )
-            else:
-                logger.error("No access token in Reddit response")
-                return RedirectResponse(
-                    url="https://velocitypost-ai.onrender.com/?error=no_access_token",
-                    status_code=302
-                )
-        else:
-            logger.error(f"Token exchange failed: {response.status_code} - {response.text}")
+        if token_response.status_code != 200:
+            logger.error(f"❌ Token exchange failed: {token_response.status_code}")
+            logger.error(f"Response: {token_response.text}")
             return RedirectResponse(
-                url="https://velocitypost-ai.onrender.com/?error=token_exchange_failed",
+                url=f"{frontend_url}?error=token_exchange_failed",
                 status_code=302
             )
         
-    except Exception as e:
-        logger.error(f"OAuth callback failed: {e}")
-        logger.error(traceback.format_exc())
+        tokens = token_response.json()
+        access_token = tokens.get('access_token')
+        refresh_token = tokens.get('refresh_token')
+        
+        if not access_token:
+            logger.error("❌ No access token in response")
+            return RedirectResponse(
+                url=f"{frontend_url}?error=no_access_token",
+                status_code=302
+            )
+        
+        logger.info("✅ Tokens obtained successfully")
+        
+        # Get Reddit user info
+        logger.info("🔍 Fetching Reddit user info...")
+        
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            user_response = await client.get(
+                'https://oauth.reddit.com/api/v1/me',
+                headers={
+                    'Authorization': f'Bearer {access_token}',
+                    'User-Agent': 'VelocityPost/1.0'
+                }
+            )
+        
+        if user_response.status_code != 200:
+            logger.error(f"❌ Failed to get user info: {user_response.status_code}")
+            return RedirectResponse(
+                url=f"{frontend_url}?error=user_info_failed",
+                status_code=302
+            )
+        
+        reddit_user = user_response.json()
+        reddit_username = reddit_user.get('name')
+        reddit_user_id = reddit_user.get('id')
+        
+        logger.info(f"✅ Reddit user info: u/{reddit_username} (ID: {reddit_user_id})")
+        
+        # ✅ CRITICAL: Store tokens with the CORRECT user_id
+        token_doc = {
+            'access_token': access_token,
+            'refresh_token': refresh_token,
+            'reddit_username': reddit_username,
+            'reddit_user_id': reddit_user_id,
+            'expires_in': tokens.get('expires_in', 3600)
+        }
+        
+        # Store in database
+        if database_manager and hasattr(database_manager, 'store_reddit_tokens'):
+            await database_manager.store_reddit_tokens(user_id, token_doc)
+        
+        # Also store in memory
+        user_reddit_tokens[user_id] = {
+            "access_token": access_token,
+            "refresh_token": refresh_token,
+            "reddit_username": reddit_username,
+            "reddit_user_id": reddit_user_id,
+            "connected_at": datetime.now().isoformat(),
+            "user_info": {"name": reddit_username, "id": reddit_user_id}
+        }
+        
+        logger.info(f"✅ Tokens stored for user_id: {user_id}")
+        logger.info(f"✅ Reddit username: u/{reddit_username}")
+        logger.info("=" * 80)
+        
+        # Redirect back to frontend with success
         return RedirectResponse(
-            url="https://velocitypost-ai.onrender.com/?error=oauth_failed",
+            url=f"{frontend_url}?reddit_connected=true&username={reddit_username}",
             status_code=302
         )
+        
+    except Exception as e:
+        logger.error(f"❌ OAuth callback error: {e}")
+        logger.error(traceback.format_exc())
+        return RedirectResponse(
+            url=f"{frontend_url}?error=callback_failed",
+            status_code=302
+        )
+
+# @app.get("/api/oauth/reddit/callback")
+# async def reddit_oauth_callback(code: str, state: str):
+#     """Handle Reddit OAuth callback for authenticated user - FIXED VERSION"""
+#     try:
+#         # FIXED: Get user_id from database instead of memory
+#         state_data = await database_manager.get_oauth_state(state)
+#         if not state_data:
+#             logger.error(f"Invalid OAuth state from database: {state}")
+#             logger.error(f"Available states in database: {await database_manager.get_all_oauth_states() if hasattr(database_manager, 'get_all_oauth_states') else 'method not available'}")
+#             return RedirectResponse(
+#                 url="https://velocitypost-ai.onrender.com/?error=invalid_oauth_state",
+#                 status_code=302
+#             )
+        
+#         user_id = state_data["user_id"]
+#         logger.info(f"Processing OAuth callback for user {user_id} (state found in database)")
+        
+#         # ... rest of your existing callback code remains the same
+        
+#         # Exchange code for token
+#         reddit_client_id = os.getenv("REDDIT_CLIENT_ID")
+#         reddit_client_secret = os.getenv("REDDIT_CLIENT_SECRET")
+#         reddit_redirect_uri = os.getenv("REDDIT_REDIRECT_URI")
+        
+#         if not reddit_client_id or not reddit_client_secret:
+#             logger.error("Reddit credentials missing from environment")
+#             return RedirectResponse(
+#                 url="https://velocitypost-ai.onrender.com/?error=missing_credentials",
+#                 status_code=302
+#             )
+        
+#         # Token exchange request
+#         auth_string = f"{reddit_client_id}:{reddit_client_secret}"
+#         auth_bytes = auth_string.encode('ascii')
+#         auth_b64 = base64.b64encode(auth_bytes).decode('ascii')
+        
+#         headers = {
+#             'Authorization': f'Basic {auth_b64}',
+#             'User-Agent': 'IndianAutomationPlatform/1.0 by YourRedditUsername'
+#         }
+        
+#         data = {
+#             'grant_type': 'authorization_code',
+#             'code': code,
+#             'redirect_uri': reddit_redirect_uri
+#         }
+        
+#         logger.info("Exchanging code for access token...")
+        
+#         response = requests.post(
+#             'https://www.reddit.com/api/v1/access_token',
+#             headers=headers,
+#             data=data,
+#             timeout=30
+#         )
+        
+#         if response.status_code == 200:
+#             token_data = response.json()
+#             access_token = token_data.get('access_token')
+            
+#             if access_token:
+#                 # Get Reddit user info with proper error handling
+#                 user_headers = {
+#                     'Authorization': f'Bearer {access_token}',
+#                     'User-Agent': 'IndianAutomationPlatform/1.0 by YourRedditUsername'
+#                 }
+                
+#                 username = None
+#                 reddit_user_id = ""
+#                 user_info = {}
+                
+#                 try:
+#                     logger.info("Fetching Reddit user info...")
+#                     user_response = requests.get(
+#                         'https://oauth.reddit.com/api/v1/me',
+#                         headers=user_headers,
+#                         timeout=15
+#                     )
+                    
+#                     logger.info(f"Reddit user info response: {user_response.status_code}")
+                    
+#                     if user_response.status_code == 200:
+#                         user_info = user_response.json()
+#                         username = user_info.get('name')
+#                         reddit_user_id = user_info.get('id', '')
+                        
+#                         logger.info(f"Reddit API returned username: {username}")
+                        
+#                         if not username:
+#                             logger.error("No username in Reddit API response")
+#                             logger.error(f"Full user info response: {user_info}")
+#                             username = f"User_{reddit_user_id[:8]}" if reddit_user_id else f"User_{uuid.uuid4().hex[:8]}"
+#                     else:
+#                         logger.error(f"Reddit user info request failed: {user_response.status_code}")
+#                         logger.error(f"Response text: {user_response.text}")
+#                         username = f"User_{uuid.uuid4().hex[:8]}"
+#                         user_info = {"name": username, "id": reddit_user_id}
+                        
+#                 except Exception as e:
+#                     logger.error(f"User info request failed: {e}")
+#                     username = f"User_{uuid.uuid4().hex[:8]}"
+#                     user_info = {"name": username, "id": reddit_user_id}
+                
+#                 # Ensure we always have a username
+#                 if not username:
+#                     username = f"User_{uuid.uuid4().hex[:8]}"
+#                     logger.warning(f"Using fallback username: {username}")
+                
+#                 logger.info(f"REAL Reddit OAuth successful for user: {username}")
+                
+#                 # Store tokens in DATABASE permanently for this specific user
+#                 db_token_data = {
+#                     "access_token": access_token,
+#                     "refresh_token": token_data.get("refresh_token", ""),
+#                     "expires_in": token_data.get("expires_in", 3600),
+#                     "reddit_username": username,
+#                     "reddit_user_id": reddit_user_id,
+#                     "token_type": "bearer",
+#                     "scope": "submit,edit,read"
+#                 }
+                
+#                 # Store in database for this user
+#                 if database_manager and hasattr(database_manager, 'store_reddit_tokens'):
+#                     try:
+#                         db_result = await database_manager.store_reddit_tokens(user_id, db_token_data)
+#                         if db_result.get("success"):
+#                             logger.info(f"Reddit tokens stored permanently for user {user_id} as {username}")
+#                         else:
+#                             logger.error(f"Failed to store tokens in database: {db_result.get('error')}")
+#                     except Exception as e:
+#                         logger.error(f"Database storage error: {e}")
+                
+#                 # Also store in memory for immediate use
+#                 user_reddit_tokens[user_id] = {
+#                     "access_token": access_token,
+#                     "refresh_token": token_data.get("refresh_token", ""),
+#                     "reddit_username": username,
+#                     "connected_at": datetime.now().isoformat(),
+#                     "user_info": user_info or {"name": username, "id": reddit_user_id}
+#                 }
+                
+#                 # Clean up OAuth state
+#                 oauth_states.pop(state, None)
+                
+#                 # Redirect to main page instead of /reddit-auto to avoid 404
+#                 return RedirectResponse(
+#                     url=f"https://velocitypost-ai.onrender.com/?reddit_connected=true&username={username}",
+#                     status_code=302
+#                 )
+#             else:
+#                 logger.error("No access token in Reddit response")
+#                 return RedirectResponse(
+#                     url="https://velocitypost-ai.onrender.com/?error=no_access_token",
+#                     status_code=302
+#                 )
+#         else:
+#             logger.error(f"Token exchange failed: {response.status_code} - {response.text}")
+#             return RedirectResponse(
+#                 url="https://velocitypost-ai.onrender.com/?error=token_exchange_failed",
+#                 status_code=302
+#             )
+        
+#     except Exception as e:
+#         logger.error(f"OAuth callback failed: {e}")
+#         logger.error(traceback.format_exc())
+#         return RedirectResponse(
+#             url="https://velocitypost-ai.onrender.com/?error=oauth_failed",
+#             status_code=302
+#         )
 
 
 

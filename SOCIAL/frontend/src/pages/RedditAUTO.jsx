@@ -123,14 +123,16 @@ useEffect(() => {
     const username = urlParams.get('username');
     const error = urlParams.get('error');
 
-    if (error) { 
-      showNotification(`Connection failed: ${error}`, 'error'); 
-      window.history.replaceState({}, '', window.location.pathname); 
-      return; 
+    if (error) {
+      showNotification(`Connection failed: ${error}`, 'error');
+      window.history.replaceState({}, '', window.location.pathname);
+      return;
     }
 
     if (redditConnected === 'true' && username) {
-      setRedditConnected(true); 
+      console.log(`✅ OAuth callback successful: u/${username} for ${user.email}`);
+      
+      setRedditConnected(true);
       setRedditUsername(username);
       updateUser({ reddit_connected: true, reddit_username: username });
       showNotification(`✅ Reddit connected! Welcome u/${username}!`, 'success');
@@ -138,7 +140,7 @@ useEffect(() => {
       localStorage.setItem(`reddit_connected_${user.email}`, 'true');
       localStorage.setItem(`reddit_username_${user.email}`, username);
       
-      window.history.replaceState({}, '', window.location.pathname); 
+      window.history.replaceState({}, '', window.location.pathname);
       return;
     }
 
@@ -152,6 +154,7 @@ useEffect(() => {
           'Pragma': 'no-cache'
         }
       });
+      
       const result = await response.json();
       
       console.log('📥 Backend response:', result);
@@ -161,7 +164,7 @@ useEffect(() => {
         
         console.log(`✅ Reddit connected: u/${redditUser} for ${user.email}`);
         
-        setRedditConnected(true); 
+        setRedditConnected(true);
         setRedditUsername(redditUser);
         
         // Update localStorage with fresh data
@@ -179,7 +182,7 @@ useEffect(() => {
         setRedditConnected(false);
         setRedditUsername('');
       }
-    } catch (error) { 
+    } catch (error) {
       console.error('Failed to check Reddit connection:', error);
       
       // On error, clear state (don't trust localStorage)
@@ -190,18 +193,17 @@ useEffect(() => {
     // Load user profile
     try {
       const savedProfile = localStorage.getItem(`redditUserProfile_${user.email}`);
-      if (savedProfile) { 
-        const profile = JSON.parse(savedProfile); 
-        setUserProfile(profile); 
+      if (savedProfile) {
+        const profile = JSON.parse(savedProfile);
+        setUserProfile(profile);
       }
-    } catch (error) { 
-      console.error('Error loading profile:', error); 
+    } catch (error) {
+      console.error('Error loading profile:', error);
     }
   };
 
   checkRedditConnection();
-}, [user?.email, makeAuthenticatedRequest, updateUser, showNotification]); // ✅ Added user.email
-
+}, [user?.email, makeAuthenticatedRequest, updateUser, showNotification]);
 
 
 // ✅ Clear Reddit state on logout
