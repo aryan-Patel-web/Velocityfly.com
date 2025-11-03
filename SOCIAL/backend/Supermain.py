@@ -1308,7 +1308,8 @@ try:
         debug_current_schedule,
         trigger_immediate_post,
         debug_next_posting,
-        debug_scheduler_active_configs
+        debug_scheduler_active_configs,
+        debug_reddit_config
     )
     
     app.get("/api/oauth/reddit/authorize")(reddit_oauth_authorize)
@@ -1332,6 +1333,7 @@ try:
     app.post("/api/debug/trigger-immediate-post")(trigger_immediate_post)
     app.get("/api/debug/next-posting-debug")(debug_next_posting)
     app.get("/api/debug/scheduler-active-configs")(debug_scheduler_active_configs)
+    app.get("/api/debug/reddit-config")(debug_reddit_config)
     
     logger.info("✅ Reddit routes registered")
     
@@ -2069,7 +2071,7 @@ async def get_platform_status(current_user: dict = Depends(get_current_user)):
 
 
 
-    
+
 # ============================================================================
 # AUTOMATION SETUP
 # ============================================================================

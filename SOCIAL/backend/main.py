@@ -1311,7 +1311,6 @@ import os
 
 
 
-
 @app.get("/api/oauth/reddit/callback")
 async def reddit_oauth_callback(
     code: str = None,
@@ -1319,19 +1318,26 @@ async def reddit_oauth_callback(
     error: str = None,
     request: Request = None
 ):
-    """Reddit OAuth callback - FIXED WITH CORRECT FRONTEND URL"""
+    """
+    Reddit OAuth callback - ENHANCED WITH FULL DEBUG LOGGING
+    Tracks every step to identify exactly where the issue occurs
+    """
     try:
         logger.info("=" * 80)
         logger.info("🔵 REDDIT OAUTH CALLBACK STARTED")
-        logger.info(f"📥 Received - Code: {bool(code)}, State: {state}, Error: {error}")
+        logger.info(f"📥 Received parameters:")
+        logger.info(f"   - Code: {code[:30] + '...' if code else 'MISSING'}")
+        logger.info(f"   - State: {state[:50] + '...' if state else 'MISSING'}")
+        logger.info(f"   - Error: {error if error else 'None'}")
+        logger.info(f"   - Request URL: {request.url if request else 'N/A'}")
         
-        # ✅ USE ENVIRONMENT VARIABLE OR FALLBACK
+        # ✅ Get frontend URL
         frontend_url = os.getenv("FRONTEND_URL", "https://velocitypost-ai.onrender.com")
         logger.info(f"🔗 Frontend URL: {frontend_url}")
         
-        # Check for OAuth errors
+        # Check for OAuth errors from Reddit
         if error:
-            logger.error(f"❌ OAuth error: {error}")
+            logger.error(f"❌ Reddit returned OAuth error: {error}")
             return RedirectResponse(
                 url=f"{frontend_url}?error={error}",
                 status_code=302
@@ -1339,102 +1345,220 @@ async def reddit_oauth_callback(
         
         # Validate required parameters
         if not code or not state:
-            logger.error("❌ Missing code or state parameter")
+            logger.error(f"❌ Missing required parameters!")
+            logger.error(f"   - Code present: {bool(code)}")
+            logger.error(f"   - State present: {bool(state)}")
             return RedirectResponse(
                 url=f"{frontend_url}?error=missing_parameters",
                 status_code=302
             )
         
-        # ✅ Decode state to get user_id
+        logger.info("✅ Step 1: Parameters validated")
+        
+        # ✅ STEP 2: Decode state to get user_id
+        logger.info("=" * 60)
+        logger.info("🔍 STEP 2: Decoding state parameter...")
+        
         try:
             import base64
             import json
             
-            decoded_state = base64.b64decode(state).decode('utf-8')
-            state_data = json.loads(decoded_state)
-            user_id = state_data.get('user_id')
+            logger.info(f"State raw value: {state[:100]}")
+            logger.info(f"State length: {len(state)}")
             
-            logger.info(f"🔍 Decoded state successfully")
-            logger.info(f"✅ Found user_id: {user_id}")
+            decoded_state = base64.b64decode(state).decode('utf-8')
+            logger.info(f"✅ Base64 decoded: {decoded_state}")
+            
+            state_data = json.loads(decoded_state)
+            logger.info(f"✅ JSON parsed: {state_data}")
+            
+            user_id = state_data.get('user_id')
+            logger.info(f"✅ Extracted user_id: {user_id}")
             
             if not user_id:
-                logger.error("❌ No user_id in state")
+                logger.error("❌ No user_id found in state data!")
+                logger.error(f"State data contents: {state_data}")
                 return RedirectResponse(
-                    url=f"{frontend_url}?error=invalid_state",
+                    url=f"{frontend_url}?error=invalid_state_no_user",
                     status_code=302
                 )
+            
+            logger.info(f"✅ Step 2 Complete: user_id = {user_id}")
                 
         except Exception as decode_error:
-            logger.error(f"❌ Failed to decode state: {decode_error}")
+            logger.error(f"❌ State decoding failed!")
+            logger.error(f"Error type: {type(decode_error).__name__}")
+            logger.error(f"Error message: {str(decode_error)}")
+            logger.error(f"Full traceback:")
             logger.error(traceback.format_exc())
             return RedirectResponse(
-                url=f"{frontend_url}?error=invalid_state_decode",
+                url=f"{frontend_url}?error=state_decode_failed",
                 status_code=302
             )
         
-        # Get Reddit credentials
+        # ✅ STEP 3: Load Reddit credentials
+        logger.info("=" * 60)
+        logger.info("🔍 STEP 3: Loading Reddit OAuth credentials...")
+        
         reddit_client_id = os.getenv("REDDIT_CLIENT_ID")
         reddit_client_secret = os.getenv("REDDIT_CLIENT_SECRET")
         reddit_redirect_uri = os.getenv(
             "REDDIT_REDIRECT_URI",
             "https://velocitypost-984x.onrender.com/api/oauth/reddit/callback"
         )
+        reddit_user_agent = os.getenv("REDDIT_USER_AGENT", "VelocityPost/1.0")
         
-        logger.info(f"🔑 Reddit Client ID: {reddit_client_id[:10]}... (truncated)")
-        logger.info(f"🔗 Redirect URI: {reddit_redirect_uri}")
+        logger.info(f"📋 Credentials check:")
+        logger.info(f"   - Client ID present: {bool(reddit_client_id)}")
+        logger.info(f"   - Client ID length: {len(reddit_client_id) if reddit_client_id else 0}")
+        logger.info(f"   - Client ID value: {reddit_client_id if reddit_client_id else 'NOT SET'}")
+        logger.info(f"   - Secret present: {bool(reddit_client_secret)}")
+        logger.info(f"   - Secret length: {len(reddit_client_secret) if reddit_client_secret else 0}")
+        logger.info(f"   - Secret preview: {reddit_client_secret[:5] + '...' if reddit_client_secret else 'NOT SET'}")
+        logger.info(f"   - Redirect URI: {reddit_redirect_uri}")
+        logger.info(f"   - User Agent: {reddit_user_agent}")
         
-        if not reddit_client_id or not reddit_client_secret:
-            logger.error("❌ Reddit credentials missing")
+        if not reddit_client_id:
+            logger.error("❌ REDDIT_CLIENT_ID environment variable is NOT SET!")
             return RedirectResponse(
-                url=f"{frontend_url}?error=missing_credentials",
+                url=f"{frontend_url}?error=missing_client_id",
                 status_code=302
             )
         
-        # Prepare token exchange
+        if not reddit_client_secret:
+            logger.error("❌ REDDIT_CLIENT_SECRET environment variable is NOT SET!")
+            return RedirectResponse(
+                url=f"{frontend_url}?error=missing_client_secret",
+                status_code=302
+            )
+        
+        logger.info("✅ Step 3 Complete: All credentials loaded")
+        
+        # ✅ STEP 4: Prepare token exchange request
+        logger.info("=" * 60)
+        logger.info("🔍 STEP 4: Preparing token exchange request...")
+        
         token_data = {
             'grant_type': 'authorization_code',
             'code': code,
             'redirect_uri': reddit_redirect_uri
         }
         
+        logger.info(f"📤 Request payload:")
+        logger.info(f"   - grant_type: {token_data['grant_type']}")
+        logger.info(f"   - code: {code[:30]}...")
+        logger.info(f"   - redirect_uri: {token_data['redirect_uri']}")
+        
+        # Create Basic Auth header
         auth_string = f"{reddit_client_id}:{reddit_client_secret}"
         auth_bytes = auth_string.encode('ascii')
         auth_b64 = base64.b64encode(auth_bytes).decode('ascii')
         
+        logger.info(f"🔐 Basic Auth:")
+        logger.info(f"   - Auth string length: {len(auth_string)}")
+        logger.info(f"   - Base64 length: {len(auth_b64)}")
+        logger.info(f"   - Base64 preview: {auth_b64[:20]}...")
+        
         headers = {
             'Authorization': f'Basic {auth_b64}',
-            'User-Agent': 'VelocityPost/1.0'
+            'User-Agent': reddit_user_agent,
+            'Content-Type': 'application/x-www-form-urlencoded'
         }
         
-        logger.info("🔄 Exchanging code for access token...")
-        logger.info(f"📤 Request to: https://www.reddit.com/api/v1/access_token")
+        logger.info(f"📋 Request headers prepared")
+        logger.info("✅ Step 4 Complete: Request ready")
         
-        # Exchange code for token
+        # ✅ STEP 5: Send token exchange request
+        logger.info("=" * 60)
+        logger.info("🔍 STEP 5: Sending token exchange request to Reddit...")
+        logger.info(f"📤 POST https://www.reddit.com/api/v1/access_token")
+        
         import httpx
         
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            token_response = await client.post(
-                'https://www.reddit.com/api/v1/access_token',
-                data=token_data,
-                headers=headers
-            )
-        
-        logger.info(f"📥 Token response status: {token_response.status_code}")
-        
-        if token_response.status_code != 200:
-            logger.error(f"❌ Token exchange failed: {token_response.status_code}")
-            logger.error(f"Response: {token_response.text}")
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                token_response = await client.post(
+                    'https://www.reddit.com/api/v1/access_token',
+                    data=token_data,
+                    headers=headers
+                )
+            
+            logger.info(f"📥 Reddit API Response:")
+            logger.info(f"   - Status Code: {token_response.status_code}")
+            logger.info(f"   - Status Text: {token_response.reason_phrase if hasattr(token_response, 'reason_phrase') else 'N/A'}")
+            logger.info(f"   - Response Headers: {dict(token_response.headers)}")
+            logger.info(f"   - Response Body: {token_response.text[:500]}")
+            
+            if token_response.status_code == 401:
+                logger.error("=" * 60)
+                logger.error("❌ 401 UNAUTHORIZED ERROR!")
+                logger.error("This means Reddit rejected your credentials.")
+                logger.error("")
+                logger.error("Common causes:")
+                logger.error("1. Wrong Client ID or Secret")
+                logger.error("2. Client ID and Secret don't match (from different apps)")
+                logger.error("3. Redirect URI mismatch")
+                logger.error("4. Code already used or expired")
+                logger.error("")
+                logger.error("Verify on Reddit:")
+                logger.error(f"   Expected Client ID: {reddit_client_id}")
+                logger.error(f"   Expected Redirect: {reddit_redirect_uri}")
+                logger.error("=" * 60)
+                
+                return RedirectResponse(
+                    url=f"{frontend_url}?error=reddit_401_unauthorized&client_id={reddit_client_id[:10]}",
+                    status_code=302
+                )
+            
+            if token_response.status_code == 400:
+                logger.error("=" * 60)
+                logger.error("❌ 400 BAD REQUEST ERROR!")
+                logger.error("This means the request format is wrong.")
+                logger.error(f"Response: {token_response.text}")
+                logger.error("=" * 60)
+                
+                return RedirectResponse(
+                    url=f"{frontend_url}?error=reddit_400_bad_request",
+                    status_code=302
+                )
+            
+            if token_response.status_code != 200:
+                logger.error(f"❌ Unexpected status code: {token_response.status_code}")
+                logger.error(f"Response: {token_response.text}")
+                return RedirectResponse(
+                    url=f"{frontend_url}?error=token_exchange_failed&status={token_response.status_code}",
+                    status_code=302
+                )
+            
+            logger.info("✅ Step 5 Complete: Token exchange successful!")
+            
+        except httpx.TimeoutException as timeout_err:
+            logger.error("❌ Request timeout!")
+            logger.error(f"Error: {timeout_err}")
             return RedirectResponse(
-                url=f"{frontend_url}?error=token_exchange_failed&details={token_response.status_code}",
+                url=f"{frontend_url}?error=timeout",
+                status_code=302
+            )
+        except httpx.ConnectError as conn_err:
+            logger.error("❌ Connection error!")
+            logger.error(f"Error: {conn_err}")
+            return RedirectResponse(
+                url=f"{frontend_url}?error=connection_failed",
                 status_code=302
             )
         
-        # Parse tokens
+        # ✅ STEP 6: Parse token response
+        logger.info("=" * 60)
+        logger.info("🔍 STEP 6: Parsing token response...")
+        
         try:
             tokens = token_response.json()
-            logger.info(f"✅ Token response parsed successfully")
+            logger.info(f"✅ JSON parsed successfully")
+            logger.info(f"Token response keys: {list(tokens.keys())}")
         except Exception as parse_error:
-            logger.error(f"❌ Failed to parse token response: {parse_error}")
+            logger.error(f"❌ Failed to parse JSON response!")
+            logger.error(f"Error: {parse_error}")
+            logger.error(f"Raw response: {token_response.text}")
             return RedirectResponse(
                 url=f"{frontend_url}?error=token_parse_failed",
                 status_code=302
@@ -1442,92 +1566,171 @@ async def reddit_oauth_callback(
         
         access_token = tokens.get('access_token')
         refresh_token = tokens.get('refresh_token')
+        expires_in = tokens.get('expires_in', 3600)
+        token_type = tokens.get('token_type', 'bearer')
+        scope = tokens.get('scope', '')
+        
+        logger.info(f"📋 Tokens extracted:")
+        logger.info(f"   - Access token present: {bool(access_token)}")
+        logger.info(f"   - Access token length: {len(access_token) if access_token else 0}")
+        logger.info(f"   - Refresh token present: {bool(refresh_token)}")
+        logger.info(f"   - Expires in: {expires_in} seconds")
+        logger.info(f"   - Token type: {token_type}")
+        logger.info(f"   - Scope: {scope}")
         
         if not access_token:
-            logger.error("❌ No access token in response")
+            logger.error("❌ No access_token in response!")
+            logger.error(f"Response contents: {tokens}")
             return RedirectResponse(
                 url=f"{frontend_url}?error=no_access_token",
                 status_code=302
             )
         
-        logger.info("✅ Access token obtained")
+        logger.info("✅ Step 6 Complete: Tokens extracted")
         
-        # Get Reddit user info
-        logger.info("🔍 Fetching Reddit user info...")
+        # ✅ STEP 7: Get Reddit user info
+        logger.info("=" * 60)
+        logger.info("🔍 STEP 7: Fetching Reddit user information...")
         
         user_headers = {
             'Authorization': f'Bearer {access_token}',
-            'User-Agent': 'VelocityPost/1.0'
+            'User-Agent': reddit_user_agent
         }
         
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            user_response = await client.get(
-                'https://oauth.reddit.com/api/v1/me',
-                headers=user_headers
-            )
+        logger.info(f"📤 GET https://oauth.reddit.com/api/v1/me")
         
-        logger.info(f"📥 User info response status: {user_response.status_code}")
-        
-        if user_response.status_code != 200:
-            logger.error(f"❌ Failed to get user info: {user_response.status_code}")
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                user_response = await client.get(
+                    'https://oauth.reddit.com/api/v1/me',
+                    headers=user_headers
+                )
+            
+            logger.info(f"📥 User info response:")
+            logger.info(f"   - Status: {user_response.status_code}")
+            logger.info(f"   - Body preview: {user_response.text[:200]}")
+            
+            if user_response.status_code != 200:
+                logger.error(f"❌ Failed to get user info: {user_response.status_code}")
+                logger.error(f"Response: {user_response.text}")
+                return RedirectResponse(
+                    url=f"{frontend_url}?error=user_info_failed",
+                    status_code=302
+                )
+            
+        except Exception as user_req_error:
+            logger.error(f"❌ User info request failed!")
+            logger.error(f"Error: {user_req_error}")
             return RedirectResponse(
-                url=f"{frontend_url}?error=user_info_failed",
+                url=f"{frontend_url}?error=user_info_request_failed",
                 status_code=302
             )
         
-        reddit_user = user_response.json()
+        try:
+            reddit_user = user_response.json()
+            logger.info(f"✅ User info parsed")
+            logger.info(f"User data keys: {list(reddit_user.keys())}")
+        except Exception as user_parse_error:
+            logger.error(f"❌ Failed to parse user info!")
+            logger.error(f"Error: {user_parse_error}")
+            return RedirectResponse(
+                url=f"{frontend_url}?error=user_info_parse_failed",
+                status_code=302
+            )
+        
         reddit_username = reddit_user.get('name')
         reddit_user_id = reddit_user.get('id')
         
+        logger.info(f"📋 User info extracted:")
+        logger.info(f"   - Username: u/{reddit_username if reddit_username else 'MISSING'}")
+        logger.info(f"   - User ID: {reddit_user_id if reddit_user_id else 'MISSING'}")
+        
         if not reddit_username:
-            logger.error("❌ No username in response")
+            logger.error("❌ No username in Reddit response!")
+            logger.error(f"User data: {reddit_user}")
             return RedirectResponse(
                 url=f"{frontend_url}?error=no_username",
                 status_code=302
             )
         
-        logger.info(f"✅ Reddit user: u/{reddit_username} (ID: {reddit_user_id})")
+        logger.info("✅ Step 7 Complete: User info retrieved")
         
-        # Store tokens
+        # ✅ STEP 8: Store tokens
+        logger.info("=" * 60)
+        logger.info("🔍 STEP 8: Storing Reddit tokens...")
+        logger.info(f"   - Storing for user_id: {user_id}")
+        logger.info(f"   - Reddit username: u/{reddit_username}")
+        
         token_doc = {
             'access_token': access_token,
             'refresh_token': refresh_token,
             'reddit_username': reddit_username,
             'reddit_user_id': reddit_user_id,
-            'expires_in': tokens.get('expires_in', 3600)
+            'expires_in': expires_in,
+            'token_type': token_type,
+            'scope': scope
         }
         
         # Store in database
         if database_manager and hasattr(database_manager, 'store_reddit_tokens'):
-            db_result = await database_manager.store_reddit_tokens(user_id, token_doc)
-            logger.info(f"✅ Database storage: {db_result.get('success')}")
+            try:
+                db_result = await database_manager.store_reddit_tokens(user_id, token_doc)
+                logger.info(f"✅ Database storage: {db_result.get('success')}")
+                if not db_result.get('success'):
+                    logger.warning(f"⚠️ Database storage returned: {db_result}")
+            except Exception as db_error:
+                logger.error(f"⚠️ Database storage failed: {db_error}")
+                logger.error(traceback.format_exc())
+        else:
+            logger.warning("⚠️ Database manager not available for token storage")
         
         # Store in memory
-        user_reddit_tokens[user_id] = {
-            "access_token": access_token,
-            "refresh_token": refresh_token,
-            "reddit_username": reddit_username,
-            "reddit_user_id": reddit_user_id,
-            "connected_at": datetime.now().isoformat(),
-            "user_info": {"name": reddit_username, "id": reddit_user_id}
-        }
+        try:
+            user_reddit_tokens[user_id] = {
+                "access_token": access_token,
+                "refresh_token": refresh_token,
+                "reddit_username": reddit_username,
+                "reddit_user_id": reddit_user_id,
+                "expires_in": expires_in,
+                "connected_at": datetime.now().isoformat(),
+                "user_info": {
+                    "name": reddit_username,
+                    "id": reddit_user_id
+                }
+            }
+            logger.info(f"✅ Memory storage successful")
+            logger.info(f"✅ Total users with Reddit: {len(user_reddit_tokens)}")
+        except Exception as mem_error:
+            logger.error(f"⚠️ Memory storage failed: {mem_error}")
         
-        logger.info(f"✅ Reddit OAuth complete for u/{reddit_username}")
+        logger.info("✅ Step 8 Complete: Tokens stored")
+        
+        # ✅ SUCCESS
+        logger.info("=" * 80)
+        logger.info("✅✅✅ REDDIT OAUTH COMPLETED SUCCESSFULLY! ✅✅✅")
+        logger.info(f"User ID: {user_id}")
+        logger.info(f"Reddit Username: u/{reddit_username}")
+        logger.info(f"Reddit User ID: {reddit_user_id}")
         logger.info("=" * 80)
         
-        # Redirect to correct frontend
+        # Redirect to frontend with success
         redirect_url = f"{frontend_url}?reddit_connected=true&username={reddit_username}"
         logger.info(f"🔄 Redirecting to: {redirect_url}")
         
         return RedirectResponse(url=redirect_url, status_code=302)
         
     except Exception as e:
-        logger.error(f"❌ OAuth callback error: {e}")
+        logger.error("=" * 80)
+        logger.error("❌❌❌ UNEXPECTED ERROR IN OAUTH CALLBACK! ❌❌❌")
+        logger.error(f"Error type: {type(e).__name__}")
+        logger.error(f"Error message: {str(e)}")
+        logger.error("Full traceback:")
         logger.error(traceback.format_exc())
+        logger.error("=" * 80)
         
         frontend_url = os.getenv("FRONTEND_URL", "https://velocitypost-ai.onrender.com")
         return RedirectResponse(
-            url=f"{frontend_url}?error=callback_failed",
+            url=f"{frontend_url}?error=callback_exception",
             status_code=302
         )
 
@@ -1701,8 +1904,50 @@ async def reddit_oauth_callback(
 #             status_code=302
 #         )
 
-
-
+@app.get("/api/debug/reddit-config")
+async def debug_reddit_config():
+    """Debug Reddit OAuth configuration - COMPREHENSIVE"""
+    reddit_client_id = os.getenv("REDDIT_CLIENT_ID")
+    reddit_client_secret = os.getenv("REDDIT_CLIENT_SECRET")
+    reddit_redirect_uri = os.getenv("REDDIT_REDIRECT_URI")
+    reddit_user_agent = os.getenv("REDDIT_USER_AGENT")
+    frontend_url = os.getenv("FRONTEND_URL")
+    
+    return {
+        "success": True,
+        "timestamp": datetime.now().isoformat(),
+        "environment": {
+            "client_id": {
+                "set": bool(reddit_client_id),
+                "length": len(reddit_client_id) if reddit_client_id else 0,
+                "value": reddit_client_id if reddit_client_id else "NOT_SET",
+                "expected": "luTBXCyUteWCHyhoKeE6Lw"
+            },
+            "client_secret": {
+                "set": bool(reddit_client_secret),
+                "length": len(reddit_client_secret) if reddit_client_secret else 0,
+                "preview": reddit_client_secret[:5] + "..." if reddit_client_secret else "NOT_SET",
+                "expected_length": "~27 characters"
+            },
+            "redirect_uri": {
+                "value": reddit_redirect_uri if reddit_redirect_uri else "NOT_SET",
+                "expected": "https://velocitypost-984x.onrender.com/api/oauth/reddit/callback"
+            },
+            "user_agent": {
+                "value": reddit_user_agent if reddit_user_agent else "NOT_SET",
+                "expected": "VelocityPost/1.0"
+            },
+            "frontend_url": {
+                "value": frontend_url if frontend_url else "NOT_SET",
+                "expected": "https://velocitypost-ai.onrender.com"
+            }
+        },
+        "validation": {
+            "all_credentials_set": all([reddit_client_id, reddit_client_secret, reddit_redirect_uri]),
+            "client_id_matches": reddit_client_id == "luTBXCyUteWCHyhoKeE6Lw" if reddit_client_id else False,
+            "redirect_uri_correct": reddit_redirect_uri == "https://velocitypost-984x.onrender.com/api/oauth/reddit/callback" if reddit_redirect_uri else False
+        }
+    }
 
 
 
