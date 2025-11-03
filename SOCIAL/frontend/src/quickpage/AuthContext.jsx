@@ -15,16 +15,35 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [token, setToken] = useState(null);
 
-  // Clear all tokens helper
+  // ✅ NEW: Clear user-specific Reddit data
+  const clearUserRedditData = useCallback((email) => {
+    if (email) {
+      console.log(`🧹 Clearing Reddit data for: ${email}`);
+      localStorage.removeItem(`reddit_connected_${email}`);
+      localStorage.removeItem(`reddit_username_${email}`);
+      localStorage.removeItem(`redditUserProfile_${email}`);
+    }
+  }, []);
+
+  // ✅ ENHANCED: Clear all tokens AND user-specific data
   const clearAllTokens = useCallback(() => {
+    console.log('🧹 Clearing all authentication data...');
+    
+    // Clear auth tokens
     ['auth_token', 'token', 'authToken', 'cached_user', 'user'].forEach(key => 
       localStorage.removeItem(key)
     );
+    
+    // ✅ NEW: Clear Reddit data for current user
+    if (user?.email) {
+      clearUserRedditData(user.email);
+    }
+    
     setToken(null);
     setUser(null);
     setIsAuthenticated(false);
-    console.log('🧹 All tokens cleared');
-  }, []);
+    console.log('✅ All tokens and user data cleared');
+  }, [user?.email, clearUserRedditData]);
 
   // Initialize authentication on app load
   useEffect(() => {
@@ -77,6 +96,13 @@ export const AuthProvider = ({ children }) => {
     setLoading(true);
     try {
       console.log('🔐 Login attempt:', { email, apiUrl: API_BASE_URL });
+      
+      // ✅ NEW: Clear any existing user data BEFORE login
+      const oldUser = user?.email;
+      if (oldUser && oldUser !== email) {
+        console.log(`🧹 Different user detected, clearing old data for: ${oldUser}`);
+        clearUserRedditData(oldUser);
+      }
       
       const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
         method: 'POST',
@@ -131,6 +157,15 @@ export const AuthProvider = ({ children }) => {
                          data.authToken ||
                          `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
         
+        // ✅ NEW: Clear any stale Reddit data from OTHER users
+        const allKeys = Object.keys(localStorage);
+        allKeys.forEach(key => {
+          if (key.startsWith('reddit_') && !key.includes(email)) {
+            console.log(`🧹 Removing stale key: ${key}`);
+            localStorage.removeItem(key);
+          }
+        });
+        
         // Set state
         setUser(userData);
         setIsAuthenticated(true);
@@ -174,6 +209,13 @@ export const AuthProvider = ({ children }) => {
     try {
       console.log('📝 Registration attempt:', { email, name });
       
+      // ✅ NEW: Clear any existing user data BEFORE registration
+      const oldUser = user?.email;
+      if (oldUser && oldUser !== email) {
+        console.log(`🧹 Different user detected, clearing old data for: ${oldUser}`);
+        clearUserRedditData(oldUser);
+      }
+      
       const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
         method: 'POST',
         headers: { 
@@ -203,6 +245,15 @@ export const AuthProvider = ({ children }) => {
                            data.access_token ||
                            `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
           
+          // ✅ NEW: Clear stale Reddit data from other users
+          const allKeys = Object.keys(localStorage);
+          allKeys.forEach(key => {
+            if (key.startsWith('reddit_') && !key.includes(email)) {
+              console.log(`🧹 Removing stale key: ${key}`);
+              localStorage.removeItem(key);
+            }
+          });
+          
           setUser(userData);
           setIsAuthenticated(true);
           setToken(authToken);
@@ -231,16 +282,26 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // ✅ ENHANCED: Logout with Reddit data cleanup
   const logout = useCallback(() => {
+    console.log('👋 Logging out user:', user?.email);
+    
+    // Clear Reddit data for current user
+    if (user?.email) {
+      clearUserRedditData(user.email);
+    }
+    
+    // Clear all auth tokens
     clearAllTokens();
-    console.log('👋 User logged out');
-  }, [clearAllTokens]);
+    
+    console.log('✅ User logged out successfully');
+  }, [user?.email, clearAllTokens, clearUserRedditData]);
 
   const updateUser = useCallback((userData) => {
     const updatedUser = { ...user, ...userData };
     setUser(updatedUser);
     localStorage.setItem('cached_user', JSON.stringify(updatedUser));
-    console.log('👤 User data updated');
+    console.log('👤 User data updated:', updatedUser.email);
   }, [user]);
 
   const makeAuthenticatedRequest = useCallback(async (endpoint, options = {}) => {
@@ -293,6 +354,19 @@ export const AuthProvider = ({ children }) => {
     return isAuthenticated && user && user.user_id && token;
   }, [isAuthenticated, user, token]);
 
+  // ✅ NEW: Helper to get current user's Reddit status
+  const getCurrentUserRedditData = useCallback(() => {
+    if (!user?.email) return null;
+    
+    const connected = localStorage.getItem(`reddit_connected_${user.email}`);
+    const username = localStorage.getItem(`reddit_username_${user.email}`);
+    
+    return {
+      connected: connected === 'true',
+      username: username || null
+    };
+  }, [user?.email]);
+
   const value = {
     isAuthenticated,
     user,
@@ -303,9 +377,13 @@ export const AuthProvider = ({ children }) => {
     logout,
     updateUser,
     makeAuthenticatedRequest,
-    isReallyAuthenticated
+    isReallyAuthenticated,
+    clearUserRedditData,        // ✅ NEW
+    getCurrentUserRedditData    // ✅ NEW
   };
 
+  
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
+
 

@@ -109,74 +109,127 @@ const RedditAutomation = () => {
 
 
 
-  useEffect(() => {
-    if (!user?.email) return;
+useEffect(() => {
+  if (!user?.email) return;
+  
+  const checkRedditConnection = async () => {
+    // ✅ CLEAR old state first when user changes
+    setRedditConnected(false);
+    setRedditUsername('');
     
-    const checkRedditConnection = async () => {
-      // Check URL parameters first (OAuth callback)
-      const urlParams = new URLSearchParams(window.location.search);
-      const redditConnected = urlParams.get('reddit_connected');
-      const username = urlParams.get('username');
-      const error = urlParams.get('error');
+    // Check URL parameters first (OAuth callback)
+    const urlParams = new URLSearchParams(window.location.search);
+    const redditConnected = urlParams.get('reddit_connected');
+    const username = urlParams.get('username');
+    const error = urlParams.get('error');
 
-      if (error) { 
-        showNotification(`Connection failed: ${error}`, 'error'); 
-        window.history.replaceState({}, '', window.location.pathname); 
-        return; 
-      }
+    if (error) { 
+      showNotification(`Connection failed: ${error}`, 'error'); 
+      window.history.replaceState({}, '', window.location.pathname); 
+      return; 
+    }
 
-      if (redditConnected === 'true' && username) {
-        setRedditConnected(true); 
-        setRedditUsername(username);
-        updateUser({ reddit_connected: true, reddit_username: username });
-        showNotification(`✅ Reddit connected! Welcome u/${username}!`, 'success');
-        
-        localStorage.setItem(`reddit_connected_${user.email}`, 'true');
-        localStorage.setItem(`reddit_username_${user.email}`, username);
-        
-        window.history.replaceState({}, '', window.location.pathname); 
-        return;
-      }
-
-      // Check localStorage
-      const savedConnection = localStorage.getItem(`reddit_connected_${user.email}`);
-      const savedUsername = localStorage.getItem(`reddit_username_${user.email}`);
+    if (redditConnected === 'true' && username) {
+      setRedditConnected(true); 
+      setRedditUsername(username);
+      updateUser({ reddit_connected: true, reddit_username: username });
+      showNotification(`✅ Reddit connected! Welcome u/${username}!`, 'success');
       
-      if (savedConnection === 'true' && savedUsername) {
-        setRedditConnected(true);
-        setRedditUsername(savedUsername);
-        return;
-      }
+      localStorage.setItem(`reddit_connected_${user.email}`, 'true');
+      localStorage.setItem(`reddit_username_${user.email}`, username);
+      
+      window.history.replaceState({}, '', window.location.pathname); 
+      return;
+    }
 
-      // Check backend
-      try {
-        const response = await makeAuthenticatedRequest('/api/reddit/connection-status');
-        const result = await response.json();
+    // ✅ CRITICAL: Check backend API FIRST (not localStorage)
+    try {
+      console.log(`🔍 Fetching Reddit connection for: ${user.email}`);
+      
+      const response = await makeAuthenticatedRequest('/api/platforms/status', {
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache'
+        }
+      });
+      const result = await response.json();
+      
+      console.log('📥 Backend response:', result);
+      
+      if (result.success && result.platforms?.reddit?.connected) {
+        const redditUser = result.platforms.reddit.username;
         
-        if (result.success && result.connected) {
-          setRedditConnected(true); 
-          setRedditUsername(result.reddit_username || result.username);
-          localStorage.setItem(`reddit_connected_${user.email}`, 'true');
-          localStorage.setItem(`reddit_username_${user.email}`, result.reddit_username || result.username);
-        }
-      } catch (error) { 
-        console.error('Failed to check Reddit connection:', error); 
+        console.log(`✅ Reddit connected: u/${redditUser} for ${user.email}`);
+        
+        setRedditConnected(true); 
+        setRedditUsername(redditUser);
+        
+        // Update localStorage with fresh data
+        localStorage.setItem(`reddit_connected_${user.email}`, 'true');
+        localStorage.setItem(`reddit_username_${user.email}`, redditUser);
+        
+        updateUser({ reddit_connected: true, reddit_username: redditUser });
+      } else {
+        console.log(`❌ No Reddit connection for ${user.email}`);
+        
+        // Clear any stale localStorage
+        localStorage.removeItem(`reddit_connected_${user.email}`);
+        localStorage.removeItem(`reddit_username_${user.email}`);
+        
+        setRedditConnected(false);
+        setRedditUsername('');
       }
+    } catch (error) { 
+      console.error('Failed to check Reddit connection:', error);
+      
+      // On error, clear state (don't trust localStorage)
+      setRedditConnected(false);
+      setRedditUsername('');
+    }
 
-      // Load user profile
-      try {
-        const savedProfile = localStorage.getItem(`redditUserProfile_${user.email}`);
-        if (savedProfile) { 
-          const profile = JSON.parse(savedProfile); 
-          setUserProfile(profile); 
-        }
-      } catch (error) { 
-        console.error('Error loading profile:', error); 
+    // Load user profile
+    try {
+      const savedProfile = localStorage.getItem(`redditUserProfile_${user.email}`);
+      if (savedProfile) { 
+        const profile = JSON.parse(savedProfile); 
+        setUserProfile(profile); 
       }
-    };
+    } catch (error) { 
+      console.error('Error loading profile:', error); 
+    }
+  };
 
-    checkRedditConnection();
-  }, [user, makeAuthenticatedRequest, updateUser]);
+  checkRedditConnection();
+}, [user?.email, makeAuthenticatedRequest, updateUser, showNotification]); // ✅ Added user.email
+
+
+
+// ✅ Clear Reddit state on logout
+const handleLogout = useCallback(() => {
+  // Clear all localStorage for this user
+  if (user?.email) {
+    localStorage.removeItem(`reddit_connected_${user.email}`);
+    localStorage.removeItem(`reddit_username_${user.email}`);
+    localStorage.removeItem(`redditUserProfile_${user.email}`);
+  }
+  
+  // Clear state
+  setRedditConnected(false);
+  setRedditUsername('');
+  setUserProfile({ 
+    domain: 'tech', 
+    businessType: 'AI automation platform', 
+    businessDescription: 'We help businesses automate their Reddit presence', 
+    targetAudience: 'tech_professionals', 
+    contentStyle: 'engaging', 
+    isConfigured: false 
+  });
+  
+  // Call parent logout (from AuthContext)
+  // Assuming you have a logout function from useAuth()
+  // logout(); // Uncomment if you have this
+}, [user?.email]);
+
 
   // Connect Reddit account
   const handleRedditConnect = useCallback(async () => {
