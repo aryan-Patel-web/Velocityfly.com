@@ -1319,16 +1319,17 @@ async def reddit_oauth_callback(
     error: str = None,
     request: Request = None
 ):
-    """
-    Reddit OAuth callback - CRITICAL: Must associate tokens with correct user
-    """
+    """Reddit OAuth callback - FIXED WITH CORRECT FRONTEND URL"""
     try:
         logger.info("=" * 80)
         logger.info("🔵 REDDIT OAUTH CALLBACK STARTED")
         logger.info(f"📥 Received - Code: {bool(code)}, State: {state}, Error: {error}")
         
-        frontend_url = "https://frontend-agentic.onrender.com"  # Change to your frontend URL
+        # ✅ USE ENVIRONMENT VARIABLE OR FALLBACK
+        frontend_url = os.getenv("FRONTEND_URL", "https://velocitypost-ai.onrender.com")
+        logger.info(f"🔗 Frontend URL: {frontend_url}")
         
+        # Check for OAuth errors
         if error:
             logger.error(f"❌ OAuth error: {error}")
             return RedirectResponse(
@@ -1336,6 +1337,7 @@ async def reddit_oauth_callback(
                 status_code=302
             )
         
+        # Validate required parameters
         if not code or not state:
             logger.error("❌ Missing code or state parameter")
             return RedirectResponse(
@@ -1343,17 +1345,17 @@ async def reddit_oauth_callback(
                 status_code=302
             )
         
-        # ✅ CRITICAL: Decode state to get user_id
+        # ✅ Decode state to get user_id
         try:
             import base64
             import json
             
-            # State contains user_id (set during /api/oauth/reddit/authorize)
             decoded_state = base64.b64decode(state).decode('utf-8')
             state_data = json.loads(decoded_state)
             user_id = state_data.get('user_id')
             
-            logger.info(f"🔍 Decoded state - User ID: {user_id}")
+            logger.info(f"🔍 Decoded state successfully")
+            logger.info(f"✅ Found user_id: {user_id}")
             
             if not user_id:
                 logger.error("❌ No user_id in state")
@@ -1361,24 +1363,34 @@ async def reddit_oauth_callback(
                     url=f"{frontend_url}?error=invalid_state",
                     status_code=302
                 )
+                
         except Exception as decode_error:
             logger.error(f"❌ Failed to decode state: {decode_error}")
+            logger.error(traceback.format_exc())
             return RedirectResponse(
-                url=f"{frontend_url}?error=invalid_state",
+                url=f"{frontend_url}?error=invalid_state_decode",
                 status_code=302
             )
         
-        # Exchange code for tokens
+        # Get Reddit credentials
         reddit_client_id = os.getenv("REDDIT_CLIENT_ID")
         reddit_client_secret = os.getenv("REDDIT_CLIENT_SECRET")
-        reddit_redirect_uri = os.getenv("REDDIT_REDIRECT_URI", "https://velocitypost-984x.onrender.com/api/oauth/reddit/callback")
+        reddit_redirect_uri = os.getenv(
+            "REDDIT_REDIRECT_URI",
+            "https://velocitypost-984x.onrender.com/api/oauth/reddit/callback"
+        )
+        
+        logger.info(f"🔑 Reddit Client ID: {reddit_client_id[:10]}... (truncated)")
+        logger.info(f"🔗 Redirect URI: {reddit_redirect_uri}")
         
         if not reddit_client_id or not reddit_client_secret:
+            logger.error("❌ Reddit credentials missing")
             return RedirectResponse(
                 url=f"{frontend_url}?error=missing_credentials",
                 status_code=302
             )
         
+        # Prepare token exchange
         token_data = {
             'grant_type': 'authorization_code',
             'code': code,
@@ -1394,7 +1406,11 @@ async def reddit_oauth_callback(
             'User-Agent': 'VelocityPost/1.0'
         }
         
-        logger.info("🔄 Exchanging code for tokens...")
+        logger.info("🔄 Exchanging code for access token...")
+        logger.info(f"📤 Request to: https://www.reddit.com/api/v1/access_token")
+        
+        # Exchange code for token
+        import httpx
         
         async with httpx.AsyncClient(timeout=30.0) as client:
             token_response = await client.post(
@@ -1403,15 +1419,27 @@ async def reddit_oauth_callback(
                 headers=headers
             )
         
+        logger.info(f"📥 Token response status: {token_response.status_code}")
+        
         if token_response.status_code != 200:
             logger.error(f"❌ Token exchange failed: {token_response.status_code}")
             logger.error(f"Response: {token_response.text}")
             return RedirectResponse(
-                url=f"{frontend_url}?error=token_exchange_failed",
+                url=f"{frontend_url}?error=token_exchange_failed&details={token_response.status_code}",
                 status_code=302
             )
         
-        tokens = token_response.json()
+        # Parse tokens
+        try:
+            tokens = token_response.json()
+            logger.info(f"✅ Token response parsed successfully")
+        except Exception as parse_error:
+            logger.error(f"❌ Failed to parse token response: {parse_error}")
+            return RedirectResponse(
+                url=f"{frontend_url}?error=token_parse_failed",
+                status_code=302
+            )
+        
         access_token = tokens.get('access_token')
         refresh_token = tokens.get('refresh_token')
         
@@ -1422,19 +1450,23 @@ async def reddit_oauth_callback(
                 status_code=302
             )
         
-        logger.info("✅ Tokens obtained successfully")
+        logger.info("✅ Access token obtained")
         
         # Get Reddit user info
         logger.info("🔍 Fetching Reddit user info...")
         
+        user_headers = {
+            'Authorization': f'Bearer {access_token}',
+            'User-Agent': 'VelocityPost/1.0'
+        }
+        
         async with httpx.AsyncClient(timeout=30.0) as client:
             user_response = await client.get(
                 'https://oauth.reddit.com/api/v1/me',
-                headers={
-                    'Authorization': f'Bearer {access_token}',
-                    'User-Agent': 'VelocityPost/1.0'
-                }
+                headers=user_headers
             )
+        
+        logger.info(f"📥 User info response status: {user_response.status_code}")
         
         if user_response.status_code != 200:
             logger.error(f"❌ Failed to get user info: {user_response.status_code}")
@@ -1447,9 +1479,16 @@ async def reddit_oauth_callback(
         reddit_username = reddit_user.get('name')
         reddit_user_id = reddit_user.get('id')
         
-        logger.info(f"✅ Reddit user info: u/{reddit_username} (ID: {reddit_user_id})")
+        if not reddit_username:
+            logger.error("❌ No username in response")
+            return RedirectResponse(
+                url=f"{frontend_url}?error=no_username",
+                status_code=302
+            )
         
-        # ✅ CRITICAL: Store tokens with the CORRECT user_id
+        logger.info(f"✅ Reddit user: u/{reddit_username} (ID: {reddit_user_id})")
+        
+        # Store tokens
         token_doc = {
             'access_token': access_token,
             'refresh_token': refresh_token,
@@ -1460,9 +1499,10 @@ async def reddit_oauth_callback(
         
         # Store in database
         if database_manager and hasattr(database_manager, 'store_reddit_tokens'):
-            await database_manager.store_reddit_tokens(user_id, token_doc)
+            db_result = await database_manager.store_reddit_tokens(user_id, token_doc)
+            logger.info(f"✅ Database storage: {db_result.get('success')}")
         
-        # Also store in memory
+        # Store in memory
         user_reddit_tokens[user_id] = {
             "access_token": access_token,
             "refresh_token": refresh_token,
@@ -1472,19 +1512,20 @@ async def reddit_oauth_callback(
             "user_info": {"name": reddit_username, "id": reddit_user_id}
         }
         
-        logger.info(f"✅ Tokens stored for user_id: {user_id}")
-        logger.info(f"✅ Reddit username: u/{reddit_username}")
+        logger.info(f"✅ Reddit OAuth complete for u/{reddit_username}")
         logger.info("=" * 80)
         
-        # Redirect back to frontend with success
-        return RedirectResponse(
-            url=f"{frontend_url}?reddit_connected=true&username={reddit_username}",
-            status_code=302
-        )
+        # Redirect to correct frontend
+        redirect_url = f"{frontend_url}?reddit_connected=true&username={reddit_username}"
+        logger.info(f"🔄 Redirecting to: {redirect_url}")
+        
+        return RedirectResponse(url=redirect_url, status_code=302)
         
     except Exception as e:
         logger.error(f"❌ OAuth callback error: {e}")
         logger.error(traceback.format_exc())
+        
+        frontend_url = os.getenv("FRONTEND_URL", "https://velocitypost-ai.onrender.com")
         return RedirectResponse(
             url=f"{frontend_url}?error=callback_failed",
             status_code=302
