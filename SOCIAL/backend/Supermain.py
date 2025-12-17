@@ -1208,6 +1208,86 @@ async def health_check():
             }
         )
 
+
+
+# ============================================================================
+# KEEP-ALIVE ENDPOINT FOR UPTIMEROBOT
+# ============================================================================
+@app.get("/keep-alive")
+async def keep_alive():
+    """
+    Keep-alive endpoint for UptimeRobot monitoring.
+    This endpoint is lightweight and always returns 200 OK.
+    Prevents Render free tier from sleeping.
+    """
+    try:
+        # Check database status
+        db_connected = database_manager is not None and database_manager.connected
+        
+        # Check services status
+        youtube_available = bool(youtube_services)
+        reddit_available = bool(reddit_services)
+        
+        # Get user counts (if database connected)
+        total_users = 0
+        reddit_users = 0
+        youtube_users = 0
+        
+        if db_connected:
+            try:
+                total_users = await database_manager.users_collection.count_documents({})
+                reddit_users = await database_manager.reddit_tokens.count_documents({"is_active": True})
+                youtube_users = await database_manager.youtube_credentials.count_documents({})
+            except Exception as count_error:
+                logger.warning(f"Keep-alive count error: {count_error}")
+        
+        return {
+            "status": "alive",
+            "message": "VelocityPost backend is running and healthy!",
+            "timestamp": datetime.now().isoformat(),
+            "uptime": "operational",
+            "services": {
+                "api": "running",
+                "database": {
+                    "connected": db_connected,
+                    "status": "operational" if db_connected else "disconnected"
+                },
+                "platforms": {
+                    "youtube": {
+                        "available": youtube_available,
+                        "connected_users": youtube_users
+                    },
+                    "reddit": {
+                        "available": reddit_available,
+                        "connected_users": reddit_users
+                    }
+                },
+                "users": {
+                    "total_registered": total_users
+                }
+            },
+            "playwright_path": PLAYWRIGHT_PATH,
+            "version": "3.2.0",
+            "health_check": "pass"
+        }
+    except Exception as e:
+        # Even if there's an error, return 200 OK to keep UptimeRobot happy
+        logger.warning(f"Keep-alive error (non-critical): {str(e)}")
+        return {
+            "status": "alive",
+            "message": "Backend is running (some services initializing)",
+            "timestamp": datetime.now().isoformat(),
+            "uptime": "operational",
+            "services": {
+                "api": "running",
+                "database": "initializing",
+                "platforms": "initializing"
+            },
+            "health_check": "pass",
+            "note": "Background services are still initializing"
+        }
+
+
 # ============================================================================
 # IMPORT AND MOUNT PLATFORM ROUTES
 # ============================================================================
@@ -1945,7 +2025,11 @@ async def post_now_to_reddit(request: Request, current_user: dict = Depends(get_
 
 
 
+# =================================================================================
 
+
+
+# =================================================================================
 
 
 
@@ -2069,6 +2153,7 @@ async def get_platform_status(current_user: dict = Depends(get_current_user)):
         }
     
 
+# =======================================================================================
 
 
 
