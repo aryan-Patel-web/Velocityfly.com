@@ -33,7 +33,7 @@ import random
 from urllib.parse import quote
 # import base64          gdf;lh,er
 from PIL import Image, ImageDraw, ImageFont
- 
+import io
 
 # ============================================================================
 # ✅ CRITICAL: SET PLAYWRIGHT PATH BEFORE ANY IMPORTS
@@ -2034,22 +2034,28 @@ async def post_now_to_reddit(request: Request, current_user: dict = Depends(get_
 # ============================================================================
 # AI THUMBNAIL GENERATION ROUTE
 # ============================================================================
+# ============================================================================
+# AI THUMBNAIL GENERATION ROUTE - FIXED AUTHENTICATION
+# ============================================================================
 @app.post("/api/youtube/generate-ai-thumbnails")
-async def generate_ai_thumbnails(request: Request, current_user: dict = Depends(get_current_user)):
+async def generate_ai_thumbnails(request: Request):
     """Generate AI-powered thumbnails using Pollinations.ai"""
     try:
         data = await request.json()
         
-        user_id = current_user.get("id") or current_user.get("user_id")
+        user_id = data.get("user_id")
         title = data.get("title", "")
         description = data.get("description", "")
         add_overlay = data.get("add_overlay", True)
         custom_prompt = data.get("custom_prompt", "")
         
+        if not user_id:
+            return {"success": False, "error": "User ID is required"}
+        
         if not title:
             return {"success": False, "error": "Title is required"}
         
-        logger.info(f"🎨 Generating AI thumbnails for user {user_id}")
+        logger.info(f"🎨 AI Thumbnail generation request from user {user_id}")
         logger.info(f"Title: {title}, Overlay: {add_overlay}")
         
         # Generate 3 different thumbnail variations
@@ -2077,7 +2083,7 @@ async def generate_ai_thumbnails(request: Request, current_user: dict = Depends(
                 encoded_prompt = quote(prompt)
                 image_url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width=1280&height=720&nologo=true&enhance=true&model=flux"
                 
-                logger.info(f"📥 Fetching thumbnail {i} from Pollinations...")
+                logger.info(f"📥 Fetching AI thumbnail {i} from Pollinations...")
                 
                 async with httpx.AsyncClient(timeout=30.0) as client:
                     response = await client.get(image_url)
@@ -2115,7 +2121,6 @@ async def generate_ai_thumbnails(request: Request, current_user: dict = Depends(
                             )
                             
                             # Calculate text size and position for centering
-                            # Wrap text if too long
                             max_chars = 50
                             display_title = title if len(title) <= max_chars else title[:max_chars] + "..."
                             
@@ -2128,8 +2133,7 @@ async def generate_ai_thumbnails(request: Request, current_user: dict = Depends(
                             text_x = box_x + (box_width - text_width) // 2
                             text_y = box_y + (box_height - text_height) // 2
                             
-                            # Black text with shadow for better readability
-                            # Shadow
+                            # Black text with shadow
                             for offset in range(-2, 3):
                                 draw.text(
                                     (text_x + offset, text_y + offset),
@@ -2143,7 +2147,7 @@ async def generate_ai_thumbnails(request: Request, current_user: dict = Depends(
                                 (text_x, text_y),
                                 display_title,
                                 font=font,
-                                fill=(0, 0, 0, 255)  # Black text on yellow
+                                fill=(0, 0, 0, 255)
                             )
                             
                             # Composite overlay onto image
@@ -2165,12 +2169,12 @@ async def generate_ai_thumbnails(request: Request, current_user: dict = Depends(
                             "has_overlay": add_overlay
                         })
                         
-                        logger.info(f"✅ Generated thumbnail {i}")
+                        logger.info(f"✅ Generated AI thumbnail {i}")
                     else:
-                        logger.error(f"❌ Failed to fetch thumbnail {i}: {response.status_code}")
+                        logger.error(f"❌ Pollinations API returned {response.status_code}")
                 
             except Exception as e:
-                logger.error(f"❌ Error generating thumbnail {i}: {e}")
+                logger.error(f"❌ Error generating AI thumbnail {i}: {e}")
                 continue
         
         if len(thumbnails) == 0:
@@ -2179,7 +2183,7 @@ async def generate_ai_thumbnails(request: Request, current_user: dict = Depends(
                 "error": "Failed to generate any thumbnails. Please try again."
             }
         
-        logger.info(f"✅ Successfully generated {len(thumbnails)} thumbnails")
+        logger.info(f"✅ Successfully generated {len(thumbnails)} AI thumbnails")
         
         return {
             "success": True,
@@ -2195,7 +2199,6 @@ async def generate_ai_thumbnails(request: Request, current_user: dict = Depends(
             "success": False,
             "error": str(e)
         }
-
 # =================================================================================
 
 
