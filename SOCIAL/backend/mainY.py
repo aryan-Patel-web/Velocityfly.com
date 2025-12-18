@@ -2363,67 +2363,12 @@ async def youtube_upload_video(request: dict):
 
 
 
-# @app.post("/api/youtube/upload-video-file")
-# async def upload_video_file(
-#     video: UploadFile = File(...),
-#     user_id: str = Form(...)  # ✅ FIXED - now accepts form data
-# ):
-#     """Upload video file and return temporary path for thumbnail generation"""
-#     try:
-#         logger.info(f"📤 Receiving video upload from user: {user_id}")
-        
-#         # Validate file type
-#         if not video.content_type.startswith('video/'):
-#             raise HTTPException(
-#                 status_code=400, 
-#                 detail="File must be a video (MP4, AVI, MOV, etc.)"
-#             )
-        
-#         # File size check (500MB max)
-#         content = await video.read()
-#         file_size = len(content)
-        
-#         if file_size > 500 * 1024 * 1024:  # 500MB
-#             raise HTTPException(
-#                 status_code=400,
-#                 detail="File too large. Maximum 500MB allowed."
-#             )
-        
-#         # Create user-specific temp directory
-#         temp_dir = Path(f"/tmp/uploads/{user_id}")
-#         temp_dir.mkdir(parents=True, exist_ok=True)
-        
-#         # Save with timestamp to avoid conflicts
-#         timestamp = int(datetime.now().timestamp())
-#         safe_filename = f"{timestamp}_{video.filename}"
-#         file_path = temp_dir / safe_filename
-        
-#         # Write file
-#         with file_path.open("wb") as f:
-#             f.write(content)
-        
-#         logger.info(f"✅ Video saved: {file_path} ({file_size} bytes)")
-        
-#         return {
-#             "success": True,
-#             "video_url": str(file_path),
-#             "file_size": file_size,
-#             "filename": safe_filename,
-#             "message": "Video uploaded successfully. Ready for thumbnail generation."
-#         }
-        
-#     except HTTPException:
-#         raise
-#     except Exception as e:
-#         logger.error(f"❌ Video upload failed: {str(e)}")
-#         raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
-    
 @app.post("/api/youtube/upload-video-file")
 async def upload_video_file(
     video: UploadFile = File(...),
-    user_id: str = Form(...)
+    user_id: str = Form(...)  # ✅ FIXED - now accepts form data
 ):
-    """Upload video file with session-persistent storage"""
+    """Upload video file and return temporary path for thumbnail generation"""
     try:
         logger.info(f"📤 Receiving video upload from user: {user_id}")
         
@@ -2444,8 +2389,7 @@ async def upload_video_file(
                 detail="File too large. Maximum 500MB allowed."
             )
         
-        # Create user-specific persistent directory
-        # Use /tmp but also store in memory for quick access
+        # Create user-specific temp directory
         temp_dir = Path(f"/tmp/uploads/{user_id}")
         temp_dir.mkdir(parents=True, exist_ok=True)
         
@@ -2454,26 +2398,11 @@ async def upload_video_file(
         safe_filename = f"{timestamp}_{video.filename}"
         file_path = temp_dir / safe_filename
         
-        # Write file to disk
+        # Write file
         with file_path.open("wb") as f:
             f.write(content)
         
-        # ✅ CRITICAL FIX: Store file info in a global dict for quick retrieval
-        # This prevents the "file not found" error
-        if not hasattr(app.state, 'uploaded_videos'):
-            app.state.uploaded_videos = {}
-        
-        # Store both path and content in memory
-        app.state.uploaded_videos[str(file_path)] = {
-            "content": content,
-            "size": file_size,
-            "filename": safe_filename,
-            "uploaded_at": datetime.now(),
-            "user_id": user_id
-        }
-        
-        logger.info(f"✅ Video saved: {file_path} ({file_size / (1024*1024):.2f}MB)")
-        logger.info(f"✅ Stored in memory cache for quick access")
+        logger.info(f"✅ Video saved: {file_path} ({file_size} bytes)")
         
         return {
             "success": True,
@@ -2488,8 +2417,10 @@ async def upload_video_file(
     except Exception as e:
         logger.error(f"❌ Video upload failed: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
+    
 
 
+    
 @app.post("/api/youtube/fetch-video-info")
 async def fetch_youtube_video_info(request: dict):
     """Fetch existing YouTube video info to update thumbnail"""

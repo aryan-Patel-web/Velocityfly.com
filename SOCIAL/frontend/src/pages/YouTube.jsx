@@ -2461,10 +2461,39 @@ if (result.success) {
   )}
 </div>
 
+
+
+
+
+
+
+
+
+
+
+
+
 {/* relgfjeo'rg */}
 {/* Manual Thumbnail Upload */}
 {/* ✅ MANUAL THUMBNAIL UPLOAD FROM GALLERY */}
-<div style={{marginTop: '16px'}}>
+{/* ============================================ */}
+{/* THUMBNAIL GENERATION OPTIONS - ALL 3 METHODS */}
+{/* ============================================ */}
+
+{/* OPTION 1: Manual Thumbnail Upload */}
+<div style={{marginTop: '20px'}}>
+  <h4 style={{
+    marginBottom: '12px',
+    color: '#FF6B6B',
+    fontSize: '16px',
+    fontWeight: '700',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px'
+  }}>
+    <span>🖼️</span> Option 1: Upload Custom Thumbnail from Gallery
+  </h4>
+  
   <label style={{
     display: 'block',
     width: '100%',
@@ -2482,7 +2511,7 @@ if (result.success) {
   onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
   onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
   >
-    🖼️ Upload Custom Thumbnail from Gallery
+    🖼️ Upload Your Own Image
     <input
       type="file"
       accept="image/*"
@@ -2541,15 +2570,16 @@ if (result.success) {
   </div>
 </div>
 
-{/* sdewsgvewgvwe */}
-
-
-
-{/* ============================================ */}
-{/* AI THUMBNAIL GENERATION - NEW OPTION */}
-{/* ============================================ */}
+{/* Divider */}
 <div style={{
-  marginTop: '20px',
+  margin: '24px 0',
+  height: '2px',
+  background: 'linear-gradient(to right, #FF6B6B, #FF8E53)',
+  borderRadius: '2px'
+}}></div>
+
+{/* OPTION 2: AI Generated Thumbnails */}
+<div style={{
   padding: '20px',
   background: 'linear-gradient(135deg, #667eea15 0%, #764ba215 100%)',
   borderRadius: '12px',
@@ -2564,7 +2594,7 @@ if (result.success) {
     fontSize: '16px',
     fontWeight: '700'
   }}>
-    <span>🤖</span> Option 3: AI Generated Thumbnails
+    <span>🤖</span> Option 2: AI Generated Thumbnails
   </h4>
 
   <div style={{
@@ -2774,117 +2804,148 @@ if (result.success) {
   borderRadius: '2px'
 }}></div>
 
-
-
-
-
-
-
-
-
-{/* Generate Thumbnails Button - THE FIX! */}
-
-<button
-  onClick={async () => {
-    // Validation
-    if (!contentData.title?.trim()) {
-      alert('⚠️ Please enter a video title first!');
-      return;
-    }
-    
-    if (!contentData.video_url?.trim()) {
-      alert('⚠️ Please provide a video URL or upload a file first!');
-      return;
-    }
-    
-    setGeneratingThumbnails(true);
-    setThumbnails([]);
-    setSelectedThumbnail(null);
-    
-    try {
-      console.log('🎨 Starting thumbnail generation...');
-      console.log('Video URL:', contentData.video_url);
-      console.log('Title:', contentData.title);
-      
-      const response = await fetch(`${API_BASE}/api/youtube/generate-thumbnails`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
-        body: JSON.stringify({
-          user_id: user.user_id,
-          video_url: contentData.video_url,
-          title: contentData.title,
-          description: contentData.description || ''
-        })
-      });
-      
-      const result = await response.json();
-      console.log('Thumbnail response:', result);
-      
-      if (result.success && result.thumbnails?.length > 0) {
-        setThumbnails(result.thumbnails);
-        alert(`✅ Generated ${result.thumbnails.length} thumbnails!\n\nSelect one and click "Upload to YouTube"`);
-      } else {
-        alert('❌ No thumbnails generated. Error: ' + (result.message || 'Unknown error'));
-      }
-      
-    } catch (error) {
-      console.error('Thumbnail generation error:', error);
-      alert('❌ Thumbnail generation failed:\n' + error.message);
-    } finally {
-      setGeneratingThumbnails(false);
-    }
-  }}
-  disabled={generatingThumbnails || !contentData.title || !contentData.video_url}
-  style={{
-    width: '100%',
-    padding: '16px',
-    background: (generatingThumbnails || !contentData.title || !contentData.video_url) 
-      ? '#ccc' 
-      : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-    color: 'white',
-    border: 'none',
-    borderRadius: '10px',
-    fontSize: '16px',
-    fontWeight: '700',
-    cursor: (generatingThumbnails || !contentData.title || !contentData.video_url) 
-      ? 'not-allowed' 
-      : 'pointer',
-    boxShadow: '0 4px 15px rgba(102, 126, 234, 0.4)',
-    transition: 'all 0.3s',
+{/* OPTION 3: Frame Extraction from Video */}
+<div style={{
+  padding: '20px',
+  background: 'linear-gradient(135deg, #007bff15 0%, #0056b315 100%)',
+  borderRadius: '12px',
+  border: '2px solid #007bff'
+}}>
+  <h4 style={{
+    marginBottom: '16px',
+    color: '#007bff',
     display: 'flex',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: '10px'
-  }}
->
-  {generatingThumbnails ? (
-    <>
-      <span className="spinner" style={{
-        border: '3px solid rgba(255,255,255,0.3)',
-        borderTop: '3px solid white',
-        borderRadius: '50%',
-        width: '20px',
-        height: '20px',
-        animation: 'spin 1s linear infinite'
-      }} />
-      Generating Thumbnails...
-    </>
-  ) : (
-    <>🎨 Generate Frame Thumbnails with Overlay</>
-  )}
-</button>
+    gap: '8px',
+    fontSize: '16px',
+    fontWeight: '700'
+  }}>
+    <span>🎬</span> Option 3: Extract Frames from Video
+  </h4>
 
+  <div style={{
+    padding: '12px',
+    background: '#fff',
+    borderRadius: '8px',
+    marginBottom: '16px',
+    fontSize: '13px',
+    color: '#555'
+  }}>
+    📹 <strong>Video Frames:</strong> Extract key frames from your video and add text overlay automatically.
+  </div>
 
+  {/* Generate Frame Thumbnails Button */}
+  <button
+    onClick={async () => {
+      // Validation
+      if (!contentData.title?.trim()) {
+        alert('⚠️ Please enter a video title first!');
+        return;
+      }
+      
+      if (!contentData.video_url?.trim()) {
+        alert('⚠️ Please provide a video URL or upload a file first!');
+        return;
+      }
+      
+      setGeneratingThumbnails(true);
+      setThumbnails([]);
+      setSelectedThumbnail(null);
+      
+      try {
+        console.log('🎬 Starting frame thumbnail generation...');
+        console.log('Video URL:', contentData.video_url);
+        console.log('Title:', contentData.title);
+        
+        const response = await fetch(`${API_BASE}/api/youtube/generate-thumbnails`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          },
+          body: JSON.stringify({
+            user_id: user.user_id,
+            video_url: contentData.video_url,
+            title: contentData.title,
+            description: contentData.description || ''
+          })
+        });
+        
+        const result = await response.json();
+        console.log('Frame thumbnail response:', result);
+        
+        if (result.success && result.thumbnails?.length > 0) {
+          setThumbnails(result.thumbnails);
+          alert(`✅ Generated ${result.thumbnails.length} frame thumbnails!\n\nSelect one and click "Upload to YouTube"`);
+        } else {
+          alert('❌ No thumbnails generated. Error: ' + (result.message || 'Unknown error'));
+        }
+        
+      } catch (error) {
+        console.error('Frame thumbnail generation error:', error);
+        alert('❌ Frame thumbnail generation failed:\n' + error.message);
+      } finally {
+        setGeneratingThumbnails(false);
+      }
+    }}
+    disabled={generatingThumbnails || !contentData.title || !contentData.video_url}
+    style={{
+      width: '100%',
+      padding: '16px',
+      background: (generatingThumbnails || !contentData.title || !contentData.video_url) 
+        ? '#ccc' 
+        : 'linear-gradient(135deg, #007bff 0%, #0056b3 100%)',
+      color: 'white',
+      border: 'none',
+      borderRadius: '10px',
+      fontSize: '16px',
+      fontWeight: '700',
+      cursor: (generatingThumbnails || !contentData.title || !contentData.video_url) 
+        ? 'not-allowed' 
+        : 'pointer',
+      boxShadow: (generatingThumbnails || !contentData.title || !contentData.video_url)
+        ? 'none'
+        : '0 4px 15px rgba(0, 123, 255, 0.4)',
+      transition: 'all 0.3s',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: '10px'
+    }}
+  >
+    {generatingThumbnails ? (
+      <>
+        <span className="spinner" style={{
+          border: '3px solid rgba(255,255,255,0.3)',
+          borderTop: '3px solid white',
+          borderRadius: '50%',
+          width: '20px',
+          height: '20px',
+          animation: 'spin 1s linear infinite'
+        }} />
+        Extracting Frames...
+      </>
+    ) : (
+      <>
+        <span style={{ fontSize: '20px' }}>🎬</span>
+        <span>Extract Frame Thumbnails with Overlay</span>
+      </>
+    )}
+  </button>
 
-
-
-
-
-
-
+  {/* Info Box */}
+  <div style={{
+    marginTop: '12px',
+    padding: '10px',
+    background: '#e7f3ff',
+    borderRadius: '6px',
+    fontSize: '12px',
+    color: '#004085',
+    border: '1px solid #bee5eb'
+  }}>
+    ℹ️ <strong>How it works:</strong> Extracts 3 key frames from your video at different timestamps. Adds text overlay with your title. CTR optimized!
+  </div>
+</div>
 
 {/* Add spinner animation */}
 <style>{`
@@ -2897,9 +2958,9 @@ if (result.success) {
 
 
 
-
 {/* Display Generated Thumbnails */}
 {/* ✅ DISPLAY GENERATED THUMBNAILS - KEEP THIS */}
+{/* ============================================ */}
 {/* ============================================ */}
 {/* UNIFIED THUMBNAIL DISPLAY (Frame + AI + Manual) */}
 {/* ============================================ */}
@@ -3003,7 +3064,7 @@ if (result.success) {
                   padding: '3px 8px',
                   borderRadius: '12px',
                   background: selectedThumbnail?.id === thumb.id ? 'rgba(255,255,255,0.3)' : '#667eea',
-                  color: selectedThumbnail?.id === thumb.id ? 'white' : 'white',
+                  color: 'white',
                   fontWeight: '600'
                 }}>
                   🤖 AI Generated
@@ -3161,124 +3222,6 @@ if (result.success) {
   </div>
 )}
 
-{/* Legacy Support: thumbnailOptions (if you still use it elsewhere) */}
-{thumbnailOptions.length > 0 && thumbnails.length === 0 && (
-  <div style={{ marginBottom: '20px' }}>
-    <h4 style={{ color: '#333', marginBottom: '12px', fontSize: '16px' }}>
-      🎨 Select Thumbnail:
-    </h4>
-    <div style={{ 
-      display: 'grid', 
-      gridTemplateColumns: '1fr 1fr 1fr', 
-      gap: '12px' 
-    }}>
-      {thumbnailOptions.map((thumb, index) => (
-        <div 
-          key={index}
-          onClick={() => {
-            setSelectedThumbnail(thumb);
-            console.log('✅ Thumbnail selected:', thumb.variation);
-          }}
-          style={{
-            border: selectedThumbnail?.variation === thumb.variation 
-              ? '3px solid #FF0000' 
-              : '2px solid #ddd',
-            borderRadius: '8px',
-            padding: '8px',
-            cursor: 'pointer',
-            position: 'relative',
-            transition: 'all 0.3s ease',
-            backgroundColor: selectedThumbnail?.variation === thumb.variation 
-              ? '#fff5f5' 
-              : 'white'
-          }}
-        >
-          <img 
-            src={thumb.url} 
-            alt={`Thumbnail ${index + 1}`}
-            style={{ 
-              width: '100%', 
-              borderRadius: '4px',
-              display: 'block'
-            }}
-          />
-
-          <div style={{ 
-            fontSize: '11px', 
-            marginTop: '8px',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center'
-          }}>
-            <span style={{ fontWeight: '600' }}>
-              {selectedThumbnail?.variation === thumb.variation ? '✓ ' : ''}
-              Option {thumb.variation}
-            </span>
-
-            <span style={{ 
-              background: thumb.ctr_score > 70 ? '#28a745' : '#ffc107',
-              color: 'white',
-              padding: '2px 6px',
-              borderRadius: '4px',
-              fontSize: '10px',
-              fontWeight: '600'
-            }}>
-              CTR: {thumb.ctr_score.toFixed(0)}%
-            </span>
-          </div>
-          <div style={{ 
-            fontSize: '10px', 
-            color: '#666',
-            marginTop: '4px',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap'
-          }}>
-            {thumb.text}
-          </div>
-        </div>
-      ))}
-    </div>
-
-    {/* Selected Thumbnail Indicator */}
-    {selectedThumbnail && (
-      <div style={{
-        marginTop: '12px',
-        padding: '12px',
-        background: '#d4edda',
-        border: '1px solid #c3e6cb',
-        borderRadius: '6px',
-        fontSize: '13px',
-        color: '#155724'
-      }}>
-        ✅ <strong>Selected:</strong> Option {selectedThumbnail.variation} - "{selectedThumbnail.text}"
-        <br />
-        <small>This thumbnail will be uploaded with your video</small>
-      </div>
-    )}
-
-    <div style={{
-      marginTop: '12px',
-      padding: '12px',
-      background: '#f8f9fa',
-      borderRadius: '6px',
-      fontSize: '12px',
-      color: '#666'
-    }}>
-      💡 <strong>Tip:</strong> Higher CTR score = better chance of getting clicks. 
-      Click a thumbnail to select it for your video.
-    </div>
-  </div>
-)}
-
-
-
-
-
-
-
-
-
 {/* Final Upload/Update Button */}
 {selectedThumbnail && (
   <button
@@ -3291,22 +3234,20 @@ if (result.success) {
       setLoading(true);
       
       try {
-const uploadData = {
-  user_id: user.user_id,
-  title: contentData.title,
-  description: contentData.description || '',
-  video_url: contentData.video_url,
-  thumbnail_url: selectedThumbnail?.url || null,
-  privacy_status: 'public',
-  tags: contentData.tags || [],
-  video_mode: uploadMode,  // ✅ CRITICAL: This tells backend if update or new
-  content_type: contentData.content_type || 'shorts'
-};
+        const uploadData = {
+          user_id: user.user_id,
+          title: contentData.title,
+          description: contentData.description || '',
+          video_url: contentData.video_url,
+          thumbnail_url: selectedThumbnail?.url || null,
+          privacy_status: 'public',
+          tags: contentData.tags || [],
+          video_mode: uploadMode,
+          content_type: contentData.content_type || 'shorts'
+        };
 
-console.log('📤 Upload Data:', uploadData);
-console.log('📤 Upload Mode:', uploadMode);
-        
-        console.log('Uploading with data:', uploadData);
+        console.log('📤 Upload Data:', uploadData);
+        console.log('📤 Upload Mode:', uploadMode);
         
         const response = await fetch(`${API_BASE}/api/youtube/upload`, {
           method: 'POST',
@@ -3375,9 +3316,8 @@ console.log('📤 Upload Mode:', uploadMode);
 )}
 
 
-
 {/* Upload Button - SINGLE BUTTON ONLY */}
-<button 
+{/* <button 
   onClick={uploadVideo}
   disabled={loading || !contentData.title || !contentData.video_url}
   style={{
@@ -3394,7 +3334,7 @@ console.log('📤 Upload Mode:', uploadMode);
   }}
 >
   {loading ? 'Uploading...' : 'Upload to YouTube'}
-</button>
+</button> */}
 
 {/* 👆 REPLACE THE ABOVE BUTTON WITH THIS NEW VERSION 👇 */}
 

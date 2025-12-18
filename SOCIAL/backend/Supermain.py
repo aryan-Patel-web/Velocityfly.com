@@ -31,7 +31,7 @@ import json
 import re
 import random
 from urllib.parse import quote
-
+# import base64          gdf;lh,er
 from PIL import Image, ImageDraw, ImageFont
  
 
@@ -2031,6 +2031,170 @@ async def post_now_to_reddit(request: Request, current_user: dict = Depends(get_
 
 # =================================================================================
 
+# ============================================================================
+# AI THUMBNAIL GENERATION ROUTE
+# ============================================================================
+@app.post("/api/youtube/generate-ai-thumbnails")
+async def generate_ai_thumbnails(request: Request, current_user: dict = Depends(get_current_user)):
+    """Generate AI-powered thumbnails using Pollinations.ai"""
+    try:
+        data = await request.json()
+        
+        user_id = current_user.get("id") or current_user.get("user_id")
+        title = data.get("title", "")
+        description = data.get("description", "")
+        add_overlay = data.get("add_overlay", True)
+        custom_prompt = data.get("custom_prompt", "")
+        
+        if not title:
+            return {"success": False, "error": "Title is required"}
+        
+        logger.info(f"🎨 Generating AI thumbnails for user {user_id}")
+        logger.info(f"Title: {title}, Overlay: {add_overlay}")
+        
+        # Generate 3 different thumbnail variations
+        thumbnails = []
+        
+        # Style variations for diversity
+        styles = [
+            "cinematic youtube thumbnail, dramatic lighting, 8k quality, professional photography",
+            "vibrant youtube thumbnail, bold colors, eye-catching, trending design, high contrast",
+            "minimalist youtube thumbnail, clean design, modern aesthetic, sharp focus"
+        ]
+        
+        for i, style in enumerate(styles, 1):
+            try:
+                # Build prompt
+                if custom_prompt:
+                    prompt = f"{custom_prompt}. {title}. {style}"
+                else:
+                    prompt = f"YouTube thumbnail: {title}. {description}. {style}. No text overlay, pure image"
+                
+                # Clean prompt
+                prompt = ' '.join(prompt.split())
+                
+                # Generate image using Pollinations.ai
+                encoded_prompt = quote(prompt)
+                image_url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width=1280&height=720&nologo=true&enhance=true&model=flux"
+                
+                logger.info(f"📥 Fetching thumbnail {i} from Pollinations...")
+                
+                async with httpx.AsyncClient(timeout=30.0) as client:
+                    response = await client.get(image_url)
+                    
+                    if response.status_code == 200:
+                        image_data = response.content
+                        
+                        # Convert to PIL Image
+                        img = Image.open(io.BytesIO(image_data))
+                        
+                        # Ensure correct size
+                        img = img.resize((1280, 720), Image.Resampling.LANCZOS)
+                        
+                        # Add text overlay if requested
+                        if add_overlay:
+                            overlay = Image.new('RGBA', img.size, (0, 0, 0, 0))
+                            draw = ImageDraw.Draw(overlay)
+                            
+                            try:
+                                # Try to load a font
+                                font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 60)
+                            except:
+                                font = ImageFont.load_default()
+                            
+                            # Add semi-transparent yellow box at bottom center
+                            box_height = 100
+                            box_y = img.height - box_height - 20
+                            box_width = img.width - 100
+                            box_x = 50
+                            
+                            # Yellow background with transparency
+                            draw.rectangle(
+                                [(box_x, box_y), (box_x + box_width, box_y + box_height)],
+                                fill=(255, 215, 0, 200)  # Yellow with alpha
+                            )
+                            
+                            # Calculate text size and position for centering
+                            # Wrap text if too long
+                            max_chars = 50
+                            display_title = title if len(title) <= max_chars else title[:max_chars] + "..."
+                            
+                            # Get text bounding box
+                            bbox = draw.textbbox((0, 0), display_title, font=font)
+                            text_width = bbox[2] - bbox[0]
+                            text_height = bbox[3] - bbox[1]
+                            
+                            # Center text in box
+                            text_x = box_x + (box_width - text_width) // 2
+                            text_y = box_y + (box_height - text_height) // 2
+                            
+                            # Black text with shadow for better readability
+                            # Shadow
+                            for offset in range(-2, 3):
+                                draw.text(
+                                    (text_x + offset, text_y + offset),
+                                    display_title,
+                                    font=font,
+                                    fill=(0, 0, 0, 255)
+                                )
+                            
+                            # Main text
+                            draw.text(
+                                (text_x, text_y),
+                                display_title,
+                                font=font,
+                                fill=(0, 0, 0, 255)  # Black text on yellow
+                            )
+                            
+                            # Composite overlay onto image
+                            img = img.convert('RGBA')
+                            img = Image.alpha_composite(img, overlay)
+                            img = img.convert('RGB')
+                        
+                        # Convert to base64
+                        buffered = io.BytesIO()
+                        img.save(buffered, format="PNG", quality=95)
+                        img_base64 = base64.b64encode(buffered.getvalue()).decode('utf-8')
+                        img_data_url = f"data:image/png;base64,{img_base64}"
+                        
+                        thumbnails.append({
+                            "id": f"ai_thumb_{i}",
+                            "url": img_data_url,
+                            "variation": i,
+                            "style": style.split(',')[0],
+                            "has_overlay": add_overlay
+                        })
+                        
+                        logger.info(f"✅ Generated thumbnail {i}")
+                    else:
+                        logger.error(f"❌ Failed to fetch thumbnail {i}: {response.status_code}")
+                
+            except Exception as e:
+                logger.error(f"❌ Error generating thumbnail {i}: {e}")
+                continue
+        
+        if len(thumbnails) == 0:
+            return {
+                "success": False,
+                "error": "Failed to generate any thumbnails. Please try again."
+            }
+        
+        logger.info(f"✅ Successfully generated {len(thumbnails)} thumbnails")
+        
+        return {
+            "success": True,
+            "thumbnails": thumbnails,
+            "count": len(thumbnails),
+            "message": f"Generated {len(thumbnails)} AI thumbnails"
+        }
+        
+    except Exception as e:
+        logger.error(f"❌ AI thumbnail generation error: {e}")
+        logger.error(traceback.format_exc())
+        return {
+            "success": False,
+            "error": str(e)
+        }
 
 # =================================================================================
 
@@ -2235,178 +2399,6 @@ async def get_automation_stats(current_user: dict = Depends(get_current_user)):
     except Exception as e:
         logger.error(f"Get stats error: {e}")
         return {"success": False, "error": str(e)}
-    
-
-
-# ============================================================================
-# AI THUMBNAIL GENERATION ROUTE
-# ============================================================================
-@app.post("/api/youtube/generate-ai-thumbnails")
-async def generate_ai_thumbnails(request: Request, current_user: dict = Depends(get_current_user)):
-    """Generate AI-powered thumbnails using Pollinations.ai"""
-    try:
-        data = await request.json()
-        
-        user_id = current_user.get("id") or current_user.get("user_id")
-        title = data.get("title", "")
-        description = data.get("description", "")
-        add_overlay = data.get("add_overlay", True)
-        custom_prompt = data.get("custom_prompt", "")
-        
-        if not title:
-            return {"success": False, "error": "Title is required"}
-        
-        logger.info(f"🎨 Generating AI thumbnails for user {user_id}")
-        logger.info(f"Title: {title}, Overlay: {add_overlay}")
-        
-        # Generate 3 different thumbnail variations
-        thumbnails = []
-        
-        # Style variations for diversity
-        styles = [
-            "cinematic youtube thumbnail, dramatic lighting, 8k quality, professional photography",
-            "vibrant youtube thumbnail, bold colors, eye-catching, trending design, high contrast",
-            "minimalist youtube thumbnail, clean design, modern aesthetic, sharp focus"
-        ]
-        
-        for i, style in enumerate(styles, 1):
-            try:
-                # Build prompt
-                if custom_prompt:
-                    prompt = f"{custom_prompt}. {title}. {style}"
-                else:
-                    prompt = f"YouTube thumbnail: {title}. {description}. {style}. No text overlay, pure image"
-                
-                # Clean prompt
-                prompt = ' '.join(prompt.split())
-                
-                # Generate image using Pollinations.ai
-                encoded_prompt = quote(prompt)
-                image_url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width=1280&height=720&nologo=true&enhance=true&model=flux"
-                
-                logger.info(f"📥 Fetching AI thumbnail {i} from Pollinations...")
-                
-                async with httpx.AsyncClient(timeout=30.0) as client:
-                    response = await client.get(image_url)
-                    
-                    if response.status_code == 200:
-                        image_data = response.content
-                        
-                        # Convert to PIL Image
-                        img = Image.open(io.BytesIO(image_data))
-                        
-                        # Ensure correct size
-                        img = img.resize((1280, 720), Image.Resampling.LANCZOS)
-                        
-                        # Add text overlay if requested
-                        if add_overlay:
-                            overlay = Image.new('RGBA', img.size, (0, 0, 0, 0))
-                            draw = ImageDraw.Draw(overlay)
-                            
-                            try:
-                                # Try to load a font
-                                font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 60)
-                            except:
-                                font = ImageFont.load_default()
-                            
-                            # Add semi-transparent yellow box at bottom center
-                            box_height = 100
-                            box_y = img.height - box_height - 20
-                            box_width = img.width - 100
-                            box_x = 50
-                            
-                            # Yellow background with transparency
-                            draw.rectangle(
-                                [(box_x, box_y), (box_x + box_width, box_y + box_height)],
-                                fill=(255, 215, 0, 200)  # Yellow with alpha
-                            )
-                            
-                            # Calculate text size and position for centering
-                            # Wrap text if too long
-                            max_chars = 50
-                            display_title = title if len(title) <= max_chars else title[:max_chars] + "..."
-                            
-                            # Get text bounding box
-                            bbox = draw.textbbox((0, 0), display_title, font=font)
-                            text_width = bbox[2] - bbox[0]
-                            text_height = bbox[3] - bbox[1]
-                            
-                            # Center text in box
-                            text_x = box_x + (box_width - text_width) // 2
-                            text_y = box_y + (box_height - text_height) // 2
-                            
-                            # Black text with shadow for better readability
-                            # Shadow
-                            for offset in range(-2, 3):
-                                draw.text(
-                                    (text_x + offset, text_y + offset),
-                                    display_title,
-                                    font=font,
-                                    fill=(0, 0, 0, 255)
-                                )
-                            
-                            # Main text
-                            draw.text(
-                                (text_x, text_y),
-                                display_title,
-                                font=font,
-                                fill=(0, 0, 0, 255)  # Black text on yellow
-                            )
-                            
-                            # Composite overlay onto image
-                            img = img.convert('RGBA')
-                            img = Image.alpha_composite(img, overlay)
-                            img = img.convert('RGB')
-                        
-                        # Convert to base64
-                        buffered = io.BytesIO()
-                        img.save(buffered, format="PNG", quality=95)
-                        img_base64 = base64.b64encode(buffered.getvalue()).decode('utf-8')
-                        img_data_url = f"data:image/png;base64,{img_base64}"
-                        
-                        thumbnails.append({
-                            "id": f"ai_thumb_{i}",
-                            "url": img_data_url,
-                            "variation": i,
-                            "style": style.split(',')[0],
-                            "has_overlay": add_overlay
-                        })
-                        
-                        logger.info(f"✅ Generated AI thumbnail {i}")
-                    else:
-                        logger.error(f"❌ Failed to fetch AI thumbnail {i}: {response.status_code}")
-                
-            except Exception as e:
-                logger.error(f"❌ Error generating AI thumbnail {i}: {e}")
-                continue
-        
-        if len(thumbnails) == 0:
-            return {
-                "success": False,
-                "error": "Failed to generate any thumbnails. Please try again."
-            }
-        
-        logger.info(f"✅ Successfully generated {len(thumbnails)} AI thumbnails")
-        
-        return {
-            "success": True,
-            "thumbnails": thumbnails,
-            "count": len(thumbnails),
-            "message": f"Generated {len(thumbnails)} AI thumbnails"
-        }
-        
-    except Exception as e:
-        logger.error(f"❌ AI thumbnail generation error: {e}")
-        logger.error(traceback.format_exc())
-        return {
-            "success": False,
-            "error": str(e)
-        }
-
-
-# ============================================================================
-# DEBUG ENDPOINT - MULTI-USER
-# ============================================================================    
 
 
 # ============================================================================
