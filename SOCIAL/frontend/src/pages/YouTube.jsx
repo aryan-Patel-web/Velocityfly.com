@@ -48,6 +48,9 @@ const [thumbnails, setThumbnails] = useState([]);
 // const [selectedThumbnail, setSelectedThumbnail] = useState(null);
 // const [generatingThumbnails, setGeneratingThumbnails] = useState(false);
 
+
+
+
 // NEW: Scheduling states
 const [scheduleMode, setScheduleMode] = useState(false);
 const [scheduledPosts, setScheduledPosts] = useState([]);
@@ -106,6 +109,9 @@ const [slideshowTitle, setSlideshowTitle] = useState('');
 const [slideshowDescription, setSlideshowDescription] = useState('');
 const [slideshowResult, setSlideshowResult] = useState(null);
 
+// ===============ai thumbnail====================
+const [addThumbnailOverlay, setAddThumbnailOverlay] = useState(true);
+const [customThumbnailPrompt, setCustomThumbnailPrompt] = useState('');
 
   // const API_BASE = process.env.NODE_ENV === 'production' 
   //   ? (import.meta.env.VITE_API_URL || 'https://agentic-u5lx.onrender.com')
@@ -2539,9 +2545,245 @@ if (result.success) {
 
 
 
+{/* ============================================ */}
+{/* AI THUMBNAIL GENERATION - NEW OPTION */}
+{/* ============================================ */}
+<div style={{
+  marginTop: '20px',
+  padding: '20px',
+  background: 'linear-gradient(135deg, #667eea15 0%, #764ba215 100%)',
+  borderRadius: '12px',
+  border: '2px solid #667eea'
+}}>
+  <h4 style={{
+    marginBottom: '16px',
+    color: '#667eea',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    fontSize: '16px',
+    fontWeight: '700'
+  }}>
+    <span>🤖</span> Option 3: AI Generated Thumbnails
+  </h4>
+
+  <div style={{
+    padding: '12px',
+    background: '#fff',
+    borderRadius: '8px',
+    marginBottom: '16px',
+    fontSize: '13px',
+    color: '#555'
+  }}>
+    💡 <strong>AI Magic:</strong> Generate 3 unique thumbnail designs with custom styles. Perfect for eye-catching thumbnails!
+  </div>
+
+  {/* Custom Prompt Input */}
+  <div style={{ marginBottom: '16px' }}>
+    <label style={{
+      display: 'block',
+      marginBottom: '8px',
+      fontWeight: '600',
+      color: '#495057',
+      fontSize: '14px'
+    }}>
+      🎨 Custom Style (Optional):
+    </label>
+    <input
+      type="text"
+      value={customThumbnailPrompt}
+      onChange={(e) => setCustomThumbnailPrompt(e.target.value)}
+      placeholder="e.g., futuristic, neon colors, cyberpunk, minimalist, vibrant..."
+      style={{
+        width: '100%',
+        padding: '10px',
+        borderRadius: '6px',
+        border: '2px solid #ced4da',
+        fontSize: '14px'
+      }}
+    />
+    <div style={{
+      marginTop: '6px',
+      fontSize: '12px',
+      color: '#666'
+    }}>
+      💡 Leave empty for default styles, or add keywords like "cinematic", "colorful", "dark mode"
+    </div>
+  </div>
+
+  {/* Overlay Toggle */}
+  <div style={{
+    marginBottom: '16px',
+    padding: '14px',
+    background: 'white',
+    borderRadius: '8px',
+    border: '2px solid #ffc107'
+  }}>
+    <label style={{
+      display: 'flex',
+      alignItems: 'center',
+      gap: '10px',
+      cursor: 'pointer',
+      fontSize: '14px',
+      fontWeight: '600'
+    }}>
+      <input
+        type="checkbox"
+        checked={addThumbnailOverlay}
+        onChange={(e) => setAddThumbnailOverlay(e.target.checked)}
+        style={{
+          width: '20px',
+          height: '20px',
+          cursor: 'pointer',
+          accentColor: '#ffc107'
+        }}
+      />
+      <span>📝 Add Yellow Text Overlay (Bottom Center)</span>
+    </label>
+    <div style={{
+      marginTop: '8px',
+      fontSize: '12px',
+      color: '#666',
+      marginLeft: '30px',
+      padding: '8px',
+      background: addThumbnailOverlay ? '#fff3cd' : '#f8f9fa',
+      borderRadius: '6px',
+      border: addThumbnailOverlay ? '1px solid #ffc107' : '1px solid #dee2e6'
+    }}>
+      {addThumbnailOverlay 
+        ? '✅ Your title will appear on a yellow box at the bottom' 
+        : '❌ Pure AI-generated image without text'}
+    </div>
+  </div>
+
+  {/* Generate AI Thumbnails Button */}
+  <button
+    onClick={async () => {
+      // Validation
+      if (!contentData.title?.trim()) {
+        alert('⚠️ Please enter a video title first!');
+        return;
+      }
+      
+      setGeneratingThumbnails(true);
+      setThumbnails([]);
+      setSelectedThumbnail(null);
+      
+      try {
+        console.log('🤖 Starting AI thumbnail generation...');
+        console.log('Title:', contentData.title);
+        console.log('Overlay:', addThumbnailOverlay);
+        console.log('Custom Prompt:', customThumbnailPrompt);
+        
+        const response = await fetch(`${API_BASE}/api/youtube/generate-ai-thumbnails`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          },
+          body: JSON.stringify({
+            user_id: user.user_id,
+            title: contentData.title,
+            description: contentData.description || '',
+            add_overlay: addThumbnailOverlay,
+            custom_prompt: customThumbnailPrompt
+          })
+        });
+        
+        const result = await response.json();
+        console.log('🎨 AI Thumbnail response:', result);
+        
+        if (result.success && result.thumbnails?.length > 0) {
+          setThumbnails(result.thumbnails);
+          alert(`✅ Generated ${result.thumbnails.length} AI thumbnails!\n\n🎨 3 unique designs created!\nScroll right to see all options.`);
+        } else {
+          alert('❌ AI generation failed: ' + (result.message || result.error || 'Unknown error'));
+        }
+        
+      } catch (error) {
+        console.error('❌ AI Thumbnail error:', error);
+        alert('❌ AI Thumbnail generation failed:\n' + error.message);
+      } finally {
+        setGeneratingThumbnails(false);
+      }
+    }}
+    disabled={generatingThumbnails || !contentData.title}
+    style={{
+      width: '100%',
+      padding: '16px',
+      background: (generatingThumbnails || !contentData.title) 
+        ? '#ccc' 
+        : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+      color: 'white',
+      border: 'none',
+      borderRadius: '10px',
+      fontSize: '16px',
+      fontWeight: '700',
+      cursor: (generatingThumbnails || !contentData.title) 
+        ? 'not-allowed' 
+        : 'pointer',
+      boxShadow: (generatingThumbnails || !contentData.title) 
+        ? 'none' 
+        : '0 4px 15px rgba(102, 126, 234, 0.4)',
+      transition: 'all 0.3s',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: '10px'
+    }}
+  >
+    {generatingThumbnails ? (
+      <>
+        <span className="spinner" style={{
+          border: '3px solid rgba(255,255,255,0.3)',
+          borderTop: '3px solid white',
+          borderRadius: '50%',
+          width: '22px',
+          height: '22px',
+          animation: 'spin 1s linear infinite'
+        }} />
+        Generating AI Thumbnails...
+      </>
+    ) : (
+      <>
+        <span style={{ fontSize: '20px' }}>🤖</span>
+        <span>Generate AI Thumbnails (3 Designs)</span>
+      </>
+    )}
+  </button>
+
+  {/* Info Box */}
+  <div style={{
+    marginTop: '12px',
+    padding: '10px',
+    background: '#e7f3ff',
+    borderRadius: '6px',
+    fontSize: '12px',
+    color: '#004085',
+    border: '1px solid #bee5eb'
+  }}>
+    ℹ️ <strong>How it works:</strong> AI creates 3 unique thumbnail designs based on your title. Each has a different style (cinematic, vibrant, minimalist).
+  </div>
+</div>
+
+{/* Divider */}
+<div style={{
+  margin: '24px 0',
+  height: '2px',
+  background: 'linear-gradient(to right, #667eea, #764ba2)',
+  borderRadius: '2px'
+}}></div>
+
+
+
+
+
+
+
 
 
 {/* Generate Thumbnails Button - THE FIX! */}
+
 <button
   onClick={async () => {
     // Validation
@@ -2631,9 +2873,18 @@ if (result.success) {
       Generating Thumbnails...
     </>
   ) : (
-    <>🎨 Generate AI Thumbnails</>
+    <>🎨 Generate Frame Thumbnails with Overlay</>
   )}
 </button>
+
+
+
+
+
+
+
+
+
 
 {/* Add spinner animation */}
 <style>{`
@@ -2643,45 +2894,70 @@ if (result.success) {
   }
 `}</style>
 
+
+
+
+
 {/* Display Generated Thumbnails */}
 {/* ✅ DISPLAY GENERATED THUMBNAILS - KEEP THIS */}
+{/* ============================================ */}
+{/* UNIFIED THUMBNAIL DISPLAY (Frame + AI + Manual) */}
+{/* ============================================ */}
 {thumbnails.length > 0 && (
   <div style={{
     marginTop: '24px',
     padding: '20px',
-    background: '#f8f9fa',
+    background: 'linear-gradient(135deg, #fff5f5 0%, #f0f9ff 100%)',
     borderRadius: '12px',
-    border: '2px solid #28a745'
+    border: '3px solid #28a745',
+    boxShadow: '0 4px 12px rgba(40, 167, 69, 0.2)'
   }}>
     <h4 style={{
       marginBottom: '16px',
       color: '#28a745',
       display: 'flex',
       alignItems: 'center',
-      gap: '8px'
+      gap: '8px',
+      fontSize: '18px',
+      fontWeight: '700'
     }}>
-      ✅ Select Your Thumbnail:
+      ✅ Select Your Thumbnail ({thumbnails.length} options available)
     </h4>
     
+    {/* Horizontal Scrollable Container */}
     <div style={{
-      display: 'grid',
-      gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-      gap: '16px'
+      display: 'flex',
+      gap: '16px',
+      overflowX: 'auto',
+      paddingBottom: '16px',
+      scrollBehavior: 'smooth',
+      scrollbarWidth: 'thin',
+      scrollbarColor: '#28a745 #e9ecef',
+      WebkitOverflowScrolling: 'touch'
     }}>
       {thumbnails.map((thumb, index) => (
         <div
           key={thumb.id}
-          onClick={() => setSelectedThumbnail(thumb)}
+          onClick={() => {
+            setSelectedThumbnail(thumb);
+            console.log('✅ Thumbnail selected:', thumb.id, thumb);
+          }}
           style={{
+            minWidth: '280px',
+            maxWidth: '280px',
             border: selectedThumbnail?.id === thumb.id 
               ? '4px solid #28a745' 
               : '2px solid #dee2e6',
-            borderRadius: '8px',
+            borderRadius: '12px',
             overflow: 'hidden',
             cursor: 'pointer',
             transition: 'all 0.3s',
             background: 'white',
-            transform: selectedThumbnail?.id === thumb.id ? 'scale(1.05)' : 'scale(1)'
+            transform: selectedThumbnail?.id === thumb.id ? 'scale(1.05)' : 'scale(1)',
+            boxShadow: selectedThumbnail?.id === thumb.id 
+              ? '0 8px 24px rgba(40, 167, 69, 0.4)' 
+              : '0 2px 8px rgba(0,0,0,0.1)',
+            flexShrink: 0
           }}
         >
           <img 
@@ -2689,32 +2965,204 @@ if (result.success) {
             alt={`Thumbnail ${index + 1}`}
             style={{
               width: '100%',
-              height: '150px',
-              objectFit: 'cover'
+              height: '157px',
+              objectFit: 'cover',
+              display: 'block'
             }}
           />
           <div style={{
-            padding: '8px',
+            padding: '12px',
             textAlign: 'center',
-            background: selectedThumbnail?.id === thumb.id ? '#28a745' : 'white',
-            color: selectedThumbnail?.id === thumb.id ? 'white' : '#333',
-            fontWeight: '600',
-            fontSize: '12px'
+            background: selectedThumbnail?.id === thumb.id 
+              ? 'linear-gradient(135deg, #28a745, #20c997)' 
+              : 'white',
+            color: selectedThumbnail?.id === thumb.id ? 'white' : '#333'
           }}>
-            {selectedThumbnail?.id === thumb.id ? '✅ Selected' : `Option ${index + 1}`}
-            {thumb.ctr_optimized && <div style={{fontSize: '10px', marginTop: '4px'}}>🔥 CTR Optimized</div>}
+            {/* Title/Selection Status */}
+            <div style={{
+              fontWeight: '700',
+              fontSize: '14px',
+              marginBottom: '6px'
+            }}>
+              {selectedThumbnail?.id === thumb.id ? '✅ SELECTED' : `Option ${index + 1}`}
+            </div>
+            
+            {/* Thumbnail Type Badge */}
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '6px',
+              marginBottom: '4px',
+              flexWrap: 'wrap'
+            }}>
+              {/* AI Generated Badge */}
+              {thumb.has_overlay !== undefined && (
+                <span style={{
+                  fontSize: '10px',
+                  padding: '3px 8px',
+                  borderRadius: '12px',
+                  background: selectedThumbnail?.id === thumb.id ? 'rgba(255,255,255,0.3)' : '#667eea',
+                  color: selectedThumbnail?.id === thumb.id ? 'white' : 'white',
+                  fontWeight: '600'
+                }}>
+                  🤖 AI Generated
+                </span>
+              )}
+              
+              {/* Frame Extraction Badge */}
+              {thumb.ctr_optimized !== undefined && !thumb.has_overlay && (
+                <span style={{
+                  fontSize: '10px',
+                  padding: '3px 8px',
+                  borderRadius: '12px',
+                  background: selectedThumbnail?.id === thumb.id ? 'rgba(255,255,255,0.3)' : '#007bff',
+                  color: 'white',
+                  fontWeight: '600'
+                }}>
+                  🎬 Frame Extract
+                </span>
+              )}
+              
+              {/* Manual Upload Badge */}
+              {thumb.id === 'custom_upload' && (
+                <span style={{
+                  fontSize: '10px',
+                  padding: '3px 8px',
+                  borderRadius: '12px',
+                  background: selectedThumbnail?.id === thumb.id ? 'rgba(255,255,255,0.3)' : '#FF6B6B',
+                  color: 'white',
+                  fontWeight: '600'
+                }}>
+                  🖼️ Custom Upload
+                </span>
+              )}
+            </div>
+            
+            {/* Style/Details */}
+            <div style={{
+              fontSize: '11px',
+              opacity: 0.9,
+              marginBottom: '4px'
+            }}>
+              {thumb.style && <div>{thumb.style}</div>}
+              {thumb.variation && <div>Variation {thumb.variation}</div>}
+            </div>
+            
+            {/* Overlay Status */}
+            {thumb.has_overlay !== undefined && (
+              <div style={{
+                fontSize: '10px',
+                opacity: 0.85,
+                marginTop: '4px'
+              }}>
+                {thumb.has_overlay ? '📝 With Text Overlay' : '🖼️ Pure Image'}
+              </div>
+            )}
+            
+            {/* CTR Score for Frame Thumbnails */}
+            {thumb.ctr_optimized && thumb.ctr_score && (
+              <div style={{
+                fontSize: '10px',
+                marginTop: '4px',
+                padding: '2px 6px',
+                background: selectedThumbnail?.id === thumb.id 
+                  ? 'rgba(255,255,255,0.3)' 
+                  : (thumb.ctr_score > 70 ? '#28a745' : '#ffc107'),
+                color: 'white',
+                borderRadius: '4px',
+                display: 'inline-block',
+                fontWeight: '600'
+              }}>
+                CTR: {thumb.ctr_score.toFixed(0)}%
+              </div>
+            )}
           </div>
         </div>
       ))}
     </div>
+    
+    {/* Scroll Indicator */}
+    {thumbnails.length > 3 && (
+      <div style={{
+        textAlign: 'center',
+        marginTop: '12px',
+        fontSize: '12px',
+        color: '#666',
+        fontWeight: '600'
+      }}>
+        ← Scroll horizontally to see all {thumbnails.length} thumbnails →
+      </div>
+    )}
+    
+    {/* Selection Info */}
+    {selectedThumbnail && (
+      <div style={{
+        marginTop: '16px',
+        padding: '14px',
+        background: 'linear-gradient(135deg, #d4edda, #c3f0d2)',
+        borderRadius: '8px',
+        fontSize: '14px',
+        color: '#155724',
+        border: '2px solid #28a745',
+        fontWeight: '600'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+          <span style={{ fontSize: '18px' }}>✅</span>
+          <strong>Selected Thumbnail:</strong>
+        </div>
+        <div style={{ fontSize: '13px', marginLeft: '26px' }}>
+          {/* Thumbnail Type */}
+          {selectedThumbnail.has_overlay !== undefined && (
+            <div>🤖 AI Generated • {selectedThumbnail.has_overlay ? 'With overlay' : 'No overlay'}</div>
+          )}
+          {selectedThumbnail.ctr_optimized && (
+            <div>🎬 Frame Extracted • CTR Score: {selectedThumbnail.ctr_score?.toFixed(0)}%</div>
+          )}
+          {selectedThumbnail.id === 'custom_upload' && (
+            <div>🖼️ Your Custom Upload</div>
+          )}
+          
+          {/* Style Info */}
+          {selectedThumbnail.style && (
+            <div style={{ marginTop: '4px', opacity: 0.9 }}>
+              Style: {selectedThumbnail.style}
+            </div>
+          )}
+          
+          <div style={{ marginTop: '8px', fontSize: '12px', opacity: 0.85 }}>
+            This thumbnail will be uploaded with your video to YouTube
+          </div>
+        </div>
+      </div>
+    )}
+    
+    {/* Tips Box */}
+    <div style={{
+      marginTop: '12px',
+      padding: '12px',
+      background: 'rgba(255, 255, 255, 0.9)',
+      borderRadius: '8px',
+      fontSize: '12px',
+      color: '#666',
+      border: '1px solid #dee2e6'
+    }}>
+      <div style={{ fontWeight: '600', marginBottom: '6px', color: '#333' }}>
+        💡 Pro Tips:
+      </div>
+      <ul style={{ margin: '0', paddingLeft: '20px', lineHeight: '1.6' }}>
+        <li>Scroll right → to see all thumbnail options</li>
+        <li>🤖 AI thumbnails offer unique creative designs</li>
+        <li>🎬 Frame thumbnails show actual video content</li>
+        <li>🖼️ Custom uploads give you full control</li>
+        <li>Click any thumbnail to select it, then upload below!</li>
+      </ul>
+    </div>
   </div>
 )}
 
-
-
-
-{/* Thumbnail Selection */}
-{thumbnailOptions.length > 0 && (
+{/* Legacy Support: thumbnailOptions (if you still use it elsewhere) */}
+{thumbnailOptions.length > 0 && thumbnails.length === 0 && (
   <div style={{ marginBottom: '20px' }}>
     <h4 style={{ color: '#333', marginBottom: '12px', fontSize: '16px' }}>
       🎨 Select Thumbnail:
@@ -2755,7 +3203,6 @@ if (result.success) {
             }}
           />
 
-
           <div style={{ 
             fontSize: '11px', 
             marginTop: '8px',
@@ -2763,7 +3210,6 @@ if (result.success) {
             justifyContent: 'space-between',
             alignItems: 'center'
           }}>
-
             <span style={{ fontWeight: '600' }}>
               {selectedThumbnail?.variation === thumb.variation ? '✓ ' : ''}
               Option {thumb.variation}
@@ -2794,9 +3240,6 @@ if (result.success) {
       ))}
     </div>
 
-
-
-    
     {/* Selected Thumbnail Indicator */}
     {selectedThumbnail && (
       <div style={{
@@ -2827,6 +3270,10 @@ if (result.success) {
     </div>
   </div>
 )}
+
+
+
+
 
 
 
