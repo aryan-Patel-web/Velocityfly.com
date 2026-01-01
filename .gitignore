@@ -67,3 +67,74 @@ backend/htmlcov/
 coverage/
 dist/
 build/
+
+
+# ===============================
+# ENVIRONMENT FILES (DO NOT COMMIT)
+# ===============================
+
+# Root env files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Example env (keep ignored if contains secrets)
+.env.example
+
+# Backend env files
+backend/.env
+backend/.env.local
+backend/.env.development.local
+backend/.env.test.local
+backend/.env.production.local
+backend/.env.example
+
+# Frontend env files
+frontend/.env
+frontend/.env.local
+frontend/.env.development.local
+frontend/.env.test.local
+frontend/.env.production.local
+
+# ===============================
+# PYTHON
+# ===============================
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.log
+*.sqlite3
+
+# Virtual environments
+venv/
+.env.venv/
+.venv/
+
+# ===============================
+# NODE / FRONTEND
+# ===============================
+node_modules/
+dist/
+build/
+.next/
+.out/
+coverage/
+
+# ===============================
+# OS / EDITOR
+# ===============================
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# ===============================
+# MISC
+# ===============================
+*.tmp
+*.swp
+*.bak
+
