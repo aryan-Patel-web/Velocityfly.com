@@ -2544,22 +2544,25 @@ async def stop_product_automation(request: Request):
             content={"success": False, "error": str(e)}
         )
     
-
 # ============================================================================
-# ✅ CATCH-ALL ROUTE FOR REACT SPA - ADD THIS BEFORE if __name__ == "__main__":
+# ✅ IMPROVED CATCH-ALL ROUTE - PASTE THIS (REPLACE OLD VERSION)
 # ============================================================================
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, HTMLResponse
 from pathlib import Path
 from fastapi.staticfiles import StaticFiles
 
-# Try to mount static files from React build
+# Configuration - ✅ FIXED PATH
+REACT_BUILD_DIR = Path("SOCIAL/frontend/build")  # ✅ Changed this line
+REACT_INDEX = REACT_BUILD_DIR / "index.html"
+
+# Try to mount static files
 try:
-    static_dir = Path("build")  # Change to "dist" if you use Vite
-    
-    if static_dir.exists() and (static_dir / "index.html").exists():
+    if REACT_BUILD_DIR.exists() and REACT_INDEX.exists():
         # Mount static assets (JS, CSS, images)
-        app.mount("/static", StaticFiles(directory=str(static_dir / "static")), name="static")
-        logger.info(f"✅ Serving React static files from {static_dir}")
+        static_assets = REACT_BUILD_DIR / "static"
+        if static_assets.exists():
+            app.mount("/static", StaticFiles(directory=str(static_assets)), name="static")
+            logger.info(f"✅ Serving React static files from {REACT_BUILD_DIR}")
         
         # Catch-all route - MUST be defined LAST
         @app.get("/{full_path:path}")
@@ -2570,26 +2573,123 @@ try:
             """
             # Don't interfere with API routes
             if full_path.startswith("api/"):
-                logger.warning(f"❌ API route not found: {full_path}")
+                logger.warning(f"❌ API route not found: /{full_path}")
                 raise HTTPException(status_code=404, detail=f"API endpoint not found: /{full_path}")
             
-            # Don't interfere with health/debug endpoints
-            if full_path in ["health", "debug", ""]:
-                raise HTTPException(status_code=404, detail="Use /api/ prefix for API endpoints")
+            # Health/debug routes should still work
+            if full_path in ["health", "debug", "keep-alive"]:
+                raise HTTPException(status_code=404, detail="Route not found")
             
             # Serve index.html for all other routes (React Router handles the rest)
-            index_file = static_dir / "index.html"
             logger.info(f"📄 Serving index.html for route: /{full_path}")
-            return FileResponse(index_file)
+            return FileResponse(REACT_INDEX)
+            
+        logger.info(f"✅ SPA routing enabled - React app will handle all non-API routes")
     else:
-        logger.warning(f"⚠️ React build directory not found at {static_dir}")
-        logger.warning("⚠️ SPA routing will NOT work. Build your React app first!")
+        # Build folder doesn't exist - show helpful error page
+        logger.error(f"❌ React build directory not found at {REACT_BUILD_DIR}")
+        logger.error(f"❌ Expected index.html at: {REACT_INDEX}")
+        logger.error("❌ SPA routing will NOT work!")
+        
+        @app.get("/{full_path:path}")
+        async def build_not_found(full_path: str):
+            """Show error when build folder is missing"""
+            if full_path.startswith("api/"):
+                raise HTTPException(status_code=404, detail=f"API endpoint not found: /{full_path}")
+            
+            # Show helpful error page
+            return HTMLResponse(
+                content=f"""
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>Build Not Found</title>
+                    <style>
+                        body {{
+                            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                            display: flex;
+                            justify-content: center;
+                            align-items: center;
+                            min-height: 100vh;
+                            margin: 0;
+                            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                        }}
+                        .container {{
+                            background: white;
+                            border-radius: 20px;
+                            padding: 48px;
+                            max-width: 600px;
+                            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+                        }}
+                        h1 {{ color: #dc2626; margin: 0 0 16px 0; }}
+                        p {{ color: #666; line-height: 1.6; margin: 12px 0; }}
+                        code {{
+                            background: #f3f4f6;
+                            padding: 2px 8px;
+                            border-radius: 4px;
+                            font-family: 'Courier New', monospace;
+                            color: #dc2626;
+                        }}
+                        .solution {{
+                            background: #fef3c7;
+                            border-left: 4px solid #f59e0b;
+                            padding: 16px;
+                            margin: 20px 0;
+                            border-radius: 4px;
+                        }}
+                        .command {{
+                            background: #1f2937;
+                            color: #10b981;
+                            padding: 16px;
+                            border-radius: 8px;
+                            margin: 12px 0;
+                            font-family: 'Courier New', monospace;
+                            overflow-x: auto;
+                        }}
+                    </style>
+                </head>
+                <body>
+                    <div class="container">
+                        <h1>⚠️ React Build Not Found</h1>
+                        <p>The React app hasn't been built yet. The server is looking for:</p>
+                        <code>{REACT_BUILD_DIR.absolute()}/index.html</code>
+                        
+                        <div class="solution">
+                            <strong>🔧 Solution:</strong>
+                            <p>You need to build your React app and configure Render to include the build folder.</p>
+                        </div>
+                        
+                        <p><strong>Option 1: Local Build (Testing)</strong></p>
+                        <div class="command">
+                            cd frontend<br>
+                            npm install<br>
+                            npm run build<br>
+                            cd ..<br>
+                            mv frontend/build ./build
+                        </div>
+                        
+                        <p><strong>Option 2: Configure Render Build Command</strong></p>
+                        <div class="command">
+                            pip install -r requirements.txt && cd frontend && npm install && npm run build && cd .. && mv frontend/build ./build
+                        </div>
+                        
+                        <p style="margin-top: 24px; padding-top: 24px; border-top: 2px solid #e5e7eb;">
+                            <strong>Current route:</strong> <code>/{full_path}</code><br>
+                            <strong>API endpoints still work:</strong> <a href="/health">/health</a>, <a href="/api/debug/services">/api/debug/services</a>
+                        </p>
+                    </div>
+                </body>
+                </html>
+                """,
+                status_code=503
+            )
+        
+        logger.warning("⚠️ Registered fallback error page for missing build folder")
         
 except Exception as e:
     logger.error(f"❌ Failed to setup React serving: {e}")
-
-
-
+    import traceback
+    logger.error(traceback.format_exc())
 
 # ============================================================================
 # RUN APPLICATION
