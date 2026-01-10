@@ -74,6 +74,19 @@ const [replyText, setReplyText] = useState('');
 // Video selection states
 const [userVideos, setUserVideos] = useState([]);
 const [selectedVideos, setSelectedVideos] = useState([]);
+
+// ✅ NEW: Product Automation States
+const [automationEnabled, setAutomationEnabled] = useState(false);
+const [automationConfig, setAutomationConfig] = useState({
+  max_posts_per_day: 10,
+  upload_times: ['09:00', '15:00', '21:00'],
+  auto_scrape: true,
+  auto_generate_video: true,
+  auto_upload: true
+});
+const [automationLogs, setAutomationLogs] = useState([]);
+
+
 const [loadingVideos, setLoadingVideos] = useState(false);
 const [videoComments, setVideoComments] = useState({});
 const [editingCommentId, setEditingCommentId] = useState(null);
@@ -1350,7 +1363,13 @@ useEffect(() => {
   onClick={() => setActiveTab('slideshow')} 
 />
 
-
+<TabButton 
+  id="automation" 
+  label="Automation" 
+  emoji="🤖" 
+  active={activeTab === 'automation'} 
+  onClick={() => setActiveTab('automation')} 
+/>
         </div>
 
         {/* Connect YouTube Tab */}
@@ -5891,6 +5910,327 @@ onClick={async () => {
     </div>
   </div>
 )}
+
+{/* ============================================ */}
+{/* AUTOMATION TAB - PRODUCT SCRAPING + UPLOAD */}
+{/* ============================================ */}
+{activeTab === 'automation' && status?.youtube_connected && (
+  <div style={{ 
+    background: 'rgba(255, 255, 255, 0.95)', 
+    borderRadius: '20px', 
+    padding: '40px', 
+    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2)' 
+  }}>
+    <h2 style={{ 
+      color: '#FF0000', 
+      marginBottom: '30px', 
+      fontSize: '28px', 
+      fontWeight: '700' 
+    }}>
+      🤖 Product Automation
+    </h2>
+
+    {/* Status Card */}
+    <div style={{
+      padding: '20px',
+      background: automationEnabled ? 'linear-gradient(135deg, #28a745, #20c997)' : '#f8f9fa',
+      borderRadius: '12px',
+      marginBottom: '30px',
+      border: `2px solid ${automationEnabled ? '#28a745' : '#ddd'}`
+    }}>
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center'
+      }}>
+        <div>
+          <h3 style={{ 
+            color: automationEnabled ? 'white' : '#333', 
+            marginBottom: '8px',
+            fontSize: '20px',
+            fontWeight: '700'
+          }}>
+            Status: {automationEnabled ? '🟢 ACTIVE' : '🔴 INACTIVE'}
+          </h3>
+          <p style={{ 
+            margin: 0, 
+            fontSize: '14px',
+            color: automationEnabled ? 'rgba(255,255,255,0.9)' : '#666'
+          }}>
+            {automationEnabled 
+              ? `Auto-posts enabled - Max ${automationConfig.max_posts_per_day} per day` 
+              : 'Configure and start automation below'}
+          </p>
+        </div>
+        
+        <button
+          onClick={async () => {
+            if (!automationEnabled) {
+              // Start automation
+              try {
+                const response = await fetch(`${API_BASE}/api/product-automation/start`, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                  },
+                  body: JSON.stringify({
+                    user_id: user.user_id,
+                    config: automationConfig
+                  })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                  setAutomationEnabled(true);
+                  alert('✅ Automation started! Posts will be created automatically.');
+                } else {
+                  alert('❌ Failed: ' + result.error);
+                }
+              } catch (error) {
+                alert('❌ Error: ' + error.message);
+              }
+            } else {
+              // Stop automation
+              try {
+                const response = await fetch(`${API_BASE}/api/product-automation/stop`, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                  },
+                  body: JSON.stringify({
+                    user_id: user.user_id
+                  })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                  setAutomationEnabled(false);
+                  alert('⏹️ Automation stopped.');
+                } else {
+                  alert('❌ Failed: ' + result.error);
+                }
+              } catch (error) {
+                alert('❌ Error: ' + error.message);
+              }
+            }
+          }}
+          style={{
+            padding: '14px 28px',
+            background: automationEnabled ? '#dc3545' : '#28a745',
+            color: 'white',
+            border: 'none',
+            borderRadius: '8px',
+            fontWeight: '700',
+            fontSize: '16px',
+            cursor: 'pointer'
+          }}
+        >
+          {automationEnabled ? '⏹️ Stop Automation' : '▶️ Start Automation'}
+        </button>
+      </div>
+    </div>
+
+    {/* Configuration Panel */}
+    <div style={{
+      padding: '24px',
+      background: '#f8f9fa',
+      borderRadius: '12px',
+      marginBottom: '30px'
+    }}>
+      <h3 style={{ color: '#333', marginBottom: '20px', fontSize: '18px' }}>
+        ⚙️ Configuration
+      </h3>
+      
+      {/* Max Posts */}
+      <div style={{ marginBottom: '20px' }}>
+        <label style={{ 
+          display: 'block', 
+          marginBottom: '8px', 
+          fontWeight: '600',
+          color: '#333'
+        }}>
+          📊 Max Posts Per Day:
+        </label>
+        <input
+          type="number"
+          min="1"
+          max="50"
+          value={automationConfig.max_posts_per_day}
+          onChange={(e) => setAutomationConfig(prev => ({
+            ...prev,
+            max_posts_per_day: parseInt(e.target.value) || 10
+          }))}
+          disabled={automationEnabled}
+          style={{
+            width: '100%',
+            padding: '12px',
+            borderRadius: '8px',
+            border: '2px solid #ddd',
+            fontSize: '14px'
+          }}
+        />
+      </div>
+
+      {/* Upload Times */}
+      <div style={{ marginBottom: '20px' }}>
+        <label style={{ 
+          display: 'block', 
+          marginBottom: '8px', 
+          fontWeight: '600',
+          color: '#333'
+        }}>
+          🕐 Upload Times (IST):
+        </label>
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '12px' }}>
+          {automationConfig.upload_times.map((time, idx) => (
+            <span key={idx} style={{
+              padding: '6px 12px',
+              background: '#FF0000',
+              color: 'white',
+              borderRadius: '20px',
+              fontSize: '13px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}>
+              {time}
+              {!automationEnabled && (
+                <button
+                  onClick={() => {
+                    setAutomationConfig(prev => ({
+                      ...prev,
+                      upload_times: prev.upload_times.filter((_, i) => i !== idx)
+                    }));
+                  }}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: 'white',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    padding: 0
+                  }}
+                >
+                  ×
+                </button>
+              )}
+            </span>
+          ))}
+        </div>
+        
+        {!automationEnabled && (
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <input
+              type="time"
+              id="newUploadTime"
+              style={{
+                padding: '8px',
+                borderRadius: '6px',
+                border: '1px solid #ddd',
+                fontSize: '13px'
+              }}
+            />
+            <button
+              onClick={() => {
+                const input = document.getElementById('newUploadTime');
+                if (input.value && !automationConfig.upload_times.includes(input.value)) {
+                  setAutomationConfig(prev => ({
+                    ...prev,
+                    upload_times: [...prev.upload_times, input.value].sort()
+                  }));
+                  input.value = '';
+                }
+              }}
+              style={{
+                padding: '8px 16px',
+                background: '#28a745',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                fontSize: '13px',
+                cursor: 'pointer'
+              }}
+            >
+              Add Time
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Checkboxes */}
+      <div style={{ marginTop: '20px' }}>
+        {[
+          { key: 'auto_scrape', label: '🔍 Auto-scrape products from URLs' },
+          { key: 'auto_generate_video', label: '🎬 Auto-generate videos from images' },
+          { key: 'auto_upload', label: '📤 Auto-upload to YouTube' }
+        ].map(option => (
+          <label key={option.key} style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            marginBottom: '12px',
+            cursor: 'pointer'
+          }}>
+            <input
+              type="checkbox"
+              checked={automationConfig[option.key]}
+              onChange={(e) => setAutomationConfig(prev => ({
+                ...prev,
+                [option.key]: e.target.checked
+              }))}
+              disabled={automationEnabled}
+              style={{ width: '18px', height: '18px' }}
+            />
+            <span style={{ fontSize: '14px', fontWeight: '500' }}>
+              {option.label}
+            </span>
+          </label>
+        ))}
+      </div>
+    </div>
+
+    {/* Logs */}
+    <div style={{
+      padding: '20px',
+      background: 'white',
+      borderRadius: '12px',
+      maxHeight: '400px',
+      overflowY: 'auto'
+    }}>
+      <h3 style={{ color: '#333', marginBottom: '16px', fontSize: '18px' }}>
+        📋 Activity Logs
+      </h3>
+      {automationLogs.length === 0 ? (
+        <p style={{ color: '#999', fontStyle: 'italic', textAlign: 'center', padding: '20px' }}>
+          No logs yet. Start automation to see activity.
+        </p>
+      ) : (
+        automationLogs.map((log, idx) => (
+          <div key={idx} style={{
+            padding: '12px',
+            background: '#f8f9fa',
+            borderRadius: '6px',
+            marginBottom: '8px',
+            borderLeft: `4px solid ${log.success ? '#28a745' : '#dc3545'}`
+          }}>
+            <div style={{ fontSize: '12px', color: '#999', marginBottom: '4px' }}>
+              {new Date(log.timestamp).toLocaleString()}
+            </div>
+            <div style={{ fontSize: '14px', color: '#333' }}>
+              {log.message}
+            </div>
+          </div>
+        ))
+      )}
+    </div>
+  </div>
+)}
+
+{/* End Automation Tab */}
 
 {/* End Image Slideshow Tab */}
 

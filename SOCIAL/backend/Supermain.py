@@ -34,6 +34,8 @@ from urllib.parse import quote
 # import base64          gdf;lh,er
 from PIL import Image, ImageDraw, ImageFont
 import io
+from mainY import app
+# That's it! The automation task starts automatically from mainY.py
 
 # ============================================================================
 # ✅ CRITICAL: SET PLAYWRIGHT PATH BEFORE ANY IMPORTS

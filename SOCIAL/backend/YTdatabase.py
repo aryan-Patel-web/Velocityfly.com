@@ -1170,6 +1170,48 @@ def handle_db_errors(func):
             return None
     return wrapper
 
+
+
+# ============================================================================
+    # AUTOMATION LOGGING
+    # ============================================================================
+
+async def get_automation_posts_count(self, user_id: str, date) -> int:
+        """Get number of automation posts for a specific date"""
+        try:
+            start_of_day = datetime.combine(date, datetime.min.time())
+            end_of_day = datetime.combine(date, datetime.max.time())
+            
+            count = await self.db.automation_logs.count_documents({
+                "user_id": user_id,
+                "timestamp": {"$gte": start_of_day, "$lte": end_of_day},
+                "success": True
+            })
+            
+            return count
+        except Exception as e:
+            logger.error(f"Get automation posts count failed: {e}")
+            return 0
+    
+async def log_automation_post(self, user_id: str, post_data: dict) -> bool:
+        """Log automated post to database"""
+        try:
+            log_doc = {
+                "user_id": user_id,
+                "product_url": post_data.get("product_url"),
+                "video_id": post_data.get("video_id"),
+                "timestamp": post_data.get("timestamp", datetime.now()),
+                "success": post_data.get("success", True),
+                "error": post_data.get("error")
+            }
+            
+            await self.db.automation_logs.insert_one(log_doc)
+            return True
+        except Exception as e:
+            logger.error(f"Log automation post failed: {e}")
+            return False
+
+
 # ============================================================================
 # CONSTANTS
 # ============================================================================
