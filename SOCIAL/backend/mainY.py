@@ -5049,7 +5049,7 @@ async def start_product_automation(request: Request):
             config_data={
                 "enabled": True,
                 "max_posts_per_day": config.get('max_posts_per_day', 10),
-                "upload_times": config.get('upload_times', ['09:00', '15:00', '21:00']),
+                "upload_times": config.get('upload_times', ['01:35','09:00', '15:00', '21:00']),
                 "auto_scrape": config.get('auto_scrape', True),
                 "auto_generate_video": config.get('auto_generate_video', True),
                 "auto_upload": config.get('auto_upload', True),

@@ -2543,6 +2543,166 @@ async def stop_product_automation(request: Request):
             status_code=500,
             content={"success": False, "error": str(e)}
         )
+
+
+# Background task runner (runs every hour)
+async def run_product_automation_tasks():
+    """Check and execute automated product posts"""
+    while True:
+        try:
+            current_time = datetime.now().strftime('%H:%M')
+            logger.info(f"🤖 Checking automation tasks at {current_time}")
+            
+            # Get all active automation configs
+            configs = await database_manager.get_all_automation_configs_by_type("product_automation")
+            
+            for config in configs:
+                if not config.get("enabled"):
+                    continue
+                
+                user_id = config.get("user_id")
+                config_data = config.get("config_data", {})
+                upload_times = config_data.get("upload_times", [])
+                
+                # Check if current time matches any upload time
+                if current_time in upload_times:
+                    logger.info(f"⏰ Triggering automation for user: {user_id}")
+                    
+                    # Check daily post limit
+                    posts_today = await database_manager.get_automation_posts_count(
+                        user_id, 
+                        date=datetime.now().date()
+                    )
+                    
+                    max_posts = config_data.get("max_posts_per_day", 10)
+                    
+                    if posts_today >= max_posts:
+                        logger.warning(f"Daily limit reached for user {user_id} ({posts_today}/{max_posts})")
+                        continue
+                    
+                    # Execute automation
+                    await execute_product_automation(user_id, config_data)
+            
+            # Wait 60 seconds before next check
+            await asyncio.sleep(60)
+            
+        except Exception as e:
+            logger.error(f"❌ Automation task error: {e}")
+            await asyncio.sleep(60)
+
+async def execute_product_automation(user_id: str, config: dict):
+    """Execute single automation cycle: scrape → video → upload"""
+    try:
+        logger.info(f"🔄 Executing automation for user: {user_id}")
+        
+        # Step 1: Get a random product URL from user's wishlist/queue
+        # (You'll need to implement a way for users to add URLs to scrape)
+        product_url = await get_next_product_url(user_id)
+        
+        if not product_url:
+            logger.warning(f"No product URLs in queue for user: {user_id}")
+            return
+        
+        # Step 2: Scrape product
+        if config.get("auto_scrape", True):
+            scraper = get_product_scraper()
+            product_data = await scraper.scrape_product(product_url)
+            
+            if not product_data.get("success"):
+                logger.error(f"Scraping failed: {product_data.get('error')}")
+                return
+        
+        # Step 3: Generate video
+        if config.get("auto_generate_video", True):
+            images = product_data.get("images", [])[:3]  # Take 3 images
+            
+            if len(images) < 1:
+                logger.error("No images found")
+                return
+            
+            # Convert URLs to base64
+            base64_images = []
+            async with httpx.AsyncClient(timeout=30) as client:
+                for img_url in images:
+                    try:
+                        response = await client.get(img_url)
+                        img_base64 = base64.b64encode(response.content).decode()
+                        base64_images.append(f"data:image/jpeg;base64,{img_base64}")
+                    except:
+                        continue
+            
+            if not base64_images:
+                logger.error("Failed to convert images")
+                return
+            
+            # Generate slideshow
+            slideshow_gen = get_slideshow_generator()
+            video_result = await slideshow_gen.generate_slideshow(
+                images=base64_images,
+                title=product_data.get("product_name"),
+                language='english',
+                duration_per_image=2.0,
+                transition='fade',
+                add_text=True,
+                aspect_ratio="9:16"
+            )
+            
+            if not video_result.get("success"):
+                logger.error("Video generation failed")
+                return
+        
+        # Step 4: Upload to YouTube
+        if config.get("auto_upload", True):
+            credentials = await database_manager.get_youtube_credentials(user_id)
+            
+            if not credentials:
+                logger.error("No YouTube credentials")
+                return
+            
+            upload_result = await youtube_scheduler.generate_and_upload_content(
+                user_id=user_id,
+                credentials_data=credentials,
+                content_type="shorts",
+                title=product_data.get("product_name"),
+                description=f"Check out this product!\n\n{product_data.get('product_url')}",
+                video_url=video_result["local_path"]
+            )
+            
+            if upload_result.get("success"):
+                logger.info(f"✅ Automation complete - Video uploaded: {upload_result.get('video_id')}")
+                
+                # Log to database
+                await database_manager.log_automation_post(user_id, {
+                    "product_url": product_url,
+                    "video_id": upload_result.get("video_id"),
+                    "timestamp": datetime.now(),
+                    "success": True
+                })
+            else:
+                logger.error(f"Upload failed: {upload_result.get('error')}")
+        
+    except Exception as e:
+        logger.error(f"❌ Automation execution failed: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
+
+async def get_next_product_url(user_id: str) -> str:
+    """Get next product URL from user's queue"""
+    try:
+        # This should fetch from a user's URL queue in database
+        # For now, return None (you need to implement URL queue management)
+        return None
+    except:
+        return None
+
+# Start automation background task
+
+@app.on_event("startup")
+async def start_automation_background():
+    """Start automation checker on app startup"""
+    asyncio.create_task(run_product_automation_tasks())
+    logger.info("✅ Product automation background task started")
+
     
 # ============================================================================
 # ✅ IMPROVED CATCH-ALL ROUTE - PASTE THIS (REPLACE OLD VERSION)
