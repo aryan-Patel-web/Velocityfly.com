@@ -121,6 +121,11 @@ const [customThumbnailPrompt, setCustomThumbnailPrompt] = useState('');
     ? (import.meta.env.VITE_API_URL || 'https://velocitypost-984x.onrender.com')
     : (import.meta.env.VITE_API_URL || 'http://localhost:8000');
 
+const DEFAULT_IMAGE_URLS = `https://picsum.photos/1080/1920?random=1
+https://picsum.photos/1080/1920?random=2
+https://picsum.photos/1080/1920?random=3`;
+
+
 // Line 62-114: getUserData (stays here)
 const getUserData = useCallback(() => {
   if (user && user.user_id) {
@@ -5163,8 +5168,10 @@ onClick={async () => {
               }}
             />
           )}
+          {/* ////////////////////////////////////////////////////////////////////////////////////// */}
+          
 
-          {uploadMethod === 'url' && (
+          {/* {uploadMethod === 'url' && (
             <div>
               <textarea
                 value={imageUrls}
@@ -5178,8 +5185,27 @@ onClick={async () => {
                   border: '2px dashed #FF0000',
                   fontSize: '14px'
                 }}
-              />
+              /> */}
+
+              {/* {uploadMethod === 'url' && (
+  <div>
+    <textarea
+      value={imageUrls}
+      onChange={(e) => setImageUrls(e.target.value)}
+      placeholder={`https://picsum.photos/1080/1920?random=1
+https://picsum.photos/1080/1920?random=2`}
+      rows={6}
+      style={{
+        width: '100%',
+        padding: '12px',
+        borderRadius: '8px',
+        border: '2px dashed #FF0000',
+        fontSize: '14px'
+      }}
+    />
+
               <button
+
                 onClick={async () => {
                   const urls = imageUrls.split('\n').filter(u => u.trim());
                   if (urls.length < 2 || urls.length > 6) {
@@ -5221,8 +5247,74 @@ onClick={async () => {
                 {loading ? '⏳ Loading...' : '📥 Load Images'}
               </button>
             </div>
-          )}
+          )} */}
           
+{uploadMethod === 'url' && (
+            <div>
+              <textarea
+                value={imageUrls}
+                onChange={(e) => setImageUrls(e.target.value)}
+                placeholder="Paste image URLs here (one per line), or leave empty to use 3 default images"
+                rows={6}
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  borderRadius: '8px',
+                  border: '2px dashed #FF0000',
+                  fontSize: '14px'
+                }}
+              />
+              <button
+                onClick={async () => {
+                  // ✅ Use default URLs if textarea is empty
+                  const finalUrls = imageUrls.trim() === '' ? DEFAULT_IMAGE_URLS : imageUrls;
+                  
+                  const urls = finalUrls.split('\n').filter(u => u.trim());
+                  if (urls.length < 2 || urls.length > 6) {
+                    alert('Enter 2-6 image URLs');
+                    return;
+                  }
+                  setLoading(true);
+                  try {
+                    const base64Images = await Promise.all(
+                      urls.map(async (url) => {
+                        const response = await fetch(url);
+                        const blob = await response.blob();
+                        return new Promise((resolve) => {
+                          const reader = new FileReader();
+                          reader.onload = () => resolve(reader.result);
+                          reader.readAsDataURL(blob);
+                        });
+                      })
+                    );
+                    setUploadedImages(base64Images);
+                    alert('✅ Images loaded successfully!');
+                  } catch (error) {
+                    alert('❌ Error loading images: ' + error.message);
+                  } finally {
+                    setLoading(false);
+                  }
+                }}
+                disabled={loading}
+                style={{
+                  marginTop: '12px',
+                  padding: '10px 20px',
+                  background: loading ? '#ccc' : '#28a745',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: loading ? 'not-allowed' : 'pointer',
+                  fontWeight: '600'
+                }}
+              >
+                {loading ? '⏳ Loading...' : '📥 Load Images (or use 3 defaults)'}
+              </button>
+            </div>
+          )}
+
+
+
+          {/* ######################################################################################### */}
           {uploadedImages.length > 0 && (
             <div style={{marginTop: '20px'}}>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
