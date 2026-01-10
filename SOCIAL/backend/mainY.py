@@ -5240,6 +5240,7 @@ async def get_next_product_url(user_id: str) -> str:
         return None
 
 # Start automation background task
+
 @app.on_event("startup")
 async def start_automation_background():
     """Start automation checker on app startup"""
@@ -5249,6 +5250,7 @@ async def start_automation_background():
 
 
 # Main application runner
+
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 8000))
     uvicorn.run(
