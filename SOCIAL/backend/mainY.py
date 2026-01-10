@@ -5029,17 +5029,21 @@ YOU SAVE: ₹{int(original_price - price):,} ({discount_pct}% OFF)
 # ============================================================================
 
 @app.post("/api/product-automation/start")
-async def start_product_automation(request: dict):
+async def start_product_automation(request: Request):
     """Start automated product scraping + video generation + upload"""
     try:
-        user_id = request.get('user_id')
-        config = request.get('config', {})
+        body = await request.json()
+        user_id = body.get('user_id')
+        config = body.get('config', {})
         
         if not user_id:
-            raise HTTPException(status_code=400, detail="user_id required")
+            return JSONResponse(
+                status_code=400,
+                content={"success": False, "error": "user_id required"}
+            )
         
         # Store automation config
-        await database_manager.store_automation_config(
+        success = await database_manager.store_automation_config(
             user_id=user_id,
             config_type="product_automation",
             config_data={
@@ -5053,41 +5057,71 @@ async def start_product_automation(request: dict):
             }
         )
         
+        if not success:
+            return JSONResponse(
+                status_code=500,
+                content={"success": False, "error": "Failed to store config"}
+            )
+        
         logger.info(f"✅ Product automation started for user: {user_id}")
         
-        return {
+        return JSONResponse(content={
             "success": True,
             "message": "Product automation started successfully",
             "config": config,
             "next_run": config.get('upload_times', [])[0] if config.get('upload_times') else "Not set"
-        }
+        })
         
     except Exception as e:
         logger.error(f"❌ Start automation failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        import traceback
+        logger.error(traceback.format_exc())
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "error": str(e)}
+        )
+
+
+
 
 @app.post("/api/product-automation/stop")
-async def stop_product_automation(request: dict):
+async def stop_product_automation(request: Request):
     """Stop automated product scraping"""
     try:
-        user_id = request.get('user_id')
+        body = await request.json()
+        user_id = body.get('user_id')
         
         if not user_id:
-            raise HTTPException(status_code=400, detail="user_id required")
+            return JSONResponse(
+                status_code=400,
+                content={"success": False, "error": "user_id required"}
+            )
         
         # Disable automation
-        await database_manager.disable_automation(user_id, "product_automation")
+        success = await database_manager.disable_automation(user_id, "product_automation")
+        
+        if not success:
+            return JSONResponse(
+                status_code=500,
+                content={"success": False, "error": "Failed to disable automation"}
+            )
         
         logger.info(f"⏹️ Product automation stopped for user: {user_id}")
         
-        return {
+        return JSONResponse(content={
             "success": True,
             "message": "Product automation stopped successfully"
-        }
+        })
         
     except Exception as e:
         logger.error(f"❌ Stop automation failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        import traceback
+        logger.error(traceback.format_exc())
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "error": str(e)}
+        )
+
 
 # Background task runner (runs every hour)
 async def run_product_automation_tasks():

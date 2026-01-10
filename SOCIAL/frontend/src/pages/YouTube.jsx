@@ -312,9 +312,16 @@ body: JSON.stringify({
 })
       });
       
-      const result = await response.json();
+  const result = await response.json();
+
+      if (!response.ok) {
+  alert('❌ Failed: ' + (result.error || 'Unknown error'));
+  return;
+}
+
+     if (result.success) {
       
-      if (result.success) {
+      // if (result.success) {
         setGeneratedContent(result);
         setContentData(prev => ({
           ...prev,
@@ -5966,7 +5973,10 @@ onClick={async () => {
         <button
           onClick={async () => {
             if (!automationEnabled) {
-              // Start automation
+              
+              
+
+              
               try {
                 const response = await fetch(`${API_BASE}/api/product-automation/start`, {
                   method: 'POST',

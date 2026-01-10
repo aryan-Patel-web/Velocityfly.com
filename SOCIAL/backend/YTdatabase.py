@@ -275,6 +275,13 @@ class YouTubeDatabaseManager:
             logger.error(f"Revoke YouTube access failed: {e}")
             return False
 
+
+
+
+
+
+
+
     # ============================================================================
     # AUTOMATION CONFIGURATION
     # ============================================================================
