@@ -2543,6 +2543,54 @@ async def stop_product_automation(request: Request):
             status_code=500,
             content={"success": False, "error": str(e)}
         )
+    
+
+# ============================================================================
+# ✅ CATCH-ALL ROUTE FOR REACT SPA - ADD THIS BEFORE if __name__ == "__main__":
+# ============================================================================
+from fastapi.responses import FileResponse
+from pathlib import Path
+from fastapi.staticfiles import StaticFiles
+
+# Try to mount static files from React build
+try:
+    static_dir = Path("build")  # Change to "dist" if you use Vite
+    
+    if static_dir.exists() and (static_dir / "index.html").exists():
+        # Mount static assets (JS, CSS, images)
+        app.mount("/static", StaticFiles(directory=str(static_dir / "static")), name="static")
+        logger.info(f"✅ Serving React static files from {static_dir}")
+        
+        # Catch-all route - MUST be defined LAST
+        @app.get("/{full_path:path}")
+        async def serve_react_app(full_path: str):
+            """
+            Serve React app for all non-API routes.
+            This fixes the refresh issue by always serving index.html.
+            """
+            # Don't interfere with API routes
+            if full_path.startswith("api/"):
+                logger.warning(f"❌ API route not found: {full_path}")
+                raise HTTPException(status_code=404, detail=f"API endpoint not found: /{full_path}")
+            
+            # Don't interfere with health/debug endpoints
+            if full_path in ["health", "debug", ""]:
+                raise HTTPException(status_code=404, detail="Use /api/ prefix for API endpoints")
+            
+            # Serve index.html for all other routes (React Router handles the rest)
+            index_file = static_dir / "index.html"
+            logger.info(f"📄 Serving index.html for route: /{full_path}")
+            return FileResponse(index_file)
+    else:
+        logger.warning(f"⚠️ React build directory not found at {static_dir}")
+        logger.warning("⚠️ SPA routing will NOT work. Build your React app first!")
+        
+except Exception as e:
+    logger.error(f"❌ Failed to setup React serving: {e}")
+
+
+
+
 # ============================================================================
 # RUN APPLICATION
 # ============================================================================
