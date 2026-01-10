@@ -2449,7 +2449,100 @@ async def debug_my_reddit_connection(current_user: dict = Depends(get_current_us
         logger.error(traceback.format_exc())
         return {"success": False, "error": str(e)}
 
+# /////////////////////auto-post of 3 image --
 
+@app.post("/api/product-automation/start")
+async def start_product_automation(request: Request):
+    """Start automated product scraping + video generation + upload"""
+    try:
+        body = await request.json()
+        user_id = body.get('user_id')
+        config = body.get('config', {})
+        
+        if not user_id:
+            return JSONResponse(
+                status_code=400,
+                content={"success": False, "error": "user_id required"}
+            )
+        
+        # Store automation config
+        success = await database_manager.store_automation_config(
+            user_id=user_id,
+            config_type="product_automation",
+            config_data={
+                "enabled": True,
+                "max_posts_per_day": config.get('max_posts_per_day', 10),
+                "upload_times": config.get('upload_times', ['09:00', '15:00', '21:00']),
+                "auto_scrape": config.get('auto_scrape', True),
+                "auto_generate_video": config.get('auto_generate_video', True),
+                "auto_upload": config.get('auto_upload', True),
+                "created_at": datetime.now().isoformat()
+            }
+        )
+        
+        if not success:
+            return JSONResponse(
+                status_code=500,
+                content={"success": False, "error": "Failed to store config"}
+            )
+        
+        logger.info(f"✅ Product automation started for user: {user_id}")
+        
+        return JSONResponse(content={
+            "success": True,
+            "message": "Product automation started successfully",
+            "config": config,
+            "next_run": config.get('upload_times', [])[0] if config.get('upload_times') else "Not set"
+        })
+        
+    except Exception as e:
+        logger.error(f"❌ Start automation failed: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "error": str(e)}
+        )
+
+
+
+@app.post("/api/product-automation/stop")
+async def stop_product_automation(request: Request):
+    """Stop automated product scraping"""
+    try:
+        body = await request.json()
+        user_id = body.get('user_id')
+        
+        if not user_id:
+            return JSONResponse(
+                status_code=400,
+                content={"success": False, "error": "user_id required"}
+            )
+        
+        # Disable automation
+        success = await database_manager.disable_automation(user_id, "product_automation")
+        
+        if not success:
+            return JSONResponse(
+                status_code=500,
+                content={"success": False, "error": "Failed to disable automation"}
+            )
+        
+        logger.info(f"⏹️ Product automation stopped for user: {user_id}")
+        
+        return JSONResponse(content={
+            "success": True,
+            "message": "Product automation stopped successfully"
+        })
+        
+    except Exception as e:
+        logger.error(f"❌ Stop automation failed: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "error": str(e)}
+        )
 # ============================================================================
 # RUN APPLICATION
 # ============================================================================
