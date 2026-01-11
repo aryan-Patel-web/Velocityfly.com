@@ -1317,7 +1317,6 @@
 # DEFAULT_AUTO_REPLY_LIMIT = 10  # per hour
 
 
-
 """
 YouTube Database Manager - MongoDB operations for YouTube automation
 Handles user credentials, automation configs, analytics, and auto-reply management
@@ -2537,7 +2536,217 @@ class YouTubeDatabaseManager:
 
 
 # ============================================================================
+# UNIFIED DATABASE MANAGER
+# ============================================================================
+
+class UnifiedDatabaseManager:
+    """Unified database manager that combines all platform managers"""
+    
+    def __init__(self):
+        self.youtube = YouTubeDatabaseManager()
+    
+    async def connect(self):
+        """Connect all database managers"""
+        youtube_connected = await self.youtube.connect()
+        return youtube_connected
+    
+    async def close(self):
+        """Close all database connections"""
+        await self.youtube.close()
+    
+    # Delegate all YouTube methods to youtube manager
+    async def create_user(self, user_data: Dict[str, Any]) -> Dict[str, Any]:
+        return await self.youtube.create_user(user_data)
+    
+    async def get_user_by_email(self, email: str) -> Optional[Dict[str, Any]]:
+        return await self.youtube.get_user_by_email(email)
+    
+    async def get_user_by_id(self, user_id: str) -> Optional[Dict[str, Any]]:
+        return await self.youtube.get_user_by_id(user_id)
+    
+    async def update_user(self, user_id: str, update_data: Dict[str, Any]) -> bool:
+        return await self.youtube.update_user(user_id, update_data)
+    
+    async def store_youtube_credentials(self, user_id: str, credentials: Dict[str, Any]) -> bool:
+        return await self.youtube.store_youtube_credentials(user_id, credentials)
+    
+    async def get_youtube_credentials(self, user_id: str) -> Optional[Dict[str, Any]]:
+        return await self.youtube.get_youtube_credentials(user_id)
+    
+    async def refresh_youtube_token(self, user_id: str, new_access_token: str, expires_at: datetime) -> bool:
+        return await self.youtube.refresh_youtube_token(user_id, new_access_token, expires_at)
+    
+    async def revoke_youtube_access(self, user_id: str) -> bool:
+        return await self.youtube.revoke_youtube_access(user_id)
+    
+    async def store_automation_config(self, user_id: str, config_type: str, config_data: Dict[str, Any]) -> bool:
+        return await self.youtube.store_automation_config(user_id, config_type, config_data)
+    
+    async def get_automation_config(self, user_id: str, config_type: str) -> Optional[Dict[str, Any]]:
+        return await self.youtube.get_automation_config(user_id, config_type)
+    
+    async def get_all_automation_configs_by_type(self, config_type: str) -> List[Dict[str, Any]]:
+        return await self.youtube.get_all_automation_configs_by_type(config_type)
+    
+    async def get_all_automation_configs(self, user_id: str) -> List[Dict[str, Any]]:
+        return await self.youtube.get_all_automation_configs(user_id)
+    
+    async def disable_automation(self, user_id: str, config_type: str) -> bool:
+        return await self.youtube.disable_automation(user_id, config_type)
+    
+    async def log_comment_reply(self, user_id: str, reply_data: Dict[str, Any]) -> bool:
+        return await self.youtube.log_comment_reply(user_id, reply_data)
+    
+    async def get_comment_reply_history(self, user_id: str, limit: int = 50) -> List[Dict[str, Any]]:
+        return await self.youtube.get_comment_reply_history(user_id, limit)
+    
+    async def get_reply_stats(self, user_id: str, days: int = 30) -> Dict[str, Any]:
+        return await self.youtube.get_reply_stats(user_id, days)
+    
+    async def log_auto_reply_session(self, user_id: str, session_data: Dict[str, Any]) -> bool:
+        return await self.youtube.log_auto_reply_session(user_id, session_data)
+    
+    async def check_comment_already_replied(self, user_id: str, comment_id: str) -> bool:
+        return await self.youtube.check_comment_already_replied(user_id, comment_id)
+    
+    async def log_community_post(self, user_id: str, post_data: Dict[str, Any]) -> bool:
+        return await self.youtube.log_community_post(user_id, post_data)
+    
+    async def log_video_upload(self, user_id: str, video_data: Dict[str, Any]) -> bool:
+        return await self.youtube.log_video_upload(user_id, video_data)
+    
+    async def get_upload_history(self, user_id: str, limit: int = 50) -> List[Dict[str, Any]]:
+        return await self.youtube.get_upload_history(user_id, limit)
+    
+    async def get_upload_stats(self, user_id: str) -> Dict[str, Any]:
+        return await self.youtube.get_upload_stats(user_id)
+    
+    async def store_product_promo(self, user_id: str, product_data: dict) -> bool:
+        return await self.youtube.store_product_promo(user_id, product_data)
+    
+    async def get_product_promos_by_user(self, user_id: str, status: str = None) -> list:
+        return await self.youtube.get_product_promos_by_user(user_id, status)
+    
+    async def store_channel_analytics(self, user_id: str, analytics_data: Dict[str, Any]) -> bool:
+        return await self.youtube.store_channel_analytics(user_id, analytics_data)
+    
+    async def get_channel_analytics(self, user_id: str, days: int = 30) -> Optional[Dict[str, Any]]:
+        return await self.youtube.get_channel_analytics(user_id, days)
+    
+    async def store_scheduled_post(self, user_id: str, video_data: Dict[str, Any], scheduled_for: datetime) -> bool:
+        return await self.youtube.store_scheduled_post(user_id, video_data, scheduled_for)
+    
+    async def get_due_scheduled_posts(self) -> List[Dict[str, Any]]:
+        return await self.youtube.get_due_scheduled_posts()
+    
+    async def update_scheduled_post_status(self, post_id, status: str, error_message: str = None) -> bool:
+        return await self.youtube.update_scheduled_post_status(post_id, status, error_message)
+    
+    async def get_scheduled_posts_by_user(self, user_id: str, status: str = None) -> List[Dict[str, Any]]:
+        return await self.youtube.get_scheduled_posts_by_user(user_id, status)
+    
+    async def delete_scheduled_post(self, post_id) -> bool:
+        return await self.youtube.delete_scheduled_post(post_id)
+    
+    async def get_user_credentials(self, user_id: str, platform: str) -> Optional[Dict[str, Any]]:
+        return await self.youtube.get_user_credentials(user_id, platform)
+    
+    async def store_user_credentials(self, user_id: str, platform: str, credentials: Dict[str, Any], channel_info: Dict[str, Any] = None) -> bool:
+        return await self.youtube.store_user_credentials(user_id, platform, credentials, channel_info)
+    
+    async def get_recent_comments_for_processing(self, user_id: str, video_ids: List[str], hours_back: int = 24) -> List[Dict[str, Any]]:
+        return await self.youtube.get_recent_comments_for_processing(user_id, video_ids, hours_back)
+    
+    async def mark_comment_as_processed(self, user_id: str, comment_id: str, video_id: str, processing_result: Dict[str, Any]) -> bool:
+        return await self.youtube.mark_comment_as_processed(user_id, comment_id, video_id, processing_result)
+    
+    async def get_auto_reply_rate_limit(self, user_id: str, hours: int = 1) -> Dict[str, int]:
+        return await self.youtube.get_auto_reply_rate_limit(user_id, hours)
+    
+    async def cleanup_old_logs(self, days_to_keep: int = 30) -> bool:
+        return await self.youtube.cleanup_old_logs(days_to_keep)
+    
+    async def backup_user_data(self, user_id: str) -> Dict[str, Any]:
+        return await self.youtube.backup_user_data(user_id)
+    
+    async def get_platform_wide_stats(self) -> Dict[str, Any]:
+        return await self.youtube.get_platform_wide_stats()
+    
+    async def migrate_legacy_data(self) -> bool:
+        return await self.youtube.migrate_legacy_data()
+    
+    async def optimize_database(self) -> bool:
+        return await self.youtube.optimize_database()
+    
+    async def health_check(self) -> Dict[str, Any]:
+        """Check overall database health"""
+        try:
+            youtube_health = await self.youtube.health_check()
+            
+            return {
+                "status": "healthy" if youtube_health.get("status") == "healthy" else "unhealthy",
+                "managers": {
+                    "youtube": youtube_health
+                },
+                "timestamp": datetime.now().isoformat()
+            }
+        except Exception as e:
+            logger.error(f"Unified health check failed: {e}")
+            return {
+                "status": "unhealthy",
+                "error": str(e),
+                "timestamp": datetime.now().isoformat()
+            }
+
+    # ============================================================================
+    # PRODUCT URL QUEUE MANAGEMENT (Delegate to YouTube manager)
+    # ============================================================================
+
+    async def save_scrape_url(self, user_id: str, url: str) -> bool:
+        """Save website URL to scrape"""
+        return await self.youtube.save_scrape_url(user_id, url)
+
+    async def get_scrape_url(self, user_id: str) -> dict:
+        """Get saved scrape URL for user"""
+        return await self.youtube.get_scrape_url(user_id)
+
+    async def delete_scrape_url(self, user_id: str) -> bool:
+        """Delete scrape URL"""
+        return await self.youtube.delete_scrape_url(user_id)
+
+    async def update_scrape_progress(self, user_id: str, total_found: int, processed: int) -> bool:
+        """Update scraping progress"""
+        return await self.youtube.update_scrape_progress(user_id, total_found, processed)
+
+    async def get_next_unprocessed_product(self, user_id: str) -> dict:
+        """Get next product that hasn't been processed yet"""
+        return await self.youtube.get_next_unprocessed_product(user_id)
+
+    async def get_automation_posts_count(self, user_id: str, date) -> int:
+        """Get number of automation posts for a specific date"""
+        return await self.youtube.get_automation_posts_count(user_id, date)
+    
+    async def log_automation_post(self, user_id: str, post_data: dict) -> bool:
+        """Log automated post to database"""
+        return await self.youtube.log_automation_post(user_id, post_data)
+
+
+# ============================================================================
 # GLOBAL INSTANCE
+# ============================================================================
+
+database_manager = None
+
+def get_database_manager() -> UnifiedDatabaseManager:
+    """Get global database manager instance"""
+    global database_manager
+    if not database_manager:
+        database_manager = UnifiedDatabaseManager()
+    return database_manager
+
+
+# ============================================================================
+# GLOBAL INSTANCE (Legacy compatibility)
 # ============================================================================
 
 youtube_db_manager = None
@@ -2548,6 +2757,7 @@ def get_youtube_database() -> YouTubeDatabaseManager:
     if not youtube_db_manager:
         youtube_db_manager = YouTubeDatabaseManager()
     return youtube_db_manager
+
 
 # ============================================================================
 # UTILITY FUNCTIONS
@@ -2574,6 +2784,7 @@ def validate_user_id(user_id: str) -> bool:
         return True
     except Exception:
         return False
+
 
 # ============================================================================
 # ERROR HANDLING DECORATORS
