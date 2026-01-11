@@ -1,99 +1,162 @@
-# Core FastAPI and ASGI Server
+# # Core FastAPI and ASGI Server
+# fastapi==0.104.1
+# uvicorn[standard]==0.24.0
+
+# # Database - MongoDB
+# motor==3.6.0
+# pymongo==4.9.1
+
+# # Authentication & Security
+# bcrypt==4.1.2
+# PyJWT==2.8.0
+# python-jose[cryptography]==3.3.0
+# cryptography==41.0.7
+
+# # HTTP Requests (replaces mistralai)
+# requests==2.31.0
+# httpx>=0.25.2
+
+# # AI Services - HTTP API only (no pyarrow dependencies)
+# groq==0.4.1
+
+# # Configuration & Environment
+# python-dotenv==1.0.0
+
+# # Data Validation
+# pydantic[email]==2.9.2
+# pydantic-core==2.23.4
+
+# # Scheduling & Background Tasks
+# schedule==1.2.0
+
+# # File Upload & Form Handling
+# python-multipart==0.0.6
+
+# # Additional Dependencies for Production
+# aiofiles==23.2.1
+# python-dateutil==2.8.2
+
+# # Development & Debugging
+# rich==13.7.0
+
+
+
+
+# # Google APIs (YouTube)
+# google-api-python-client==2.108.0
+# google-auth==2.23.4
+# google-auth-oauthlib==1.1.0
+# google-auth-httplib2==0.2.0
+
+
+# # Social Media Content Templates
+# # beautifulsoup4==4.12.2
+
+
+# # System Information
+# psutil==5.9.6
+
+# # Social Media Specific
+# tweepy==4.14.0
+
+
+# # WhatsApp Cloud API
+# facebook-business==18.0.2
+
+
+# # NEW: Image Processing for Thumbnails
+# Pillow==10.4.0
+
+# # NEW: For product scraping
+
+# # playwright==1.40.0
+# playwright==1.49.1
+
+
+# beautifulsoup4==4.12.2
+# lxml==4.9.3
+# playwright-stealth==1.0.6
+
+# html5lib==1.1
+# pandas==2.1.4
+
+# numpy==1.24.3
+# opencv-python-headless==4.8.1.78
+# yt-dlp>=2023.10.13
+
+
+
+# bcrypt>=4.0.0
+# PyJWT>=2.8.0
+# packaging>=21.0
+
+
+
+
+# opencv-python==4.8.1.78
+# Pillow==10.1.0
+
+# beautifulsoup4==4.12.2
+
+
+
+# ---------------- CORE API ----------------
 fastapi==0.104.1
 uvicorn[standard]==0.24.0
 
-# Database - MongoDB
+# ---------------- DATABASE ----------------
 motor==3.6.0
 pymongo==4.9.1
 
-# Authentication & Security
+# ---------------- AUTH & SECURITY ----------------
 bcrypt==4.1.2
 PyJWT==2.8.0
 python-jose[cryptography]==3.3.0
 cryptography==41.0.7
 
-# HTTP Requests (replaces mistralai)
+# ---------------- HTTP / CONFIG ----------------
 requests==2.31.0
-httpx>=0.25.2
-
-# AI Services - HTTP API only (no pyarrow dependencies)
-groq==0.4.1
-
-# Configuration & Environment
+httpx==0.28.1
 python-dotenv==1.0.0
 
-# Data Validation
+# ---------------- AI ----------------
+groq==0.4.1
+
+# ---------------- VALIDATION ----------------
 pydantic[email]==2.9.2
 pydantic-core==2.23.4
 
-# Scheduling & Background Tasks
+# ---------------- UTILITIES ----------------
 schedule==1.2.0
-
-# File Upload & Form Handling
 python-multipart==0.0.6
-
-# Additional Dependencies for Production
 aiofiles==23.2.1
 python-dateutil==2.8.2
-
-# Development & Debugging
 rich==13.7.0
+psutil==5.9.6
+packaging==25.0
 
-
-
-
-# Google APIs (YouTube)
+# ---------------- GOOGLE / YOUTUBE ----------------
 google-api-python-client==2.108.0
 google-auth==2.23.4
 google-auth-oauthlib==1.1.0
 google-auth-httplib2==0.2.0
 
-
-# Social Media Content Templates
-# beautifulsoup4==4.12.2
-
-
-# System Information
-psutil==5.9.6
-
-# Social Media Specific
+# ---------------- SOCIAL ----------------
 tweepy==4.14.0
-
-
-# WhatsApp Cloud API
 facebook-business==18.0.2
 
-
-# NEW: Image Processing for Thumbnails
-Pillow==10.4.0
-
-# NEW: For product scraping
-
-# playwright==1.40.0
+# ---------------- SCRAPING / AUTOMATION ----------------
 playwright==1.49.1
-
-
+playwright-stealth==1.0.6
 beautifulsoup4==4.12.2
 lxml==4.9.3
-playwright-stealth==1.0.6
-
 html5lib==1.1
-pandas==2.1.4
-
-numpy==1.24.3
-opencv-python-headless==4.8.1.78
 yt-dlp>=2023.10.13
 
+# ---------------- DATA ----------------
+pandas==2.1.4
+numpy==1.24.3
 
-
-bcrypt>=4.0.0
-PyJWT>=2.8.0
-packaging>=21.0
-
-
-
-
-opencv-python==4.8.1.78
-Pillow==10.1.0
-
-beautifulsoup4==4.12.2
+# ---------------- CV / IMAGES (SERVER SAFE) ----------------
+opencv-python-headless==4.8.1.78
+Pillow==10.4.0
