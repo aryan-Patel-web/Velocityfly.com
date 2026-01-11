@@ -5952,6 +5952,11 @@ onClick={async () => {
 {/* ============================================ */}
 {/* AUTOMATION TAB - PRODUCT SCRAPING + UPLOAD */}
 {/* ============================================ */}
+{/* End Image Slideshow Tab */}
+
+{/* ============================================ */}
+{/* AUTOMATION TAB - COMPLETE A-Z AUTOMATION */}
+{/* ============================================ */}
 {activeTab === 'automation' && status?.youtube_connected && (
   <div style={{ 
     background: 'rgba(255, 255, 255, 0.95)', 
@@ -5961,59 +5966,247 @@ onClick={async () => {
   }}>
     <h2 style={{ 
       color: '#FF0000', 
-      marginBottom: '30px', 
-      fontSize: '28px', 
+      marginBottom: '10px', 
+      fontSize: '32px', 
       fontWeight: '700' 
     }}>
-      🤖 Product Automation
+      🤖 Auto Product Ads
     </h2>
+    <p style={{ 
+      color: '#666', 
+      marginBottom: '30px', 
+      fontSize: '16px' 
+    }}>
+      Automatically scrape products → Generate promotional videos → Upload to YouTube
+    </p>
 
-    {/* Status Card */}
+    {/* URL Input Section */}
     <div style={{
-      padding: '20px',
-      background: automationEnabled ? 'linear-gradient(135deg, #28a745, #20c997)' : '#f8f9fa',
-      borderRadius: '12px',
+      padding: '30px',
+      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+      borderRadius: '15px',
       marginBottom: '30px',
-      border: `2px solid ${automationEnabled ? '#28a745' : '#ddd'}`
+      color: 'white'
+    }}>
+      <h3 style={{ 
+        marginBottom: '20px', 
+        fontSize: '22px',
+        fontWeight: '700'
+      }}>
+        📍 Step 1: Enter Category URL
+      </h3>
+      <p style={{ 
+        marginBottom: '20px', 
+        fontSize: '14px',
+        opacity: 0.9
+      }}>
+        Enter a product category page (e.g., https://www.bewakoof.com/men-t-shirts)
+      </p>
+      
+      {savedUrl ? (
+        <div style={{
+          padding: '20px',
+          background: 'rgba(255,255,255,0.15)',
+          borderRadius: '10px',
+          backdropFilter: 'blur(10px)'
+        }}>
+          <div style={{ 
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '15px'
+          }}>
+            <div style={{ flex: 1, minWidth: '250px' }}>
+              <div style={{ 
+                fontSize: '13px', 
+                opacity: 0.8, 
+                marginBottom: '8px' 
+              }}>
+                Current URL:
+              </div>
+              <div style={{ 
+                fontSize: '15px', 
+                fontWeight: '600',
+                wordBreak: 'break-all'
+              }}>
+                {savedUrl}
+              </div>
+              <div style={{ 
+                fontSize: '13px', 
+                marginTop: '10px',
+                opacity: 0.9
+              }}>
+                📊 {urlStats.total} products found | {urlStats.processed} processed
+              </div>
+            </div>
+            <button
+              onClick={async () => {
+                if (!window.confirm('Delete this URL? You can add a new one.')) return;
+                
+                try {
+                  const response = await fetch(
+                    `${API_BASE}/api/automation/delete-url/${user.user_id}`,
+                    { method: 'DELETE' }
+                  );
+                  
+                  const data = await response.json();
+                  
+                  if (data.success) {
+                    setSavedUrl(null);
+                    setUrlStats({ total: 0, processed: 0 });
+                    alert('✅ URL deleted! You can add a new one.');
+                  } else {
+                    alert('❌ Failed to delete URL');
+                  }
+                } catch (error) {
+                  alert('❌ Error: ' + error.message);
+                }
+              }}
+              style={{
+                padding: '12px 24px',
+                background: 'rgba(220, 53, 69, 0.9)',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                fontWeight: '600',
+                cursor: 'pointer',
+                fontSize: '14px',
+                whiteSpace: 'nowrap'
+              }}
+            >
+              🗑️ Delete URL
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <input
+            type="text"
+            placeholder="https://www.bewakoof.com/men-t-shirts"
+            value={scrapeUrl}
+            onChange={(e) => setScrapeUrl(e.target.value)}
+            style={{
+              flex: 1,
+              padding: '15px 20px',
+              borderRadius: '10px',
+              border: '2px solid rgba(255,255,255,0.3)',
+              fontSize: '15px',
+              background: 'rgba(255,255,255,0.95)',
+              color: '#333'
+            }}
+          />
+          <button
+            onClick={async () => {
+              if (!scrapeUrl.trim()) {
+                alert('❌ Please enter a URL');
+                return;
+              }
+              
+              if (!scrapeUrl.startsWith('http')) {
+                alert('❌ Please enter a valid URL starting with http:// or https://');
+                return;
+              }
+              
+              try {
+                const response = await fetch(`${API_BASE}/api/automation/save-url`, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json'
+                  },
+                  body: JSON.stringify({
+                    user_id: user.user_id,
+                    url: scrapeUrl.trim()
+                  })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                  setSavedUrl(scrapeUrl.trim());
+                  setUrlStats({ 
+                    total: data.total_products || 0, 
+                    processed: 0 
+                  });
+                  setScrapeUrl('');
+                  alert(`✅ URL saved! Found ${data.total_products} products.`);
+                } else {
+                  alert('❌ Failed: ' + data.error);
+                }
+              } catch (error) {
+                alert('❌ Error: ' + error.message);
+              }
+            }}
+            style={{
+              padding: '15px 35px',
+              background: '#28a745',
+              color: 'white',
+              border: 'none',
+              borderRadius: '10px',
+              fontWeight: '700',
+              fontSize: '16px',
+              cursor: 'pointer',
+              whiteSpace: 'nowrap'
+            }}
+          >
+            💾 Save URL
+          </button>
+        </div>
+      )}
+    </div>
+
+    {/* Automation Control */}
+    <div style={{
+      padding: '25px',
+      background: automationEnabled 
+        ? 'linear-gradient(135deg, #11998e 0%, #38ef7d 100%)' 
+        : '#f8f9fa',
+      borderRadius: '15px',
+      marginBottom: '30px',
+      border: `3px solid ${automationEnabled ? '#28a745' : '#ddd'}`
     }}>
       <div style={{
         display: 'flex',
         justifyContent: 'space-between',
-        alignItems: 'center'
+        alignItems: 'center',
+        flexWrap: 'wrap',
+        gap: '20px'
       }}>
         <div>
           <h3 style={{ 
             color: automationEnabled ? 'white' : '#333', 
-            marginBottom: '8px',
-            fontSize: '20px',
+            marginBottom: '10px',
+            fontSize: '24px',
             fontWeight: '700'
           }}>
-            Status: {automationEnabled ? '🟢 ACTIVE' : '🔴 INACTIVE'}
+            {automationEnabled ? '🟢 AUTOMATION ACTIVE' : '🔴 AUTOMATION INACTIVE'}
           </h3>
           <p style={{ 
             margin: 0, 
-            fontSize: '14px',
-            color: automationEnabled ? 'rgba(255,255,255,0.9)' : '#666'
+            fontSize: '15px',
+            color: automationEnabled ? 'rgba(255,255,255,0.95)' : '#666'
           }}>
             {automationEnabled 
-              ? `Auto-posts enabled - Max ${automationConfig.max_posts_per_day} per day` 
-              : 'Configure and start automation below'}
+              ? `Running • Max ${automationConfig.max_posts_per_day} posts/day • ${automationConfig.upload_times.length} scheduled times` 
+              : savedUrl 
+                ? 'Configure settings and start automation below' 
+                : '⚠️ Please save a URL first'}
           </p>
         </div>
         
         <button
           onClick={async () => {
             if (!automationEnabled) {
-              
-              
-
+              if (!savedUrl) {
+                alert('❌ Please save a category URL first!');
+                return;
+              }
               
               try {
                 const response = await fetch(`${API_BASE}/api/product-automation/start`, {
                   method: 'POST',
                   headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    'Content-Type': 'application/json'
                   },
                   body: JSON.stringify({
                     user_id: user.user_id,
@@ -6021,11 +6214,17 @@ onClick={async () => {
                   })
                 });
                 
+                if (!response.ok) {
+                  const errorData = await response.json();
+                  alert('❌ Failed: ' + (errorData.error || 'Unknown error'));
+                  return;
+                }
+                
                 const result = await response.json();
                 
                 if (result.success) {
                   setAutomationEnabled(true);
-                  alert('✅ Automation started! Posts will be created automatically.');
+                  alert('✅ Automation started! Videos will be created and uploaded automatically.');
                 } else {
                   alert('❌ Failed: ' + result.error);
                 }
@@ -6033,18 +6232,22 @@ onClick={async () => {
                 alert('❌ Error: ' + error.message);
               }
             } else {
-              // Stop automation
               try {
                 const response = await fetch(`${API_BASE}/api/product-automation/stop`, {
                   method: 'POST',
                   headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    'Content-Type': 'application/json'
                   },
                   body: JSON.stringify({
                     user_id: user.user_id
                   })
                 });
+                
+                if (!response.ok) {
+                  const errorData = await response.json();
+                  alert('❌ Failed: ' + (errorData.error || 'Unknown error'));
+                  return;
+                }
                 
                 const result = await response.json();
                 
@@ -6059,42 +6262,52 @@ onClick={async () => {
               }
             }
           }}
+          disabled={!savedUrl && !automationEnabled}
           style={{
-            padding: '14px 28px',
+            padding: '16px 40px',
             background: automationEnabled ? '#dc3545' : '#28a745',
             color: 'white',
             border: 'none',
-            borderRadius: '8px',
+            borderRadius: '12px',
             fontWeight: '700',
-            fontSize: '16px',
-            cursor: 'pointer'
+            fontSize: '18px',
+            cursor: (!savedUrl && !automationEnabled) ? 'not-allowed' : 'pointer',
+            opacity: (!savedUrl && !automationEnabled) ? 0.5 : 1,
+            boxShadow: '0 4px 15px rgba(0,0,0,0.2)'
           }}
         >
-          {automationEnabled ? '⏹️ Stop Automation' : '▶️ Start Automation'}
+          {automationEnabled ? '⏹️ STOP' : '▶️ START AUTOMATION'}
         </button>
       </div>
     </div>
 
     {/* Configuration Panel */}
     <div style={{
-      padding: '24px',
-      background: '#f8f9fa',
-      borderRadius: '12px',
-      marginBottom: '30px'
+      padding: '30px',
+      background: '#fff',
+      borderRadius: '15px',
+      marginBottom: '30px',
+      border: '2px solid #e0e0e0'
     }}>
-      <h3 style={{ color: '#333', marginBottom: '20px', fontSize: '18px' }}>
+      <h3 style={{ 
+        color: '#333', 
+        marginBottom: '25px', 
+        fontSize: '20px',
+        fontWeight: '700'
+      }}>
         ⚙️ Configuration
       </h3>
       
       {/* Max Posts */}
-      <div style={{ marginBottom: '20px' }}>
+      <div style={{ marginBottom: '25px' }}>
         <label style={{ 
           display: 'block', 
-          marginBottom: '8px', 
+          marginBottom: '10px', 
           fontWeight: '600',
-          color: '#333'
+          color: '#333',
+          fontSize: '15px'
         }}>
-          📊 Max Posts Per Day:
+          📊 Maximum Posts Per Day:
         </label>
         <input
           type="number"
@@ -6108,37 +6321,49 @@ onClick={async () => {
           disabled={automationEnabled}
           style={{
             width: '100%',
-            padding: '12px',
-            borderRadius: '8px',
+            padding: '14px',
+            borderRadius: '10px',
             border: '2px solid #ddd',
-            fontSize: '14px'
+            fontSize: '15px',
+            background: automationEnabled ? '#f5f5f5' : 'white'
           }}
         />
+        <small style={{ color: '#666', fontSize: '13px', marginTop: '5px', display: 'block' }}>
+          Recommended: 5-10 posts per day to avoid spam
+        </small>
       </div>
 
       {/* Upload Times */}
-      <div style={{ marginBottom: '20px' }}>
+      <div style={{ marginBottom: '25px' }}>
         <label style={{ 
           display: 'block', 
-          marginBottom: '8px', 
+          marginBottom: '10px', 
           fontWeight: '600',
-          color: '#333'
+          color: '#333',
+          fontSize: '15px'
         }}>
-          🕐 Upload Times (IST):
+          🕐 Upload Times (24-hour format):
         </label>
-        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '12px' }}>
+        <div style={{ 
+          display: 'flex', 
+          gap: '10px', 
+          flexWrap: 'wrap', 
+          marginBottom: '15px' 
+        }}>
           {automationConfig.upload_times.map((time, idx) => (
             <span key={idx} style={{
-              padding: '6px 12px',
-              background: '#FF0000',
+              padding: '10px 18px',
+              background: 'linear-gradient(135deg, #FF0000, #CC0000)',
               color: 'white',
-              borderRadius: '20px',
-              fontSize: '13px',
+              borderRadius: '25px',
+              fontSize: '14px',
+              fontWeight: '600',
               display: 'flex',
               alignItems: 'center',
-              gap: '6px'
+              gap: '8px',
+              boxShadow: '0 2px 8px rgba(255,0,0,0.3)'
             }}>
-              {time}
+              🕐 {time}
               {!automationEnabled && (
                 <button
                   onClick={() => {
@@ -6148,11 +6373,17 @@ onClick={async () => {
                     }));
                   }}
                   style={{
-                    background: 'none',
+                    background: 'rgba(255,255,255,0.3)',
                     border: 'none',
                     color: 'white',
                     cursor: 'pointer',
-                    fontSize: '14px',
+                    fontSize: '16px',
+                    width: '20px',
+                    height: '20px',
+                    borderRadius: '50%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
                     padding: 0
                   }}
                 >
@@ -6164,15 +6395,16 @@ onClick={async () => {
         </div>
         
         {!automationEnabled && (
-          <div style={{ display: 'flex', gap: '8px' }}>
+          <div style={{ display: 'flex', gap: '10px' }}>
             <input
               type="time"
               id="newUploadTime"
               style={{
-                padding: '8px',
-                borderRadius: '6px',
-                border: '1px solid #ddd',
-                fontSize: '13px'
+                padding: '12px',
+                borderRadius: '8px',
+                border: '2px solid #ddd',
+                fontSize: '14px',
+                flex: 1
               }}
             />
             <button
@@ -6184,37 +6416,68 @@ onClick={async () => {
                     upload_times: [...prev.upload_times, input.value].sort()
                   }));
                   input.value = '';
+                } else if (automationConfig.upload_times.includes(input.value)) {
+                  alert('⚠️ This time is already added!');
                 }
               }}
               style={{
-                padding: '8px 16px',
+                padding: '12px 24px',
                 background: '#28a745',
                 color: 'white',
                 border: 'none',
-                borderRadius: '6px',
-                fontSize: '13px',
+                borderRadius: '8px',
+                fontSize: '14px',
+                fontWeight: '600',
                 cursor: 'pointer'
               }}
             >
-              Add Time
+              ➕ Add Time
             </button>
           </div>
         )}
+        <small style={{ color: '#666', fontSize: '13px', marginTop: '5px', display: 'block' }}>
+          System checks every minute and posts at these times
+        </small>
       </div>
 
-      {/* Checkboxes */}
-      <div style={{ marginTop: '20px' }}>
+      {/* Feature Toggles */}
+      <div style={{ marginTop: '25px' }}>
+        <label style={{ 
+          display: 'block', 
+          marginBottom: '15px', 
+          fontWeight: '600',
+          color: '#333',
+          fontSize: '15px'
+        }}>
+          🎯 Features:
+        </label>
         {[
-          { key: 'auto_scrape', label: '🔍 Auto-scrape products from URLs' },
-          { key: 'auto_generate_video', label: '🎬 Auto-generate videos from images' },
-          { key: 'auto_upload', label: '📤 Auto-upload to YouTube' }
+          { 
+            key: 'auto_scrape', 
+            label: '🔍 Auto-scrape products from saved URL',
+            desc: 'Automatically extract product details and images'
+          },
+          { 
+            key: 'auto_generate_video', 
+            label: '🎬 Auto-generate promotional videos',
+            desc: 'Create slideshow videos with product URL overlay'
+          },
+          { 
+            key: 'auto_upload', 
+            label: '📤 Auto-upload to YouTube Shorts',
+            desc: 'Upload videos with clickable product links'
+          }
         ].map(option => (
           <label key={option.key} style={{
             display: 'flex',
-            alignItems: 'center',
-            gap: '10px',
-            marginBottom: '12px',
-            cursor: 'pointer'
+            alignItems: 'flex-start',
+            gap: '12px',
+            marginBottom: '18px',
+            cursor: 'pointer',
+            padding: '15px',
+            background: '#f8f9fa',
+            borderRadius: '10px',
+            border: '2px solid #e0e0e0'
           }}>
             <input
               type="checkbox"
@@ -6224,44 +6487,114 @@ onClick={async () => {
                 [option.key]: e.target.checked
               }))}
               disabled={automationEnabled}
-              style={{ width: '18px', height: '18px' }}
+              style={{ 
+                width: '20px', 
+                height: '20px',
+                marginTop: '2px',
+                cursor: automationEnabled ? 'not-allowed' : 'pointer'
+              }}
             />
-            <span style={{ fontSize: '14px', fontWeight: '500' }}>
-              {option.label}
-            </span>
+            <div>
+              <div style={{ 
+                fontSize: '15px', 
+                fontWeight: '600',
+                marginBottom: '4px'
+              }}>
+                {option.label}
+              </div>
+              <div style={{ 
+                fontSize: '13px', 
+                color: '#666'
+              }}>
+                {option.desc}
+              </div>
+            </div>
           </label>
         ))}
       </div>
     </div>
 
-    {/* Logs */}
+    {/* How It Works */}
     <div style={{
-      padding: '20px',
-      background: 'white',
-      borderRadius: '12px',
-      maxHeight: '400px',
-      overflowY: 'auto'
+      padding: '25px',
+      background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+      borderRadius: '15px',
+      marginBottom: '30px',
+      color: 'white'
     }}>
-      <h3 style={{ color: '#333', marginBottom: '16px', fontSize: '18px' }}>
+      <h3 style={{ marginBottom: '20px', fontSize: '20px', fontWeight: '700' }}>
+        📖 How It Works
+      </h3>
+      <div style={{ display: 'grid', gap: '15px' }}>
+        {[
+          { icon: '1️⃣', text: 'Enter a product category URL (e.g., t-shirts page)' },
+          { icon: '2️⃣', text: 'System scrapes ALL products from that page' },
+          { icon: '3️⃣', text: 'For each product: downloads 3 images + product info' },
+          { icon: '4️⃣', text: 'Creates promotional video with product URL overlay' },
+          { icon: '5️⃣', text: 'Uploads to YouTube Shorts with clickable link' },
+          { icon: '6️⃣', text: 'Repeats at scheduled times (respects daily limit)' }
+        ].map((step, idx) => (
+          <div key={idx} style={{
+            display: 'flex',
+            gap: '12px',
+            alignItems: 'center',
+            background: 'rgba(255,255,255,0.15)',
+            padding: '12px',
+            borderRadius: '8px',
+            backdropFilter: 'blur(10px)'
+          }}>
+            <span style={{ fontSize: '24px' }}>{step.icon}</span>
+            <span style={{ fontSize: '14px' }}>{step.text}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+
+    {/* Activity Logs */}
+    <div style={{
+      padding: '25px',
+      background: 'white',
+      borderRadius: '15px',
+      maxHeight: '400px',
+      overflowY: 'auto',
+      border: '2px solid #e0e0e0'
+    }}>
+      <h3 style={{ 
+        color: '#333', 
+        marginBottom: '20px', 
+        fontSize: '20px',
+        fontWeight: '700'
+      }}>
         📋 Activity Logs
       </h3>
       {automationLogs.length === 0 ? (
-        <p style={{ color: '#999', fontStyle: 'italic', textAlign: 'center', padding: '20px' }}>
-          No logs yet. Start automation to see activity.
-        </p>
+        <div style={{
+          textAlign: 'center',
+          padding: '40px 20px',
+          color: '#999'
+        }}>
+          <div style={{ fontSize: '48px', marginBottom: '15px' }}>📭</div>
+          <p style={{ fontSize: '16px', fontStyle: 'italic' }}>
+            No activity yet. Start automation to see logs here.
+          </p>
+        </div>
       ) : (
         automationLogs.map((log, idx) => (
           <div key={idx} style={{
-            padding: '12px',
+            padding: '15px',
             background: '#f8f9fa',
-            borderRadius: '6px',
-            marginBottom: '8px',
+            borderRadius: '8px',
+            marginBottom: '10px',
             borderLeft: `4px solid ${log.success ? '#28a745' : '#dc3545'}`
           }}>
-            <div style={{ fontSize: '12px', color: '#999', marginBottom: '4px' }}>
+            <div style={{ 
+              fontSize: '12px', 
+              color: '#999', 
+              marginBottom: '6px' 
+            }}>
               {new Date(log.timestamp).toLocaleString()}
             </div>
-            <div style={{ fontSize: '14px', color: '#333' }}>
+            <div style={{ fontSize: '14px', color: '#333', fontWeight: '500' }}>
               {log.message}
             </div>
           </div>
@@ -6270,6 +6603,14 @@ onClick={async () => {
     </div>
   </div>
 )}
+
+{/* End Automation Tab */}
+
+
+
+
+
+
 
 {/* End Automation Tab */}
 
