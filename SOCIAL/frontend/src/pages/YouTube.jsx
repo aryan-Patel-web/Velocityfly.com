@@ -86,6 +86,11 @@ const [automationConfig, setAutomationConfig] = useState({
 });
 const [automationLogs, setAutomationLogs] = useState([]);
 
+// ✅ NEW: URL Management States
+const [scrapeUrl, setScrapeUrl] = useState('');
+const [savedUrl, setSavedUrl] = useState(null);
+const [urlStats, setUrlStats] = useState({ total: 0, processed: 0 });
+
 
 const [loadingVideos, setLoadingVideos] = useState(false);
 const [videoComments, setVideoComments] = useState({});
@@ -1064,7 +1069,33 @@ useEffect(() => {
   }
 }, [isAuthenticated, token, handleOAuthCallbackDirect]);
 
+// }, [isAuthenticated, token, handleOAuthCallbackDirect]);
 
+// ✅ NEW: Load saved URL on component mount
+useEffect(() => {
+  const loadSavedUrl = async () => {
+    if (!user?.user_id) return;
+    
+    try {
+      const response = await fetch(`${API_BASE}/api/automation/get-url/${user.user_id}`);
+      const data = await response.json();
+      
+      if (data.success && data.url) {
+        setSavedUrl(data.url);
+        setUrlStats({
+          total: data.total_products || 0,
+          processed: data.products_processed || 0
+        });
+      }
+    } catch (error) {
+      console.error('Failed to load saved URL:', error);
+    }
+  };
+  
+  loadSavedUrl();
+}, [user]);
+
+  // const generateOAuthUrl = useCallback(async () => {
 
   const generateOAuthUrl = useCallback(async () => {
     if (!token) {
