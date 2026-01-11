@@ -1238,14 +1238,24 @@
 
 // export default Landing_Page;
 
-import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Link, useNavigate } from 'react-router-dom';
 
-const LandingPage = () => {
+
+
+
+
+
+
+
+
+import React, { useState, useEffect, useRef } from 'react';
+import { Link } from 'react-router-dom';
+
+const Landing_Page = () => {
   const [activeFeature, setActiveFeature] = useState(0);
-  const navigate = useNavigate();
+  const [hoveredPlatform, setHoveredPlatform] = useState(null);
+  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
+  const canvasRef = useRef(null);
 
-  // Auto-rotate features every 5 seconds
   useEffect(() => {
     const interval = setInterval(() => {
       setActiveFeature((prev) => (prev + 1) % 4);
@@ -1253,1038 +1263,320 @@ const LandingPage = () => {
     return () => clearInterval(interval);
   }, []);
 
-  // Smooth scroll to section
-  const scrollToSection = (sectionId) => {
-    document.getElementById(sectionId)?.scrollIntoView({ 
-      behavior: 'smooth' 
-    });
-  };
+  useEffect(() => {
+    const handleMouseMove = (e) => {
+      setMousePosition({ x: e.clientX, y: e.clientY });
+    };
+    window.addEventListener('mousemove', handleMouseMove);
+    return () => window.removeEventListener('mousemove', handleMouseMove);
+  }, []);
 
-  const features = [
-    {
-      icon: '🚀',
-      title: 'Lightning Fast',
-      description: 'Deploy your applications in seconds with our optimized infrastructure'
+  // 3D Canvas Animation
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    
+    const ctx = canvas.getContext('2d');
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    const particles = [];
+    const particleCount = 50;
+
+    class Particle {
+      constructor() {
+        this.x = Math.random() * canvas.width;
+        this.y = Math.random() * canvas.height;
+        this.z = Math.random() * 1000;
+        this.size = Math.random() * 3 + 1;
+        this.speedX = (Math.random() - 0.5) * 0.5;
+        this.speedY = (Math.random() - 0.5) * 0.5;
+        this.speedZ = Math.random() * 2 + 1;
+      }
+
+      update() {
+        this.z -= this.speedZ;
+        if (this.z <= 0) {
+          this.z = 1000;
+          this.x = Math.random() * canvas.width;
+          this.y = Math.random() * canvas.height;
+        }
+        this.x += this.speedX;
+        this.y += this.speedY;
+      }
+
+      draw() {
+        const scale = 1000 / (1000 + this.z);
+        const x2d = (this.x - canvas.width / 2) * scale + canvas.width / 2;
+        const y2d = (this.y - canvas.height / 2) * scale + canvas.height / 2;
+        const size = this.size * scale;
+        const opacity = 1 - this.z / 1000;
+
+        ctx.fillStyle = `rgba(147, 51, 234, ${opacity})`;
+        ctx.beginPath();
+        ctx.arc(x2d, y2d, size, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    for (let i = 0; i < particleCount; i++) {
+      particles.push(new Particle());
+    }
+
+    const animate = () => {
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      particles.forEach(particle => {
+        particle.update();
+        particle.draw();
+      });
+
+      requestAnimationFrame(animate);
+    };
+
+    animate();
+
+    const handleResize = () => {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const platforms = [
+    { 
+      name: 'Facebook', 
+      emoji: '📘', 
+      route: '/facebook-instagram', 
+      features: ['AI Content Generation', 'Multi-Page Management', 'Smart Scheduling', 'Advanced Analytics'],
+      description: 'Automate your Facebook presence with AI-powered content creation and intelligent scheduling.'
     },
-    {
-      icon: '🔒',
-      title: 'Enterprise Security',
-      description: 'Bank-level security with end-to-end encryption and compliance'
+    { 
+      name: 'Instagram', 
+      emoji: '📸', 
+      route: '/instagram', 
+      features: ['AI Image Generation', 'Smart Hashtags', 'Story Automation', 'Engagement Boost'],
+      description: 'Create stunning Instagram content automatically with AI-powered images and captions.'
     },
-    {
-      icon: '📊',
-      title: 'Real-time Analytics',
-      description: 'Monitor performance with detailed insights and custom dashboards'
+    { 
+      name: 'WhatsApp', 
+      emoji: '💬', 
+      route: '/whatsapp', 
+      features: ['Auto Reply', 'Broadcast Messages', 'Templates', 'Chat Analytics'],
+      description: 'Streamline your WhatsApp communication with automated responses and broadcast capabilities.'
     },
-    {
-      icon: '🤝',
-      title: 'Seamless Integration',
-      description: 'Connect with 100+ tools and services through our API ecosystem'
+    { 
+      name: 'YouTube', 
+      emoji: '📺', 
+      route: '/youtube', 
+      features: ['AI Script Writing', 'Auto Upload', 'SEO Optimization', 'Shorts Creation'],
+      description: 'Grow your YouTube channel with AI-generated scripts and automated video uploads.'
+    },
+    { 
+      name: 'Reddit', 
+      emoji: '🔴', 
+      route: '/reddit-auto', 
+      features: ['Auto Posting', 'Smart Replies', 'Karma Building', 'Multi-Subreddit'],
+      description: 'Build your Reddit presence with intelligent posting and automated engagement.'
     }
   ];
 
-  const platforms = [
+  const features = [
     {
-      emoji: '☁️',
-      name: 'Cloud Hosting',
-      description: 'Scalable cloud infrastructure',
-      features: ['Auto-scaling', '99.9% uptime', 'Global CDN']
+      title: 'AI-Powered Content',
+      description: 'Generate engaging posts, captions, and images automatically with advanced AI',
+      icon: '🤖'
     },
     {
-      emoji: '📱',
-      name: 'Mobile Apps',
-      description: 'Native mobile development',
-      features: ['iOS & Android', 'Push notifications', 'Offline sync']
+      title: 'Smart Scheduling',
+      description: 'Post at optimal times for maximum engagement across all platforms',
+      icon: '⚡'
     },
     {
-      emoji: '🌐',
-      name: 'Web Platform',
-      description: 'Modern web applications',
-      features: ['PWA support', 'Real-time updates', 'SEO optimized']
+      title: 'Analytics Dashboard',
+      description: 'Track performance and optimize your strategy with real-time insights',
+      icon: '📊'
     },
     {
-      emoji: '🔗',
-      name: 'API Gateway',
-      description: 'Unified API management',
-      features: ['Rate limiting', 'Authentication', 'Monitoring']
-    },
-    {
-      emoji: '📈',
-      name: 'Analytics',
-      description: 'Advanced data insights',
-      features: ['Custom dashboards', 'Real-time metrics', 'Export tools']
-    },
-    {
-      emoji: '🛡️',
-      name: 'Security',
-      description: 'Enterprise-grade protection',
-      features: ['SSL certificates', 'DDoS protection', 'Compliance']
+      title: 'Multi-Platform',
+      description: 'Manage all your social media accounts from one unified dashboard',
+      icon: '🎯'
     }
   ];
 
   const testimonials = [
     {
-      name: 'Sarah Chen',
-      role: 'CTO',
-      company: 'TechFlow',
-      rating: 5,
-      quote: 'This platform transformed our development workflow. We deployed 50% faster and reduced infrastructure costs significantly.',
-      avatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=150&h=150&fit=crop&crop=face'
+      name: 'Sarah Johnson',
+      role: 'Marketing Director',
+      company: 'TechCorp',
+      content: 'VelocityPost has transformed our social media strategy. We\'ve seen a 300% increase in engagement and saved 20 hours per week.',
+      rating: 5
     },
     {
-      name: 'Marcus Johnson',
-      role: 'Lead Developer',
-      company: 'InnovateCorp',
-      rating: 5,
-      quote: 'The best developer experience I\'ve ever had. The analytics and monitoring tools are game-changers for our team.',
-      avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face'
+      name: 'Michael Chen',
+      role: 'Content Creator',
+      company: 'Digital Agency',
+      content: 'The AI content generation is incredible. It understands our brand voice perfectly and creates posts that resonate with our audience.',
+      rating: 5
     },
     {
       name: 'Emily Rodriguez',
-      role: 'Product Manager',
-      company: 'StartupXYZ',
-      rating: 5,
-      quote: 'Incredible ROI and seamless integration. Our time-to-market improved by 40% since switching to this platform.',
-      avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&h=150&fit=crop&crop=face'
+      role: 'Social Media Manager',
+      company: 'E-commerce Brand',
+      content: 'Managing 5 platforms used to be overwhelming. Now it\'s effortless. The automation features are game-changing.',
+      rating: 5
     }
   ];
 
-  const styles = `
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-
-    html {
-      scroll-behavior: smooth;
-    }
-
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      line-height: 1.6;
-      color: #111827;
-    }
-
-    /* Animations */
-    @keyframes slideDown {
-      from {
-        opacity: 0;
-        transform: translateY(-30px);
-      }
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
-    }
-
-    @keyframes slideUp {
-      from {
-        opacity: 0;
-        transform: translateY(30px);
-      }
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
-    }
-
-    @keyframes fadeIn {
-      from {
-        opacity: 0;
-      }
-      to {
-        opacity: 1;
-      }
-    }
-
-    @keyframes scaleIn {
-      from {
-        opacity: 0;
-        transform: scale(0.9);
-      }
-      to {
-        opacity: 1;
-        transform: scale(1);
-      }
-    }
-
-    @keyframes float {
-      0%, 100% {
-        transform: translateY(0px) rotate(0deg);
-      }
-      50% {
-        transform: translateY(-20px) rotate(180deg);
-      }
-    }
-
-    @keyframes floatAlt {
-      0%, 100% {
-        transform: translateY(0px) rotate(0deg);
-      }
-      50% {
-        transform: translateY(-15px) rotate(-180deg);
-      }
-    }
-
-    /* Utility Classes */
-    .animate-slide-down {
-      animation: slideDown 0.8s ease-out;
-    }
-
-    .animate-slide-up {
-      animation: slideUp 0.8s ease-out;
-    }
-
-    .animate-fade-in {
-      animation: fadeIn 1s ease-out;
-    }
-
-    .animate-scale-in {
-      animation: scaleIn 0.6s ease-out;
-    }
-
-    .animate-delay-1 {
-      animation-delay: 0.2s;
-      animation-fill-mode: both;
-    }
-
-    .animate-delay-2 {
-      animation-delay: 0.4s;
-      animation-fill-mode: both;
-    }
-
-    .animate-delay-3 {
-      animation-delay: 0.6s;
-      animation-fill-mode: both;
-    }
-
-    .animate-delay-4 {
-      animation-delay: 0.8s;
-      animation-fill-mode: both;
-    }
-
-    /* Container */
-    .container {
-      max-width: 1200px;
-      margin: 0 auto;
-      padding: 0 20px;
-    }
-
-    /* Header */
-    .header {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      background: rgba(255, 255, 255, 0.95);
-      backdrop-filter: blur(10px);
-      z-index: 1000;
-      padding: 1rem 0;
-      border-bottom: 1px solid rgba(0, 0, 0, 0.1);
-    }
-
-    .nav {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-
-    .logo {
-      font-size: clamp(1.5rem, 2.5vw, 2rem);
-      font-weight: bold;
-      background: linear-gradient(135deg, #0ea5e9, #06b6d4);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-    }
-
-    .nav-links {
-      display: flex;
-      list-style: none;
-      gap: 2rem;
-    }
-
-    .nav-links a {
-      text-decoration: none;
-      color: #6b7280;
-      font-weight: 500;
-      transition: color 0.3s ease;
-    }
-
-    .nav-links a:hover {
-      color: #0ea5e9;
-    }
-
-    .nav-cta {
-      background: linear-gradient(135deg, #0ea5e9, #06b6d4);
-      color: white;
-      padding: 0.75rem 1.5rem;
-      border-radius: 12px;
-      text-decoration: none;
-      font-weight: 600;
-      transition: transform 0.3s ease, box-shadow 0.3s ease;
-      border: none;
-      cursor: pointer;
-    }
-
-    .nav-cta:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 10px 25px rgba(14, 165, 233, 0.3);
-    }
-
-    /* Hero Section */
-    .hero {
-      min-height: 100vh;
-      background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
-      position: relative;
-      overflow: hidden;
-      display: flex;
-      align-items: center;
-      padding-top: 80px;
-    }
-
-    .floating-shape {
-      position: absolute;
-      opacity: 0.1;
-      pointer-events: none;
-    }
-
-    .shape-1 {
-      top: 10%;
-      left: 10%;
-      width: 100px;
-      height: 100px;
-      background: linear-gradient(45deg, #0ea5e9, #06b6d4);
-      border-radius: 20px;
-      animation: float 6s ease-in-out infinite;
-    }
-
-    .shape-2 {
-      top: 60%;
-      right: 15%;
-      width: 80px;
-      height: 80px;
-      background: linear-gradient(45deg, #06b6d4, #0ea5e9);
-      border-radius: 50%;
-      animation: floatAlt 8s ease-in-out infinite;
-    }
-
-    .shape-3 {
-      bottom: 20%;
-      left: 20%;
-      width: 60px;
-      height: 60px;
-      background: linear-gradient(45deg, #0ea5e9, #06b6d4);
-      transform: rotate(45deg);
-      animation: float 7s ease-in-out infinite;
-    }
-
-    .hero-content {
-      text-align: center;
-      max-width: 800px;
-      margin: 0 auto;
-    }
-
-    .hero-badge {
-      display: inline-block;
-      background: rgba(255, 255, 255, 0.8);
-      backdrop-filter: blur(10px);
-      padding: 0.5rem 1rem;
-      border-radius: 25px;
-      font-size: 0.9rem;
-      color: #0ea5e9;
-      font-weight: 600;
-      margin-bottom: 2rem;
-      border: 1px solid rgba(14, 165, 233, 0.2);
-    }
-
-    .hero-title {
-      font-size: clamp(2.5rem, 6vw, 4rem);
-      font-weight: bold;
-      margin-bottom: 1.5rem;
-      background: linear-gradient(135deg, #0ea5e9, #06b6d4, #0ea5e9);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-      line-height: 1.2;
-    }
-
-    .hero-subtitle {
-      font-size: clamp(1.1rem, 2vw, 1.25rem);
-      color: #6b7280;
-      margin-bottom: 3rem;
-      max-width: 600px;
-      margin-left: auto;
-      margin-right: auto;
-    }
-
-    .hero-buttons {
-      display: flex;
-      gap: 1rem;
-      justify-content: center;
-      flex-wrap: wrap;
-      margin-bottom: 4rem;
-    }
-
-    .btn-primary {
-      background: linear-gradient(135deg, #0ea5e9, #06b6d4);
-      color: white;
-      padding: 1rem 2rem;
-      border-radius: 12px;
-      text-decoration: none;
-      font-weight: 600;
-      transition: transform 0.3s ease, box-shadow 0.3s ease;
-      border: none;
-      cursor: pointer;
-      font-size: 1rem;
-    }
-
-    .btn-primary:hover {
-      transform: translateY(-3px);
-      box-shadow: 0 15px 35px rgba(14, 165, 233, 0.4);
-    }
-
-    .btn-secondary {
-      background: white;
-      color: #0ea5e9;
-      padding: 1rem 2rem;
-      border-radius: 12px;
-      text-decoration: none;
-      font-weight: 600;
-      transition: transform 0.3s ease, box-shadow 0.3s ease;
-      border: 2px solid #0ea5e9;
-      cursor: pointer;
-      font-size: 1rem;
-    }
-
-    .btn-secondary:hover {
-      transform: translateY(-3px);
-      box-shadow: 0 15px 35px rgba(14, 165, 233, 0.2);
-      background: #f0f9ff;
-    }
-
-    .hero-stats {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-      gap: 2rem;
-      max-width: 600px;
-      margin: 0 auto;
-    }
-
-    .stat-item {
-      text-align: center;
-    }
-
-    .stat-number {
-      font-size: clamp(1.5rem, 3vw, 2rem);
-      font-weight: bold;
-      color: #0ea5e9;
-      display: block;
-    }
-
-    .stat-label {
-      color: #6b7280;
-      font-size: 0.9rem;
-      margin-top: 0.5rem;
-    }
-
-    /* Features Section */
-    .features {
-      padding: 6rem 0;
-      background: white;
-    }
-
-    .section-header {
-      text-align: center;
-      margin-bottom: 4rem;
-    }
-
-    .section-title {
-      font-size: clamp(2rem, 4vw, 3rem);
-      font-weight: bold;
-      margin-bottom: 1rem;
-      color: #111827;
-    }
-
-    .section-subtitle {
-      font-size: clamp(1rem, 2vw, 1.25rem);
-      color: #6b7280;
-      max-width: 600px;
-      margin: 0 auto;
-    }
-
-    .features-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-      gap: 2rem;
-    }
-
-    .feature-card {
-      background: white;
-      padding: 2rem;
-      border-radius: 20px;
-      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-      transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
-      border: 2px solid transparent;
-      cursor: pointer;
-    }
-
-    .feature-card:hover {
-      transform: translateY(-8px);
-      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
-      border-color: #0ea5e9;
-    }
-
-    .feature-card.active {
-      border-color: #0ea5e9;
-      background: linear-gradient(135deg, #f0f9ff, #e0f2fe);
-    }
-
-    .feature-icon {
-      font-size: 3rem;
-      margin-bottom: 1rem;
-      display: block;
-      transition: transform 0.3s ease;
-    }
-
-    .feature-card:hover .feature-icon {
-      transform: scale(1.1) rotate(5deg);
-    }
-
-    .feature-title {
-      font-size: 1.5rem;
-      font-weight: bold;
-      margin-bottom: 1rem;
-      color: #111827;
-    }
-
-    .feature-description {
-      color: #6b7280;
-      line-height: 1.6;
-    }
-
-    /* Platforms Section */
-    .platforms {
-      padding: 6rem 0;
-      background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
-    }
-
-    .platforms-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-      gap: 2rem;
-    }
-
-    .platform-card {
-      background: white;
-      padding: 2rem;
-      border-radius: 20px;
-      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-      transition: transform 0.3s ease, box-shadow 0.3s ease;
-      cursor: pointer;
-      position: relative;
-      overflow: hidden;
-    }
-
-    .platform-card:hover {
-      transform: translateY(-10px);
-      box-shadow: 0 25px 50px rgba(0, 0, 0, 0.2);
-    }
-
-    .platform-card::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      height: 4px;
-      background: linear-gradient(135deg, #0ea5e9, #06b6d4);
-      transform: scaleX(0);
-      transition: transform 0.3s ease;
-    }
-
-    .platform-card:hover::before {
-      transform: scaleX(1);
-    }
-
-    .platform-emoji {
-      font-size: 3rem;
-      margin-bottom: 1rem;
-      display: block;
-      position: relative;
-    }
-
-    .platform-emoji::before {
-      content: '';
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      width: 80px;
-      height: 80px;
-      background: linear-gradient(135deg, #0ea5e9, #06b6d4);
-      border-radius: 50%;
-      opacity: 0;
-      transition: opacity 0.3s ease;
-      z-index: -1;
-    }
-
-    .platform-card:hover .platform-emoji::before {
-      opacity: 0.1;
-    }
-
-    .platform-name {
-      font-size: 1.5rem;
-      font-weight: bold;
-      margin-bottom: 0.5rem;
-      color: #111827;
-    }
-
-    .platform-description {
-      color: #6b7280;
-      margin-bottom: 1.5rem;
-    }
-
-    .platform-features {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.5rem;
-    }
-
-    .platform-tag {
-      background: #f0f9ff;
-      color: #0ea5e9;
-      padding: 0.25rem 0.75rem;
-      border-radius: 12px;
-      font-size: 0.8rem;
-      font-weight: 500;
-    }
-
-    .platform-arrow {
-      position: absolute;
-      top: 1.5rem;
-      right: 1.5rem;
-      font-size: 1.5rem;
-      color: #0ea5e9;
-      transform: translateX(10px);
-      opacity: 0;
-      transition: transform 0.3s ease, opacity 0.3s ease;
-    }
-
-    .platform-card:hover .platform-arrow {
-      transform: translateX(0);
-      opacity: 1;
-    }
-
-    /* Testimonials Section */
-    .testimonials {
-      padding: 6rem 0;
-      background: white;
-    }
-
-    .testimonials-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
-      gap: 2rem;
-    }
-
-    .testimonial-card {
-      background: white;
-      padding: 2rem;
-      border-radius: 20px;
-      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-      transition: transform 0.3s ease, box-shadow 0.3s ease;
-    }
-
-    .testimonial-card:hover {
-      transform: translateY(-8px);
-      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
-    }
-
-    .testimonial-header {
-      display: flex;
-      align-items: center;
-      margin-bottom: 1.5rem;
-    }
-
-    .testimonial-avatar {
-      width: 60px;
-      height: 60px;
-      border-radius: 50%;
-      margin-right: 1rem;
-      border: 3px solid #0ea5e9;
-    }
-
-    .testimonial-author {
-      flex: 1;
-    }
-
-    .testimonial-name {
-      font-weight: bold;
-      color: #111827;
-      margin-bottom: 0.25rem;
-    }
-
-    .testimonial-role {
-      color: #6b7280;
-      font-size: 0.9rem;
-    }
-
-    .testimonial-rating {
-      display: flex;
-      gap: 0.25rem;
-      margin-bottom: 1rem;
-    }
-
-    .star {
-      color: #fbbf24;
-      font-size: 1.25rem;
-    }
-
-    .testimonial-quote {
-      color: #6b7280;
-      line-height: 1.6;
-      font-style: italic;
-    }
-
-    /* CTA Section */
-    .cta-section {
-      padding: 6rem 0;
-      background: linear-gradient(135deg, #0ea5e9, #06b6d4);
-      color: white;
-      text-align: center;
-    }
-
-    .cta-title {
-      font-size: clamp(2rem, 4vw, 3rem);
-      font-weight: bold;
-      margin-bottom: 1rem;
-    }
-
-    .cta-subtitle {
-      font-size: clamp(1rem, 2vw, 1.25rem);
-      margin-bottom: 3rem;
-      opacity: 0.9;
-      max-width: 600px;
-      margin-left: auto;
-      margin-right: auto;
-    }
-
-    .cta-buttons {
-      display: flex;
-      gap: 1rem;
-      justify-content: center;
-      flex-wrap: wrap;
-      margin-bottom: 2rem;
-    }
-
-    .btn-white {
-      background: white;
-      color: #0ea5e9;
-      padding: 1rem 2rem;
-      border-radius: 12px;
-      text-decoration: none;
-      font-weight: 600;
-      transition: transform 0.3s ease, box-shadow 0.3s ease;
-      border: none;
-      cursor: pointer;
-      font-size: 1rem;
-    }
-
-    .btn-white:hover {
-      transform: translateY(-3px);
-      box-shadow: 0 15px 35px rgba(255, 255, 255, 0.3);
-    }
-
-    .btn-outline {
-      background: transparent;
-      color: white;
-      padding: 1rem 2rem;
-      border-radius: 12px;
-      text-decoration: none;
-      font-weight: 600;
-      transition: transform 0.3s ease, background 0.3s ease;
-      border: 2px solid white;
-      cursor: pointer;
-      font-size: 1rem;
-    }
-
-    .btn-outline:hover {
-      transform: translateY(-3px);
-      background: rgba(255, 255, 255, 0.1);
-    }
-
-    .trust-indicator {
-      font-size: 0.9rem;
-      opacity: 0.8;
-    }
-
-    /* Footer */
-    .footer {
-      background: #111827;
-      color: white;
-      padding: 4rem 0 2rem;
-    }
-
-    .footer-content {
-      display: grid;
-      grid-template-columns: 2fr repeat(4, 1fr);
-      gap: 3rem;
-      margin-bottom: 3rem;
-    }
-
-    .footer-brand h3 {
-      font-size: 1.5rem;
-      margin-bottom: 1rem;
-      background: linear-gradient(135deg, #0ea5e9, #06b6d4);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-    }
-
-    .footer-brand p {
-      color: #9ca3af;
-      margin-bottom: 1.5rem;
-      line-height: 1.6;
-    }
-
-    .social-links {
-      display: flex;
-      gap: 1rem;
-    }
-
-    .social-link {
-      width: 40px;
-      height: 40px;
-      background: #374151;
-      border-radius: 10px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      text-decoration: none;
-      color: white;
-      transition: background 0.3s ease, transform 0.3s ease;
-    }
-
-    .social-link:hover {
-      background: #0ea5e9;
-      transform: translateY(-2px);
-    }
-
-    .footer-column h4 {
-      font-size: 1.1rem;
-      margin-bottom: 1rem;
-      color: white;
-    }
-
-    .footer-links {
-      list-style: none;
-    }
-
-    .footer-links li {
-      margin-bottom: 0.75rem;
-    }
-
-    .footer-links a {
-      color: #9ca3af;
-      text-decoration: none;
-      transition: color 0.3s ease;
-    }
-
-    .footer-links a:hover {
-      color: #0ea5e9;
-    }
-
-    .footer-bottom {
-      border-top: 1px solid #374151;
-      padding-top: 2rem;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: 1rem;
-    }
-
-    .footer-bottom p {
-      color: #9ca3af;
-    }
-
-    .footer-legal {
-      display: flex;
-      gap: 2rem;
-    }
-
-    .footer-legal a {
-      color: #9ca3af;
-      text-decoration: none;
-      transition: color 0.3s ease;
-    }
-
-    .footer-legal a:hover {
-      color: #0ea5e9;
-    }
-
-    /* Responsive Design */
-    @media (max-width: 768px) {
-      .nav-links {
-        display: none;
-      }
-
-      .hero-buttons {
-        flex-direction: column;
-        align-items: center;
-      }
-
-      .hero-stats {
-        grid-template-columns: repeat(2, 1fr);
-      }
-
-      .features-grid {
-        grid-template-columns: 1fr;
-      }
-
-      .platforms-grid {
-        grid-template-columns: 1fr;
-      }
-
-      .testimonials-grid {
-        grid-template-columns: 1fr;
-      }
-
-      .cta-buttons {
-        flex-direction: column;
-        align-items: center;
-      }
-
-      .footer-content {
-        grid-template-columns: 1fr;
-        text-align: center;
-      }
-
-      .footer-bottom {
-        flex-direction: column;
-        text-align: center;
-      }
-
-      .footer-legal {
-        justify-content: center;
-      }
-    }
-
-    @media (max-width: 480px) {
-      .container {
-        padding: 0 15px;
-      }
-
-      .hero-stats {
-        grid-template-columns: 1fr;
-      }
-
-      .platforms-grid {
-        grid-template-columns: 1fr;
-      }
-
-      .testimonials-grid {
-        grid-template-columns: 1fr;
-      }
-    }
-  `;
+  const stats = [
+    { value: '50K+', label: 'Active Users' },
+    { value: '10M+', label: 'Posts Automated' },
+    { value: '98%', label: 'Satisfaction Rate' },
+    { value: '5x', label: 'Engagement Boost' }
+  ];
+
+  const scrollToSection = (sectionId) => {
+    const element = document.getElementById(sectionId);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
 
   return (
-    <div>
-      <style>{styles}</style>
-      
+    <div className="min-h-screen bg-black text-white overflow-hidden">
+      {/* 3D Canvas Background */}
+      <canvas ref={canvasRef} className="fixed top-0 left-0 w-full h-full pointer-events-none z-0" />
+
       {/* Header */}
-      <header className="header">
-        <nav className="nav container">
-          <div className="logo">SaaSPro</div>
-          <ul className="nav-links">
-            <li><a href="#features" onClick={() => scrollToSection('features')}>Features</a></li>
-            <li><a href="#platforms" onClick={() => scrollToSection('platforms')}>Platforms</a></li>
-            <li><a href="#testimonials" onClick={() => scrollToSection('testimonials')}>Testimonials</a></li>
-            <li><Link to="/pricing">Pricing</Link></li>
-          </ul>
-          <button className="nav-cta" onClick={() => scrollToSection('cta')}>
-            Get Started
-          </button>
-        </nav>
+      <header className="fixed top-0 left-0 right-0 z-50 bg-black/80 backdrop-blur-lg border-b border-purple-900/30">
+        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+          <Link to="/" className="flex items-center gap-3 group">
+            <span className="text-4xl transform group-hover:rotate-12 transition-transform duration-300">🚀</span>
+            <span className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-pink-600 bg-clip-text text-transparent">
+              VelocityPost
+            </span>
+          </Link>
+          <nav className="hidden md:flex items-center gap-8">
+            <button onClick={() => scrollToSection('features')} className="text-gray-300 hover:text-purple-400 transition-colors duration-300">Features</button>
+            <button onClick={() => scrollToSection('platforms')} className="text-gray-300 hover:text-purple-400 transition-colors duration-300">Platforms</button>
+            <Link to="/pricing" className="text-gray-300 hover:text-purple-400 transition-colors duration-300">Pricing</Link>
+            <Link to="/login" className="text-gray-300 hover:text-purple-400 transition-colors duration-300">Login</Link>
+            <Link to="/register" className="px-6 py-2.5 bg-gradient-to-r from-purple-600 to-pink-600 rounded-full font-semibold hover:shadow-lg hover:shadow-purple-500/50 transform hover:scale-105 transition-all duration-300">
+              Start Free
+            </Link>
+          </nav>
+        </div>
       </header>
 
       {/* Hero Section */}
-      <section className="hero">
-        <div className="floating-shape shape-1"></div>
-        <div className="floating-shape shape-2"></div>
-        <div className="floating-shape shape-3"></div>
+      <section className="relative min-h-screen flex items-center justify-center pt-20 px-6">
+        <div 
+          className="absolute inset-0 opacity-30"
+          style={{
+            background: `radial-gradient(circle at ${mousePosition.x}px ${mousePosition.y}px, rgba(147, 51, 234, 0.3), transparent 50%)`
+          }}
+        />
         
-        <div className="container">
-          <div className="hero-content">
-            <div className="hero-badge animate-slide-down">
-              🚀 New: Advanced Analytics Dashboard Available
-            </div>
-            
-            <h1 className="hero-title animate-slide-down animate-delay-1">
-              Build, Deploy, Scale with Confidence
-            </h1>
-            
-            <p className="hero-subtitle animate-slide-down animate-delay-2">
-              The most powerful SaaS platform for modern teams. Deploy faster, scale seamlessly, 
-              and monitor everything with our enterprise-grade infrastructure.
-            </p>
-            
-            <div className="hero-buttons animate-slide-up animate-delay-3">
-              <button className="btn-primary" onClick={() => scrollToSection('cta')}>
-                Start Free Trial
-              </button>
-              <button className="btn-secondary" onClick={() => scrollToSection('features')}>
-                Watch Demo
-              </button>
-            </div>
-            
-            <div className="hero-stats animate-fade-in animate-delay-4">
-              <div className="stat-item">
-                <span className="stat-number">99.9%</span>
-                <span className="stat-label">Uptime</span>
+        <div className="relative z-10 max-w-6xl mx-auto text-center">
+          <div className="inline-flex items-center gap-2 px-4 py-2 bg-purple-900/30 backdrop-blur-sm border border-purple-500/30 rounded-full mb-8 animate-bounce">
+            <span className="text-2xl">✨</span>
+            <span className="text-sm font-semibold text-purple-300">New: AI-Powered 3D Animations!</span>
+          </div>
+
+          <h1 className="text-6xl md:text-8xl font-black mb-6 leading-tight">
+            <span className="block transform hover:scale-105 transition-transform duration-300">Automate Your</span>
+            <span className="block bg-gradient-to-r from-purple-400 via-pink-500 to-purple-600 bg-clip-text text-transparent animate-pulse">
+              Social Media Magic
+            </span>
+          </h1>
+
+          <p className="text-xl md:text-2xl text-gray-300 mb-12 max-w-3xl mx-auto leading-relaxed">
+            AI-powered automation for Facebook, Instagram, WhatsApp, YouTube & Reddit. 
+            Save 20+ hours weekly while boosting engagement by 300%.
+          </p>
+
+          <div className="flex flex-col sm:flex-row gap-4 justify-center mb-16">
+            <Link 
+              to="/register" 
+              className="group px-8 py-4 bg-gradient-to-r from-purple-600 to-pink-600 rounded-full font-bold text-lg hover:shadow-2xl hover:shadow-purple-500/50 transform hover:scale-110 transition-all duration-300 flex items-center justify-center gap-2"
+            >
+              <span>Start Free Trial</span>
+              <span className="transform group-hover:translate-x-2 transition-transform duration-300">→</span>
+            </Link>
+            <button 
+              onClick={() => scrollToSection('platforms')}
+              className="px-8 py-4 bg-white/10 backdrop-blur-sm border-2 border-purple-500/50 rounded-full font-bold text-lg hover:bg-white/20 transform hover:scale-110 transition-all duration-300 flex items-center justify-center gap-2"
+            >
+              <span>Watch Demo</span>
+              <span>▶</span>
+            </button>
+          </div>
+
+          {/* Stats */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 max-w-4xl mx-auto">
+            {stats.map((stat, idx) => (
+              <div 
+                key={idx} 
+                className="transform hover:scale-110 transition-all duration-300 hover:rotate-3"
+                style={{ animationDelay: `${idx * 0.1}s` }}
+              >
+                <div className="text-4xl md:text-5xl font-black bg-gradient-to-r from-purple-400 to-pink-600 bg-clip-text text-transparent mb-2">
+                  {stat.value}
+                </div>
+                <div className="text-sm text-gray-400 uppercase tracking-wider font-semibold">
+                  {stat.label}
+                </div>
               </div>
-              <div className="stat-item">
-                <span className="stat-number">50k+</span>
-                <span className="stat-label">Developers</span>
-              </div>
-              <div className="stat-item">
-                <span className="stat-number">1M+</span>
-                <span className="stat-label">Deployments</span>
-              </div>
-              <div className="stat-item">
-                <span className="stat-number">24/7</span>
-                <span className="stat-label">Support</span>
-              </div>
-            </div>
+            ))}
           </div>
         </div>
       </section>
 
       {/* Features Section */}
-      <section id="features" className="features">
-        <div className="container">
-          <div className="section-header animate-slide-up">
-            <h2 className="section-title">Powerful Features for Modern Teams</h2>
-            <p className="section-subtitle">
-              Everything you need to build, deploy, and scale your applications with confidence
+      <section id="features" className="relative py-32 px-6">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-20">
+            <h2 className="text-5xl md:text-6xl font-black mb-6">
+              <span className="bg-gradient-to-r from-purple-400 to-pink-600 bg-clip-text text-transparent">
+                Powerful Features
+              </span>
+            </h2>
+            <p className="text-xl text-gray-400 max-w-2xl mx-auto">
+              Everything you need to dominate social media
             </p>
           </div>
-          
-          <div className="features-grid">
-            {features.map((feature, index) => (
-              <div 
-                key={index}
-                className={`feature-card animate-scale-in animate-delay-${index + 1} ${
-                  activeFeature === index ? 'active' : ''
+
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
+            {features.map((feature, idx) => (
+              <div
+                key={idx}
+                className={`group relative bg-gradient-to-br from-purple-900/20 to-black border border-purple-500/30 rounded-3xl p-8 cursor-pointer transform transition-all duration-500 hover:scale-105 hover:rotate-2 ${
+                  activeFeature === idx ? 'scale-105 shadow-2xl shadow-purple-500/50' : ''
                 }`}
-                onMouseEnter={() => setActiveFeature(index)}
+                onMouseEnter={() => setActiveFeature(idx)}
+                style={{
+                  transformStyle: 'preserve-3d',
+                  perspective: '1000px'
+                }}
               >
-                <span className="feature-icon">{feature.icon}</span>
-                <h3 className="feature-title">{feature.title}</h3>
-                <p className="feature-description">{feature.description}</p>
+                <div className="absolute inset-0 bg-gradient-to-br from-purple-600/20 to-pink-600/20 rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                
+                <div className="relative z-10">
+                  <div className="text-6xl mb-6 transform group-hover:scale-125 group-hover:rotate-12 transition-all duration-500">
+                    {feature.icon}
+                  </div>
+                  <h3 className="text-2xl font-bold mb-4 text-white group-hover:text-purple-300 transition-colors duration-300">
+                    {feature.title}
+                  </h3>
+                  <p className="text-gray-400 leading-relaxed">
+                    {feature.description}
+                  </p>
+                </div>
+
+                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-purple-600 to-pink-600 rounded-t-3xl transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500" />
               </div>
             ))}
           </div>
@@ -2292,74 +1584,106 @@ const LandingPage = () => {
       </section>
 
       {/* Platforms Section */}
-      <section id="platforms" className="platforms">
-        <div className="container">
-          <div className="section-header animate-slide-up">
-            <h2 className="section-title">Multi-Platform Excellence</h2>
-            <p className="section-subtitle">
-              Deploy across all major platforms with unified management and monitoring
+      <section id="platforms" className="relative py-32 px-6 bg-gradient-to-b from-black via-purple-900/10 to-black">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-20">
+            <h2 className="text-5xl md:text-6xl font-black mb-6">
+              <span className="bg-gradient-to-r from-purple-400 to-pink-600 bg-clip-text text-transparent">
+                Supported Platforms
+              </span>
+            </h2>
+            <p className="text-xl text-gray-400 max-w-2xl mx-auto">
+              One dashboard to rule them all
             </p>
           </div>
-          
-          <div className="platforms-grid">
-            {platforms.map((platform, index) => (
-              <div 
-                key={index}
-                className="platform-card animate-scale-in"
-                style={{animationDelay: `${index * 0.1}s`}}
-                onClick={() => navigate(`/platforms/${platform.name.toLowerCase().replace(' ', '-')}`)}
+
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {platforms.map((platform, idx) => (
+              <Link
+                key={idx}
+                to={platform.route}
+                className="group relative bg-gradient-to-br from-purple-900/30 to-black border border-purple-500/30 rounded-3xl p-8 cursor-pointer transform transition-all duration-500 hover:scale-105 hover:-rotate-1"
+                onMouseEnter={() => setHoveredPlatform(idx)}
+                onMouseLeave={() => setHoveredPlatform(null)}
+                style={{
+                  transformStyle: 'preserve-3d',
+                  transform: hoveredPlatform === idx ? 'rotateY(5deg) rotateX(5deg)' : 'none'
+                }}
               >
-                <span className="platform-arrow">→</span>
-                <span className="platform-emoji">{platform.emoji}</span>
-                <h3 className="platform-name">{platform.name}</h3>
-                <p className="platform-description">{platform.description}</p>
-                <div className="platform-features">
-                  {platform.features.map((feature, idx) => (
-                    <span key={idx} className="platform-tag">{feature}</span>
-                  ))}
+                <div className="absolute inset-0 bg-gradient-to-br from-purple-600/30 to-pink-600/30 rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 blur-xl" />
+                
+                <div className="relative z-10">
+                  <div className="w-20 h-20 bg-gradient-to-br from-purple-600 to-pink-600 rounded-2xl flex items-center justify-center mb-6 transform group-hover:scale-110 group-hover:rotate-12 transition-all duration-500 shadow-lg shadow-purple-500/50">
+                    <span className="text-5xl">{platform.emoji}</span>
+                  </div>
+
+                  <h3 className="text-3xl font-bold mb-4 text-white group-hover:text-purple-300 transition-colors duration-300">
+                    {platform.name}
+                  </h3>
+                  
+                  <p className="text-gray-400 mb-6 leading-relaxed">
+                    {platform.description}
+                  </p>
+
+                  <div className="space-y-2">
+                    {platform.features.map((feature, fIdx) => (
+                      <div key={fIdx} className="flex items-center gap-2 text-purple-300 text-sm font-semibold">
+                        <span className="text-xl">•</span>
+                        <span>{feature}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="mt-6 flex items-center gap-2 text-purple-400 font-bold opacity-0 group-hover:opacity-100 transform translate-x-0 group-hover:translate-x-2 transition-all duration-300">
+                    <span>Explore</span>
+                    <span>→</span>
+                  </div>
                 </div>
-              </div>
+              </Link>
             ))}
           </div>
         </div>
       </section>
 
       {/* Testimonials Section */}
-      <section id="testimonials" className="testimonials">
-        <div className="container">
-          <div className="section-header animate-slide-up">
-            <h2 className="section-title">Trusted by Industry Leaders</h2>
-            <p className="section-subtitle">
-              See what our customers have to say about their experience with our platform
+      <section id="testimonials" className="relative py-32 px-6">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-20">
+            <h2 className="text-5xl md:text-6xl font-black mb-6">
+              <span className="bg-gradient-to-r from-purple-400 to-pink-600 bg-clip-text text-transparent">
+                Loved by Thousands
+              </span>
+            </h2>
+            <p className="text-xl text-gray-400 max-w-2xl mx-auto">
+              See what our users are saying
             </p>
           </div>
-          
-          <div className="testimonials-grid">
-            {testimonials.map((testimonial, index) => (
-              <div 
-                key={index}
-                className="testimonial-card animate-scale-in"
-                style={{animationDelay: `${index * 0.2}s`}}
+
+          <div className="grid md:grid-cols-3 gap-8">
+            {testimonials.map((testimonial, idx) => (
+              <div
+                key={idx}
+                className="group bg-gradient-to-br from-purple-900/20 to-black border border-purple-500/30 rounded-3xl p-8 transform transition-all duration-500 hover:scale-105 hover:rotate-1 cursor-pointer"
               >
-                <div className="testimonial-header">
-                  <img 
-                    src={testimonial.avatar} 
-                    alt={testimonial.name}
-                    className="testimonial-avatar"
-                  />
-                  <div className="testimonial-author">
-                    <div className="testimonial-name">{testimonial.name}</div>
-                    <div className="testimonial-role">{testimonial.role}, {testimonial.company}</div>
+                <div className="text-yellow-400 text-2xl mb-4">
+                  {'⭐'.repeat(testimonial.rating)}
+                </div>
+                
+                <p className="text-gray-300 text-lg italic mb-6 leading-relaxed">
+                  "{testimonial.content}"
+                </p>
+
+                <div className="flex items-center gap-4">
+                  <div className="w-14 h-14 bg-gradient-to-br from-purple-600 to-pink-600 rounded-full flex items-center justify-center text-2xl font-bold transform group-hover:scale-110 transition-transform duration-300">
+                    {testimonial.name[0]}
+                  </div>
+                  <div>
+                    <div className="font-bold text-white">{testimonial.name}</div>
+                    <div className="text-sm text-gray-400">
+                      {testimonial.role} at {testimonial.company}
+                    </div>
                   </div>
                 </div>
-                
-                <div className="testimonial-rating">
-                  {[...Array(testimonial.rating)].map((_, i) => (
-                    <span key={i} className="star">★</span>
-                  ))}
-                </div>
-                
-                <p className="testimonial-quote">"{testimonial.quote}"</p>
               </div>
             ))}
           </div>
@@ -2367,94 +1691,102 @@ const LandingPage = () => {
       </section>
 
       {/* CTA Section */}
-      <section id="cta" className="cta-section">
-        <div className="container">
-          <h2 className="cta-title animate-slide-up">Ready to Transform Your Workflow?</h2>
-          <p className="cta-subtitle animate-slide-up animate-delay-1">
-            Join thousands of teams already building the future with our platform. 
-            Start your free trial today and experience the difference.
+      <section className="relative py-32 px-6 bg-gradient-to-br from-purple-900 via-purple-800 to-pink-900">
+        <div className="max-w-4xl mx-auto text-center">
+          <h2 className="text-5xl md:text-6xl font-black mb-6 leading-tight">
+            Ready to Transform Your Social Media?
+          </h2>
+          <p className="text-xl text-purple-100 mb-12">
+            Join 50,000+ users automating their social media success
           </p>
-          
-          <div className="cta-buttons animate-slide-up animate-delay-2">
-            <Link to="/signup" className="btn-white">Start Free Trial</Link>
-            <Link to="/contact" className="btn-outline">Talk to Sales</Link>
+
+          <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8">
+            <Link 
+              to="/register"
+              className="px-10 py-5 bg-white text-purple-900 rounded-full font-bold text-lg hover:shadow-2xl transform hover:scale-110 transition-all duration-300"
+            >
+              Start Free Trial
+            </Link>
+            <Link 
+              to="/contact"
+              className="px-10 py-5 bg-white/20 backdrop-blur-sm border-2 border-white/50 rounded-full font-bold text-lg hover:bg-white/30 transform hover:scale-110 transition-all duration-300"
+            >
+              Contact Sales
+            </Link>
           </div>
-          
-          <p className="trust-indicator animate-fade-in animate-delay-3">
-            ✨ No credit card required • 14-day free trial • Cancel anytime
+
+          <p className="text-purple-200">
+            No credit card required • Cancel anytime
           </p>
         </div>
       </section>
 
       {/* Footer */}
-      <footer className="footer">
-        <div className="container">
-          <div className="footer-content">
-            <div className="footer-brand">
-              <h3>SaaSPro</h3>
-              <p>
-                The most powerful SaaS platform for modern teams. Build, deploy, 
-                and scale with confidence using our enterprise-grade infrastructure.
+      <footer className="relative bg-black border-t border-purple-900/30 py-16 px-6">
+        <div className="max-w-7xl mx-auto">
+          <div className="grid md:grid-cols-2 lg:grid-cols-5 gap-12 mb-12">
+            <div className="lg:col-span-2">
+              <Link to="/" className="flex items-center gap-3 mb-6 group">
+                <span className="text-4xl transform group-hover:rotate-12 transition-transform duration-300">🚀</span>
+                <span className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-pink-600 bg-clip-text text-transparent">
+                  VelocityPost
+                </span>
+              </Link>
+              <p className="text-gray-400 mb-6 leading-relaxed max-w-sm">
+                AI-powered social media automation platform helping businesses save time and boost engagement.
               </p>
-              <div className="social-links">
-                <Link to="/social/twitter" className="social-link">𝕏</Link>
-                <Link to="/social/linkedin" className="social-link">in</Link>
-                <Link to="/social/github" className="social-link">⚡</Link>
-                <Link to="/social/discord" className="social-link">💬</Link>
+              <div className="flex gap-4">
+                {['f', '𝕏', '📷', 'in'].map((icon, idx) => (
+                  <a
+                    key={idx}
+                    href="#"
+                    className="w-12 h-12 bg-purple-900/30 rounded-full flex items-center justify-center text-purple-400 hover:bg-purple-600 hover:text-white transform hover:scale-110 transition-all duration-300"
+                  >
+                    {icon}
+                  </a>
+                ))}
               </div>
             </div>
-            
-            <div className="footer-column">
-              <h4>Product</h4>
-              <ul className="footer-links">
-                <li><Link to="/features">Features</Link></li>
-                <li><Link to="/pricing">Pricing</Link></li>
-                <li><Link to="/integrations">Integrations</Link></li>
-                <li><Link to="/api">API Docs</Link></li>
-                <li><Link to="/changelog">Changelog</Link></li>
-              </ul>
+
+            <div>
+              <h4 className="text-white font-bold mb-4 uppercase tracking-wider text-sm">Product</h4>
+              <div className="space-y-3">
+                <Link to="/features-showcase" className="block text-gray-400 hover:text-purple-400 transition-colors duration-300">Features</Link>
+                <Link to="/pricing" className="block text-gray-400 hover:text-purple-400 transition-colors duration-300">Pricing</Link>
+                <Link to="/integrations" className="block text-gray-400 hover:text-purple-400 transition-colors duration-300">Integrations</Link>
+                <Link to="/api" className="block text-gray-400 hover:text-purple-400 transition-colors duration-300">API</Link>
+              </div>
             </div>
-            
-            <div className="footer-column">
-              <h4>Company</h4>
-              <ul className="footer-links">
-                <li><Link to="/about">About Us</Link></li>
-                <li><Link to="/careers">Careers</Link></li>
-                <li><Link to="/blog">Blog</Link></li>
-                <li><Link to="/press">Press</Link></li>
-                <li><Link to="/partners">Partners</Link></li>
-              </ul>
+
+            <div>
+              <h4 className="text-white font-bold mb-4 uppercase tracking-wider text-sm">Company</h4>
+              <div className="space-y-3">
+                <Link to="/about" className="block text-gray-400 hover:text-purple-400 transition-colors duration-300">About Us</Link>
+                <Link to="/careers" className="block text-gray-400 hover:text-purple-400 transition-colors duration-300">Careers</Link>
+                <Link to="/blog" className="block text-gray-400 hover:text-purple-400 transition-colors duration-300">Blog</Link>
+                <Link to="/contact" className="block text-gray-400 hover:text-purple-400 transition-colors duration-300">Contact</Link>
+              </div>
             </div>
-            
-            <div className="footer-column">
-              <h4>Support</h4>
-              <ul className="footer-links">
-                <li><Link to="/help">Help Center</Link></li>
-                <li><Link to="/contact">Contact</Link></li>
-                <li><Link to="/status">Status</Link></li>
-                <li><Link to="/community">Community</Link></li>
-                <li><Link to="/training">Training</Link></li>
-              </ul>
-            </div>
-            
-            <div className="footer-column">
-              <h4>Legal</h4>
-              <ul className="footer-links">
-                <li><Link to="/privacy">Privacy Policy</Link></li>
-                <li><Link to="/terms">Terms of Service</Link></li>
-                <li><Link to="/security">Security</Link></li>
-                <li><Link to="/compliance">Compliance</Link></li>
-                <li><Link to="/cookies">Cookie Policy</Link></li>
-              </ul>
+
+            <div>
+              <h4 className="text-white font-bold mb-4 uppercase tracking-wider text-sm">Support</h4>
+              <div className="space-y-3">
+                <Link to="/helpcenter" className="block text-gray-400 hover:text-purple-400 transition-colors duration-300">Help Center</Link>
+                <Link to="/documentation" className="block text-gray-400 hover:text-purple-400 transition-colors duration-300">Documentation</Link>
+                <Link to="/community" className="block text-gray-400 hover:text-purple-400 transition-colors duration-300">Community</Link>
+                <Link to="/status" className="block text-gray-400 hover:text-purple-400 transition-colors duration-300">Status</Link>
+              </div>
             </div>
           </div>
-          
-          <div className="footer-bottom">
-            <p>&copy; 2024 SaaSPro. All rights reserved.</p>
-            <div className="footer-legal">
-              <Link to="/privacy">Privacy</Link>
-              <Link to="/terms">Terms</Link>
-              <Link to="/sitemap">Sitemap</Link>
+
+          <div className="pt-8 border-t border-purple-900/30 flex flex-col md:flex-row justify-between items-center gap-4">
+            <p className="text-gray-400 text-sm">
+              © {new Date().getFullYear()} VelocityPost. All rights reserved.
+            </p>
+            <div className="flex gap-6">
+              <Link to="/privacypolicy" className="text-gray-400 hover:text-purple-400 text-sm transition-colors duration-300">Privacy</Link>
+              <Link to="/termsofservice" className="text-gray-400 hover:text-purple-400 text-sm transition-colors duration-300">Terms</Link>
+              <Link to="/cookiepolicy" className="text-gray-400 hover:text-purple-400 text-sm transition-colors duration-300">Cookies</Link>
             </div>
           </div>
         </div>
@@ -2463,13 +1795,4 @@ const LandingPage = () => {
   );
 };
 
-// Main App Component with Router
-const App = () => {
-  return (
-    <Router>
-      <LandingPage />
-    </Router>
-  );
-};
-
-export default App;
+export default Landing_Page;
