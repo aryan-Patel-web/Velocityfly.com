@@ -38,7 +38,7 @@ from mainY import app
 from YTscrapADS import get_product_scraper
 from YTvideoGenerator import get_video_generator
 # That's it! The automation task starts automatically from mainY.py
-
+from YTdatabase import database_manager
 # ============================================================================
 # ✅ CRITICAL: SET PLAYWRIGHT PATH BEFORE ANY IMPORTS
 # ============================================================================
