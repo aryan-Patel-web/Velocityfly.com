@@ -35,6 +35,8 @@ from urllib.parse import quote
 from PIL import Image, ImageDraw, ImageFont
 import io
 from mainY import app
+from YTscrapADS import get_product_scraper
+from YTvideoGenerator import get_video_generator
 # That's it! The automation task starts automatically from mainY.py
 
 # ============================================================================
@@ -2850,6 +2852,108 @@ except Exception as e:
     logger.error(f"❌ Failed to setup React serving: {e}")
     import traceback
     logger.error(traceback.format_exc())
+
+
+
+
+# ============================================================================
+# PRODUCT AUTOMATION ROUTES
+# ============================================================================
+
+@app.post("/api/automation/save-url")
+async def save_scrape_url_route(request: Request):
+    """Save category URL to scrape"""
+    try:
+        body = await request.json()
+        user_id = body.get('user_id')
+        url = body.get('url')
+        
+        if not user_id or not url:
+            return JSONResponse(
+                status_code=400,
+                content={"success": False, "error": "user_id and url required"}
+            )
+        
+        if not url.startswith('http'):
+            return JSONResponse(
+                status_code=400,
+                content={"success": False, "error": "Invalid URL"}
+            )
+        
+        success = await database_manager.save_scrape_url(user_id, url)
+        
+        if not success:
+            return JSONResponse(
+                status_code=500,
+                content={"success": False, "error": "Failed to save URL"}
+            )
+        
+        scraper = get_product_scraper()
+        product_links = await scraper.scrape_category_page(url)
+        
+        await database_manager.update_scrape_progress(user_id, len(product_links), 0)
+        
+        logger.info(f"✅ URL saved for user {user_id}: {len(product_links)} products found")
+        
+        return JSONResponse(content={
+            "success": True,
+            "message": f"Found {len(product_links)} products",
+            "total_products": len(product_links)
+        })
+        
+    except Exception as e:
+        logger.error(f"❌ Save URL failed: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "error": str(e)}
+        )
+
+@app.get("/api/automation/get-url/{user_id}")
+async def get_scrape_url_route(user_id: str):
+    """Get saved scrape URL"""
+    try:
+        url_doc = await database_manager.get_scrape_url(user_id)
+        
+        if not url_doc:
+            return JSONResponse(content={
+                "success": True,
+                "url": None
+            })
+        
+        return JSONResponse(content={
+            "success": True,
+            "url": url_doc.get('url'),
+            "total_products": url_doc.get('total_products_found', 0),
+            "products_processed": url_doc.get('products_processed', 0)
+        })
+        
+    except Exception as e:
+        logger.error(f"❌ Get URL failed: {e}")
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "error": str(e)}
+        )
+
+@app.delete("/api/automation/delete-url/{user_id}")
+async def delete_scrape_url_route(user_id: str):
+    """Delete saved URL"""
+    try:
+        success = await database_manager.delete_scrape_url(user_id)
+        
+        return JSONResponse(content={
+            "success": success,
+            "message": "URL deleted" if success else "Failed to delete"
+        })
+        
+    except Exception as e:
+        logger.error(f"❌ Delete URL failed: {e}")
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "error": str(e)}
+        )
+
 
 # ============================================================================
 # RUN APPLICATION

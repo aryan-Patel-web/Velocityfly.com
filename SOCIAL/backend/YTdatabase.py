@@ -1218,6 +1218,92 @@ async def log_automation_post(self, user_id: str, post_data: dict) -> bool:
             logger.error(f"Log automation post failed: {e}")
             return False
 
+# ============================================================================
+    # PRODUCT URL QUEUE MANAGEMENT
+    # ============================================================================
+
+async def save_scrape_url(self, user_id: str, url: str) -> bool:
+        """Save website URL to scrape (replaces any existing URL)"""
+        try:
+            await self.db.scrape_urls.update_one(
+                {"user_id": user_id},
+                {
+                    "$set": {
+                        "user_id": user_id,
+                        "url": url,
+                        "created_at": datetime.now(),
+                        "last_scraped": None,
+                        "total_products_found": 0,
+                        "products_processed": 0
+                    }
+                },
+                upsert=True
+            )
+            logger.info(f"✅ Scrape URL saved for user: {user_id}")
+            return True
+        except Exception as e:
+            logger.error(f"❌ Save scrape URL failed: {e}")
+            return False
+
+async def get_scrape_url(self, user_id: str) -> dict:
+        """Get saved scrape URL for user"""
+        try:
+            url_doc = await self.scrape_urls.find_one({"user_id": user_id})
+            return url_doc if url_doc else None
+        except Exception as e:
+            logger.error(f"❌ Get scrape URL failed: {e}")
+            return None
+
+async def delete_scrape_url(self, user_id: str) -> bool:
+        """Delete scrape URL"""
+        try:
+            await self.scrape_urls.delete_one({"user_id": user_id})
+            logger.info(f"✅ Scrape URL deleted for user: {user_id}")
+            return True
+        except Exception as e:
+            logger.error(f"❌ Delete scrape URL failed: {e}")
+            return False
+
+async def update_scrape_progress(self, user_id: str, total_found: int, processed: int) -> bool:
+        """Update scraping progress"""
+        try:
+            await self.scrape_urls.update_one(
+                {"user_id": user_id},
+                {
+                    "$set": {
+                        "total_products_found": total_found,
+                        "products_processed": processed,
+                        "last_scraped": datetime.now()
+                    }
+                }
+            )
+            return True
+        except Exception as e:
+            logger.error(f"❌ Update scrape progress failed: {e}")
+            return False
+
+async def get_next_unprocessed_product(self, user_id: str) -> dict:
+        """Get next product that hasn't been processed yet"""
+        try:
+            url_doc = await self.scrape_urls.find_one({"user_id": user_id})
+            
+            if not url_doc:
+                return None
+            
+            # Check if we've processed all products
+            if url_doc.get("products_processed", 0) >= url_doc.get("total_products_found", 0):
+                # Reset counter to loop through products again
+                await self.scrape_urls.update_one(
+                    {"user_id": user_id},
+                    {"$set": {"products_processed": 0}}
+                )
+            
+            return url_doc
+            
+        except Exception as e:
+            logger.error(f"❌ Get next product failed: {e}")
+            return None
+        
 
 # ============================================================================
 # CONSTANTS
