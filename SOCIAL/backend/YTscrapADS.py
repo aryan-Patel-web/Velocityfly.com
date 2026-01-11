@@ -2,37 +2,6 @@
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 """
 YTscrapADS.py - Production-Grade Universal Product Scraper
 Supports: 1000+ Global E-commerce Platforms
