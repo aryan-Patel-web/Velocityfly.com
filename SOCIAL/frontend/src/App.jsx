@@ -8,7 +8,13 @@ import Register from './quickpage/Register';
 
 
 
-import Home from './pages/Home';
+// import Home from './pages/Home';
+
+
+
+
+
+import Land from './pages/Land';
 
 
 
@@ -525,7 +531,13 @@ function App() {
 
           {/* Landing Page - MUST be LAST (catch-all) */}
           {/* <Route path="/*" element={<Landing_Page />} /> */}
-          <Route path="/" element={<Home />} />
+{/*  */}
+
+
+
+          <Route path="/*" element={<Land />} />
+
+          {/* <Route path="/*" element={<Home />} /> */}
 
         </Routes>
 
