@@ -14,7 +14,7 @@ import Register from './quickpage/Register';
 
 
 
-import Land from './pages/Land';
+import Land from './Land';
 
 
 
