@@ -34,6 +34,8 @@ from urllib.parse import quote
 # import base64          gdf;lh,er
 from PIL import Image, ImageDraw, ImageFont
 import io
+
+
 from mainY import app
 from YTscrapADS import get_product_scraper
 from YTvideoGenerator import get_video_generator
@@ -496,6 +498,9 @@ class UnifiedDatabaseManager:
         except Exception as e:
             logger.error(f"Cleanup OAuth state failed: {e}")
             return {"success": False, "error": str(e)}
+        
+
+
     
     # ========== ACTIVITY LOGGING ==========
     async def log_reddit_activity(self, user_id: str, activity_type: str, activity_data: dict) -> bool:
@@ -602,6 +607,192 @@ class UnifiedDatabaseManager:
                 "status": "unhealthy",
                 "error": str(e)
             }
+
+
+    # async def health_check(self) -> dict:
+    #     """Check database health"""
+    #     try:
+    #         if not self.connected:
+    #             return {
+    #                 "status": "disconnected",
+    #                 "error": "Database not connected"
+    #             }
+            
+    #         await self.client.admin.command('ping')
+    #         return {
+    #             "status": "healthy",
+    #             "database": "connected",
+    #             "collections": {
+    #                 "users": await self.users_collection.count_documents({}),
+    #                 "youtube_credentials": await self.youtube_credentials.count_documents({}),
+    #                 "reddit_tokens": await self.reddit_tokens.count_documents({})
+    #             }
+    #         }
+    #     except Exception as e:
+    #         return {
+    #             "status": "unhealthy",
+    #             "error": str(e)
+    #         }
+
+    # ============================================================================
+    # PRODUCT URL QUEUE MANAGEMENT - ADD THESE NEW METHODS
+    # ============================================================================
+
+    async def save_scrape_url(self, user_id: str, url: str) -> bool:
+        """Save website URL to scrape (replaces any existing URL)"""
+        try:
+            if not self.connected:
+                logger.error("Database not connected")
+                return False
+            
+            collection = self.db.scrape_urls
+            await collection.update_one(
+                {"user_id": user_id},
+                {
+                    "$set": {
+                        "user_id": user_id,
+                        "url": url,
+                        "created_at": datetime.now(),
+                        "last_scraped": None,
+                        "total_products_found": 0,
+                        "products_processed": 0
+                    }
+                },
+                upsert=True
+            )
+            logger.info(f"✅ Scrape URL saved for user: {user_id}")
+            return True
+        except Exception as e:
+            logger.error(f"❌ Save scrape URL failed: {e}")
+            return False
+
+    async def get_scrape_url(self, user_id: str) -> dict:
+        """Get saved scrape URL for user"""
+        try:
+            if not self.connected:
+                logger.error("Database not connected")
+                return None
+            
+            collection = self.db.scrape_urls
+            url_doc = await collection.find_one({"user_id": user_id})
+            return url_doc if url_doc else None
+        except Exception as e:
+            logger.error(f"❌ Get scrape URL failed: {e}")
+            return None
+
+    async def delete_scrape_url(self, user_id: str) -> bool:
+        """Delete scrape URL"""
+        try:
+            if not self.connected:
+                logger.error("Database not connected")
+                return False
+            
+            collection = self.db.scrape_urls
+            await collection.delete_one({"user_id": user_id})
+            logger.info(f"✅ Scrape URL deleted for user: {user_id}")
+            return True
+        except Exception as e:
+            logger.error(f"❌ Delete scrape URL failed: {e}")
+            return False
+
+    async def update_scrape_progress(self, user_id: str, total_found: int, processed: int) -> bool:
+        """Update scraping progress"""
+        try:
+            if not self.connected:
+                logger.error("Database not connected")
+                return False
+            
+            collection = self.db.scrape_urls
+            await collection.update_one(
+                {"user_id": user_id},
+                {
+                    "$set": {
+                        "total_products_found": total_found,
+                        "products_processed": processed,
+                        "last_scraped": datetime.now()
+                    }
+                }
+            )
+            return True
+        except Exception as e:
+            logger.error(f"❌ Update scrape progress failed: {e}")
+            return False
+
+    async def get_next_unprocessed_product(self, user_id: str) -> dict:
+        """Get next product that hasn't been processed yet"""
+        try:
+            if not self.connected:
+                logger.error("Database not connected")
+                return None
+            
+            collection = self.db.scrape_urls
+            url_doc = await collection.find_one({"user_id": user_id})
+            
+            if not url_doc:
+                return None
+            
+            if url_doc.get("products_processed", 0) >= url_doc.get("total_products_found", 0):
+                await collection.update_one(
+                    {"user_id": user_id},
+                    {"$set": {"products_processed": 0}}
+                )
+            
+            return url_doc
+            
+        except Exception as e:
+            logger.error(f"❌ Get next product failed: {e}")
+            return None
+
+    async def get_automation_posts_count(self, user_id: str, date) -> int:
+        """Get number of automation posts for a specific date"""
+        try:
+            if not self.connected:
+                logger.error("Database not connected")
+                return 0
+            
+            start_of_day = datetime.combine(date, datetime.min.time())
+            end_of_day = datetime.combine(date, datetime.max.time())
+            
+            collection = self.db.automation_logs
+            count = await collection.count_documents({
+                "user_id": user_id,
+                "timestamp": {"$gte": start_of_day, "$lte": end_of_day},
+                "success": True
+            })
+            
+            return count
+        except Exception as e:
+            logger.error(f"Get automation posts count failed: {e}")
+            return 0
+    
+    async def log_automation_post(self, user_id: str, post_data: dict) -> bool:
+        """Log automated post to database"""
+        try:
+            if not self.connected:
+                logger.error("Database not connected")
+                return False
+            
+            collection = self.db.automation_logs
+            log_doc = {
+                "user_id": user_id,
+                "product_url": post_data.get("product_url"),
+                "video_id": post_data.get("video_id"),
+                "timestamp": post_data.get("timestamp", datetime.now()),
+                "success": post_data.get("success", True),
+                "error": post_data.get("error")
+            }
+            
+            await collection.insert_one(log_doc)
+            return True
+        except Exception as e:
+            logger.error(f"Log automation post failed: {e}")
+            return False
+
+
+# ============================================================================
+# GLOBAL INSTANCES
+# ============================================================================       
+
 
 # ============================================================================
 # GLOBAL INSTANCES
