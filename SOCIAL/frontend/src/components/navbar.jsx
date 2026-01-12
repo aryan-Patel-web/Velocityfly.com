@@ -237,17 +237,10 @@
 
 
 
-
-
-
-
 "use client"
 
 import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
-import { Menu, X, Zap, ChevronDown, LogOut, LayoutDashboard, User } from "lucide-react"
-import { useAuth } from "../quickpage/AuthContext"
-import { useNavigate } from "react-router-dom"
 
 function NavParticles() {
   const canvasRef = useRef(null)
@@ -323,14 +316,94 @@ function NavParticles() {
   return <canvas ref={canvasRef} className="absolute inset-0 pointer-events-none" />
 }
 
+// Icon Components
+const MenuIcon = () => (
+  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16"/>
+  </svg>
+)
+
+const XIcon = () => (
+  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/>
+  </svg>
+)
+
+const ZapIcon = () => (
+  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+  </svg>
+)
+
+const ChevronDownIcon = ({ className = "w-4 h-4" }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"/>
+  </svg>
+)
+
+const UserIcon = () => (
+  <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+  </svg>
+)
+
+const LayoutDashboardIcon = () => (
+  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
+  </svg>
+)
+
+const LogOutIcon = () => (
+  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+  </svg>
+)
+
 export default function Navbar() {
   const [isScrolled, setIsScrolled] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [activeDropdown, setActiveDropdown] = useState(null)
   const [showUserMenu, setShowUserMenu] = useState(false)
-  
-  const { isAuthenticated, user, logout } = useAuth()
-  const navigate = useNavigate()
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [userEmail, setUserEmail] = useState("")
+
+  // Check authentication status
+  useEffect(() => {
+    const checkAuth = () => {
+      const token = localStorage.getItem('authToken') || 
+                   localStorage.getItem('auth_token') || 
+                   localStorage.getItem('token')
+      
+      const cachedUser = localStorage.getItem('cached_user') || 
+                        localStorage.getItem('user')
+      
+      if (token && cachedUser) {
+        try {
+          const userData = JSON.parse(cachedUser)
+          setIsAuthenticated(true)
+          setUserEmail(userData.email || userData.name || "User")
+        } catch (e) {
+          console.error('Error parsing user data:', e)
+          setIsAuthenticated(false)
+          setUserEmail("")
+        }
+      } else {
+        setIsAuthenticated(false)
+        setUserEmail("")
+      }
+    }
+
+    checkAuth()
+
+    // Listen for storage changes
+    window.addEventListener('storage', checkAuth)
+    window.addEventListener('authStateChanged', checkAuth)
+
+    return () => {
+      window.removeEventListener('storage', checkAuth)
+      window.removeEventListener('authStateChanged', checkAuth)
+    }
+  }, [])
 
   useEffect(() => {
     const handleScroll = () => {
@@ -341,18 +414,31 @@ export default function Navbar() {
   }, [])
 
   const handleLogout = () => {
-    logout()
+    // Clear all auth data
+    localStorage.removeItem('authToken')
+    localStorage.removeItem('auth_token')
+    localStorage.removeItem('token')
+    localStorage.removeItem('cached_user')
+    localStorage.removeItem('user')
+    
+    setIsAuthenticated(false)
+    setUserEmail("")
     setShowUserMenu(false)
     setIsMobileMenuOpen(false)
-    navigate("/")
+    
+    // Dispatch event
+    window.dispatchEvent(new Event('authStateChanged'))
+    
+    // Redirect to home
+    window.location.href = "/"
   }
 
   const handleLogin = () => {
-    navigate("/login")
+    window.location.href = "/login"
   }
 
   const handleSignup = () => {
-    navigate("/signup")
+    window.location.href = "/signup"
   }
 
   const handleDashboard = () => {
@@ -390,7 +476,7 @@ export default function Navbar() {
             <div className="absolute inset-0 bg-gradient-to-r from-[#8b5cf6] to-[#06b6d4] rounded-xl blur-lg opacity-50 group-hover:opacity-100 transition-opacity animate-pulse" />
             <div className="relative w-11 h-11 rounded-xl bg-gradient-to-br from-[#8b5cf6] to-[#06b6d4] flex items-center justify-center overflow-hidden">
               <div className="absolute inset-0 bg-gradient-to-r from-[#8b5cf6]/0 via-white/20 to-[#8b5cf6]/0 -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
-              <Zap className="w-6 h-6 text-white relative z-10" />
+              <ZapIcon />
             </div>
             <div
               className="absolute inset-[-4px] rounded-xl border border-[#8b5cf6]/30 animate-spin-slow"
@@ -418,7 +504,7 @@ export default function Navbar() {
                 className="px-4 py-2 text-white/70 hover:text-white transition-all relative group flex items-center gap-1 rounded-lg hover:bg-white/5"
               >
                 {link.name}
-                {link.dropdown && <ChevronDown className="w-3 h-3" />}
+                {link.dropdown && <ChevronDownIcon className="w-3 h-3" />}
                 <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-0 h-0.5 bg-gradient-to-r from-[#8b5cf6] to-[#06b6d4] group-hover:w-3/4 transition-all duration-300 rounded-full" />
               </a>
 
@@ -440,19 +526,19 @@ export default function Navbar() {
         </div>
 
         <div className="hidden lg:flex items-center gap-3">
-          {isAuthenticated && user ? (
+          {isAuthenticated ? (
             <div className="relative">
               <button
                 onClick={() => setShowUserMenu(!showUserMenu)}
                 className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 transition-all"
               >
                 <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#8b5cf6] to-[#06b6d4] flex items-center justify-center">
-                  <User className="w-4 h-4 text-white" />
+                  <UserIcon />
                 </div>
                 <span className="text-white/80 text-sm max-w-[150px] truncate">
-                  {user.email || user.name}
+                  {userEmail}
                 </span>
-                <ChevronDown className="w-4 h-4 text-white/60" />
+                <ChevronDownIcon className="w-4 h-4 text-white/60" />
               </button>
 
               {showUserMenu && (
@@ -464,14 +550,14 @@ export default function Navbar() {
                   <div className="absolute top-full right-0 mt-2 w-56 py-2 bg-[#13111c]/95 backdrop-blur-xl rounded-xl border border-white/10 shadow-2xl animate-fade-in z-50">
                     <div className="px-4 py-2 border-b border-white/10">
                       <p className="text-xs text-white/50">Signed in as</p>
-                      <p className="text-sm text-white truncate">{user.email || user.name}</p>
+                      <p className="text-sm text-white truncate">{userEmail}</p>
                     </div>
                     
                     <button
                       onClick={handleDashboard}
                       className="w-full flex items-center gap-3 px-4 py-2 text-sm text-white/70 hover:text-white hover:bg-white/5 transition-colors"
                     >
-                      <LayoutDashboard className="w-4 h-4" />
+                      <LayoutDashboardIcon />
                       Dashboard
                     </button>
                     
@@ -480,7 +566,7 @@ export default function Navbar() {
                         onClick={handleLogout}
                         className="w-full flex items-center gap-3 px-4 py-2 text-sm text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-colors"
                       >
-                        <LogOut className="w-4 h-4" />
+                        <LogOutIcon />
                         Log Out
                       </button>
                     </div>
@@ -513,7 +599,7 @@ export default function Navbar() {
           className="lg:hidden text-white p-2 rounded-lg hover:bg-white/5"
           onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
         >
-          {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+          {isMobileMenuOpen ? <XIcon /> : <MenuIcon />}
         </button>
       </div>
 
@@ -546,25 +632,25 @@ export default function Navbar() {
           ))}
           
           <div className="flex flex-col gap-2 mt-4 pt-4 border-t border-white/10">
-            {isAuthenticated && user ? (
+            {isAuthenticated ? (
               <>
                 <div className="px-4 py-2 mb-2">
                   <p className="text-xs text-white/50">Signed in as</p>
-                  <p className="text-sm text-white truncate">{user.email || user.name}</p>
+                  <p className="text-sm text-white truncate">{userEmail}</p>
                 </div>
                 <Button 
                   onClick={handleDashboard}
-                  className="w-full justify-center bg-gradient-to-r from-[#8b5cf6] to-[#06b6d4] text-white"
+                  className="w-full justify-center bg-gradient-to-r from-[#8b5cf6] to-[#06b6d4] text-white flex items-center gap-2"
                 >
-                  <LayoutDashboard className="w-4 h-4 mr-2" />
+                  <LayoutDashboardIcon />
                   Dashboard
                 </Button>
                 <Button 
                   onClick={handleLogout}
                   variant="ghost" 
-                  className="w-full justify-center text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                  className="w-full justify-center text-red-400 hover:text-red-300 hover:bg-red-500/10 flex items-center gap-2"
                 >
-                  <LogOut className="w-4 h-4 mr-2" />
+                  <LogOutIcon />
                   Log Out
                 </Button>
               </>
@@ -591,8 +677,3 @@ export default function Navbar() {
     </nav>
   )
 }
-
-
-
-
-
