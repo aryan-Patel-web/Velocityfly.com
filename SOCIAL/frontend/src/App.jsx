@@ -525,7 +525,7 @@ function App() {
 
           {/* Landing Page - MUST be LAST (catch-all) */}
           {/* <Route path="/*" element={<Landing_Page />} /> */}
-          <Route path="/*" element={<Home />} />
+          <Route path="/" element={<Home />} />
 
         </Routes>
 
