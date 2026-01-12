@@ -234,13 +234,11 @@
 
 
 
-
-
-
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { Button } from "@/components/ui/button"
+import { Button } from "./ui/button"
+import { useAuth } from "../quickpage/AuthContext"
 
 function NavParticles() {
   const canvasRef = useRef(null)
@@ -364,46 +362,8 @@ export default function Navbar() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [activeDropdown, setActiveDropdown] = useState(null)
   const [showUserMenu, setShowUserMenu] = useState(false)
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
-  const [userEmail, setUserEmail] = useState("")
-
-  // Check authentication status
-  useEffect(() => {
-    const checkAuth = () => {
-      const token = localStorage.getItem('authToken') || 
-                   localStorage.getItem('auth_token') || 
-                   localStorage.getItem('token')
-      
-      const cachedUser = localStorage.getItem('cached_user') || 
-                        localStorage.getItem('user')
-      
-      if (token && cachedUser) {
-        try {
-          const userData = JSON.parse(cachedUser)
-          setIsAuthenticated(true)
-          setUserEmail(userData.email || userData.name || "User")
-        } catch (e) {
-          console.error('Error parsing user data:', e)
-          setIsAuthenticated(false)
-          setUserEmail("")
-        }
-      } else {
-        setIsAuthenticated(false)
-        setUserEmail("")
-      }
-    }
-
-    checkAuth()
-
-    // Listen for storage changes
-    window.addEventListener('storage', checkAuth)
-    window.addEventListener('authStateChanged', checkAuth)
-
-    return () => {
-      window.removeEventListener('storage', checkAuth)
-      window.removeEventListener('authStateChanged', checkAuth)
-    }
-  }, [])
+  
+  const { isAuthenticated, user, logout } = useAuth()
 
   useEffect(() => {
     const handleScroll = () => {
@@ -414,22 +374,9 @@ export default function Navbar() {
   }, [])
 
   const handleLogout = () => {
-    // Clear all auth data
-    localStorage.removeItem('authToken')
-    localStorage.removeItem('auth_token')
-    localStorage.removeItem('token')
-    localStorage.removeItem('cached_user')
-    localStorage.removeItem('user')
-    
-    setIsAuthenticated(false)
-    setUserEmail("")
+    logout()
     setShowUserMenu(false)
     setIsMobileMenuOpen(false)
-    
-    // Dispatch event
-    window.dispatchEvent(new Event('authStateChanged'))
-    
-    // Redirect to home
     window.location.href = "/"
   }
 
@@ -526,7 +473,7 @@ export default function Navbar() {
         </div>
 
         <div className="hidden lg:flex items-center gap-3">
-          {isAuthenticated ? (
+          {isAuthenticated && user ? (
             <div className="relative">
               <button
                 onClick={() => setShowUserMenu(!showUserMenu)}
@@ -536,7 +483,7 @@ export default function Navbar() {
                   <UserIcon />
                 </div>
                 <span className="text-white/80 text-sm max-w-[150px] truncate">
-                  {userEmail}
+                  {user.email || user.name}
                 </span>
                 <ChevronDownIcon className="w-4 h-4 text-white/60" />
               </button>
@@ -550,7 +497,7 @@ export default function Navbar() {
                   <div className="absolute top-full right-0 mt-2 w-56 py-2 bg-[#13111c]/95 backdrop-blur-xl rounded-xl border border-white/10 shadow-2xl animate-fade-in z-50">
                     <div className="px-4 py-2 border-b border-white/10">
                       <p className="text-xs text-white/50">Signed in as</p>
-                      <p className="text-sm text-white truncate">{userEmail}</p>
+                      <p className="text-sm text-white truncate">{user.email || user.name}</p>
                     </div>
                     
                     <button
@@ -632,11 +579,11 @@ export default function Navbar() {
           ))}
           
           <div className="flex flex-col gap-2 mt-4 pt-4 border-t border-white/10">
-            {isAuthenticated ? (
+            {isAuthenticated && user ? (
               <>
                 <div className="px-4 py-2 mb-2">
                   <p className="text-xs text-white/50">Signed in as</p>
-                  <p className="text-sm text-white truncate">{userEmail}</p>
+                  <p className="text-sm text-white truncate">{user.email || user.name}</p>
                 </div>
                 <Button 
                   onClick={handleDashboard}
