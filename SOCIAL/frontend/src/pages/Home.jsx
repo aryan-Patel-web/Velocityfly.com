@@ -12,6 +12,7 @@ import CTASection from "../components/sections/cta-section"
 import Footer from "../components/footer"
 import ScrollProgress from "../components/scroll-progress"
 
+
 export default function Home() {
   return (
     <main className="min-h-screen bg-[#0a0a0f] overflow-x-hidden snap-container">
