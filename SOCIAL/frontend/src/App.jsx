@@ -4,7 +4,14 @@ import { AuthProvider, useAuth } from './quickpage/AuthContext';
 import ProtectedRoute from './quickpage/ProtectedRoute';
 import Login from './quickpage/Login';
 import Register from './quickpage/Register';
-import Landing_Page from './Landing_Page';
+// import Landing_Page from './Landing_Page';
+
+
+
+import Home from './pages/Home';
+
+
+
 import './App.css';
 
 // Lazy load platform components
@@ -517,7 +524,9 @@ function App() {
           />
 
           {/* Landing Page - MUST be LAST (catch-all) */}
-          <Route path="/*" element={<Landing_Page />} />
+          {/* <Route path="/*" element={<Landing_Page />} /> */}
+          <Route path="/*" element={<Home />} />
+
         </Routes>
 
         <style>{`
