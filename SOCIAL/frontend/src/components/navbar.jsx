@@ -232,12 +232,7 @@
 
 
 
-
-
-"use client"
-
 import { useState, useEffect, useRef } from "react"
-import { Button } from "./ui/button"
 import { useAuth } from "../quickpage/AuthContext"
 
 function NavParticles() {
@@ -311,48 +306,48 @@ function NavParticles() {
     }
   }, [])
 
-  return <canvas ref={canvasRef} className="absolute inset-0 pointer-events-none" />
+  return <canvas ref={canvasRef} style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }} />
 }
 
 // Icon Components
 const MenuIcon = () => (
-  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+  <svg style={{ width: '24px', height: '24px' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16"/>
   </svg>
 )
 
 const XIcon = () => (
-  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+  <svg style={{ width: '24px', height: '24px' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/>
   </svg>
 )
 
 const ZapIcon = () => (
-  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+  <svg style={{ width: '24px', height: '24px', color: 'white' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
   </svg>
 )
 
-const ChevronDownIcon = ({ className = "w-4 h-4" }) => (
-  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+const ChevronDownIcon = ({ size = "16px" }) => (
+  <svg style={{ width: size, height: size }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"/>
   </svg>
 )
 
 const UserIcon = () => (
-  <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+  <svg style={{ width: '16px', height: '16px', color: 'white' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
   </svg>
 )
 
 const LayoutDashboardIcon = () => (
-  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+  <svg style={{ width: '16px', height: '16px' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
   </svg>
 )
 
 const LogOutIcon = () => (
-  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+  <svg style={{ width: '16px', height: '16px' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
   </svg>
 )
@@ -385,11 +380,11 @@ export default function Navbar() {
   }
 
   const handleSignup = () => {
-    window.location.href = "/signup"
+    window.location.href = "/register"
   }
 
   const handleDashboard = () => {
-    window.location.href = "https://velocitypost-ai.onrender.com/youtube"
+    window.location.href = "/youtube"
   }
 
   const navLinks = [
@@ -407,61 +402,152 @@ export default function Navbar() {
     { name: "How It Works", href: "#how-it-works" },
   ]
 
+  const navStyle = {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 50,
+    transition: 'all 0.5s',
+    backgroundColor: isScrolled ? 'rgba(10, 10, 15, 0.9)' : 'transparent',
+    backdropFilter: isScrolled ? 'blur(40px)' : 'none',
+    borderBottom: isScrolled ? '1px solid rgba(255, 255, 255, 0.05)' : 'none',
+    padding: isScrolled ? '8px 0' : '16px 0'
+  }
+
+  const buttonStyle = {
+    padding: '10px 20px',
+    borderRadius: '8px',
+    border: 'none',
+    cursor: 'pointer',
+    fontWeight: '600',
+    transition: 'all 0.2s',
+  }
+
+  const primaryButtonStyle = {
+    ...buttonStyle,
+    background: 'linear-gradient(to right, #8b5cf6, #06b6d4)',
+    color: 'white',
+  }
+
+  const ghostButtonStyle = {
+    ...buttonStyle,
+    background: 'transparent',
+    color: 'rgba(255, 255, 255, 0.7)',
+    border: '1px solid transparent',
+  }
+
   return (
-    <nav
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${
-        isScrolled ? "bg-[#0a0a0f]/90 backdrop-blur-xl border-b border-white/5 py-2" : "bg-transparent py-4"
-      }`}
-    >
+    <nav style={navStyle}>
       {isScrolled && <NavParticles />}
 
-      <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-[#8b5cf6]/50 to-transparent" />
+      <div style={{ 
+        position: 'absolute', 
+        top: 0, 
+        left: 0, 
+        right: 0, 
+        height: '1px', 
+        background: 'linear-gradient(to right, transparent, rgba(139, 92, 246, 0.5), transparent)' 
+      }} />
 
-      <div className="relative max-w-7xl mx-auto px-6 flex items-center justify-between">
-        <a href="/" className="flex items-center gap-3 group">
-          <div className="relative">
-            <div className="absolute inset-0 bg-gradient-to-r from-[#8b5cf6] to-[#06b6d4] rounded-xl blur-lg opacity-50 group-hover:opacity-100 transition-opacity animate-pulse" />
-            <div className="relative w-11 h-11 rounded-xl bg-gradient-to-br from-[#8b5cf6] to-[#06b6d4] flex items-center justify-center overflow-hidden">
-              <div className="absolute inset-0 bg-gradient-to-r from-[#8b5cf6]/0 via-white/20 to-[#8b5cf6]/0 -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
+      <div style={{ 
+        position: 'relative', 
+        maxWidth: '1280px', 
+        margin: '0 auto', 
+        padding: '0 24px', 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'space-between' 
+      }}>
+        <a href="/" style={{ display: 'flex', alignItems: 'center', gap: '12px', textDecoration: 'none' }}>
+          <div style={{ position: 'relative' }}>
+            <div style={{
+              width: '44px',
+              height: '44px',
+              borderRadius: '12px',
+              background: 'linear-gradient(to bottom right, #8b5cf6, #06b6d4)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              position: 'relative',
+              overflow: 'hidden'
+            }}>
               <ZapIcon />
             </div>
-            <div
-              className="absolute inset-[-4px] rounded-xl border border-[#8b5cf6]/30 animate-spin-slow"
-              style={{ animationDuration: "8s" }}
-            />
           </div>
-          <div className="flex flex-col">
-            <span className="text-xl font-bold bg-gradient-to-r from-white to-white/80 bg-clip-text text-transparent">
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <span style={{ 
+              fontSize: '20px', 
+              fontWeight: 'bold', 
+              background: 'linear-gradient(to right, white, rgba(255, 255, 255, 0.8))',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              backgroundClip: 'text'
+            }}>
               VelocityPost
             </span>
-            <span className="text-[10px] text-[#06b6d4] tracking-widest uppercase">AI Automation</span>
+            <span style={{ 
+              fontSize: '10px', 
+              color: '#06b6d4', 
+              letterSpacing: '2px', 
+              textTransform: 'uppercase' 
+            }}>
+              AI Automation
+            </span>
           </div>
         </a>
 
-        <div className="hidden lg:flex items-center gap-1">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
           {navLinks.map((link) => (
             <div
               key={link.name}
-              className="relative"
+              style={{ position: 'relative' }}
               onMouseEnter={() => link.dropdown && setActiveDropdown(link.name)}
               onMouseLeave={() => setActiveDropdown(null)}
             >
               <a
                 href={link.href}
-                className="px-4 py-2 text-white/70 hover:text-white transition-all relative group flex items-center gap-1 rounded-lg hover:bg-white/5"
+                style={{
+                  padding: '8px 16px',
+                  color: 'rgba(255, 255, 255, 0.7)',
+                  textDecoration: 'none',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  borderRadius: '8px',
+                  transition: 'all 0.2s'
+                }}
               >
                 {link.name}
-                {link.dropdown && <ChevronDownIcon className="w-3 h-3" />}
-                <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-0 h-0.5 bg-gradient-to-r from-[#8b5cf6] to-[#06b6d4] group-hover:w-3/4 transition-all duration-300 rounded-full" />
+                {link.dropdown && <ChevronDownIcon size="12px" />}
               </a>
 
               {link.dropdown && activeDropdown === link.name && (
-                <div className="absolute top-full left-0 mt-2 w-48 py-2 bg-[#13111c]/95 backdrop-blur-xl rounded-xl border border-white/10 shadow-2xl animate-fade-in">
+                <div style={{
+                  position: 'absolute',
+                  top: '100%',
+                  left: 0,
+                  marginTop: '8px',
+                  width: '192px',
+                  padding: '8px 0',
+                  background: 'rgba(19, 17, 28, 0.95)',
+                  backdropFilter: 'blur(40px)',
+                  borderRadius: '12px',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)'
+                }}>
                   {link.dropdown.map((item) => (
                     <a
                       key={item.name}
                       href={item.href}
-                      className="block px-4 py-2 text-sm text-white/70 hover:text-white hover:bg-white/5 transition-colors"
+                      style={{
+                        display: 'block',
+                        padding: '8px 16px',
+                        fontSize: '14px',
+                        color: 'rgba(255, 255, 255, 0.7)',
+                        textDecoration: 'none',
+                        transition: 'all 0.2s'
+                      }}
                     >
                       {item.name}
                     </a>
@@ -472,46 +558,126 @@ export default function Navbar() {
           ))}
         </div>
 
-        <div className="hidden lg:flex items-center gap-3">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           {isAuthenticated && user ? (
-            <div className="relative">
+            <div style={{ position: 'relative' }}>
               <button
                 onClick={() => setShowUserMenu(!showUserMenu)}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 transition-all"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '8px 16px',
+                  borderRadius: '8px',
+                  background: 'rgba(255, 255, 255, 0.05)',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s'
+                }}
               >
-                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#8b5cf6] to-[#06b6d4] flex items-center justify-center">
+                <div style={{
+                  width: '32px',
+                  height: '32px',
+                  borderRadius: '50%',
+                  background: 'linear-gradient(to bottom right, #8b5cf6, #06b6d4)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}>
                   <UserIcon />
                 </div>
-                <span className="text-white/80 text-sm max-w-[150px] truncate">
+                <span style={{
+                  color: 'rgba(255, 255, 255, 0.8)',
+                  fontSize: '14px',
+                  maxWidth: '150px',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap'
+                }}>
                   {user.email || user.name}
                 </span>
-                <ChevronDownIcon className="w-4 h-4 text-white/60" />
+                <ChevronDownIcon size="16px" />
               </button>
 
               {showUserMenu && (
                 <>
                   <div 
-                    className="fixed inset-0 z-40" 
+                    style={{ position: 'fixed', inset: 0, zIndex: 40 }} 
                     onClick={() => setShowUserMenu(false)}
                   />
-                  <div className="absolute top-full right-0 mt-2 w-56 py-2 bg-[#13111c]/95 backdrop-blur-xl rounded-xl border border-white/10 shadow-2xl animate-fade-in z-50">
-                    <div className="px-4 py-2 border-b border-white/10">
-                      <p className="text-xs text-white/50">Signed in as</p>
-                      <p className="text-sm text-white truncate">{user.email || user.name}</p>
+                  <div style={{
+                    position: 'absolute',
+                    top: '100%',
+                    right: 0,
+                    marginTop: '8px',
+                    width: '224px',
+                    padding: '8px 0',
+                    background: 'rgba(19, 17, 28, 0.95)',
+                    backdropFilter: 'blur(40px)',
+                    borderRadius: '12px',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+                    zIndex: 50
+                  }}>
+                    <div style={{
+                      padding: '8px 16px',
+                      borderBottom: '1px solid rgba(255, 255, 255, 0.1)'
+                    }}>
+                      <p style={{ fontSize: '12px', color: 'rgba(255, 255, 255, 0.5)', margin: 0 }}>Signed in as</p>
+                      <p style={{ 
+                        fontSize: '14px', 
+                        color: 'white', 
+                        margin: '4px 0 0 0',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap'
+                      }}>
+                        {user.email || user.name}
+                      </p>
                     </div>
                     
                     <button
                       onClick={handleDashboard}
-                      className="w-full flex items-center gap-3 px-4 py-2 text-sm text-white/70 hover:text-white hover:bg-white/5 transition-colors"
+                      style={{
+                        width: '100%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '12px',
+                        padding: '8px 16px',
+                        fontSize: '14px',
+                        color: 'rgba(255, 255, 255, 0.7)',
+                        background: 'transparent',
+                        border: 'none',
+                        cursor: 'pointer',
+                        textAlign: 'left',
+                        transition: 'all 0.2s'
+                      }}
                     >
                       <LayoutDashboardIcon />
                       Dashboard
                     </button>
                     
-                    <div className="border-t border-white/10 mt-2 pt-2">
+                    <div style={{
+                      borderTop: '1px solid rgba(255, 255, 255, 0.1)',
+                      marginTop: '8px',
+                      paddingTop: '8px'
+                    }}>
                       <button
                         onClick={handleLogout}
-                        className="w-full flex items-center gap-3 px-4 py-2 text-sm text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-colors"
+                        style={{
+                          width: '100%',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '12px',
+                          padding: '8px 16px',
+                          fontSize: '14px',
+                          color: '#f87171',
+                          background: 'transparent',
+                          border: 'none',
+                          cursor: 'pointer',
+                          textAlign: 'left',
+                          transition: 'all 0.2s'
+                        }}
                       >
                         <LogOutIcon />
                         Log Out
@@ -523,105 +689,45 @@ export default function Navbar() {
             </div>
           ) : (
             <>
-              <Button
-                onClick={handleLogin}
-                variant="ghost"
-                className="text-white/70 hover:text-white hover:bg-white/5 border border-transparent hover:border-white/10"
-              >
+              <button onClick={handleLogin} style={ghostButtonStyle}>
                 Log In
-              </Button>
-              <Button 
-                onClick={handleSignup}
-                className="relative overflow-hidden bg-gradient-to-r from-[#8b5cf6] to-[#06b6d4] hover:opacity-90 text-white font-semibold px-6 group"
-              >
-                <span className="relative z-10">Start Free Trial</span>
-                <div className="absolute inset-0 bg-gradient-to-r from-[#06b6d4] to-[#8b5cf6] opacity-0 group-hover:opacity-100 transition-opacity" />
-                <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 -translate-x-full group-hover:translate-x-full transition-transform duration-500" />
-              </Button>
-              
+              </button>
+              <button onClick={handleSignup} style={primaryButtonStyle}>
+                Start Free Trial
+              </button>
             </>
           )}
         </div>
 
         <button
-          className="lg:hidden text-white p-2 rounded-lg hover:bg-white/5"
+          style={{
+            display: 'none',
+            color: 'white',
+            padding: '8px',
+            borderRadius: '8px',
+            border: 'none',
+            background: 'transparent',
+            cursor: 'pointer'
+          }}
           onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
         >
           {isMobileMenuOpen ? <XIcon /> : <MenuIcon />}
         </button>
       </div>
 
-      {isMobileMenuOpen && (
-        <div className="lg:hidden absolute top-full left-4 right-4 mt-2 bg-[#13111c]/95 backdrop-blur-xl rounded-2xl border border-white/10 p-4 animate-fade-in">
-          {navLinks.map((link) => (
-            <div key={link.name}>
-              <a
-                href={link.href}
-                className="block py-3 px-4 text-white/70 hover:text-white hover:bg-white/5 rounded-lg transition-colors"
-                onClick={() => !link.dropdown && setIsMobileMenuOpen(false)}
-              >
-                {link.name}
-              </a>
-              {link.dropdown && (
-                <div className="ml-4 border-l border-white/10 pl-4">
-                  {link.dropdown.map((item) => (
-                    <a
-                      key={item.name}
-                      href={item.href}
-                      className="block py-2 text-sm text-white/50 hover:text-white transition-colors"
-                      onClick={() => setIsMobileMenuOpen(false)}
-                    >
-                      {item.name}
-                    </a>
-                  ))}
-                </div>
-              )}
-            </div>
-          ))}
-          
-          <div className="flex flex-col gap-2 mt-4 pt-4 border-t border-white/10">
-            {isAuthenticated && user ? (
-              <>
-                <div className="px-4 py-2 mb-2">
-                  <p className="text-xs text-white/50">Signed in as</p>
-                  <p className="text-sm text-white truncate">{user.email || user.name}</p>
-                </div>
-                <Button 
-                  onClick={handleDashboard}
-                  className="w-full justify-center bg-gradient-to-r from-[#8b5cf6] to-[#06b6d4] text-white flex items-center gap-2"
-                >
-                  <LayoutDashboardIcon />
-                  Dashboard
-                </Button>
-                <Button 
-                  onClick={handleLogout}
-                  variant="ghost" 
-                  className="w-full justify-center text-red-400 hover:text-red-300 hover:bg-red-500/10 flex items-center gap-2"
-                >
-                  <LogOutIcon />
-                  Log Out
-                </Button>
-              </>
-            ) : (
-              <>
-                <Button 
-                  onClick={handleLogin}
-                  variant="ghost" 
-                  className="w-full justify-center text-white/70"
-                >
-                  Log In
-                </Button>
-                <Button 
-                  onClick={handleSignup}
-                  className="w-full bg-gradient-to-r from-[#8b5cf6] to-[#06b6d4]"
-                >
-                  Start Free Trial
-                </Button>
-              </>
-            )}
-          </div>
-        </div>
-      )}
+      <style>{`
+        @media (max-width: 1024px) {
+          nav > div > div:nth-child(2) {
+            display: none !important;
+          }
+          nav > div > div:nth-child(3) {
+            display: none !important;
+          }
+          nav > div > button:last-child {
+            display: block !important;
+          }
+        }
+      `}</style>
     </nav>
   )
 }
