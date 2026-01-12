@@ -389,37 +389,28 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 
 const AuthContext = createContext();
-const API_BASE_URL = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL) || 'https://velocitypost-984x.onrender.com';
+const API_BASE_URL = 'https://velocitypost-984x.onrender.com';
 
-const safeLocalStorage = {
+const safeStorage = {
   getItem: (key) => {
-    if (typeof window !== 'undefined' && window.localStorage) {
-      try {
-        return localStorage.getItem(key);
-      } catch (e) {
-        console.error('localStorage getItem error:', e);
-        return null;
-      }
+    if (typeof window === 'undefined') return null;
+    try {
+      return localStorage.getItem(key);
+    } catch {
+      return null;
     }
-    return null;
   },
   setItem: (key, value) => {
-    if (typeof window !== 'undefined' && window.localStorage) {
-      try {
-        localStorage.setItem(key, value);
-      } catch (e) {
-        console.error('localStorage setItem error:', e);
-      }
-    }
+    if (typeof window === 'undefined') return;
+    try {
+      localStorage.setItem(key, value);
+    } catch {}
   },
   removeItem: (key) => {
-    if (typeof window !== 'undefined' && window.localStorage) {
-      try {
-        localStorage.removeItem(key);
-      } catch (e) {
-        console.error('localStorage removeItem error:', e);
-      }
-    }
+    if (typeof window === 'undefined') return;
+    try {
+      localStorage.removeItem(key);
+    } catch {}
   }
 };
 
@@ -438,19 +429,15 @@ export const AuthProvider = ({ children }) => {
   const [token, setToken] = useState(null);
 
   const clearUserRedditData = useCallback((email) => {
-    if (email) {
-      console.log('Clearing Reddit data for:', email);
-      safeLocalStorage.removeItem(`reddit_connected_${email}`);
-      safeLocalStorage.removeItem(`reddit_username_${email}`);
-      safeLocalStorage.removeItem(`redditUserProfile_${email}`);
-    }
+    if (!email) return;
+    safeStorage.removeItem(`reddit_connected_${email}`);
+    safeStorage.removeItem(`reddit_username_${email}`);
+    safeStorage.removeItem(`redditUserProfile_${email}`);
   }, []);
 
   const clearAllTokens = useCallback(() => {
-    console.log('Clearing all authentication data');
-    
-    const keysToRemove = ['auth_token', 'token', 'authToken', 'cached_user', 'user'];
-    keysToRemove.forEach(key => safeLocalStorage.removeItem(key));
+    const keys = ['auth_token', 'token', 'authToken', 'cached_user', 'user'];
+    keys.forEach(key => safeStorage.removeItem(key));
     
     if (user?.email) {
       clearUserRedditData(user.email);
@@ -459,7 +446,6 @@ export const AuthProvider = ({ children }) => {
     setToken(null);
     setUser(null);
     setIsAuthenticated(false);
-    console.log('All tokens cleared');
   }, [user?.email, clearUserRedditData]);
 
   useEffect(() => {
@@ -470,35 +456,20 @@ export const AuthProvider = ({ children }) => {
 
     const initAuth = async () => {
       try {
-        console.log('Initializing authentication');
-        
-        const savedToken = safeLocalStorage.getItem('authToken') || 
-                          safeLocalStorage.getItem('auth_token') || 
-                          safeLocalStorage.getItem('token');
-        
-        const cachedUser = safeLocalStorage.getItem('cached_user') || 
-                          safeLocalStorage.getItem('user');
+        const savedToken = safeStorage.getItem('authToken');
+        const cachedUser = safeStorage.getItem('cached_user');
         
         if (savedToken && cachedUser) {
           try {
             const userData = JSON.parse(cachedUser);
-            console.log('Found saved session for:', userData.email);
-            
             setUser(userData);
             setToken(savedToken);
             setIsAuthenticated(true);
-            
-            safeLocalStorage.setItem('authToken', savedToken);
-            console.log('User session restored');
-          } catch (parseError) {
-            console.error('Token validation failed:', parseError);
+          } catch (error) {
             clearAllTokens();
           }
-        } else {
-          console.log('No saved session found');
         }
       } catch (error) {
-        console.error('Auth initialization failed:', error);
         clearAllTokens();
       } finally {
         setLoading(false);
@@ -511,48 +482,39 @@ export const AuthProvider = ({ children }) => {
   const login = async (email, password) => {
     setLoading(true);
     try {
-      console.log('Login attempt for:', email);
-      
       const oldUser = user?.email;
       if (oldUser && oldUser !== email) {
-        console.log('Different user detected, clearing old data');
         clearUserRedditData(oldUser);
       }
       
       const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
         method: 'POST',
         headers: { 
-          'Content-Type': 'application/json', 
-          'Accept': 'application/json' 
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
         },
         body: JSON.stringify({ email, password })
       });
-
-      console.log('Login response status:', response.status);
       
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ error: 'Network error' }));
-        console.error('Login HTTP error:', response.status);
         return { 
-          success: false, 
-          error: errorData.detail || errorData.error || errorData.message || 'Login failed' 
+          success: false,
+          error: errorData.detail || errorData.error || errorData.message || 'Login failed'
         };
       }
 
       const data = await response.json();
-      console.log('Login response received');
       
       if (data.success === true) {
-        console.log('Login successful');
-        
         let userData;
         if (data.user && typeof data.user === 'object') {
           userData = {
-            user_id: data.user.user_id || data.user.id || data.user_id,
-            id: data.user.user_id || data.user.id || data.user_id,
-            email: data.user.email || data.email || email,
-            name: data.user.name || data.name || email.split('@')[0],
-            platforms_connected: data.user.platforms_connected || data.platforms_connected || []
+            user_id: data.user.user_id || data.user.id,
+            id: data.user.user_id || data.user.id,
+            email: data.user.email || email,
+            name: data.user.name || email.split('@')[0],
+            platforms_connected: data.user.platforms_connected || []
           };
         } else {
           userData = {
@@ -564,16 +526,13 @@ export const AuthProvider = ({ children }) => {
           };
         }
         
-        const authToken = data.token || 
-                         data.access_token || 
-                         data.authToken ||
-                         `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        const authToken = data.token || data.access_token || `session_${Date.now()}`;
         
         if (typeof window !== 'undefined') {
           const allKeys = Object.keys(localStorage);
           allKeys.forEach(key => {
             if (key.startsWith('reddit_') && !key.includes(email)) {
-              safeLocalStorage.removeItem(key);
+              safeStorage.removeItem(key);
             }
           });
         }
@@ -582,28 +541,20 @@ export const AuthProvider = ({ children }) => {
         setIsAuthenticated(true);
         setToken(authToken);
         
-        safeLocalStorage.setItem('authToken', authToken);
-        safeLocalStorage.setItem('cached_user', JSON.stringify(userData));
-        
-        safeLocalStorage.removeItem('auth_token');
-        safeLocalStorage.removeItem('token');
-        safeLocalStorage.removeItem('user');
-        
-        console.log('User authenticated successfully');
+        safeStorage.setItem('authToken', authToken);
+        safeStorage.setItem('cached_user', JSON.stringify(userData));
         
         return { success: true, user: userData, token: authToken };
       } else {
-        console.error('Login failed');
         return { 
-          success: false, 
-          error: data.detail || data.error || data.message || 'Invalid credentials' 
+          success: false,
+          error: data.detail || data.error || data.message || 'Invalid credentials'
         };
       }
     } catch (error) {
-      console.error('Login network error:', error);
       return { 
-        success: false, 
-        error: 'Network error: ' + error.message 
+        success: false,
+        error: 'Network error: ' + error.message
       };
     } finally {
       setLoading(false);
@@ -613,47 +564,39 @@ export const AuthProvider = ({ children }) => {
   const register = async (name, email, password) => {
     setLoading(true);
     try {
-      console.log('Registration attempt');
-      
       const oldUser = user?.email;
       if (oldUser && oldUser !== email) {
-        console.log('Different user detected');
         clearUserRedditData(oldUser);
       }
       
       const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
         method: 'POST',
         headers: { 
-          'Content-Type': 'application/json', 
-          'Accept': 'application/json' 
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
         },
         body: JSON.stringify({ name, email, password })
       });
 
       const data = await response.json();
-      console.log('Registration response received');
       
       if (response.ok && data.success) {
-        console.log('Registration successful');
-        
         if (data.token || data.user_id) {
           const userData = { 
-            user_id: data.user_id || data.user?.user_id || data.user?.id,
-            id: data.user_id || data.user?.user_id || data.user?.id,
-            email: data.email || data.user?.email || email,
-            name: data.name || data.user?.name || name,
+            user_id: data.user_id || data.user?.user_id,
+            id: data.user_id || data.user?.user_id,
+            email: data.email || email,
+            name: data.name || name,
             platforms_connected: data.platforms_connected || []
           };
           
-          const authToken = data.token || 
-                           data.access_token ||
-                           `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+          const authToken = data.token || data.access_token || `session_${Date.now()}`;
           
           if (typeof window !== 'undefined') {
             const allKeys = Object.keys(localStorage);
             allKeys.forEach(key => {
               if (key.startsWith('reddit_') && !key.includes(email)) {
-                safeLocalStorage.removeItem(key);
+                safeStorage.removeItem(key);
               }
             });
           }
@@ -662,24 +605,22 @@ export const AuthProvider = ({ children }) => {
           setIsAuthenticated(true);
           setToken(authToken);
           
-          safeLocalStorage.setItem('authToken', authToken);
-          safeLocalStorage.setItem('cached_user', JSON.stringify(userData));
+          safeStorage.setItem('authToken', authToken);
+          safeStorage.setItem('cached_user', JSON.stringify(userData));
           
-          console.log('Auto-login successful');
           return { success: true, user: userData, message: data.message, token: authToken };
         }
         return { success: true, message: data.message };
       } else {
         return { 
-          success: false, 
-          error: data.detail || data.error || data.message || 'Registration failed' 
+          success: false,
+          error: data.detail || data.error || data.message || 'Registration failed'
         };
       }
     } catch (error) {
-      console.error('Registration error:', error);
       return { 
-        success: false, 
-        error: 'Registration failed: ' + error.message 
+        success: false,
+        error: 'Registration failed: ' + error.message
       };
     } finally {
       setLoading(false);
@@ -687,29 +628,22 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = useCallback(() => {
-    console.log('Logging out user');
-    
     if (user?.email) {
       clearUserRedditData(user.email);
     }
-    
     clearAllTokens();
-    
-    console.log('User logged out');
   }, [user?.email, clearAllTokens, clearUserRedditData]);
 
   const updateUser = useCallback((userData) => {
     const updatedUser = { ...user, ...userData };
     setUser(updatedUser);
-    safeLocalStorage.setItem('cached_user', JSON.stringify(updatedUser));
-    console.log('User data updated');
+    safeStorage.setItem('cached_user', JSON.stringify(updatedUser));
   }, [user]);
 
   const makeAuthenticatedRequest = useCallback(async (endpoint, options = {}) => {
-    const authToken = token || safeLocalStorage.getItem('authToken');
+    const authToken = token || safeStorage.getItem('authToken');
     
     if (!authToken) {
-      console.error('No authentication token available');
       logout();
       throw new Error('No authentication token found');
     }
@@ -720,30 +654,24 @@ export const AuthProvider = ({ children }) => {
       ...(options.headers || {})
     };
 
-    const requestOptions = {
-      ...options,
-      headers
-    };
-
     try {
-      console.log('Making authenticated request to:', endpoint);
-      const response = await fetch(`${API_BASE_URL}${endpoint}`, requestOptions);
+      const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+        ...options,
+        headers
+      });
       
       if (response.status === 401) {
-        console.error('Unauthorized - token expired');
         logout();
         throw new Error('Authentication failed - please log in again');
       }
       
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('Request failed:', response.status);
         throw new Error(`HTTP ${response.status}: ${errorText || 'Request failed'}`);
       }
       
       return response;
     } catch (error) {
-      console.error('API request failed:', error);
       if (error.message.includes('Authentication failed')) {
         throw error;
       }
@@ -756,12 +684,10 @@ export const AuthProvider = ({ children }) => {
   }, [isAuthenticated, user, token]);
 
   const getCurrentUserRedditData = useCallback(() => {
-    if (!user?.email) {
-      return null;
-    }
+    if (!user?.email) return null;
     
-    const connected = safeLocalStorage.getItem(`reddit_connected_${user.email}`);
-    const username = safeLocalStorage.getItem(`reddit_username_${user.email}`);
+    const connected = safeStorage.getItem(`reddit_connected_${user.email}`);
+    const username = safeStorage.getItem(`reddit_username_${user.email}`);
     
     return {
       connected: connected === 'true',
