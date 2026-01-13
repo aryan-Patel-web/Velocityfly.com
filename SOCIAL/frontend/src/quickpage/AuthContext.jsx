@@ -1,7 +1,9 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 
 const AuthContext = createContext();
-const API_BASE_URL = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL) || 'https://velocitypost-984x.onrender.com';
+const API_BASE_URL = import.meta.env?.VITE_API_URL || 'https://velocitypost-984x.onrender.com';
+
+console.log('🔗 API Base URL:', API_BASE_URL);
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
