@@ -12,7 +12,7 @@ import Home from './pages/Home';
 
 
 
-// import './App.css';
+import './App.css';
 
 // Lazy load platform components
 const RedditAUTO = lazy(() => import('./pages/RedditAUTO'));
