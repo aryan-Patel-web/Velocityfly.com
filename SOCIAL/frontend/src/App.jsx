@@ -7,12 +7,12 @@ import Register from './quickpage/Register';
 // import Landing_Page from './Landing_Page';
 
 
-
+import './styles/globals.css';
 import Home from './pages/Home';
 
 
 
-import './App.css';
+// import './App.css';
 
 // Lazy load platform components
 const RedditAUTO = lazy(() => import('./pages/RedditAUTO'));
