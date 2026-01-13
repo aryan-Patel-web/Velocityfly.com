@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: frontend
+    env: static
+    buildCommand: cd SOCIAL/frontend && npm install && npm run build
+    staticPublishPath: ./SOCIAL/frontend/dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+```
+
+### 4. **Routing Issue (Most Common)**
+
+For React Router to work on Render, you need a **redirect rule**. Create this file:
+
+**`frontend/public/_redirects`**
+```
+/* /index.html 200

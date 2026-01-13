@@ -5,7 +5,7 @@ import ProtectedRoute from './quickpage/ProtectedRoute';
 import Login from './quickpage/Login';
 import Register from './quickpage/Register';
 import Home from './pages/Home';
-// import './App.css';
+import './App.css';
 
 const RedditAUTO = lazy(() => import('./pages/RedditAUTO'));
 const SocialMediaAutomation = lazy(() => import('./pages/Fb'));
