@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "../quickpage/AuthContext";
 
 function NavParticles() {
@@ -205,6 +206,7 @@ export default function Navbar() {
   const [activeDropdown, setActiveDropdown] = useState(null);
   const [showUserMenu, setShowUserMenu] = useState(false);
 
+  const navigate = useNavigate();
   const { isAuthenticated, user, logout } = useAuth();
 
   useEffect(() => {
@@ -219,19 +221,19 @@ export default function Navbar() {
     logout();
     setShowUserMenu(false);
     setIsMobileMenuOpen(false);
-    window.location.href = "/";
+    navigate("/");
   };
 
   const handleLogin = () => {
-    window.location.href = "/login";
+    navigate("/login");
   };
 
   const handleSignup = () => {
-    window.location.href = "/register";
+    navigate("/register");
   };
 
   const handleDashboard = () => {
-    window.location.href = "/youtube";
+    navigate("/youtube");
   };
 
   const navLinks = [
@@ -285,281 +287,259 @@ export default function Navbar() {
   };
 
   return (
-    <nav style={navStyle}>
-      {isScrolled && <NavParticles />}
+    <>
+      <nav style={navStyle}>
+        {isScrolled && <NavParticles />}
 
-      <div
-        style={{
-          position: "absolute",
-          top: 0,
-          left: 0,
-          right: 0,
-          height: "1px",
-          background:
-            "linear-gradient(to right, transparent, rgba(139, 92, 246, 0.5), transparent)",
-        }}
-      />
-
-      <div
-        style={{
-          position: "relative",
-          maxWidth: "1280px",
-          margin: "0 auto",
-          padding: "0 24px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-        }}
-      >
-        <a
-          href="/"
+        <div
           style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            height: "1px",
+            background:
+              "linear-gradient(to right, transparent, rgba(139, 92, 246, 0.5), transparent)",
+          }}
+        />
+
+        <div
+          style={{
+            position: "relative",
+            maxWidth: "1280px",
+            margin: "0 auto",
+            padding: "0 24px",
             display: "flex",
             alignItems: "center",
-            gap: "12px",
-            textDecoration: "none",
+            justifyContent: "space-between",
           }}
         >
-          <div style={{ position: "relative" }}>
-            <div
-              style={{
-                width: "44px",
-                height: "44px",
-                borderRadius: "12px",
-                background: "linear-gradient(to bottom right, #8b5cf6, #06b6d4)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                position: "relative",
-                overflow: "hidden",
-              }}
-            >
-              <ZapIcon />
-            </div>
-          </div>
-          <div style={{ display: "flex", flexDirection: "column" }}>
-            <span
-              style={{
-                fontSize: "20px",
-                fontWeight: "bold",
-                background:
-                  "linear-gradient(to right, white, rgba(255, 255, 255, 0.8))",
-                WebkitBackgroundClip: "text",
-                WebkitTextFillColor: "transparent",
-                backgroundClip: "text",
-              }}
-            >
-              VelocityPost
-            </span>
-            <span
-              style={{
-                fontSize: "10px",
-                color: "#06b6d4",
-                letterSpacing: "2px",
-                textTransform: "uppercase",
-              }}
-            >
-              AI Automation
-            </span>
-          </div>
-        </a>
-
-        <div
-          className="desktop-nav"
-          style={{ display: "flex", alignItems: "center", gap: "4px" }}
-        >
-          {navLinks.map((link) => (
-            <div
-              key={link.name}
-              style={{ position: "relative" }}
-              onMouseEnter={() => link.dropdown && setActiveDropdown(link.name)}
-              onMouseLeave={() => setActiveDropdown(null)}
-            >
-              <a
-                href={link.href}
-                style={{
-                  padding: "8px 16px",
-                  color: "rgba(255, 255, 255, 0.7)",
-                  textDecoration: "none",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "4px",
-                  borderRadius: "8px",
-                  transition: "all 0.2s",
-                }}
-              >
-                {link.name}
-                {link.dropdown && <ChevronDownIcon size="12px" />}
-              </a>
-
-              {link.dropdown && activeDropdown === link.name && (
-                <div
-                  style={{
-                    position: "absolute",
-                    top: "100%",
-                    left: 0,
-                    marginTop: "8px",
-                    width: "192px",
-                    padding: "8px 0",
-                    background: "rgba(19, 17, 28, 0.95)",
-                    backdropFilter: "blur(40px)",
-                    borderRadius: "12px",
-                    border: "1px solid rgba(255, 255, 255, 0.1)",
-                    boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
-                  }}
-                >
-                  {link.dropdown.map((item) => (
-                    <a
-                      key={item.name}
-                      href={item.href}
-                      style={{
-                        display: "block",
-                        padding: "8px 16px",
-                        fontSize: "14px",
-                        color: "rgba(255, 255, 255, 0.7)",
-                        textDecoration: "none",
-                        transition: "all 0.2s",
-                      }}
-                    >
-                      {item.name}
-                    </a>
-                  ))}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-
-        <div
-          className="desktop-actions"
-          style={{ display: "flex", alignItems: "center", gap: "12px" }}
-        >
-          {isAuthenticated && user ? (
+          <a
+            href="/"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "12px",
+              textDecoration: "none",
+            }}
+          >
             <div style={{ position: "relative" }}>
-              <button
-                onClick={() => setShowUserMenu(!showUserMenu)}
+              <div
                 style={{
+                  width: "44px",
+                  height: "44px",
+                  borderRadius: "12px",
+                  background: "linear-gradient(to bottom right, #8b5cf6, #06b6d4)",
                   display: "flex",
                   alignItems: "center",
-                  gap: "8px",
-                  padding: "8px 16px",
-                  borderRadius: "8px",
-                  background: "rgba(255, 255, 255, 0.05)",
-                  border: "1px solid rgba(255, 255, 255, 0.1)",
-                  cursor: "pointer",
-                  transition: "all 0.2s",
+                  justifyContent: "center",
+                  position: "relative",
+                  overflow: "hidden",
                 }}
               >
-                <div
+                <ZapIcon />
+              </div>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column" }}>
+              <span
+                style={{
+                  fontSize: "20px",
+                  fontWeight: "bold",
+                  background:
+                    "linear-gradient(to right, white, rgba(255, 255, 255, 0.8))",
+                  WebkitBackgroundClip: "text",
+                  WebkitTextFillColor: "transparent",
+                  backgroundClip: "text",
+                }}
+              >
+                VelocityPost
+              </span>
+              <span
+                style={{
+                  fontSize: "10px",
+                  color: "#06b6d4",
+                  letterSpacing: "2px",
+                  textTransform: "uppercase",
+                }}
+              >
+                AI Automation
+              </span>
+            </div>
+          </a>
+
+          {/* Desktop Navigation */}
+          <div
+            className="desktop-nav"
+            style={{ display: "flex", alignItems: "center", gap: "4px" }}
+          >
+            {navLinks.map((link) => (
+              <div
+                key={link.name}
+                style={{ position: "relative" }}
+                onMouseEnter={() => link.dropdown && setActiveDropdown(link.name)}
+                onMouseLeave={() => setActiveDropdown(null)}
+              >
+                <a
+                  href={link.href}
                   style={{
-                    width: "32px",
-                    height: "32px",
-                    borderRadius: "50%",
-                    background:
-                      "linear-gradient(to bottom right, #8b5cf6, #06b6d4)",
+                    padding: "8px 16px",
+                    color: "rgba(255, 255, 255, 0.7)",
+                    textDecoration: "none",
                     display: "flex",
                     alignItems: "center",
-                    justifyContent: "center",
+                    gap: "4px",
+                    borderRadius: "8px",
+                    transition: "all 0.2s",
                   }}
+                  className="nav-link"
                 >
-                  <UserIcon />
-                </div>
-                <span
-                  style={{
-                    color: "rgba(255, 255, 255, 0.8)",
-                    fontSize: "14px",
-                    maxWidth: "150px",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  {user.email || user.name}
-                </span>
-                <ChevronDownIcon size="16px" />
-              </button>
+                  {link.name}
+                  {link.dropdown && <ChevronDownIcon size="12px" />}
+                </a>
 
-              {showUserMenu && (
-                <>
-                  <div
-                    style={{ position: "fixed", inset: 0, zIndex: 40 }}
-                    onClick={() => setShowUserMenu(false)}
-                  />
+                {link.dropdown && activeDropdown === link.name && (
                   <div
                     style={{
                       position: "absolute",
                       top: "100%",
-                      right: 0,
+                      left: 0,
                       marginTop: "8px",
-                      width: "224px",
+                      width: "192px",
                       padding: "8px 0",
                       background: "rgba(19, 17, 28, 0.95)",
                       backdropFilter: "blur(40px)",
                       borderRadius: "12px",
                       border: "1px solid rgba(255, 255, 255, 0.1)",
                       boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
-                      zIndex: 50,
                     }}
                   >
-                    <div
-                      style={{
-                        padding: "8px 16px",
-                        borderBottom: "1px solid rgba(255, 255, 255, 0.1)",
-                      }}
-                    >
-                      <p
+                    {link.dropdown.map((item) => (
+                      <a
+                        key={item.name}
+                        href={item.href}
                         style={{
-                          fontSize: "12px",
-                          color: "rgba(255, 255, 255, 0.5)",
-                          margin: 0,
-                        }}
-                      >
-                        Signed in as
-                      </p>
-                      <p
-                        style={{
+                          display: "block",
+                          padding: "8px 16px",
                           fontSize: "14px",
-                          color: "white",
-                          margin: "4px 0 0 0",
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          whiteSpace: "nowrap",
+                          color: "rgba(255, 255, 255, 0.7)",
+                          textDecoration: "none",
+                          transition: "all 0.2s",
                         }}
+                        className="dropdown-link"
                       >
-                        {user.email || user.name}
-                      </p>
-                    </div>
+                        {item.name}
+                      </a>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
 
-                    <button
-                      onClick={handleDashboard}
-                      style={{
-                        width: "100%",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "12px",
-                        padding: "8px 16px",
-                        fontSize: "14px",
-                        color: "rgba(255, 255, 255, 0.7)",
-                        background: "transparent",
-                        border: "none",
-                        cursor: "pointer",
-                        textAlign: "left",
-                        transition: "all 0.2s",
-                      }}
-                    >
-                      <LayoutDashboardIcon />
-                      Dashboard
-                    </button>
+          {/* Desktop Actions */}
+          <div
+            className="desktop-actions"
+            style={{ display: "flex", alignItems: "center", gap: "12px" }}
+          >
+            {isAuthenticated && user ? (
+              <div style={{ position: "relative" }}>
+                <button
+                  onClick={() => setShowUserMenu(!showUserMenu)}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    padding: "8px 16px",
+                    borderRadius: "8px",
+                    background: "rgba(255, 255, 255, 0.05)",
+                    border: "1px solid rgba(255, 255, 255, 0.1)",
+                    cursor: "pointer",
+                    transition: "all 0.2s",
+                  }}
+                  className="user-menu-btn"
+                >
+                  <div
+                    style={{
+                      width: "32px",
+                      height: "32px",
+                      borderRadius: "50%",
+                      background:
+                        "linear-gradient(to bottom right, #8b5cf6, #06b6d4)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <UserIcon />
+                  </div>
+                  <span
+                    style={{
+                      color: "rgba(255, 255, 255, 0.8)",
+                      fontSize: "14px",
+                      maxWidth: "150px",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {user.email || user.name}
+                  </span>
+                  <ChevronDownIcon size="16px" />
+                </button>
 
+                {showUserMenu && (
+                  <>
+                    <div
+                      style={{ position: "fixed", inset: 0, zIndex: 40 }}
+                      onClick={() => setShowUserMenu(false)}
+                    />
                     <div
                       style={{
-                        borderTop: "1px solid rgba(255, 255, 255, 0.1)",
+                        position: "absolute",
+                        top: "100%",
+                        right: 0,
                         marginTop: "8px",
-                        paddingTop: "8px",
+                        width: "224px",
+                        padding: "8px 0",
+                        background: "rgba(19, 17, 28, 0.95)",
+                        backdropFilter: "blur(40px)",
+                        borderRadius: "12px",
+                        border: "1px solid rgba(255, 255, 255, 0.1)",
+                        boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
+                        zIndex: 50,
                       }}
                     >
+                      <div
+                        style={{
+                          padding: "8px 16px",
+                          borderBottom: "1px solid rgba(255, 255, 255, 0.1)",
+                        }}
+                      >
+                        <p
+                          style={{
+                            fontSize: "12px",
+                            color: "rgba(255, 255, 255, 0.5)",
+                            margin: 0,
+                          }}
+                        >
+                          Signed in as
+                        </p>
+                        <p
+                          style={{
+                            fontSize: "14px",
+                            color: "white",
+                            margin: "4px 0 0 0",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {user.email || user.name}
+                        </p>
+                      </div>
+
                       <button
-                        onClick={handleLogout}
+                        onClick={handleDashboard}
                         style={{
                           width: "100%",
                           display: "flex",
@@ -567,52 +547,256 @@ export default function Navbar() {
                           gap: "12px",
                           padding: "8px 16px",
                           fontSize: "14px",
-                          color: "#f87171",
+                          color: "rgba(255, 255, 255, 0.7)",
                           background: "transparent",
                           border: "none",
                           cursor: "pointer",
                           textAlign: "left",
                           transition: "all 0.2s",
                         }}
+                        className="menu-item"
                       >
-                        <LogOutIcon />
-                        Log Out
+                        <LayoutDashboardIcon />
+                        Dashboard
                       </button>
+
+                      <div
+                        style={{
+                          borderTop: "1px solid rgba(255, 255, 255, 0.1)",
+                          marginTop: "8px",
+                          paddingTop: "8px",
+                        }}
+                      >
+                        <button
+                          onClick={handleLogout}
+                          style={{
+                            width: "100%",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "12px",
+                            padding: "8px 16px",
+                            fontSize: "14px",
+                            color: "#f87171",
+                            background: "transparent",
+                            border: "none",
+                            cursor: "pointer",
+                            textAlign: "left",
+                            transition: "all 0.2s",
+                          }}
+                          className="menu-item"
+                        >
+                          <LogOutIcon />
+                          Log Out
+                        </button>
+                      </div>
                     </div>
+                  </>
+                )}
+              </div>
+            ) : (
+              <>
+                <button onClick={handleLogin} style={ghostButtonStyle} className="ghost-btn">
+                  Log In
+                </button>
+                <button onClick={handleSignup} style={primaryButtonStyle} className="primary-btn">
+                  Start Free Trial
+                </button>
+              </>
+            )}
+          </div>
+
+          {/* Mobile Menu Button */}
+          <button
+            className="mobile-menu-btn"
+            style={{
+              display: "none",
+              color: "white",
+              padding: "8px",
+              borderRadius: "8px",
+              border: "none",
+              background: "transparent",
+              cursor: "pointer",
+            }}
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+          >
+            {isMobileMenuOpen ? <XIcon /> : <MenuIcon />}
+          </button>
+        </div>
+
+        {/* Mobile Menu */}
+        {isMobileMenuOpen && (
+          <div
+            style={{
+              position: "absolute",
+              top: "100%",
+              left: 0,
+              right: 0,
+              background: "rgba(10, 10, 15, 0.98)",
+              backdropFilter: "blur(40px)",
+              borderBottom: "1px solid rgba(255, 255, 255, 0.05)",
+              padding: "16px",
+            }}
+          >
+            {navLinks.map((link) => (
+              <div key={link.name} style={{ marginBottom: "8px" }}>
+                <a
+                  href={link.href}
+                  style={{
+                    display: "block",
+                    padding: "12px 16px",
+                    color: "rgba(255, 255, 255, 0.8)",
+                    textDecoration: "none",
+                    borderRadius: "8px",
+                    transition: "all 0.2s",
+                  }}
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  {link.name}
+                </a>
+                {link.dropdown && (
+                  <div style={{ paddingLeft: "16px" }}>
+                    {link.dropdown.map((item) => (
+                      <a
+                        key={item.name}
+                        href={item.href}
+                        style={{
+                          display: "block",
+                          padding: "8px 16px",
+                          color: "rgba(255, 255, 255, 0.6)",
+                          textDecoration: "none",
+                          fontSize: "14px",
+                        }}
+                        onClick={() => setIsMobileMenuOpen(false)}
+                      >
+                        {item.name}
+                      </a>
+                    ))}
                   </div>
+                )}
+              </div>
+            ))}
+
+            <div style={{ marginTop: "16px", paddingTop: "16px", borderTop: "1px solid rgba(255, 255, 255, 0.1)" }}>
+              {isAuthenticated && user ? (
+                <>
+                  <div style={{ padding: "12px 16px", marginBottom: "8px" }}>
+                    <p style={{ fontSize: "12px", color: "rgba(255, 255, 255, 0.5)", margin: 0 }}>
+                      Signed in as
+                    </p>
+                    <p style={{ fontSize: "14px", color: "white", margin: "4px 0 0 0" }}>
+                      {user.email || user.name}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      handleDashboard();
+                      setIsMobileMenuOpen(false);
+                    }}
+                    style={{
+                      width: "100%",
+                      padding: "12px 16px",
+                      marginBottom: "8px",
+                      background: "linear-gradient(to right, #8b5cf6, #06b6d4)",
+                      color: "white",
+                      border: "none",
+                      borderRadius: "8px",
+                      cursor: "pointer",
+                      fontWeight: "600",
+                    }}
+                  >
+                    Go to Dashboard
+                  </button>
+                  <button
+                    onClick={handleLogout}
+                    style={{
+                      width: "100%",
+                      padding: "12px 16px",
+                      background: "transparent",
+                      color: "#f87171",
+                      border: "1px solid #f87171",
+                      borderRadius: "8px",
+                      cursor: "pointer",
+                      fontWeight: "600",
+                    }}
+                  >
+                    Log Out
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    onClick={() => {
+                      handleLogin();
+                      setIsMobileMenuOpen(false);
+                    }}
+                    style={{
+                      width: "100%",
+                      padding: "12px 16px",
+                      marginBottom: "8px",
+                      background: "transparent",
+                      color: "rgba(255, 255, 255, 0.8)",
+                      border: "1px solid rgba(255, 255, 255, 0.2)",
+                      borderRadius: "8px",
+                      cursor: "pointer",
+                      fontWeight: "600",
+                    }}
+                  >
+                    Log In
+                  </button>
+                  <button
+                    onClick={() => {
+                      handleSignup();
+                      setIsMobileMenuOpen(false);
+                    }}
+                    style={{
+                      width: "100%",
+                      padding: "12px 16px",
+                      background: "linear-gradient(to right, #8b5cf6, #06b6d4)",
+                      color: "white",
+                      border: "none",
+                      borderRadius: "8px",
+                      cursor: "pointer",
+                      fontWeight: "600",
+                    }}
+                  >
+                    Start Free Trial
+                  </button>
                 </>
               )}
             </div>
-          ) : (
-            <>
-              <button onClick={handleLogin} style={ghostButtonStyle}>
-                Log In
-              </button>
-              <button onClick={handleSignup} style={primaryButtonStyle}>
-                Start Free Trial
-              </button>
-            </>
-          )}
-        </div>
-
-        <button
-          className="mobile-menu-btn"
-          style={{
-            display: "none",
-            color: "white",
-            padding: "8px",
-            borderRadius: "8px",
-            border: "none",
-            background: "transparent",
-            cursor: "pointer",
-          }}
-          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-        >
-          {isMobileMenuOpen ? <XIcon /> : <MenuIcon />}
-        </button>
-      </div>
+          </div>
+        )}
+      </nav>
 
       <style>{`
+        .nav-link:hover {
+          background: rgba(255, 255, 255, 0.05);
+          color: white;
+        }
+
+        .dropdown-link:hover {
+          background: rgba(255, 255, 255, 0.05);
+          color: white;
+        }
+
+        .user-menu-btn:hover {
+          background: rgba(255, 255, 255, 0.08);
+        }
+
+        .menu-item:hover {
+          background: rgba(255, 255, 255, 0.05);
+        }
+
+        .ghost-btn:hover {
+          background: rgba(255, 255, 255, 0.05);
+          border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .primary-btn:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 8px 24px rgba(139, 92, 246, 0.3);
+        }
+
         @media (max-width: 1024px) {
           .desktop-nav {
             display: none !important;
@@ -625,6 +809,6 @@ export default function Navbar() {
           }
         }
       `}</style>
-    </nav>
+    </>
   );
 }
