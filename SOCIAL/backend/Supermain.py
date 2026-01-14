@@ -3054,9 +3054,13 @@ except Exception as e:
 # PASTE THIS IN YOUR Supermain.py - REPLACE THE EXISTING AUTOMATION ROUTES
 # ============================================================================
 
+# ============================================================================
+# FIXED PRODUCT AUTOMATION ROUTES - PASTE THIS IN Supermain.py
+# ============================================================================
+
 @app.post("/api/automation/save-url")
 async def save_scrape_url_route(request: Request):
-    """Save category URL to scrape and get product count"""
+    """Save URL and intelligently detect if it's a category or product page"""
     try:
         body = await request.json()
         user_id = body.get('user_id')
@@ -3074,48 +3078,116 @@ async def save_scrape_url_route(request: Request):
                 content={"success": False, "error": "Invalid URL format. Must start with http:// or https://"}
             )
         
-        logger.info(f"📋 Scraping category page for user {user_id}: {url}")
+        logger.info(f"🔍 Analyzing URL for user {user_id}: {url}")
         
-        # Step 1: Scrape the category page to get product links
+        # ✅ SMART URL DETECTION
         scraper = get_product_scraper()
-        product_links = await scraper.scrape_category_page(url, max_products=100)
+        url_lower = url.lower()
         
-        if not product_links:
-            return JSONResponse(
-                status_code=404,
-                content={
-                    "success": False, 
-                    "error": "No products found at this URL. Please check the URL and try again."
-                }
-            )
-        
-        # Step 2: Save URL to database
-        success = await database_manager.save_scrape_url(user_id, url)
-        
-        if not success:
-            return JSONResponse(
-                status_code=500,
-                content={"success": False, "error": "Failed to save URL to database"}
-            )
-        
-        # Step 3: Update progress
-        await database_manager.update_scrape_progress(
-            user_id, 
-            total_found=len(product_links), 
-            processed=0
+        # Detect if it's a single product or category page
+        is_product_page = (
+            '/p/' in url_lower or 
+            '/product/' in url_lower or 
+            '/dp/' in url_lower or  # Amazon
+            '/buy/' in url_lower or  # Myntra
+            '-p-' in url_lower
         )
         
-        logger.info(f"✅ Found {len(product_links)} products for user {user_id}")
+        if is_product_page:
+            # ✅ SINGLE PRODUCT PAGE
+            logger.info(f"📦 Detected PRODUCT page, scraping single product...")
+            
+            product_data = await scraper.scrape_product(url)
+            
+            if not product_data.get('success'):
+                return JSONResponse(
+                    status_code=400,
+                    content={
+                        "success": False,
+                        "error": f"Failed to scrape product: {product_data.get('error', 'Unknown error')}"
+                    }
+                )
+            
+            # Save as single-product automation
+            success = await database_manager.save_scrape_url(user_id, url)
+            
+            if not success:
+                return JSONResponse(
+                    status_code=500,
+                    content={"success": False, "error": "Failed to save URL to database"}
+                )
+            
+            # Set total to 1 (this is a single product that will repeat)
+            await database_manager.update_scrape_progress(
+                user_id, 
+                total_found=1, 
+                processed=0
+            )
+            
+            logger.info(f"✅ Single product saved for user {user_id}")
+            
+            return JSONResponse(content={
+                "success": True,
+                "type": "single_product",
+                "message": "Product saved! This product will be used for automated videos.",
+                "data": {
+                    "total_products": 1,
+                    "url": url,
+                    "product_name": product_data.get('product_name', 'Product'),
+                    "brand": product_data.get('brand', 'Brand'),
+                    "price": product_data.get('price', 0),
+                    "images": len(product_data.get('images', [])),
+                    "sample_product": {
+                        "title": product_data.get('product_name'),
+                        "image": product_data.get('images', [None])[0],
+                        "url": url
+                    }
+                }
+            })
         
-        return JSONResponse(content={
-            "success": True,
-            "message": f"Successfully found {len(product_links)} products!",
-            "data": {
-                "total_products": len(product_links),
-                "url": url,
-                "sample_products": product_links[:5]  # Show first 5 as preview
-            }
-        })
+        else:
+            # ✅ CATEGORY/LISTING PAGE
+            logger.info(f"📋 Detected CATEGORY page, scraping product links...")
+            
+            product_links = await scraper.scrape_category_page(url, max_products=100)
+            
+            if not product_links:
+                return JSONResponse(
+                    status_code=404,
+                    content={
+                        "success": False, 
+                        "error": "No products found at this URL. Please check the URL and try again."
+                    }
+                )
+            
+            # Save URL to database
+            success = await database_manager.save_scrape_url(user_id, url)
+            
+            if not success:
+                return JSONResponse(
+                    status_code=500,
+                    content={"success": False, "error": "Failed to save URL to database"}
+                )
+            
+            # Update progress
+            await database_manager.update_scrape_progress(
+                user_id, 
+                total_found=len(product_links), 
+                processed=0
+            )
+            
+            logger.info(f"✅ Found {len(product_links)} products for user {user_id}")
+            
+            return JSONResponse(content={
+                "success": True,
+                "type": "category",
+                "message": f"Successfully found {len(product_links)} products!",
+                "data": {
+                    "total_products": len(product_links),
+                    "url": url,
+                    "sample_products": product_links[:5]  # Show first 5 as preview
+                }
+            })
         
     except Exception as e:
         logger.error(f"❌ Save URL failed: {e}")
@@ -3127,32 +3199,266 @@ async def save_scrape_url_route(request: Request):
         )
 
 
-@app.get("/api/automation/get-url/{user_id}")
-async def get_scrape_url_route(user_id: str):
-    """Get saved scrape URL and progress"""
+@app.post("/api/automation/generate-video-now")
+async def generate_video_now(request: Request):
+    """Generate video for next product in queue"""
     try:
+        body = await request.json()
+        user_id = body.get('user_id')
+        
+        if not user_id:
+            return JSONResponse(
+                status_code=400,
+                content={"success": False, "error": "user_id required"}
+            )
+        
+        logger.info(f"🎬 Generating video for user {user_id}")
+        
+        # Get saved URL
         url_doc = await database_manager.get_scrape_url(user_id)
         
         if not url_doc:
-            return JSONResponse(content={
-                "success": True,
-                "active": False,
-                "url": None,
-                "message": "No active automation"
-            })
+            return JSONResponse(
+                status_code=404,
+                content={"success": False, "error": "No automation URL found. Please save a URL first."}
+            )
+        
+        base_url = url_doc.get('url')
+        total_products = url_doc.get('total_products_found', 0)
+        processed = url_doc.get('products_processed', 0)
+        
+        if total_products == 0:
+            return JSONResponse(
+                status_code=404,
+                content={"success": False, "error": "No products available"}
+            )
+        
+        scraper = get_product_scraper()
+        
+        # Check if it's a single product or category
+        if total_products == 1:
+            # ✅ SINGLE PRODUCT - always scrape the same URL
+            logger.info(f"📦 Scraping single product: {base_url}")
+            product_data = await scraper.scrape_product(base_url)
+            
+        else:
+            # ✅ CATEGORY - scrape category page and get next product
+            logger.info(f"📋 Scraping category for next product...")
+            product_links = await scraper.scrape_category_page(base_url, max_products=100)
+            
+            if not product_links or processed >= len(product_links):
+                # Reset to first product if we've gone through all
+                processed = 0
+                await database_manager.update_scrape_progress(user_id, total_products, 0)
+            
+            # Get next product URL
+            next_product_url = product_links[processed]['url']
+            logger.info(f"📦 Scraping product {processed + 1}/{len(product_links)}: {next_product_url}")
+            
+            product_data = await scraper.scrape_product(next_product_url)
+        
+        if not product_data.get('success'):
+            return JSONResponse(
+                status_code=400,
+                content={
+                    "success": False,
+                    "error": f"Failed to scrape product: {product_data.get('error', 'Unknown error')}"
+                }
+            )
+        
+        # Get images
+        images = product_data.get('images', [])[:3]  # Take 3 images
+        
+        if len(images) < 1:
+            return JSONResponse(
+                status_code=400,
+                content={"success": False, "error": "No images found for this product"}
+            )
+        
+        logger.info(f"🖼️ Found {len(images)} images, converting to base64...")
+        
+        # Convert URLs to base64
+        base64_images = []
+        async with httpx.AsyncClient(timeout=30) as client:
+            for img_url in images:
+                try:
+                    response = await client.get(img_url)
+                    if response.status_code == 200:
+                        img_base64 = base64.b64encode(response.content).decode()
+                        base64_images.append(f"data:image/jpeg;base64,{img_base64}")
+                except Exception as img_error:
+                    logger.warning(f"Failed to fetch image: {img_error}")
+                    continue
+        
+        if not base64_images:
+            return JSONResponse(
+                status_code=400,
+                content={"success": False, "error": "Failed to download product images"}
+            )
+        
+        logger.info(f"✅ Converted {len(base64_images)} images to base64")
+        
+        # Generate slideshow video
+        logger.info(f"🎥 Generating slideshow video...")
+        video_gen = get_video_generator()
+        
+        video_result = await video_gen.generate_slideshow(
+            images=base64_images,
+            title=product_data.get('product_name', 'Product'),
+            language='english',
+            duration_per_image=2.0,
+            transition='fade',
+            add_text=True,
+            aspect_ratio="9:16"  # YouTube Shorts
+        )
+        
+        if not video_result.get('success'):
+            return JSONResponse(
+                status_code=500,
+                content={
+                    "success": False,
+                    "error": f"Video generation failed: {video_result.get('error', 'Unknown error')}"
+                }
+            )
+        
+        logger.info(f"✅ Video generated successfully!")
+        
+        # Update processed count
+        await database_manager.update_scrape_progress(
+            user_id,
+            total_products,
+            processed + 1
+        )
         
         return JSONResponse(content={
             "success": True,
-            "active": True,
-            "url": url_doc.get('url'),
-            "total_products": url_doc.get('total_products_found', 0),
-            "products_processed": url_doc.get('products_processed', 0),
-            "created_at": url_doc.get('created_at').isoformat() if url_doc.get('created_at') else None,
-            "last_scraped": url_doc.get('last_scraped').isoformat() if url_doc.get('last_scraped') else None
+            "message": "Video generated successfully!",
+            "data": {
+                "video_path": video_result.get('local_path'),
+                "product_name": product_data.get('product_name'),
+                "brand": product_data.get('brand'),
+                "price": product_data.get('price'),
+                "images_used": len(base64_images),
+                "progress": {
+                    "current": processed + 1,
+                    "total": total_products
+                }
+            }
         })
         
     except Exception as e:
-        logger.error(f"❌ Get URL failed: {e}")
+        logger.error(f"❌ Generate video failed: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "error": str(e)}
+        )
+
+
+@app.post("/api/automation/upload-video-now")
+async def upload_video_now(request: Request):
+    """Generate video + upload to YouTube in one step"""
+    try:
+        body = await request.json()
+        user_id = body.get('user_id')
+        
+        if not user_id:
+            return JSONResponse(
+                status_code=400,
+                content={"success": False, "error": "user_id required"}
+            )
+        
+        logger.info(f"🚀 Full automation for user {user_id}: scrape → video → upload")
+        
+        # Step 1: Check YouTube credentials
+        youtube_creds = await database_manager.get_youtube_credentials(user_id)
+        
+        if not youtube_creds:
+            return JSONResponse(
+                status_code=403,
+                content={"success": False, "error": "YouTube not connected. Please connect your YouTube account first."}
+            )
+        
+        # Step 2: Generate video (reuse the generate_video_now logic)
+        from fastapi import Request as FastAPIRequest
+        
+        # Create a mock request with user_id
+        mock_request_data = {"user_id": user_id}
+        
+        # Call generate_video_now endpoint
+        video_response = await generate_video_now(
+            Request(scope={"type": "http", "method": "POST"}, receive=None)
+        )
+        
+        # Parse the response
+        import json
+        video_result = json.loads(video_response.body.decode())
+        
+        if not video_result.get('success'):
+            return JSONResponse(
+                status_code=400,
+                content=video_result
+            )
+        
+        video_data = video_result.get('data', {})
+        video_path = video_data.get('video_path')
+        product_name = video_data.get('product_name', 'Product')
+        brand = video_data.get('brand', 'Brand')
+        price = video_data.get('price', 0)
+        
+        # Step 3: Upload to YouTube
+        logger.info(f"📤 Uploading to YouTube...")
+        
+        # Get YouTube services
+        from mainY import youtube_scheduler
+        
+        upload_result = await youtube_scheduler.upload_video(
+            user_id=user_id,
+            credentials_data=youtube_creds,
+            video_file_path=video_path,
+            title=f"{brand} - {product_name}",
+            description=f"Check out this amazing product!\n\n{brand} - {product_name}\nPrice: ₹{price}\n\n#shorts #product #shopping",
+            category_id="22",  # People & Blogs
+            privacy_status="public",
+            tags=["shorts", "product", brand.lower(), "shopping"]
+        )
+        
+        if not upload_result.get('success'):
+            return JSONResponse(
+                status_code=500,
+                content={
+                    "success": False,
+                    "error": f"Upload failed: {upload_result.get('error', 'Unknown error')}"
+                }
+            )
+        
+        # Log to database
+        await database_manager.log_automation_post(user_id, {
+            "product_name": product_name,
+            "video_id": upload_result.get('video_id'),
+            "timestamp": datetime.now(),
+            "success": True
+        })
+        
+        logger.info(f"✅ Full automation complete! Video ID: {upload_result.get('video_id')}")
+        
+        return JSONResponse(content={
+            "success": True,
+            "message": "Video uploaded to YouTube successfully!",
+            "data": {
+                "video_id": upload_result.get('video_id'),
+                "video_url": f"https://youtube.com/shorts/{upload_result.get('video_id')}",
+                "product_name": product_name,
+                "brand": brand,
+                "price": price
+            }
+        })
+        
+    except Exception as e:
+        logger.error(f"❌ Upload video failed: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
         return JSONResponse(
             status_code=500,
             content={"success": False, "error": str(e)}
