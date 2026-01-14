@@ -38,13 +38,149 @@
    BASE STYLES
    ====================================================== */
 
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
 html {
   scroll-behavior: smooth;
+  font-size: 16px;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  line-height: 1.6;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ======================================================
+   FORM ELEMENTS & TEXT INPUT FIX
+   ====================================================== */
+
+input,
+textarea,
+select,
+button {
+  font-family: inherit;
+  font-size: 100%;
+  line-height: 1.15;
+  margin: 0;
+  color: inherit;
+  background: transparent;
+}
+
+input,
+textarea,
+select {
+  display: block;
+  width: 100%;
+  padding: 0.75rem 1rem;
+  background: rgba(31, 29, 43, 0.8);
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  color: var(--foreground);
+  transition: all 0.3s ease;
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: rgba(255, 255, 255, 0.5);
+  opacity: 1;
+}
+
+input::-webkit-input-placeholder,
+textarea::-webkit-input-placeholder {
+  color: rgba(255, 255, 255, 0.5);
+  opacity: 1;
+}
+
+input::-moz-placeholder,
+textarea::-moz-placeholder {
+  color: rgba(255, 255, 255, 0.5);
+  opacity: 1;
+}
+
+/* Password field specific fixes */
+input[type="password"],
+input[type="text"],
+input[type="email"],
+input[type="number"] {
+  -webkit-text-fill-color: var(--foreground);
+  opacity: 1;
+  caret-color: var(--primary);
+}
+
+/* Auto-fill styles */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 30px rgba(31, 29, 43, 0.8) inset !important;
+  -webkit-text-fill-color: var(--foreground) !important;
+}
+
+/* ======================================================
+   BUTTON STYLES
+   ====================================================== */
+
+button {
+  cursor: pointer;
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 0.5rem;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ======================================================
+   RESPONSIVE TYPOGRAPHY
+   ====================================================== */
+
+h1 {
+  font-size: clamp(2rem, 5vw, 3.5rem);
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+h2 {
+  font-size: clamp(1.5rem, 4vw, 2.5rem);
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+h3 {
+  font-size: clamp(1.25rem, 3vw, 2rem);
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+h4 {
+  font-size: clamp(1.1rem, 2.5vw, 1.5rem);
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+p {
+  font-size: clamp(0.875rem, 2vw, 1rem);
+  line-height: 1.6;
 }
 
 /* ======================================================
@@ -91,12 +227,14 @@ body {
   background: linear-gradient(135deg, #8b5cf6, #06b6d4);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 .gradient-text-youtube {
   background: linear-gradient(135deg, #ff0000, #ff6b6b);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 /* ======================================================
@@ -159,6 +297,79 @@ body {
   border-radius: 4px;
 }
 
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #9f7aea, #22d3ee);
+}
+
+/* ======================================================
+   RESPONSIVE CONTAINER
+   ====================================================== */
+
+.container {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 1rem;
+}
+
+/* ======================================================
+   RESPONSIVE BREAKPOINTS
+   ====================================================== */
+
+/* Mobile First - Base styles above are for mobile */
+
+/* Tablet and up (768px) */
+@media (min-width: 768px) {
+  html {
+    font-size: 16px;
+  }
+
+  .container {
+    padding: 0 2rem;
+  }
+
+  input,
+  textarea,
+  select {
+    padding: 0.875rem 1.25rem;
+  }
+}
+
+/* Desktop and up (1024px) */
+@media (min-width: 1024px) {
+  .container {
+    padding: 0 3rem;
+  }
+}
+
+/* Large Desktop (1280px) */
+@media (min-width: 1280px) {
+  .container {
+    max-width: 1280px;
+  }
+}
+
+/* Mobile specific (max-width: 767px) */
+@media (max-width: 767px) {
+  .glass,
+  .glass-dark {
+    backdrop-filter: blur(10px);
+  }
+
+  .glow-purple,
+  .glow-cyan,
+  .glow-red {
+    box-shadow: 0 0 15px rgba(139, 92, 246, 0.3);
+  }
+}
+
+/* Landscape mobile (orientation) */
+@media (max-height: 600px) and (orientation: landscape) {
+  html {
+    font-size: 14px;
+  }
+}
+
 /* ======================================================
    ACCESSIBILITY
    ====================================================== */
@@ -168,12 +379,67 @@ body {
     animation: none !important;
     transition: none !important;
   }
+  
+  html {
+    scroll-behavior: auto;
+  }
 }
 
+/* Focus visible for keyboard navigation */
+*:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
 
+/* ======================================================
+   UTILITY CLASSES
+   ====================================================== */
 
+.text-visible {
+  opacity: 1 !important;
+  visibility: visible !important;
+}
 
-/* ==== SAFETY VISIBILITY PATCH ==== */
+.w-full {
+  width: 100%;
+}
+
+.h-full {
+  height: 100%;
+}
+
+.flex {
+  display: flex;
+}
+
+.flex-col {
+  flex-direction: column;
+}
+
+.items-center {
+  align-items: center;
+}
+
+.justify-center {
+  justify-content: center;
+}
+
+.gap-4 {
+  gap: 1rem;
+}
+
+.p-4 {
+  padding: 1rem;
+}
+
+.m-4 {
+  margin: 1rem;
+}
+
+/* ======================================================
+   SAFETY VISIBILITY PATCH
+   ====================================================== */
+
 .animate-fade-in,
 .animate-slide-up,
 .animate-scale-in {
@@ -181,8 +447,39 @@ body {
   transform: none !important;
 }
 
-/* Ensure sections are visible */
-section {
+/* Ensure sections and text are visible */
+section,
+div,
+p,
+span,
+label {
   visibility: visible;
   opacity: 1;
+}
+
+/* Ensure form elements are always visible */
+input,
+textarea,
+select,
+button,
+label {
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+/* ======================================================
+   PRINT STYLES
+   ====================================================== */
+
+@media print {
+  body {
+    background: white;
+    color: black;
+  }
+
+  .glass,
+  .glass-dark {
+    background: white;
+    border: 1px solid #ccc;
+  }
 }
