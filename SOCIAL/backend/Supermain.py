@@ -3050,10 +3050,13 @@ except Exception as e:
 # ============================================================================
 # PRODUCT AUTOMATION ROUTES
 # ============================================================================
+# ============================================================================
+# PASTE THIS IN YOUR Supermain.py - REPLACE THE EXISTING AUTOMATION ROUTES
+# ============================================================================
 
 @app.post("/api/automation/save-url")
 async def save_scrape_url_route(request: Request):
-    """Save category URL to scrape"""
+    """Save category URL to scrape and get product count"""
     try:
         body = await request.json()
         user_id = body.get('user_id')
@@ -3068,28 +3071,50 @@ async def save_scrape_url_route(request: Request):
         if not url.startswith('http'):
             return JSONResponse(
                 status_code=400,
-                content={"success": False, "error": "Invalid URL"}
+                content={"success": False, "error": "Invalid URL format. Must start with http:// or https://"}
             )
         
+        logger.info(f"📋 Scraping category page for user {user_id}: {url}")
+        
+        # Step 1: Scrape the category page to get product links
+        scraper = get_product_scraper()
+        product_links = await scraper.scrape_category_page(url, max_products=100)
+        
+        if not product_links:
+            return JSONResponse(
+                status_code=404,
+                content={
+                    "success": False, 
+                    "error": "No products found at this URL. Please check the URL and try again."
+                }
+            )
+        
+        # Step 2: Save URL to database
         success = await database_manager.save_scrape_url(user_id, url)
         
         if not success:
             return JSONResponse(
                 status_code=500,
-                content={"success": False, "error": "Failed to save URL"}
+                content={"success": False, "error": "Failed to save URL to database"}
             )
         
-        scraper = get_product_scraper()
-        product_links = await scraper.scrape_category_page(url)
+        # Step 3: Update progress
+        await database_manager.update_scrape_progress(
+            user_id, 
+            total_found=len(product_links), 
+            processed=0
+        )
         
-        await database_manager.update_scrape_progress(user_id, len(product_links), 0)
-        
-        logger.info(f"✅ URL saved for user {user_id}: {len(product_links)} products found")
+        logger.info(f"✅ Found {len(product_links)} products for user {user_id}")
         
         return JSONResponse(content={
             "success": True,
-            "message": f"Found {len(product_links)} products",
-            "total_products": len(product_links)
+            "message": f"Successfully found {len(product_links)} products!",
+            "data": {
+                "total_products": len(product_links),
+                "url": url,
+                "sample_products": product_links[:5]  # Show first 5 as preview
+            }
         })
         
     except Exception as e:
@@ -3101,23 +3126,29 @@ async def save_scrape_url_route(request: Request):
             content={"success": False, "error": str(e)}
         )
 
+
 @app.get("/api/automation/get-url/{user_id}")
 async def get_scrape_url_route(user_id: str):
-    """Get saved scrape URL"""
+    """Get saved scrape URL and progress"""
     try:
         url_doc = await database_manager.get_scrape_url(user_id)
         
         if not url_doc:
             return JSONResponse(content={
                 "success": True,
-                "url": None
+                "active": False,
+                "url": None,
+                "message": "No active automation"
             })
         
         return JSONResponse(content={
             "success": True,
+            "active": True,
             "url": url_doc.get('url'),
             "total_products": url_doc.get('total_products_found', 0),
-            "products_processed": url_doc.get('products_processed', 0)
+            "products_processed": url_doc.get('products_processed', 0),
+            "created_at": url_doc.get('created_at').isoformat() if url_doc.get('created_at') else None,
+            "last_scraped": url_doc.get('last_scraped').isoformat() if url_doc.get('last_scraped') else None
         })
         
     except Exception as e:
@@ -3127,15 +3158,19 @@ async def get_scrape_url_route(user_id: str):
             content={"success": False, "error": str(e)}
         )
 
+
 @app.delete("/api/automation/delete-url/{user_id}")
 async def delete_scrape_url_route(user_id: str):
-    """Delete saved URL"""
+    """Stop automation and delete saved URL"""
     try:
         success = await database_manager.delete_scrape_url(user_id)
         
+        if success:
+            logger.info(f"✅ Automation stopped for user {user_id}")
+        
         return JSONResponse(content={
             "success": success,
-            "message": "URL deleted" if success else "Failed to delete"
+            "message": "Automation stopped successfully" if success else "Failed to stop automation"
         })
         
     except Exception as e:
@@ -3145,6 +3180,139 @@ async def delete_scrape_url_route(user_id: str):
             content={"success": False, "error": str(e)}
         )
 
+
+@app.post("/api/automation/scrape-single-product")
+async def scrape_single_product_route(request: Request):
+    """Scrape detailed info for a single product"""
+    try:
+        body = await request.json()
+        product_url = body.get('product_url')
+        
+        if not product_url:
+            return JSONResponse(
+                status_code=400,
+                content={"success": False, "error": "product_url required"}
+            )
+        
+        logger.info(f"🔍 Scraping single product: {product_url}")
+        
+        scraper = get_product_scraper()
+        product_data = await scraper.scrape_product(product_url)
+        
+        if not product_data.get('success'):
+            return JSONResponse(
+                status_code=400,
+                content={
+                    "success": False, 
+                    "error": product_data.get('error', 'Failed to scrape product')
+                }
+            )
+        
+        logger.info(f"✅ Product scraped: {product_data.get('product_name')}")
+        
+        return JSONResponse(content={
+            "success": True,
+            "product": product_data
+        })
+        
+    except Exception as e:
+        logger.error(f"❌ Single product scrape failed: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "error": str(e)}
+        )
+
+
+@app.get("/api/automation/status/{user_id}")
+async def get_automation_status(user_id: str):
+    """Get current automation status"""
+    try:
+        # Get URL data
+        url_doc = await database_manager.get_scrape_url(user_id)
+        
+        # Get today's posts
+        from datetime import datetime
+        today_posts = await database_manager.get_automation_posts_count(
+            user_id,
+            date=datetime.now().date()
+        )
+        
+        if not url_doc:
+            return JSONResponse(content={
+                "success": True,
+                "active": False,
+                "posts_today": today_posts
+            })
+        
+        return JSONResponse(content={
+            "success": True,
+            "active": True,
+            "url": url_doc.get('url'),
+            "total_products": url_doc.get('total_products_found', 0),
+            "products_processed": url_doc.get('products_processed', 0),
+            "posts_today": today_posts,
+            "daily_limit": 10,  # You can make this configurable
+            "remaining_today": max(0, 10 - today_posts)
+        })
+        
+    except Exception as e:
+        logger.error(f"❌ Get automation status failed: {e}")
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "error": str(e)}
+        )
+
+
+@app.post("/api/automation/test-scraper")
+async def test_scraper_route(request: Request):
+    """Test scraper with a URL to see if it works"""
+    try:
+        body = await request.json()
+        url = body.get('url')
+        scrape_type = body.get('type', 'category')  # 'category' or 'product'
+        
+        if not url:
+            return JSONResponse(
+                status_code=400,
+                content={"success": False, "error": "url required"}
+            )
+        
+        logger.info(f"🧪 Testing scraper - Type: {scrape_type}, URL: {url}")
+        
+        scraper = get_product_scraper()
+        
+        if scrape_type == 'category':
+            # Test category page scraping
+            products = await scraper.scrape_category_page(url, max_products=5)
+            
+            return JSONResponse(content={
+                "success": len(products) > 0,
+                "type": "category",
+                "products_found": len(products),
+                "sample_products": products[:3],
+                "message": f"Found {len(products)} products" if products else "No products found"
+            })
+        else:
+            # Test single product scraping
+            product_data = await scraper.scrape_product(url)
+            
+            return JSONResponse(content={
+                "success": product_data.get('success', False),
+                "type": "product",
+                "product": product_data,
+                "message": "Product scraped successfully" if product_data.get('success') else "Scraping failed"
+            })
+        
+    except Exception as e:
+        logger.error(f"❌ Test scraper failed: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "error": str(e)}
+        )
 
 # ============================================================================
 # RUN APPLICATION
