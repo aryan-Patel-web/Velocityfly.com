@@ -550,7 +550,6 @@ YTscrapADS.py - Production-Grade Universal Product Scraper
 Supports: 1000+ Global E-commerce Platforms
 Accuracy: 98%+ with multiple fallback methods
 """
-
 import asyncio
 import logging
 import re
@@ -565,6 +564,7 @@ from playwright.async_api import async_playwright
 from bs4 import BeautifulSoup
 
 logger = logging.getLogger(__name__)
+
 
 class UniversalProductScraper:
     """
@@ -591,14 +591,12 @@ class UniversalProductScraper:
             '--disable-component-update',
             '--window-size=1920,1080'
         ]
-        
         self.default_timeout = 50000
         self.scroll_wait = 1500
-    
+
     def extract_url(self, input_string: str) -> str:
         """Extract clean URL from any input string"""
         input_string = input_string.strip()
-        
         url_pattern = r'https?://[^\s<>"{}|\\^`\[\]]+'
         urls = re.findall(url_pattern, input_string)
         
@@ -616,7 +614,7 @@ class UniversalProductScraper:
             return f'https://{input_string}'
         
         raise ValueError(f"Could not extract valid URL from: {input_string[:100]}")
-    
+
     # ============================================================================
     # ✅ NEW METHOD: SCRAPE CATEGORY/LISTING PAGES
     # ============================================================================
@@ -625,11 +623,9 @@ class UniversalProductScraper:
         """
         ✅ Scrape product listings from category/search pages
         Works with: Flipkart, Amazon, Myntra, Bewakoof, generic e-commerce
-        
         Returns list of products with: url, title, image, price
         """
         p, browser, context, page = None, None, None, None
-        
         try:
             logger.info(f"📋 Scraping category page: {url}")
             
@@ -693,10 +689,9 @@ class UniversalProductScraper:
             return []
         finally:
             await self._cleanup(page, context, browser, p)
-    
+
     def _get_category_selectors(self, domain: str) -> dict:
         """Get site-specific selectors for category pages"""
-        
         if 'flipkart' in domain:
             return {
                 'product_container': 'div._1AtVbE, div[data-id], a._1fQZEK',
@@ -706,7 +701,6 @@ class UniversalProductScraper:
                 'product_price': 'div._30jeq3, div._3I9_wc',
                 'load_more': 'button:has-text("Load More"), div._2ivKJI'
             }
-        
         elif 'amazon' in domain:
             return {
                 'product_container': 'div[data-component-type="s-search-result"], div.s-result-item',
@@ -716,7 +710,6 @@ class UniversalProductScraper:
                 'product_price': 'span.a-price-whole, span.a-price',
                 'load_more': None
             }
-        
         elif 'myntra' in domain:
             return {
                 'product_container': 'li.product-base, div.product-base',
@@ -726,7 +719,6 @@ class UniversalProductScraper:
                 'product_price': 'span.product-discountedPrice, div.product-price',
                 'load_more': None
             }
-        
         elif 'bewakoof' in domain or 'ajio' in domain:
             return {
                 'product_container': 'div.productCardImg, div[class*="product"], article',
@@ -736,7 +728,6 @@ class UniversalProductScraper:
                 'product_price': 'span[class*="price"], div[class*="price"]',
                 'load_more': 'button:has-text("Load More")'
             }
-        
         else:
             # Generic fallback
             return {
@@ -747,7 +738,7 @@ class UniversalProductScraper:
                 'product_price': '[class*="price"]',
                 'load_more': 'button:has-text("Load"), button:has-text("More")'
             }
-    
+
     def _extract_product_from_listing(self, container, selectors: dict, base_url: str) -> Optional[Dict]:
         """Extract product info from a listing container"""
         try:
@@ -771,10 +762,8 @@ class UniversalProductScraper:
             # Extract image
             img = container.select_one(selectors['product_image'])
             if img:
-                img_src = (img.get('src') or 
-                          img.get('data-src') or 
-                          img.get('data-lazy-src') or 
-                          img.get('data-original'))
+                img_src = (img.get('src') or img.get('data-src') or 
+                          img.get('data-lazy-src') or img.get('data-original'))
                 if img_src:
                     product['image'] = urljoin(base_url, img_src)
             
@@ -791,7 +780,7 @@ class UniversalProductScraper:
         except Exception as e:
             logger.debug(f"Extract product error: {e}")
             return None
-    
+
     # ============================================================================
     # EXISTING METHODS (Keep all your existing code below)
     # ============================================================================
@@ -822,14 +811,44 @@ class UniversalProductScraper:
         except Exception as e:
             logger.error(f"Routing failed: {e}")
             return {"success": False, "error": f"Failed to process URL: {str(e)[:200]}"}
-    
+
     async def _create_browser_context(self):
-        """Create browser with realistic settings"""
+        """Create browser with realistic settings - RENDER COMPATIBLE"""
         p = await async_playwright().start()
-        browser = await p.chromium.launch(
-            headless=True,
-            args=self.browser_args
-        )
+        
+        # ✅ FIX: Use executable_path for Render deployment
+        browser_executable = None
+        
+        # Check if running on Render (has /opt/render path)
+        if os.path.exists('/opt/render/project/.browsers'):
+            # Render deployment - use custom browser path
+            chromium_path = '/opt/render/project/.browsers/chromium-1148/chrome-linux/chrome'
+            if os.path.exists(chromium_path):
+                browser_executable = chromium_path
+                logger.info(f"✅ Using Render Chromium: {chromium_path}")
+            else:
+                logger.warning(f"⚠️ Chromium not found at {chromium_path}, trying system")
+        
+        # Launch browser
+        launch_options = {
+            'headless': True,
+            'args': self.browser_args
+        }
+        
+        if browser_executable:
+            launch_options['executable_path'] = browser_executable
+        
+        try:
+            browser = await p.chromium.launch(**launch_options)
+        except Exception as e:
+            logger.error(f"Browser launch failed: {e}")
+            # Fallback: try without executable_path
+            if 'executable_path' in launch_options:
+                del launch_options['executable_path']
+                logger.info("Retrying without executable_path...")
+                browser = await p.chromium.launch(**launch_options)
+            else:
+                raise
         
         context = await browser.new_context(
             user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -843,32 +862,25 @@ class UniversalProductScraper:
         )
         
         return p, browser, context
-    
+
     async def _wait_and_scroll(self, page, times: int = 3):
         """Progressive scrolling to trigger lazy loading"""
         try:
             await asyncio.sleep(2)
-            
             for i in range(times):
                 scroll_position = (i + 1) * 400
                 await page.evaluate(f'window.scrollTo(0, {scroll_position})')
                 await asyncio.sleep(1)
-            
             await page.evaluate('window.scrollTo(0, 0)')
             await asyncio.sleep(1)
         except Exception as e:
             logger.warning(f"Scroll error: {e}")
-    
-    # Keep ALL your existing _scrape_flipkart, _scrape_amazon, etc. methods
-    # I'm not including them here to save space, but KEEP THEM ALL
-    
+
     async def _scrape_flipkart(self, url: str) -> Dict:
         """Flipkart scraper - handles both regular and short URLs"""
         p, browser, context, page = None, None, None, None
-        
         try:
             logger.info("Flipkart scraper initiated")
-            
             p, browser, context = await self._create_browser_context()
             page = await context.new_page()
             
@@ -878,10 +890,8 @@ class UniversalProductScraper:
                     response = await page.goto(url, wait_until='networkidle', timeout=self.default_timeout)
                     final_url = page.url
                     logger.info(f"Redirected to: {final_url}")
-                    
                     if 'flipkart.com' not in final_url:
                         raise Exception("Redirect failed - not a Flipkart product page")
-                        
                 except Exception as redirect_error:
                     logger.error(f"Redirect handling failed: {redirect_error}")
                     await page.goto(url, wait_until='domcontentloaded', timeout=self.default_timeout)
@@ -892,7 +902,6 @@ class UniversalProductScraper:
                     await page.goto(url, wait_until='domcontentloaded', timeout=self.default_timeout)
             
             await self._wait_and_scroll(page, times=4)
-            
             content = await page.content()
             soup = BeautifulSoup(content, 'html.parser')
             
@@ -941,8 +950,7 @@ class UniversalProductScraper:
             return {"success": False, "error": f"Flipkart: {str(e)[:150]}"}
         finally:
             await self._cleanup(page, context, browser, p)
-    
-    # KEEP ALL YOUR EXISTING EXTRACTION METHODS
+
     async def _extract_flipkart_brand(self, soup, page) -> str:
         """Extract brand with 8 fallback methods"""
         for selector in ['span.VU-ZEz', 'a.s1Q9rs', 'span._35KyD6', 'a._2Zgy30']:
@@ -966,7 +974,7 @@ class UniversalProductScraper:
                     return brand
         
         return "Brand"
-    
+
     async def _extract_flipkart_name(self, soup, page) -> str:
         """Extract product name"""
         for selector in ['span.VU-ZEz', 'h1.yhB1nd', 'span._35KyD6']:
@@ -974,7 +982,7 @@ class UniversalProductScraper:
             if elem and len(elem.text.strip()) > 10:
                 return elem.text.strip()
         return "Product"
-    
+
     async def _extract_flipkart_price(self, soup) -> float:
         """Extract price"""
         for selector in ['div.Nx9bqj.CxhGGd', 'div._30jeq3']:
@@ -988,7 +996,7 @@ class UniversalProductScraper:
                 except:
                     continue
         return 0.0
-    
+
     async def _extract_flipkart_original_price(self, soup, current_price) -> float:
         """Extract original price"""
         for selector in ['div.yRaY8j.A6+E6v', 'div._3I9_wc._2p6lqe']:
@@ -1001,11 +1009,10 @@ class UniversalProductScraper:
                 except:
                     continue
         return current_price
-    
+
     async def _extract_flipkart_images(self, soup, page) -> List[str]:
         """Extract images"""
         images = []
-        
         try:
             js_images = await page.evaluate("""
                 () => {
@@ -1023,9 +1030,8 @@ class UniversalProductScraper:
             images.extend(js_images)
         except:
             pass
-        
         return images[:8]
-    
+
     async def _extract_flipkart_sizes(self, soup) -> List[str]:
         """Extract sizes"""
         sizes = []
@@ -1034,7 +1040,7 @@ class UniversalProductScraper:
             if size and len(size) <= 6:
                 sizes.append(size)
         return sizes[:15]
-    
+
     async def _extract_flipkart_colors(self, soup) -> List[str]:
         """Extract colors"""
         colors = []
@@ -1043,28 +1049,36 @@ class UniversalProductScraper:
             if color:
                 colors.append(color)
         return colors[:10]
-    
+
     async def _extract_flipkart_ratings(self, soup) -> Tuple[float, int]:
         """Extract rating"""
         rating = 0.0
         rating_count = 0
-        
         rating_elem = soup.select_one('div._3LWZlK, span._1lRcqv')
         if rating_elem:
             try:
                 rating = float(rating_elem.text.strip())
             except:
                 pass
-        
         return rating, rating_count
-    
+
+    async def _scrape_amazon(self, url: str) -> Dict:
+        """Amazon scraper - placeholder (implement as needed)"""
+        return {"success": False, "error": "Amazon scraper not implemented"}
+
+    async def _scrape_myntra(self, url: str) -> Dict:
+        """Myntra scraper - placeholder (implement as needed)"""
+        return {"success": False, "error": "Myntra scraper not implemented"}
+
+    async def _scrape_ajio(self, url: str) -> Dict:
+        """Ajio scraper - placeholder (implement as needed)"""
+        return {"success": False, "error": "Ajio scraper not implemented"}
+
     async def _scrape_generic(self, url: str) -> Dict:
         """Universal generic scraper"""
         p, browser, context, page = None, None, None, None
-        
         try:
             logger.info(f"Generic scraper for: {urlparse(url).netloc}")
-            
             p, browser, context = await self._create_browser_context()
             page = await context.new_page()
             
@@ -1074,7 +1088,6 @@ class UniversalProductScraper:
                 await page.goto(url, wait_until='domcontentloaded', timeout=self.default_timeout)
             
             await self._wait_and_scroll(page, times=3)
-            
             content = await page.content()
             soup = BeautifulSoup(content, 'html.parser')
             
@@ -1087,9 +1100,7 @@ class UniversalProductScraper:
                     const imgs = new Set();
                     document.querySelectorAll('img').forEach(img => {
                         const src = img.src || img.getAttribute('data-src');
-                        if (src && src.startsWith('http') && 
-                            !src.includes('logo') && 
-                            !src.includes('icon')) {
+                        if (src && src.startsWith('http') && !src.includes('logo') && !src.includes('icon')) {
                             imgs.add(src);
                         }
                     });
@@ -1140,7 +1151,7 @@ class UniversalProductScraper:
             return {"success": False, "error": f"Failed: {str(e)[:150]}"}
         finally:
             await self._cleanup(page, context, browser, p)
-    
+
     async def _cleanup(self, page, context, browser, p):
         """Cleanup browser resources"""
         try:
@@ -1158,6 +1169,7 @@ class UniversalProductScraper:
 
 # Global instance
 product_scraper = UniversalProductScraper()
+
 
 def get_product_scraper():
     return product_scraper
