@@ -4690,7 +4690,7 @@ async def generate_youtube_slideshow(request: dict):
             transition='fade',
             add_text=True,
             add_music=True,
-            music_style="upbeat"
+            music_style="upbeat",
             aspect_ratio="9:16",
             product_data=product_data  # ✅ This adds professional ad overlays
         )
