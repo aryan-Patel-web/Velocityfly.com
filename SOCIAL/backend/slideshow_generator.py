@@ -444,11 +444,13 @@
 
 
 """
-slideshow_generator.py - OVERLAYS INSIDE IMAGES (YouTube-Safe)
-✅ Overlays burned ONTO images (not below them)
-✅ Attractive gradient cards with animated text
-✅ Different colors per image
-✅ 100% visible on YouTube Shorts
+slideshow_generator.py - SIMPLE TEXT OVERLAYS (Foolproof)
+✅ Step 1: Add text overlay ON each image using PIL
+✅ Step 2: Save overlaid images
+✅ Step 3: Create video from overlaid images
+✅ Step 4: Upload to YouTube (overlays are permanent)
+
+Simple approach: Just text at bottom of image (no complex cards)
 """
 
 import os
@@ -461,52 +463,13 @@ import io
 import gc
 from pathlib import Path
 from typing import List, Dict, Any, Tuple, Optional
-from PIL import Image, ImageDraw, ImageFont, ImageFilter
-import random
+from PIL import Image, ImageDraw, ImageFont
+import textwrap
 
 logger = logging.getLogger(__name__)
 
 class SlideshowGenerator:
-    """Generate product ad videos with overlays INSIDE images"""
-    
-    # Colorful gradient themes (changes per image)
-    COLOR_THEMES = [
-        {
-            "name": "Gold Rush",
-            "bg": (26, 26, 26, 220),      # Dark gray
-            "gradient": (50, 35, 0, 220),  # Dark gold
-            "text": (255, 215, 0),         # Gold
-            "accent": (255, 107, 107)      # Coral red
-        },
-        {
-            "name": "Ocean Wave",
-            "bg": (10, 10, 46, 220),       # Navy
-            "gradient": (0, 60, 100, 220), # Deep blue
-            "text": (0, 255, 247),         # Cyan
-            "accent": (255, 60, 172)       # Hot pink
-        },
-        {
-            "name": "Forest Fresh",
-            "bg": (26, 77, 46, 220),       # Forest green
-            "gradient": (50, 100, 60, 220),# Medium green
-            "text": (255, 230, 109),       # Yellow
-            "accent": (78, 205, 196)       # Teal
-        },
-        {
-            "name": "Purple Haze",
-            "bg": (45, 27, 78, 220),       # Deep purple
-            "gradient": (70, 40, 100, 220),# Purple
-            "text": (255, 108, 203),       # Pink
-            "accent": (255, 165, 0)        # Orange
-        },
-        {
-            "name": "Crimson Fire",
-            "bg": (74, 14, 14, 220),       # Dark red
-            "gradient": (100, 20, 20, 220),# Red
-            "text": (255, 255, 170),       # Light yellow
-            "accent": (0, 255, 0)          # Lime green
-        },
-    ]
+    """Generate videos with simple text overlays on images"""
     
     QUALITY_TIERS = [
         {"name": "720p", "resolution": (720, 1280), "crf": 23, "preset": "fast"},
@@ -516,7 +479,7 @@ class SlideshowGenerator:
     def __init__(self):
         self.ffmpeg_path = self._find_ffmpeg()
         self.temp_dir = tempfile.gettempdir()
-        logger.info(f"SlideshowGenerator initialized - FFmpeg: {self.ffmpeg_path}")
+        logger.info(f"✅ SlideshowGenerator initialized")
     
     def _find_ffmpeg(self) -> str:
         """Find FFmpeg executable"""
@@ -543,7 +506,14 @@ class SlideshowGenerator:
         aspect_ratio: str = "9:16",
         product_data: Dict = None
     ) -> Dict[str, Any]:
-        """Generate slideshow with overlays INSIDE images"""
+        """
+        Generate slideshow with text overlays
+        
+        Args:
+            images: List of base64 encoded images
+            title: Video title
+            product_data: Dict with product info (name, price, brand, etc.)
+        """
         
         if not 2 <= len(images) <= 6:
             return {"success": False, "error": "Upload 2-6 images"}
@@ -559,44 +529,56 @@ class SlideshowGenerator:
         work_dir = Path(self.temp_dir) / session_id
         work_dir.mkdir(exist_ok=True, parents=True)
         
-        logger.info(f"🎬 Creating product ad with INSIDE overlays...")
+        logger.info(f"🎬 Creating slideshow with text overlays...")
+        logger.info(f"📦 Product data: {bool(product_data)}")
         
         for tier_index, quality_tier in enumerate(self.QUALITY_TIERS):
             try:
-                logger.info(f"🎬 Quality: {quality_tier['name']}")
+                logger.info(f"🎬 Attempting quality: {quality_tier['name']}")
                 
-                # Step 1: Save images
-                image_paths = await self._save_images_optimized(
+                # STEP 1: Save base images (resize to target resolution)
+                logger.info("📥 Step 1: Saving base images...")
+                base_image_paths = await self._save_base_images(
                     images, work_dir, quality_tier['resolution']
                 )
                 
-                if not image_paths:
+                if not base_image_paths:
                     raise Exception("No images saved")
                 
-                # Step 2: ✅ ADD OVERLAYS DIRECTLY ON IMAGES
+                logger.info(f"✅ Saved {len(base_image_paths)} base images")
+                
+                # STEP 2: Add text overlays ON images (if product_data exists)
                 if product_data:
-                    logger.info("🎨 Adding overlays INSIDE images...")
-                    image_paths = await self._add_overlays_on_images(
-                        image_paths, 
+                    logger.info("📝 Step 2: Adding text overlays ON images...")
+                    overlaid_image_paths = await self._add_text_overlays_to_images(
+                        base_image_paths, 
                         product_data, 
                         work_dir
                     )
+                    logger.info(f"✅ Added overlays to {len(overlaid_image_paths)} images")
+                else:
+                    logger.info("⚠️  No product_data, skipping overlays")
+                    overlaid_image_paths = base_image_paths
                 
-                # Step 3: Create video from overlaid images
-                video_path = await self._create_video_simple(
-                    image_paths,
+                # STEP 3: Create video from overlaid images
+                logger.info("🎥 Step 3: Creating video from overlaid images...")
+                video_path = await self._create_video_from_images(
+                    overlaid_image_paths,
                     duration_per_image,
                     quality_tier,
                     work_dir
                 )
                 
                 if not video_path or not video_path.exists():
-                    raise Exception("Video not created")
+                    raise Exception("Video file not created")
                 
-                # Step 4: Thumbnail
-                thumbnail_path = await self._generate_thumbnail(image_paths[0], work_dir)
+                logger.info(f"✅ Video created: {video_path}")
                 
-                logger.info(f"✅ Video generated: {quality_tier['name']}")
+                # STEP 4: Generate thumbnail
+                thumbnail_path = await self._generate_thumbnail(overlaid_image_paths[0], work_dir)
+                
+                file_size = video_path.stat().st_size / 1024 / 1024
+                logger.info(f"✅✅✅ SUCCESS! Video: {file_size:.2f} MB")
                 
                 return {
                     "success": True,
@@ -607,7 +589,7 @@ class SlideshowGenerator:
                     "session_id": session_id,
                     "local_path": str(video_path),
                     "quality": quality_tier['name'],
-                    "is_product_ad": bool(product_data)
+                    "has_overlays": bool(product_data)
                 }
                 
             except Exception as e:
@@ -621,31 +603,37 @@ class SlideshowGenerator:
                 await asyncio.sleep(1)
                 continue
         
-        return {"success": False, "error": "Generation failed"}
+        return {"success": False, "error": "All quality tiers failed"}
     
-    async def _save_images_optimized(
+    # =======================================================================
+    # STEP 1: Save base images
+    # =======================================================================
+    
+    async def _save_base_images(
         self, 
         images: List[str], 
         work_dir: Path,
         target_size: Tuple[int, int]
     ) -> List[Path]:
-        """Save and resize images"""
+        """Save and resize images (no overlays yet)"""
         image_paths = []
         
         for idx, img_b64 in enumerate(images):
             try:
+                # Decode base64
                 if 'base64,' in img_b64:
                     img_b64 = img_b64.split('base64,', 1)[1]
                 
                 img_data = base64.b64decode(img_b64.strip())
                 img = Image.open(io.BytesIO(img_data))
+                img = img.convert('RGB')  # Ensure RGB
                 img.load()
                 
                 # Resize with padding
                 img = self._resize_with_padding(img, target_size)
                 
                 # Save
-                img_path = work_dir / f"img_{idx:03d}.jpg"
+                img_path = work_dir / f"base_{idx:03d}.jpg"
                 img.save(img_path, "JPEG", quality=90, optimize=True)
                 
                 img.close()
@@ -653,315 +641,210 @@ class SlideshowGenerator:
                 gc.collect()
                 
                 image_paths.append(img_path)
-                logger.info(f"✅ Image {idx + 1} saved")
+                logger.info(f"✅ Base image {idx + 1}/{len(images)} saved")
                 
             except Exception as e:
-                logger.error(f"Image {idx + 1} failed: {e}")
+                logger.error(f"❌ Image {idx + 1} save failed: {e}")
                 raise
         
         return image_paths
     
     def _resize_with_padding(self, img: Image.Image, target_size: tuple) -> Image.Image:
-        """Resize with black padding"""
-        img_ratio = img.width / img.height
-        target_ratio = target_size[0] / target_size[1]
+        """Resize image with black padding to fit target size"""
+        target_width, target_height = target_size
         
+        # Calculate aspect ratios
+        img_ratio = img.width / img.height
+        target_ratio = target_width / target_height
+        
+        # Resize to fit within target size
         if img_ratio > target_ratio:
-            new_width = target_size[0]
+            # Image is wider - fit to width
+            new_width = target_width
             new_height = int(new_width / img_ratio)
         else:
-            new_height = target_size[1]
+            # Image is taller - fit to height
+            new_height = target_height
             new_width = int(new_height * img_ratio)
         
         img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
         
+        # Create padded canvas
         padded = Image.new('RGB', target_size, (0, 0, 0))
-        paste_x = (target_size[0] - new_width) // 2
-        paste_y = (target_size[1] - new_height) // 2
+        paste_x = (target_width - new_width) // 2
+        paste_y = (target_height - new_height) // 2
         padded.paste(img, (paste_x, paste_y))
         
         return padded
     
-    # ============================================================================
-    # ✅ OVERLAYS INSIDE IMAGES (YouTube-Safe)
-    # ============================================================================
+    # =======================================================================
+    # STEP 2: Add text overlays ON images (CRITICAL PART)
+    # =======================================================================
     
-    async def _add_overlays_on_images(
+    async def _add_text_overlays_to_images(
         self,
-        image_paths: List[Path],
+        base_image_paths: List[Path],
         product_data: Dict,
         work_dir: Path
     ) -> List[Path]:
         """
-        ✅ Add attractive overlays DIRECTLY ON product images
-        Positioned in lower 1/3 of image (100% visible on YouTube)
+        ✅ Add simple text overlays at BOTTOM of each image
+        This is where the magic happens!
         """
-        overlay_paths = []
+        overlaid_paths = []
         
-        # Load fonts
+        # Load fonts (try system fonts, fallback to default)
         try:
-            font_xl = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 58)
-            font_large = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 48)
-            font_medium = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 38)
-            font_small = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 30)
-            font_tiny = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 24)
-        except:
-            font_xl = font_large = font_medium = font_small = font_tiny = ImageFont.load_default()
+            font_large = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 50)
+            font_medium = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 40)
+            font_small = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 32)
+        except Exception as e:
+            logger.warning(f"⚠️  Font loading failed, using default: {e}")
+            font_large = ImageFont.load_default()
+            font_medium = ImageFont.load_default()
+            font_small = ImageFont.load_default()
         
-        # Extract product info
-        product_name = product_data.get("product_name", "Product")[:45]
-        brand = product_data.get("brand", "Brand")[:20]
+        # Extract product info (with fallbacks)
+        product_name = str(product_data.get("product_name", "Product"))[:50]
+        brand = str(product_data.get("brand", "Brand"))[:25]
         price = product_data.get("price", 0)
-        discount = product_data.get("discount", "")
+        discount = str(product_data.get("discount", ""))
         original_price = product_data.get("original_price", 0)
         
-        # Fix price
+        # Fix price if zero
         if price == 0 and original_price > 0:
             price = original_price
         
-        for idx, img_path in enumerate(image_paths):
+        logger.info(f"📦 Product: {brand} - {product_name[:30]} - Rs.{price}")
+        
+        # Different text for each image
+        overlay_configs = [
+            {
+                "main_text": f"{brand}",
+                "sub_text": product_name[:35],
+                "color": (255, 215, 0)  # Gold
+            },
+            {
+                "main_text": f"Rs.{int(price):,}" if price > 0 else "Special Price",
+                "sub_text": discount if discount else "Best Deal",
+                "color": (0, 255, 127)  # Spring green
+            },
+            {
+                "main_text": "Premium Quality",
+                "sub_text": "100% Original",
+                "color": (255, 105, 180)  # Hot pink
+            },
+            {
+                "main_text": "Link in Description",
+                "sub_text": "Click to Buy",
+                "color": (255, 69, 0)  # Orange red
+            },
+        ]
+        
+        # Apply overlay to each image
+        for idx, img_path in enumerate(base_image_paths):
             try:
-                # Open image
+                logger.info(f"🎨 Adding overlay to image {idx + 1}/{len(base_image_paths)}...")
+                
+                # Open base image
                 img = Image.open(img_path).convert('RGB')
                 width, height = img.size
                 
-                # Create overlay layer
-                overlay = Image.new('RGBA', (width, height), (0, 0, 0, 0))
-                draw = ImageDraw.Draw(overlay)
+                # Create drawing context
+                draw = ImageDraw.Draw(img)
                 
-                # Get color theme for this image
-                theme = self.COLOR_THEMES[idx % len(self.COLOR_THEMES)]
+                # Get overlay config (cycle if more images than configs)
+                config = overlay_configs[idx % len(overlay_configs)]
                 
-                # ========== GRADIENT CARD (Lower 1/3 of image) ==========
-                card_height = int(height * 0.28)  # 28% of image height
-                card_y = height - card_height - 40  # 40px from bottom
+                # Calculate position (bottom of image, with margin)
+                margin_bottom = 100  # 100px from bottom
+                text_y = height - margin_bottom - 120  # Space for 2 lines
                 
-                # Draw gradient background
-                for i in range(card_height):
-                    progress = i / card_height
-                    
-                    # Interpolate between bg and gradient colors
-                    r = int(theme['bg'][0] + (theme['gradient'][0] - theme['bg'][0]) * progress)
-                    g = int(theme['bg'][1] + (theme['gradient'][1] - theme['bg'][1]) * progress)
-                    b = int(theme['bg'][2] + (theme['gradient'][2] - theme['bg'][2]) * progress)
-                    a = theme['bg'][3]
-                    
-                    draw.rectangle(
-                        [(20, card_y + i), (width - 20, card_y + i + 1)],
-                        fill=(r, g, b, a)
-                    )
+                # Draw semi-transparent black background bar
+                bar_height = 140
+                bar_y = height - margin_bottom - bar_height
                 
-                # Draw rounded corners effect (top border glow)
+                # Draw background rectangle
                 draw.rectangle(
-                    [(20, card_y), (width - 20, card_y + 4)],
-                    fill=theme['text'] + (180,)  # Semi-transparent accent color
+                    [(0, bar_y), (width, height - margin_bottom)],
+                    fill=(0, 0, 0, 200)  # Semi-transparent black
                 )
                 
-                # ========== FRAME-SPECIFIC CONTENT ==========
+                # Draw main text (large, colored)
+                main_text = config["main_text"]
+                main_bbox = draw.textbbox((0, 0), main_text, font=font_large)
+                main_text_width = main_bbox[2] - main_bbox[0]
+                main_x = (width - main_text_width) // 2  # Center
                 
-                if idx == 0:
-                    # FRAME 0: Brand + Product Name (with icon)
-                    icon = "✨"
-                    brand_text = f"{icon} {brand}"
-                    
-                    # Brand (top of card)
-                    draw.text(
-                        (40, card_y + 20),
-                        brand_text,
-                        fill=theme['text'],
-                        font=font_large,
-                        stroke_width=2,
-                        stroke_fill=(0, 0, 0)
-                    )
-                    
-                    # Product name (wrapped, 2 lines max)
-                    words = product_name.split()
-                    line1 = ' '.join(words[:4])
-                    line2 = ' '.join(words[4:8]) if len(words) > 4 else ""
-                    
-                    draw.text(
-                        (40, card_y + 75),
-                        line1,
-                        fill=(255, 255, 255),
-                        font=font_medium,
-                        stroke_width=1,
-                        stroke_fill=(0, 0, 0)
-                    )
-                    
-                    if line2:
-                        draw.text(
-                            (40, card_y + 120),
-                            line2,
-                            fill=(230, 230, 230),
-                            font=font_small,
-                            stroke_width=1,
-                            stroke_fill=(0, 0, 0)
-                        )
+                # Text with shadow (for readability)
+                # Shadow
+                draw.text((main_x + 3, bar_y + 23), main_text, fill=(0, 0, 0), font=font_large)
+                # Main text
+                draw.text((main_x, bar_y + 20), main_text, fill=config["color"], font=font_large)
                 
-                elif idx == 1 and price > 0:
-                    # FRAME 1: Price with strikethrough (if discount)
-                    price_icon = "💰"
-                    price_text = f"{price_icon} Rs.{int(price):,}"
-                    
-                    draw.text(
-                        (40, card_y + 30),
-                        price_text,
-                        fill=theme['text'],
-                        font=font_xl,
-                        stroke_width=3,
-                        stroke_fill=(0, 0, 0)
-                    )
-                    
-                    # Original price + strikethrough
-                    if discount and original_price > price:
-                        orig_text = f"Rs.{int(original_price):,}"
-                        orig_bbox = draw.textbbox((40, card_y + 100), orig_text, font=font_medium)
-                        
-                        draw.text(
-                            (40, card_y + 100),
-                            orig_text,
-                            fill=(180, 180, 180),
-                            font=font_medium
-                        )
-                        
-                        # Red strikethrough line
-                        draw.line(
-                            [(40, card_y + 115), (orig_bbox[2], card_y + 115)],
-                            fill=(255, 50, 50),
-                            width=4
-                        )
-                        
-                        # Discount badge
-                        discount_text = f"🔥 {discount}"
-                        draw.text(
-                            (40, card_y + 145),
-                            discount_text,
-                            fill=theme['accent'],
-                            font=font_large,
-                            stroke_width=2,
-                            stroke_fill=(0, 0, 0)
-                        )
+                # Draw sub text (smaller, white)
+                sub_text = config["sub_text"]
+                sub_bbox = draw.textbbox((0, 0), sub_text, font=font_medium)
+                sub_text_width = sub_bbox[2] - sub_bbox[0]
+                sub_x = (width - sub_text_width) // 2  # Center
                 
-                elif idx == 2:
-                    # FRAME 2: Quality badges (checkmarks)
-                    features = [
-                        "✅ 100% Original Product",
-                        "✅ Official Warranty",
-                        "✅ Fast Delivery"
-                    ]
-                    
-                    y_offset = card_y + 25
-                    for feature in features:
-                        draw.text(
-                            (40, y_offset),
-                            feature,
-                            fill=(255, 255, 255),
-                            font=font_medium,
-                            stroke_width=1,
-                            stroke_fill=(0, 0, 0)
-                        )
-                        y_offset += 55
+                # Shadow
+                draw.text((sub_x + 2, bar_y + 82), sub_text, fill=(0, 0, 0), font=font_medium)
+                # Main text
+                draw.text((sub_x, bar_y + 80), sub_text, fill=(255, 255, 255), font=font_medium)
                 
-                else:
-                    # FRAME 3+: Call to Action (pulsing effect simulation)
-                    cta_icon = "👇"
-                    cta_text = "Link in Description"
-                    
-                    # Center the CTA
-                    bbox = draw.textbbox((0, 0), cta_text, font=font_xl)
-                    text_width = bbox[2] - bbox[0]
-                    x = (width - text_width) // 2
-                    
-                    # Icon above text
-                    icon_bbox = draw.textbbox((0, 0), cta_icon, font=font_xl)
-                    icon_width = icon_bbox[2] - icon_bbox[0]
-                    icon_x = (width - icon_width) // 2
-                    
-                    draw.text(
-                        (icon_x, card_y + 20),
-                        cta_icon,
-                        fill=theme['accent'],
-                        font=font_xl
-                    )
-                    
-                    draw.text(
-                        (x, card_y + 85),
-                        cta_text,
-                        fill=theme['text'],
-                        font=font_large,
-                        stroke_width=2,
-                        stroke_fill=(0, 0, 0)
-                    )
-                    
-                    # Sub-text
-                    sub_text = "Click to Buy 🛒"
-                    sub_bbox = draw.textbbox((0, 0), sub_text, font=font_medium)
-                    sub_width = sub_bbox[2] - sub_bbox[0]
-                    sub_x = (width - sub_width) // 2
-                    
-                    draw.text(
-                        (sub_x, card_y + 140),
-                        sub_text,
-                        fill=(255, 255, 255),
-                        font=font_medium,
-                        stroke_width=1,
-                        stroke_fill=(0, 0, 0)
-                    )
-                
-                # ========== TOP-LEFT WATERMARK (all frames) ==========
+                # Optional: Add brand watermark in top-left
                 watermark = f"📱 {brand}"
-                draw.text(
-                    (25, 25),
-                    watermark,
-                    fill=(255, 255, 255, 230),
-                    font=font_small,
-                    stroke_width=1,
-                    stroke_fill=(0, 0, 0)
-                )
-                
-                # Composite overlay onto image
-                img = img.convert('RGBA')
-                img = Image.alpha_composite(img, overlay)
-                img = img.convert('RGB')
+                draw.text((20, 20), watermark, fill=(255, 255, 255), font=font_small)
                 
                 # Save overlaid image
-                overlay_path = work_dir / f"overlay_{idx:03d}.jpg"
-                img.save(overlay_path, "JPEG", quality=92, optimize=True)
-                overlay_paths.append(overlay_path)
+                overlaid_path = work_dir / f"overlaid_{idx:03d}.jpg"
+                img.save(overlaid_path, "JPEG", quality=92, optimize=True)
+                overlaid_paths.append(overlaid_path)
                 
-                logger.info(f"✅ Overlay {idx + 1} added ({theme['name']})")
+                logger.info(f"✅ Overlay {idx + 1} added successfully")
                 
                 img.close()
-                del img, overlay
+                del img, draw
                 gc.collect()
                 
             except Exception as e:
-                logger.error(f"Overlay failed for image {idx}: {e}")
+                logger.error(f"❌ Overlay {idx + 1} failed: {e}")
                 import traceback
                 logger.error(traceback.format_exc())
-                overlay_paths.append(img_path)  # Use original if overlay fails
+                # If overlay fails, use original image
+                overlaid_paths.append(img_path)
         
-        return overlay_paths if overlay_paths else image_paths
+        logger.info(f"✅ Total overlaid images: {len(overlaid_paths)}")
+        return overlaid_paths
     
-    async def _create_video_simple(
+    # =======================================================================
+    # STEP 3: Create video from overlaid images
+    # =======================================================================
+    
+    async def _create_video_from_images(
         self,
         image_paths: List[Path],
         duration: float,
         quality_tier: dict,
         work_dir: Path
     ) -> Optional[Path]:
-        """Create video from images (overlays already on images)"""
+        """Create video from images using FFmpeg (no additional overlays)"""
         output_path = work_dir / "output.mp4"
         resolution = quality_tier['resolution']
         
-        # Create concat file
+        # Create concat file for FFmpeg
         filelist_path = work_dir / "filelist.txt"
         with open(filelist_path, 'w') as f:
             for img_path in image_paths:
                 f.write(f"file '{img_path}'\n")
                 f.write(f"duration {duration}\n")
+            # Repeat last image (FFmpeg requirement)
             f.write(f"file '{image_paths[-1]}'\n")
         
+        logger.info(f"📋 Concat file created: {filelist_path}")
+        
+        # FFmpeg command (simple, no complex filters)
         cmd = [
             self.ffmpeg_path,
             "-f", "concat",
@@ -977,7 +860,7 @@ class SlideshowGenerator:
             str(output_path)
         ]
         
-        logger.info(f"🎥 Running FFmpeg...")
+        logger.info(f"🎥 Running FFmpeg: {' '.join(cmd[:8])}...")
         
         try:
             process = await asyncio.create_subprocess_exec(
@@ -989,23 +872,25 @@ class SlideshowGenerator:
             stdout, stderr = await process.communicate()
             
             if process.returncode != 0:
-                logger.error(f"FFmpeg stderr: {stderr.decode()}")
+                stderr_text = stderr.decode()
+                logger.error(f"❌ FFmpeg failed (code {process.returncode})")
+                logger.error(f"FFmpeg stderr: {stderr_text}")
                 raise Exception(f"FFmpeg failed: {process.returncode}")
             
             if not output_path.exists():
-                raise Exception("Output file not found")
+                raise Exception("Video file not found after FFmpeg")
             
             file_size = output_path.stat().st_size / 1024 / 1024
-            logger.info(f"✅ Video created: {file_size:.2f} MB")
+            logger.info(f"✅ Video created: {output_path} ({file_size:.2f} MB)")
             
             return output_path
             
         except Exception as e:
-            logger.error(f"FFmpeg error: {e}")
+            logger.error(f"❌ FFmpeg error: {e}")
             raise
     
     async def _generate_thumbnail(self, first_image: Path, work_dir: Path) -> Path:
-        """Generate thumbnail"""
+        """Generate thumbnail from first image"""
         thumb_path = work_dir / "thumbnail.jpg"
         
         try:
@@ -1013,8 +898,10 @@ class SlideshowGenerator:
             img.thumbnail((640, 360), Image.Resampling.LANCZOS)
             img.save(thumb_path, "JPEG", quality=85)
             img.close()
+            logger.info(f"✅ Thumbnail created: {thumb_path}")
             return thumb_path
-        except:
+        except Exception as e:
+            logger.warning(f"⚠️  Thumbnail creation failed: {e}")
             return first_image
 
 
@@ -1022,7 +909,9 @@ class SlideshowGenerator:
 slideshow_generator = SlideshowGenerator()
 
 def get_slideshow_generator():
+    """Get global slideshow generator instance"""
     return slideshow_generator
 
 def get_video_generator():
+    """Alias for get_slideshow_generator"""
     return slideshow_generator
