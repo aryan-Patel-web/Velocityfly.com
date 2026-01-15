@@ -441,13 +441,11 @@
 
 
 
-
-
 """
 slideshow_generator.py - DEBUGGING VERSION + BACKGROUND MUSIC
 ✅ Saves intermediate files for debugging
 ✅ Detailed logging at every step
-✅ Background music support (royalty-free)
+✅ Background music support (royalty-free) - 9 categories with 5 tracks each
 ✅ Simple, foolproof overlay approach
 """
 
@@ -460,6 +458,7 @@ import base64
 import io
 import gc
 import urllib.request
+import random  # ← NEW: Import random
 from pathlib import Path
 from typing import List, Dict, Any, Tuple, Optional
 from PIL import Image, ImageDraw, ImageFont
@@ -469,11 +468,71 @@ logger = logging.getLogger(__name__)
 class SlideshowGenerator:
     """Generate product ad videos with overlays and music"""
     
-    # Free background music URLs (royalty-free)
+    # ✅ UPDATED: 9 music categories with 5 tracks each (45 total tracks)
     BACKGROUND_MUSIC = {
-        "upbeat": "https://www.bensound.com/bensound-music/bensound-ukulele.mp3",
-        "energetic": "https://www.bensound.com/bensound-music/bensound-sunny.mp3",
-        "chill": "https://www.bensound.com/bensound-music/bensound-relaxing.mp3"
+        "upbeat": [
+            "https://www.bensound.com/bensound-music/bensound-ukulele.mp3",
+            "https://www.bensound.com/bensound-music/bensound-happyrock.mp3",
+            "https://www.bensound.com/bensound-music/bensound-energy.mp3",
+            "https://www.bensound.com/bensound-music/bensound-clearday.mp3",
+            "https://www.bensound.com/bensound-music/bensound-funkyelement.mp3",
+        ],
+        "energetic": [
+            "https://www.bensound.com/bensound-music/bensound-dance.mp3",
+            "https://www.bensound.com/bensound-music/bensound-actionable.mp3",
+            "https://www.bensound.com/bensound-music/bensound-epic.mp3",
+            "https://www.bensound.com/bensound-music/bensound-evolution.mp3",
+            "https://www.bensound.com/bensound-music/bensound-instinct.mp3",
+        ],
+        "cinematic": [
+            "https://www.bensound.com/bensound-music/bensound-november.mp3",
+            "https://www.bensound.com/bensound-music/bensound-slowmotion.mp3",
+            "https://www.bensound.com/bensound-music/bensound-tomorrow.mp3",
+            "https://www.bensound.com/bensound-music/bensound-memories.mp3",
+            "https://www.bensound.com/bensound-music/bensound-epic.mp3",
+        ],
+        "relaxing": [
+            "https://www.bensound.com/bensound-music/bensound-relaxing.mp3",
+            "https://www.bensound.com/bensound-music/bensound-tenderness.mp3",
+            "https://www.bensound.com/bensound-music/bensound-slowmotion.mp3",
+            "https://www.bensound.com/bensound-music/bensound-onceagain.mp3",
+            "https://www.bensound.com/bensound-music/bensound-acousticbreeze.mp3",
+        ],
+        "sad": [
+            "https://www.bensound.com/bensound-music/bensound-sadness.mp3",
+            "https://www.bensound.com/bensound-music/bensound-memories.mp3",
+            "https://www.bensound.com/bensound-music/bensound-tomorrow.mp3",
+            "https://www.bensound.com/bensound-music/bensound-november.mp3",
+            "https://www.bensound.com/bensound-music/bensound-thejazzpiano.mp3",
+        ],
+        "dark": [
+            "https://www.bensound.com/bensound-music/bensound-instinct.mp3",
+            "https://www.bensound.com/bensound-music/bensound-theduel.mp3",
+            "https://www.bensound.com/bensound-music/bensound-epic.mp3",
+            "https://www.bensound.com/bensound-music/bensound-dangerous.mp3",
+            "https://www.bensound.com/bensound-music/bensound-sci-fi.mp3",
+        ],
+        "lofi": [
+            "https://www.bensound.com/bensound-music/bensound-acousticbreeze.mp3",
+            "https://www.bensound.com/bensound-music/bensound-november.mp3",
+            "https://www.bensound.com/bensound-music/bensound-slowmotion.mp3",
+            "https://www.bensound.com/bensound-music/bensound-onceagain.mp3",
+            "https://www.bensound.com/bensound-music/bensound-tenderness.mp3",
+        ],
+        "happy": [
+            "https://www.bensound.com/bensound-music/bensound-ukulele.mp3",
+            "https://www.bensound.com/bensound-music/bensound-happyrock.mp3",
+            "https://www.bensound.com/bensound-music/bensound-sunny.mp3",
+            "https://www.bensound.com/bensound-music/bensound-clearday.mp3",
+            "https://www.bensound.com/bensound-music/bensound-funkyelement.mp3",
+        ],
+        "motivational": [
+            "https://www.bensound.com/bensound-music/bensound-inspire.mp3",
+            "https://www.bensound.com/bensound-music/bensound-epic.mp3",
+            "https://www.bensound.com/bensound-music/bensound-evolution.mp3",
+            "https://www.bensound.com/bensound-music/bensound-actionable.mp3",
+            "https://www.bensound.com/bensound-music/bensound-instinct.mp3",
+        ],
     }
     
     QUALITY_TIERS = [
@@ -514,7 +573,7 @@ class SlideshowGenerator:
         music_style: str = "upbeat",
         aspect_ratio: str = "9:16",
         product_data: Dict = None,
-        add_music: bool = True  # NEW: Enable background music
+        add_music: bool = True  # Enable background music
     ) -> Dict[str, Any]:
         """Generate slideshow with debugging and music"""
         
@@ -523,6 +582,7 @@ class SlideshowGenerator:
         logger.info("=" * 70)
         logger.info(f"📊 Input: {len(images)} images")
         logger.info(f"📦 Product data: {product_data is not None}")
+        logger.info(f"🎵 Music style: {music_style}")
         logger.info(f"🎵 Add music: {add_music}")
         
         if not 2 <= len(images) <= 6:
@@ -625,7 +685,8 @@ class SlideshowGenerator:
                     "quality": quality_tier['name'],
                     "has_overlays": bool(product_data),
                     "has_music": music_path is not None,
-                    "debug_dir": str(work_dir)  # For debugging
+                    "music_style": music_style,
+                    "debug_dir": str(work_dir)
                 }
                 
             except Exception as e:
@@ -720,9 +781,7 @@ class SlideshowGenerator:
         product_data: Dict,
         work_dir: Path
     ) -> List[Path]:
-        """
-        Add text overlays using PIL (the CRITICAL function)
-        """
+        """Add text overlays using PIL"""
         overlaid_paths = []
         
         # Load fonts
@@ -746,10 +805,10 @@ class SlideshowGenerator:
         
         # Text configurations for each image
         text_configs = [
-            {"line1": f"🔥 {brand}", "line2": product_name, "color": (255, 215, 0)},  # Gold
-            {"line1": f"Rs.{int(price):,}" if price > 0 else "Best Deal", "line2": discount or "Special Price", "color": (0, 255, 127)},  # Green
-            {"line1": "Premium Quality", "line2": "100% Original", "color": (255, 105, 180)},  # Pink
-            {"line1": "👇 Click Link Below", "line2": "Buy Now", "color": (255, 69, 0)},  # Red
+            {"line1": f"🔥 {brand}", "line2": product_name, "color": (255, 215, 0)},
+            {"line1": f"Rs.{int(price):,}" if price > 0 else "Best Deal", "line2": discount or "Special Price", "color": (0, 255, 127)},
+            {"line1": "Premium Quality", "line2": "100% Original", "color": (255, 105, 180)},
+            {"line1": "👇 Click Link Below", "line2": "Buy Now", "color": (255, 69, 0)},
         ]
         
         # Process each image
@@ -757,59 +816,47 @@ class SlideshowGenerator:
             try:
                 logger.info(f"   Adding overlay to image {idx+1}...")
                 
-                # Open base image
                 img = Image.open(base_path)
                 w, h = img.size
                 logger.info(f"      Image size: {w}x{h}")
                 
-                # Create drawing context
                 draw = ImageDraw.Draw(img)
-                
-                # Get text for this image
                 config = text_configs[idx % len(text_configs)]
                 
-                # Calculate text position (bottom 20% of image)
-                text_area_height = int(h * 0.20)  # 20% of image
-                text_y_start = h - text_area_height - 50  # 50px margin from bottom
+                text_area_height = int(h * 0.20)
+                text_y_start = h - text_area_height - 50
                 
                 logger.info(f"      Text area: y={text_y_start} to y={h-50}")
                 
-                # Draw semi-transparent black background
+                # Draw background
                 bg_y = text_y_start - 20
-                draw.rectangle(
-                    [(0, bg_y), (w, h - 40)],
-                    fill=(0, 0, 0, 200)
-                )
+                draw.rectangle([(0, bg_y), (w, h - 40)], fill=(0, 0, 0, 200))
                 logger.info(f"      ✅ Background drawn")
                 
-                # Draw line 1 (main text, large, colored)
+                # Draw line 1
                 line1 = config["line1"]
                 bbox1 = draw.textbbox((0, 0), line1, font=font_xl)
                 text1_w = bbox1[2] - bbox1[0]
-                x1 = (w - text1_w) // 2  # Center
+                x1 = (w - text1_w) // 2
                 
-                # Shadow
                 draw.text((x1+3, text_y_start+3), line1, fill=(0, 0, 0), font=font_xl)
-                # Main
                 draw.text((x1, text_y_start), line1, fill=config["color"], font=font_xl)
                 logger.info(f"      ✅ Line 1: '{line1[:20]}...'")
                 
-                # Draw line 2 (sub text, medium, white)
+                # Draw line 2
                 line2 = config["line2"]
                 bbox2 = draw.textbbox((0, 0), line2, font=font_large)
                 text2_w = bbox2[2] - bbox2[0]
-                x2 = (w - text2_w) // 2  # Center
+                x2 = (w - text2_w) // 2
                 
-                # Shadow
                 draw.text((x2+2, text_y_start+72), line2, fill=(0, 0, 0), font=font_large)
-                # Main
                 draw.text((x2, text_y_start+70), line2, fill=(255, 255, 255), font=font_large)
                 logger.info(f"      ✅ Line 2: '{line2[:20]}...'")
                 
-                # Add small brand watermark at top
+                # Brand watermark
                 draw.text((20, 20), f"📱 {brand}", fill=(255, 255, 255), font=font_medium)
                 
-                # Save overlaid image
+                # Save
                 overlaid_path = work_dir / f"overlaid_{idx:03d}.jpg"
                 img.save(overlaid_path, "JPEG", quality=95)
                 overlaid_paths.append(overlaid_path)
@@ -828,19 +875,28 @@ class SlideshowGenerator:
         
         return overlaid_paths
     
+    # ✅ UPDATED FUNCTION - Randomly picks from category
     async def _download_music(self, work_dir: Path, style: str) -> Optional[Path]:
-        """Download background music (royalty-free)"""
+        """Download background music (royalty-free) - randomly picks from category"""
         try:
-            music_url = self.BACKGROUND_MUSIC.get(style, self.BACKGROUND_MUSIC["upbeat"])
+            # Get list of tracks for selected style
+            music_list = self.BACKGROUND_MUSIC.get(
+                style,
+                self.BACKGROUND_MUSIC["upbeat"]  # Fallback to upbeat
+            )
+            
+            # Randomly select one track from the list
+            music_url = random.choice(music_list)
             music_path = work_dir / "background_music.mp3"
             
-            logger.info(f"   Downloading: {music_url}")
+            logger.info(f"   🎵 Selected style: {style}")
+            logger.info(f"   🎵 Random track: {music_url}")
             
             # Download with timeout
             urllib.request.urlretrieve(music_url, music_path)
             
             if music_path.exists():
-                logger.info(f"   ✅ Downloaded: {music_path.stat().st_size / 1024:.1f} KB")
+                logger.info(f"   ✅ Music downloaded: {music_path.stat().st_size / 1024:.1f} KB")
                 return music_path
             
         except Exception as e:
@@ -881,7 +937,7 @@ class SlideshowGenerator:
         
         # Add music input if available
         if music_path and music_path.exists():
-            logger.info(f"   Adding background music: {music_path}")
+            logger.info(f"   🎵 Adding background music: {music_path}")
             cmd.extend(["-i", str(music_path)])
             audio_filter = [
                 "-filter_complex", "[1:a]volume=0.3[a]",  # Lower music volume to 30%
@@ -890,7 +946,7 @@ class SlideshowGenerator:
                 "-shortest",  # Stop when shortest input ends
             ]
         else:
-            logger.info("   No music added")
+            logger.info("   ⚠️  No music added")
             audio_filter = []
         
         # Video encoding options

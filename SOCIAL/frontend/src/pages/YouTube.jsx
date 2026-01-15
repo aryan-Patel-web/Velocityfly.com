@@ -5414,6 +5414,101 @@ https://picsum.photos/1080/1920?random=2`}
           )}
         </div>
 
+
+
+
+{/* =========================================== */}
+
+
+{/* NEW: Music Selection */}
+{uploadedImages.length >= 2 && (
+  <div style={{ marginBottom: '30px' }}>
+    <h3 style={{ color: '#333', marginBottom: '16px', fontSize: '20px' }}>
+      🎵 Select Background Music
+    </h3>
+    
+    <div style={{
+      display: 'grid',
+      gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+      gap: '12px',
+      marginBottom: '16px'
+    }}>
+      {[
+        { value: 'upbeat', label: 'Upbeat 😄', color: '#FF6B6B', desc: 'Happy & energetic' },
+        { value: 'energetic', label: 'Energetic ⚡', color: '#4ECDC4', desc: 'High energy' },
+        { value: 'cinematic', label: 'Cinematic 🎬', color: '#95E1D3', desc: 'Premium & dramatic' },
+        { value: 'relaxing', label: 'Relaxing 🌿', color: '#38B2AC', desc: 'Calm & peaceful' },
+        { value: 'sad', label: 'Emotional 😔', color: '#667eea', desc: 'Sad & touching' },
+        { value: 'dark', label: 'Dark 🖤', color: '#2D3748', desc: 'Mysterious' },
+        { value: 'lofi', label: 'Lo-Fi 🎧', color: '#FF8C42', desc: 'Chill vibes' },
+        { value: 'happy', label: 'Happy 😊', color: '#FFC107', desc: 'Fun & joyful' },
+        { value: 'motivational', label: 'Motivational 🔥', color: '#E74C3C', desc: 'Inspiring' }
+      ].map((music) => (
+        <button
+          key={music.value}
+          onClick={() => setSlideshowConfig(prev => ({
+            ...prev,
+            music_style: music.value
+          }))}
+          style={{
+            padding: '16px 12px',
+            background: slideshowConfig.music_style === music.value 
+              ? `linear-gradient(135deg, ${music.color}, ${music.color}dd)` 
+              : '#f8f9fa',
+            color: slideshowConfig.music_style === music.value ? 'white' : '#333',
+            border: slideshowConfig.music_style === music.value 
+              ? `3px solid ${music.color}` 
+              : '2px solid #ddd',
+            borderRadius: '12px',
+            cursor: 'pointer',
+            fontWeight: '700',
+            fontSize: '13px',
+            textAlign: 'center',
+            transition: 'all 0.3s',
+            boxShadow: slideshowConfig.music_style === music.value 
+              ? `0 4px 15px ${music.color}40` 
+              : '0 2px 5px rgba(0,0,0,0.1)'
+          }}
+        >
+          <div>{music.label}</div>
+          <div style={{
+            fontSize: '10px',
+            marginTop: '4px',
+            opacity: 0.9,
+            fontWeight: '500'
+          }}>
+            {music.desc}
+          </div>
+        </button>
+      ))}
+    </div>
+    
+    <div style={{
+      padding: '12px',
+      background: '#e7f3ff',
+      borderRadius: '8px',
+      fontSize: '13px',
+      color: '#004085',
+      border: '1px solid #bee5eb'
+    }}>
+      ✅ Selected: <strong>{slideshowConfig.music_style.charAt(0).toUpperCase() + slideshowConfig.music_style.slice(1)}</strong> - Random track will be chosen from 5 options
+    </div>
+  </div>
+)}
+{/* ================================== */}
+
+
+
+
+
+
+
+
+
+
+
+
+
         {/* Step 2: Title & Description - NO AI FOR TITLE */}
         {uploadedImages.length >= 2 && (
           <div style={{ marginBottom: '30px' }}>
@@ -5529,7 +5624,8 @@ https://picsum.photos/1080/1920?random=2`}
                       images: uploadedImages,
                       title: slideshowTitle,
                       description: slideshowDescription,
-                      duration_per_image: 2.0
+                      duration_per_image: 2.0,
+                      music_style: slideshowConfig.music_style
                     })
                   });
                   const result = await response.json();
@@ -5655,6 +5751,85 @@ https://picsum.photos/1080/1920?random=2`}
         </div>
       )}
     </div>
+
+
+    {/* ====================================== */}
+
+    {/* NEW: Music Selection for Product Videos */}
+{scrapedProduct && (
+  <div style={{ marginBottom: '30px' }}>
+    <h3 style={{ color: '#333', marginBottom: '16px', fontSize: '20px', fontWeight: '700' }}>
+      🎵 Step 1.5: Select Background Music
+    </h3>
+    
+    <div style={{
+      display: 'grid',
+      gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+      gap: '12px',
+      marginBottom: '16px'
+    }}>
+      {[
+        { value: 'upbeat', label: 'Upbeat 😄', color: '#FF6B6B', desc: 'Best for products' },
+        { value: 'energetic', label: 'Energetic ⚡', color: '#4ECDC4', desc: 'High energy ads' },
+        { value: 'cinematic', label: 'Cinematic 🎬', color: '#95E1D3', desc: 'Premium products' },
+        { value: 'relaxing', label: 'Relaxing 🌿', color: '#38B2AC', desc: 'Wellness items' },
+        { value: 'happy', label: 'Happy 😊', color: '#FFC107', desc: 'Fun products' },
+        { value: 'motivational', label: 'Motivational 🔥', color: '#E74C3C', desc: 'Fitness gear' }
+      ].map((music) => (
+        <button
+          key={music.value}
+          onClick={() => setSlideshowConfig(prev => ({
+            ...prev,
+            music_style: music.value
+          }))}
+          style={{
+            padding: '16px 12px',
+            background: slideshowConfig.music_style === music.value 
+              ? `linear-gradient(135deg, ${music.color}, ${music.color}dd)` 
+              : '#f8f9fa',
+            color: slideshowConfig.music_style === music.value ? 'white' : '#333',
+            border: slideshowConfig.music_style === music.value 
+              ? `3px solid ${music.color}` 
+              : '2px solid #ddd',
+            borderRadius: '12px',
+            cursor: 'pointer',
+            fontWeight: '700',
+            fontSize: '13px',
+            textAlign: 'center',
+            transition: 'all 0.3s',
+            boxShadow: slideshowConfig.music_style === music.value 
+              ? `0 4px 15px ${music.color}40` 
+              : '0 2px 5px rgba(0,0,0,0.1)'
+          }}
+        >
+          <div>{music.label}</div>
+          <div style={{
+            fontSize: '10px',
+            marginTop: '4px',
+            opacity: 0.9,
+            fontWeight: '500'
+          }}>
+            {music.desc}
+          </div>
+        </button>
+      ))}
+    </div>
+    
+    <div style={{
+      padding: '12px',
+      background: '#d4edda',
+      borderRadius: '8px',
+      fontSize: '13px',
+      color: '#155724',
+      border: '1px solid #c3e6cb',
+      fontWeight: '600'
+    }}>
+      🎵 Selected: <strong>{slideshowConfig.music_style.charAt(0).toUpperCase() + slideshowConfig.music_style.slice(1)}</strong> music for your product video
+    </div>
+  </div>
+)}
+
+{/* ============================================= */}
 
     {/* Step 2: Edit (shown after scraping) */}
     {scrapedProduct && (
@@ -5871,7 +6046,8 @@ onClick={async () => {
         duration_per_image: 2.0,
         title: slideshowTitle,
         description: slideshowDescription,
-        product_data: scrapedProduct
+        product_data: scrapedProduct,
+        music_style: slideshowConfig.music_style
       })
     });
     
@@ -5982,7 +6158,8 @@ onClick={async () => {
                         images: base64Images,
                         title: slideshowTitle,
                         description: slideshowDescription,
-                        duration_per_image: 2.0
+                        duration_per_image: 2.0,
+                        music_style: slideshowConfig.music_style
                       })
                     });
                     
