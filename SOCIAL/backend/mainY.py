@@ -4867,6 +4867,10 @@ from YTvideo_services import get_video_service
 #             "error": f"Preview failed: {str(e)}"
 #         }, status_code=500)
 
+
+
+
+
 @app.post("/api/youtube/generate-slideshow-preview")
 async def generate_slideshow_preview(request: dict):
     """

@@ -5761,18 +5761,34 @@ onClick={async () => {
     
     console.log('📤 Sending', base64Images.length, 'images to backend');
     
-    const response = await fetch(`${API_BASE}/api/youtube/generate-slideshow-preview`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
-      body: JSON.stringify({
-        user_id: userData.user_id,
-        images: base64Images,  // ← MAKE SURE THIS IS HERE
-        duration_per_image: 2.0
-      })
-    });
+
+
+
+    // const response = await fetch(`${API_BASE}/api/youtube/generate-slideshow-preview`, {
+    //   method: 'POST',
+    //   headers: {
+    //     'Content-Type': 'application/json',
+    //     'Authorization': `Bearer ${token}`
+    //   },
+    //   body: JSON.stringify({
+    //     user_id: userData.user_id,
+    //     images: base64Images,  // ← MAKE SURE THIS IS HERE
+    //     duration_per_image: 2.0
+    //   })
+    // });
+
+// ✅ AFTER (with product_data)
+const response = await fetch(`${API_BASE}/api/youtube/generate-slideshow-preview`, {
+  method: 'POST',
+  body: JSON.stringify({
+    user_id: userData.user_id,
+    images: base64Images,
+    duration_per_image: 2.0,
+    title: slideshowTitle,          // ✅ ADD
+    description: slideshowDescription, // ✅ ADD
+    product_data: scrapedProduct    // ✅ ADD (contains price, brand, url)
+  })
+});
     
     const result = await response.json();
     
