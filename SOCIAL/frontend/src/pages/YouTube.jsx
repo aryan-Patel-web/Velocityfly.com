@@ -5720,21 +5720,119 @@ https://picsum.photos/1080/1920?random=2`}
 
 
 
-onClick={async () => {
-  // DEBUG: Check what we have
-  console.log('🔍 DEBUG - uploadedImages:', uploadedImages.length);
-  console.log('🔍 DEBUG - First image preview:', uploadedImages[0]?.substring(0, 50));
+// onClick={async () => {
+//   // DEBUG: Check what we have
+//   console.log('🔍 DEBUG - uploadedImages:', uploadedImages.length);
+//   console.log('🔍 DEBUG - First image preview:', uploadedImages[0]?.substring(0, 50));
   
+//   if (!uploadedImages || uploadedImages.length === 0) {
+//     alert('No images found! Please scrape the product again.');
+//     return;
+//   }
+  
+//   setGeneratingSlideshow(true);
+//   try {
+//     const userData = getUserData();
+    
+//     // Convert URLs to base64
+//     const base64Images = await Promise.all(
+//       uploadedImages.map(async (imgUrl) => {
+//         // Already base64
+//         if (imgUrl.startsWith('data:')) {
+//           console.log('✅ Image already base64');
+//           return imgUrl;
+//         }
+        
+//         // Download URL
+//         console.log('📥 Downloading:', imgUrl.substring(0, 50));
+//         const response = await fetch(imgUrl);
+//         const blob = await response.blob();
+        
+//         return new Promise((resolve) => {
+//           const reader = new FileReader();
+//           reader.onloadend = () => {
+//             console.log('✅ Converted to base64:', reader.result.substring(0, 50));
+//             resolve(reader.result);
+//           };
+//           reader.readAsDataURL(blob);
+//         });
+//       })
+//     );
+    
+//     console.log('📤 Sending', base64Images.length, 'images to backend');
+    
+
+
+
+//     // const response = await fetch(`${API_BASE}/api/youtube/generate-slideshow-preview`, {
+//     //   method: 'POST',
+//     //   headers: {
+//     //     'Content-Type': 'application/json',
+//     //     'Authorization': `Bearer ${token}`
+//     //   },
+//     //   body: JSON.stringify({
+//     //     user_id: userData.user_id,
+//     //     images: base64Images,  // ← MAKE SURE THIS IS HERE
+//     //     duration_per_image: 2.0
+//     //   })
+//     // });
+
+// // ✅ AFTER (with product_data)
+// // ✅ CORRECT FORMAT
+// const response = await fetch(`${API_BASE}/api/youtube/generate-slideshow-preview`, {
+//   method: 'POST',
+//   headers: {
+//     'Content-Type': 'application/json',
+//     'Authorization': `Bearer ${token}`
+//   },
+//   body: JSON.stringify({
+//     user_id: user.user_id,           // ✅ Required
+//     images: uploadedImages,           // ✅ Array of base64 strings
+//     title: slideshowTitle,            // ✅ String
+//     description: slideshowDescription, // ✅ String
+//     duration_per_image: 2.0,          // ✅ Number
+//     product_data: scrapedProduct      // ✅ Object or null
+//   })
+// });
+    
+//     const result = await response.json();
+    
+//     console.log('📨 Backend response:', result);
+    
+//     if (result.success) {
+//       setVideoPreview(result.video_preview);
+//     } else {
+//       throw new Error(result.error);
+//     }
+//   } catch (error) {
+//     console.error('❌ Preview error:', error);
+//     alert('Error: ' + error.message);
+//   } finally {
+//     setGeneratingSlideshow(false);
+//   }
+// }}
+
+
+onClick={async () => {
+  // Validation
   if (!uploadedImages || uploadedImages.length === 0) {
     alert('No images found! Please scrape the product again.');
     return;
   }
   
   setGeneratingSlideshow(true);
+  
   try {
     const userData = getUserData();
     
-    // Convert URLs to base64
+    // ✅ LOG WHAT WE'RE SENDING
+    console.log('📤 Sending preview request:');
+    console.log('- User ID:', userData.user_id);
+    console.log('- Images:', uploadedImages.length);
+    console.log('- Title:', slideshowTitle);
+    console.log('- Product data:', scrapedProduct ? 'Yes' : 'No');
+    
+    // ✅ Convert URLs to base64 if needed
     const base64Images = await Promise.all(
       uploadedImages.map(async (imgUrl) => {
         // Already base64
@@ -5761,46 +5859,28 @@ onClick={async () => {
     
     console.log('📤 Sending', base64Images.length, 'images to backend');
     
-
-
-
-    // const response = await fetch(`${API_BASE}/api/youtube/generate-slideshow-preview`, {
-    //   method: 'POST',
-    //   headers: {
-    //     'Content-Type': 'application/json',
-    //     'Authorization': `Bearer ${token}`
-    //   },
-    //   body: JSON.stringify({
-    //     user_id: userData.user_id,
-    //     images: base64Images,  // ← MAKE SURE THIS IS HERE
-    //     duration_per_image: 2.0
-    //   })
-    // });
-
-// ✅ AFTER (with product_data)
-// ✅ CORRECT FORMAT
-const response = await fetch(`${API_BASE}/api/youtube/generate-slideshow-preview`, {
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/json',
-    'Authorization': `Bearer ${token}`
-  },
-  body: JSON.stringify({
-    user_id: user.user_id,           // ✅ Required
-    images: uploadedImages,           // ✅ Array of base64 strings
-    title: slideshowTitle,            // ✅ String
-    description: slideshowDescription, // ✅ String
-    duration_per_image: 2.0,          // ✅ Number
-    product_data: scrapedProduct      // ✅ Object or null
-  })
-});
+    const response = await fetch(`${API_BASE}/api/youtube/generate-slideshow-preview`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        user_id: userData.user_id,
+        images: base64Images,  // ✅ Use converted images
+        duration_per_image: 2.0,
+        title: slideshowTitle,
+        description: slideshowDescription,
+        product_data: scrapedProduct
+      })
+    });
     
     const result = await response.json();
     
     console.log('📨 Backend response:', result);
     
     if (result.success) {
-      setVideoPreview(result.video_preview);
+      setVideoPreview(result.preview.video_preview);
     } else {
       throw new Error(result.error);
     }
@@ -5811,6 +5891,9 @@ const response = await fetch(`${API_BASE}/api/youtube/generate-slideshow-preview
     setGeneratingSlideshow(false);
   }
 }}
+
+
+
 
 
 

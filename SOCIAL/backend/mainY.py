@@ -4991,7 +4991,6 @@ async def generate_slideshow_preview(request: dict):
         }, status_code=500)
 
 
-
 @app.post("/api/slideshow/upload-multi-platform")
 async def upload_slideshow_multi_platform(request: dict):
     """
