@@ -444,13 +444,11 @@
 
 
 """
-slideshow_generator.py - SIMPLE TEXT OVERLAYS (Foolproof)
-✅ Step 1: Add text overlay ON each image using PIL
-✅ Step 2: Save overlaid images
-✅ Step 3: Create video from overlaid images
-✅ Step 4: Upload to YouTube (overlays are permanent)
-
-Simple approach: Just text at bottom of image (no complex cards)
+slideshow_generator.py - DEBUGGING VERSION + BACKGROUND MUSIC
+✅ Saves intermediate files for debugging
+✅ Detailed logging at every step
+✅ Background music support (royalty-free)
+✅ Simple, foolproof overlay approach
 """
 
 import os
@@ -461,15 +459,22 @@ import tempfile
 import base64
 import io
 import gc
+import urllib.request
 from pathlib import Path
 from typing import List, Dict, Any, Tuple, Optional
 from PIL import Image, ImageDraw, ImageFont
-import textwrap
 
 logger = logging.getLogger(__name__)
 
 class SlideshowGenerator:
-    """Generate videos with simple text overlays on images"""
+    """Generate product ad videos with overlays and music"""
+    
+    # Free background music URLs (royalty-free)
+    BACKGROUND_MUSIC = {
+        "upbeat": "https://www.bensound.com/bensound-music/bensound-ukulele.mp3",
+        "energetic": "https://www.bensound.com/bensound-music/bensound-sunny.mp3",
+        "chill": "https://www.bensound.com/bensound-music/bensound-relaxing.mp3"
+    }
     
     QUALITY_TIERS = [
         {"name": "720p", "resolution": (720, 1280), "crf": 23, "preset": "fast"},
@@ -479,7 +484,7 @@ class SlideshowGenerator:
     def __init__(self):
         self.ffmpeg_path = self._find_ffmpeg()
         self.temp_dir = tempfile.gettempdir()
-        logger.info(f"✅ SlideshowGenerator initialized")
+        logger.info(f"✅ SlideshowGenerator initialized - FFmpeg: {self.ffmpeg_path}")
     
     def _find_ffmpeg(self) -> str:
         """Find FFmpeg executable"""
@@ -489,9 +494,13 @@ class SlideshowGenerator:
                                   text=True, 
                                   timeout=5)
             if result.returncode == 0:
-                return result.stdout.strip()
-        except:
-            pass
+                ffmpeg_path = result.stdout.strip()
+                logger.info(f"✅ FFmpeg found: {ffmpeg_path}")
+                return ffmpeg_path
+        except Exception as e:
+            logger.warning(f"⚠️  FFmpeg search failed: {e}")
+        
+        logger.warning("⚠️  Using default 'ffmpeg' command")
         return "ffmpeg"
     
     async def generate_slideshow(
@@ -504,16 +513,17 @@ class SlideshowGenerator:
         add_text: bool = True,
         music_style: str = "upbeat",
         aspect_ratio: str = "9:16",
-        product_data: Dict = None
+        product_data: Dict = None,
+        add_music: bool = True  # NEW: Enable background music
     ) -> Dict[str, Any]:
-        """
-        Generate slideshow with text overlays
+        """Generate slideshow with debugging and music"""
         
-        Args:
-            images: List of base64 encoded images
-            title: Video title
-            product_data: Dict with product info (name, price, brand, etc.)
-        """
+        logger.info("=" * 70)
+        logger.info("🎬 STARTING SLIDESHOW GENERATION")
+        logger.info("=" * 70)
+        logger.info(f"📊 Input: {len(images)} images")
+        logger.info(f"📦 Product data: {product_data is not None}")
+        logger.info(f"🎵 Add music: {add_music}")
         
         if not 2 <= len(images) <= 6:
             return {"success": False, "error": "Upload 2-6 images"}
@@ -529,56 +539,80 @@ class SlideshowGenerator:
         work_dir = Path(self.temp_dir) / session_id
         work_dir.mkdir(exist_ok=True, parents=True)
         
-        logger.info(f"🎬 Creating slideshow with text overlays...")
-        logger.info(f"📦 Product data: {bool(product_data)}")
+        logger.info(f"📁 Work directory: {work_dir}")
         
         for tier_index, quality_tier in enumerate(self.QUALITY_TIERS):
             try:
+                logger.info(f"\n{'='*70}")
                 logger.info(f"🎬 Attempting quality: {quality_tier['name']}")
+                logger.info(f"{'='*70}\n")
                 
-                # STEP 1: Save base images (resize to target resolution)
-                logger.info("📥 Step 1: Saving base images...")
-                base_image_paths = await self._save_base_images(
+                # STEP 1: Decode and save images
+                logger.info("📥 STEP 1: Decoding and saving base images...")
+                base_paths = await self._decode_and_save_images(
                     images, work_dir, quality_tier['resolution']
                 )
+                logger.info(f"✅ STEP 1 COMPLETE: {len(base_paths)} base images saved")
+                for i, p in enumerate(base_paths):
+                    logger.info(f"   → {i+1}. {p} ({p.stat().st_size / 1024:.1f} KB)")
                 
-                if not base_image_paths:
-                    raise Exception("No images saved")
-                
-                logger.info(f"✅ Saved {len(base_image_paths)} base images")
-                
-                # STEP 2: Add text overlays ON images (if product_data exists)
+                # STEP 2: Add overlays (CRITICAL STEP)
                 if product_data:
-                    logger.info("📝 Step 2: Adding text overlays ON images...")
-                    overlaid_image_paths = await self._add_text_overlays_to_images(
-                        base_image_paths, 
-                        product_data, 
-                        work_dir
+                    logger.info("\n🎨 STEP 2: Adding text overlays to images...")
+                    logger.info(f"   Product: {product_data.get('brand')} - {product_data.get('product_name', '')[:30]}")
+                    logger.info(f"   Price: Rs.{product_data.get('price', 0)}")
+                    
+                    overlaid_paths = await self._add_overlays_with_pil(
+                        base_paths, product_data, work_dir
                     )
-                    logger.info(f"✅ Added overlays to {len(overlaid_image_paths)} images")
+                    logger.info(f"✅ STEP 2 COMPLETE: {len(overlaid_paths)} overlaid images created")
+                    for i, p in enumerate(overlaid_paths):
+                        logger.info(f"   → {i+1}. {p} ({p.stat().st_size / 1024:.1f} KB)")
                 else:
-                    logger.info("⚠️  No product_data, skipping overlays")
-                    overlaid_image_paths = base_image_paths
+                    logger.warning("⚠️  STEP 2 SKIPPED: No product_data provided!")
+                    overlaid_paths = base_paths
                 
-                # STEP 3: Create video from overlaid images
-                logger.info("🎥 Step 3: Creating video from overlaid images...")
-                video_path = await self._create_video_from_images(
-                    overlaid_image_paths,
+                # STEP 3: Download background music (if enabled)
+                music_path = None
+                if add_music:
+                    logger.info("\n🎵 STEP 3: Downloading background music...")
+                    music_path = await self._download_music(work_dir, music_style)
+                    if music_path:
+                        logger.info(f"✅ STEP 3 COMPLETE: Music downloaded to {music_path}")
+                    else:
+                        logger.warning("⚠️  STEP 3 FAILED: Could not download music, continuing without")
+                else:
+                    logger.info("\n⚠️  STEP 3 SKIPPED: Music disabled")
+                
+                # STEP 4: Create video
+                logger.info("\n🎥 STEP 4: Creating video with FFmpeg...")
+                video_path = await self._create_video_with_ffmpeg(
+                    overlaid_paths,
                     duration_per_image,
                     quality_tier,
-                    work_dir
+                    work_dir,
+                    music_path  # Pass music path
                 )
                 
                 if not video_path or not video_path.exists():
-                    raise Exception("Video file not created")
-                
-                logger.info(f"✅ Video created: {video_path}")
-                
-                # STEP 4: Generate thumbnail
-                thumbnail_path = await self._generate_thumbnail(overlaid_image_paths[0], work_dir)
+                    raise Exception("Video file not created!")
                 
                 file_size = video_path.stat().st_size / 1024 / 1024
-                logger.info(f"✅✅✅ SUCCESS! Video: {file_size:.2f} MB")
+                logger.info(f"✅ STEP 4 COMPLETE: Video created ({file_size:.2f} MB)")
+                
+                # STEP 5: Generate thumbnail
+                logger.info("\n📸 STEP 5: Creating thumbnail...")
+                thumbnail_path = await self._generate_thumbnail(overlaid_paths[0], work_dir)
+                logger.info(f"✅ STEP 5 COMPLETE: Thumbnail created")
+                
+                logger.info("\n" + "=" * 70)
+                logger.info("✅✅✅ SUCCESS! ALL STEPS COMPLETED")
+                logger.info("=" * 70)
+                logger.info(f"📁 Debug files location: {work_dir}")
+                logger.info(f"   - base_*.jpg (original images)")
+                logger.info(f"   - overlaid_*.jpg (with text overlays)")
+                logger.info(f"   - output.mp4 (final video)")
+                logger.info("=" * 70 + "\n")
                 
                 return {
                     "success": True,
@@ -589,278 +623,293 @@ class SlideshowGenerator:
                     "session_id": session_id,
                     "local_path": str(video_path),
                     "quality": quality_tier['name'],
-                    "has_overlays": bool(product_data)
+                    "has_overlays": bool(product_data),
+                    "has_music": music_path is not None,
+                    "debug_dir": str(work_dir)  # For debugging
                 }
                 
             except Exception as e:
-                logger.error(f"❌ {quality_tier['name']} failed: {e}")
+                logger.error(f"\n❌❌❌ TIER {quality_tier['name']} FAILED ❌❌❌")
+                logger.error(f"Error: {e}")
                 import traceback
-                logger.error(traceback.format_exc())
+                logger.error(f"Traceback:\n{traceback.format_exc()}")
                 
                 if tier_index == len(self.QUALITY_TIERS) - 1:
                     return {"success": False, "error": str(e)}
                 
+                logger.info(f"⏭️  Trying next quality tier...")
                 await asyncio.sleep(1)
-                continue
         
         return {"success": False, "error": "All quality tiers failed"}
     
-    # =======================================================================
-    # STEP 1: Save base images
-    # =======================================================================
-    
-    async def _save_base_images(
-        self, 
-        images: List[str], 
+    async def _decode_and_save_images(
+        self,
+        images: List[str],
         work_dir: Path,
         target_size: Tuple[int, int]
     ) -> List[Path]:
-        """Save and resize images (no overlays yet)"""
-        image_paths = []
+        """Decode base64 images and save as JPG files"""
+        saved_paths = []
         
         for idx, img_b64 in enumerate(images):
             try:
-                # Decode base64
+                logger.info(f"   Processing image {idx+1}/{len(images)}...")
+                
+                # Remove data URI prefix if present
                 if 'base64,' in img_b64:
                     img_b64 = img_b64.split('base64,', 1)[1]
                 
+                # Decode base64
                 img_data = base64.b64decode(img_b64.strip())
-                img = Image.open(io.BytesIO(img_data))
-                img = img.convert('RGB')  # Ensure RGB
-                img.load()
+                logger.info(f"      Decoded: {len(img_data)} bytes")
                 
-                # Resize with padding
-                img = self._resize_with_padding(img, target_size)
+                # Open image
+                img = Image.open(io.BytesIO(img_data))
+                img = img.convert('RGB')
+                logger.info(f"      Original size: {img.size}")
+                
+                # Resize
+                img = self._resize_to_target(img, target_size)
+                logger.info(f"      Resized to: {img.size}")
                 
                 # Save
-                img_path = work_dir / f"base_{idx:03d}.jpg"
-                img.save(img_path, "JPEG", quality=90, optimize=True)
+                save_path = work_dir / f"base_{idx:03d}.jpg"
+                img.save(save_path, "JPEG", quality=95)
+                saved_paths.append(save_path)
+                
+                logger.info(f"      ✅ Saved: {save_path.name}")
                 
                 img.close()
                 del img
                 gc.collect()
                 
-                image_paths.append(img_path)
-                logger.info(f"✅ Base image {idx + 1}/{len(images)} saved")
-                
             except Exception as e:
-                logger.error(f"❌ Image {idx + 1} save failed: {e}")
+                logger.error(f"      ❌ Image {idx+1} failed: {e}")
                 raise
         
-        return image_paths
+        return saved_paths
     
-    def _resize_with_padding(self, img: Image.Image, target_size: tuple) -> Image.Image:
-        """Resize image with black padding to fit target size"""
-        target_width, target_height = target_size
+    def _resize_to_target(self, img: Image.Image, target_size: Tuple[int, int]) -> Image.Image:
+        """Resize image to exact target size with padding"""
+        target_w, target_h = target_size
         
-        # Calculate aspect ratios
+        # Calculate scaling
         img_ratio = img.width / img.height
-        target_ratio = target_width / target_height
+        target_ratio = target_w / target_h
         
-        # Resize to fit within target size
         if img_ratio > target_ratio:
-            # Image is wider - fit to width
-            new_width = target_width
-            new_height = int(new_width / img_ratio)
+            new_w = target_w
+            new_h = int(target_w / img_ratio)
         else:
-            # Image is taller - fit to height
-            new_height = target_height
-            new_width = int(new_height * img_ratio)
+            new_h = target_h
+            new_w = int(target_h * img_ratio)
         
-        img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+        img = img.resize((new_w, new_h), Image.Resampling.LANCZOS)
         
-        # Create padded canvas
-        padded = Image.new('RGB', target_size, (0, 0, 0))
-        paste_x = (target_width - new_width) // 2
-        paste_y = (target_height - new_height) // 2
-        padded.paste(img, (paste_x, paste_y))
+        # Add black padding
+        canvas = Image.new('RGB', target_size, (0, 0, 0))
+        paste_x = (target_w - new_w) // 2
+        paste_y = (target_h - new_h) // 2
+        canvas.paste(img, (paste_x, paste_y))
         
-        return padded
+        return canvas
     
-    # =======================================================================
-    # STEP 2: Add text overlays ON images (CRITICAL PART)
-    # =======================================================================
-    
-    async def _add_text_overlays_to_images(
+    async def _add_overlays_with_pil(
         self,
-        base_image_paths: List[Path],
+        base_paths: List[Path],
         product_data: Dict,
         work_dir: Path
     ) -> List[Path]:
         """
-        ✅ Add simple text overlays at BOTTOM of each image
-        This is where the magic happens!
+        Add text overlays using PIL (the CRITICAL function)
         """
         overlaid_paths = []
         
-        # Load fonts (try system fonts, fallback to default)
+        # Load fonts
+        logger.info("   Loading fonts...")
         try:
-            font_large = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 50)
-            font_medium = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 40)
-            font_small = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 32)
+            font_xl = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 60)
+            font_large = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 48)
+            font_medium = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 38)
+            logger.info("   ✅ System fonts loaded")
         except Exception as e:
-            logger.warning(f"⚠️  Font loading failed, using default: {e}")
-            font_large = ImageFont.load_default()
-            font_medium = ImageFont.load_default()
-            font_small = ImageFont.load_default()
+            logger.warning(f"   ⚠️  Font loading failed: {e}, using default")
+            font_xl = font_large = font_medium = ImageFont.load_default()
         
-        # Extract product info (with fallbacks)
-        product_name = str(product_data.get("product_name", "Product"))[:50]
-        brand = str(product_data.get("brand", "Brand"))[:25]
+        # Extract product info
+        brand = str(product_data.get("brand", "Brand"))[:20]
+        product_name = str(product_data.get("product_name", "Product"))[:40]
         price = product_data.get("price", 0)
         discount = str(product_data.get("discount", ""))
-        original_price = product_data.get("original_price", 0)
         
-        # Fix price if zero
-        if price == 0 and original_price > 0:
-            price = original_price
+        logger.info(f"   Product info: {brand} | {product_name[:25]} | Rs.{price}")
         
-        logger.info(f"📦 Product: {brand} - {product_name[:30]} - Rs.{price}")
-        
-        # Different text for each image
-        overlay_configs = [
-            {
-                "main_text": f"{brand}",
-                "sub_text": product_name[:35],
-                "color": (255, 215, 0)  # Gold
-            },
-            {
-                "main_text": f"Rs.{int(price):,}" if price > 0 else "Special Price",
-                "sub_text": discount if discount else "Best Deal",
-                "color": (0, 255, 127)  # Spring green
-            },
-            {
-                "main_text": "Premium Quality",
-                "sub_text": "100% Original",
-                "color": (255, 105, 180)  # Hot pink
-            },
-            {
-                "main_text": "Link in Description",
-                "sub_text": "Click to Buy",
-                "color": (255, 69, 0)  # Orange red
-            },
+        # Text configurations for each image
+        text_configs = [
+            {"line1": f"🔥 {brand}", "line2": product_name, "color": (255, 215, 0)},  # Gold
+            {"line1": f"Rs.{int(price):,}" if price > 0 else "Best Deal", "line2": discount or "Special Price", "color": (0, 255, 127)},  # Green
+            {"line1": "Premium Quality", "line2": "100% Original", "color": (255, 105, 180)},  # Pink
+            {"line1": "👇 Click Link Below", "line2": "Buy Now", "color": (255, 69, 0)},  # Red
         ]
         
-        # Apply overlay to each image
-        for idx, img_path in enumerate(base_image_paths):
+        # Process each image
+        for idx, base_path in enumerate(base_paths):
             try:
-                logger.info(f"🎨 Adding overlay to image {idx + 1}/{len(base_image_paths)}...")
+                logger.info(f"   Adding overlay to image {idx+1}...")
                 
                 # Open base image
-                img = Image.open(img_path).convert('RGB')
-                width, height = img.size
+                img = Image.open(base_path)
+                w, h = img.size
+                logger.info(f"      Image size: {w}x{h}")
                 
                 # Create drawing context
                 draw = ImageDraw.Draw(img)
                 
-                # Get overlay config (cycle if more images than configs)
-                config = overlay_configs[idx % len(overlay_configs)]
+                # Get text for this image
+                config = text_configs[idx % len(text_configs)]
                 
-                # Calculate position (bottom of image, with margin)
-                margin_bottom = 100  # 100px from bottom
-                text_y = height - margin_bottom - 120  # Space for 2 lines
+                # Calculate text position (bottom 20% of image)
+                text_area_height = int(h * 0.20)  # 20% of image
+                text_y_start = h - text_area_height - 50  # 50px margin from bottom
                 
-                # Draw semi-transparent black background bar
-                bar_height = 140
-                bar_y = height - margin_bottom - bar_height
+                logger.info(f"      Text area: y={text_y_start} to y={h-50}")
                 
-                # Draw background rectangle
+                # Draw semi-transparent black background
+                bg_y = text_y_start - 20
                 draw.rectangle(
-                    [(0, bar_y), (width, height - margin_bottom)],
-                    fill=(0, 0, 0, 200)  # Semi-transparent black
+                    [(0, bg_y), (w, h - 40)],
+                    fill=(0, 0, 0, 200)
                 )
+                logger.info(f"      ✅ Background drawn")
                 
-                # Draw main text (large, colored)
-                main_text = config["main_text"]
-                main_bbox = draw.textbbox((0, 0), main_text, font=font_large)
-                main_text_width = main_bbox[2] - main_bbox[0]
-                main_x = (width - main_text_width) // 2  # Center
-                
-                # Text with shadow (for readability)
-                # Shadow
-                draw.text((main_x + 3, bar_y + 23), main_text, fill=(0, 0, 0), font=font_large)
-                # Main text
-                draw.text((main_x, bar_y + 20), main_text, fill=config["color"], font=font_large)
-                
-                # Draw sub text (smaller, white)
-                sub_text = config["sub_text"]
-                sub_bbox = draw.textbbox((0, 0), sub_text, font=font_medium)
-                sub_text_width = sub_bbox[2] - sub_bbox[0]
-                sub_x = (width - sub_text_width) // 2  # Center
+                # Draw line 1 (main text, large, colored)
+                line1 = config["line1"]
+                bbox1 = draw.textbbox((0, 0), line1, font=font_xl)
+                text1_w = bbox1[2] - bbox1[0]
+                x1 = (w - text1_w) // 2  # Center
                 
                 # Shadow
-                draw.text((sub_x + 2, bar_y + 82), sub_text, fill=(0, 0, 0), font=font_medium)
-                # Main text
-                draw.text((sub_x, bar_y + 80), sub_text, fill=(255, 255, 255), font=font_medium)
+                draw.text((x1+3, text_y_start+3), line1, fill=(0, 0, 0), font=font_xl)
+                # Main
+                draw.text((x1, text_y_start), line1, fill=config["color"], font=font_xl)
+                logger.info(f"      ✅ Line 1: '{line1[:20]}...'")
                 
-                # Optional: Add brand watermark in top-left
-                watermark = f"📱 {brand}"
-                draw.text((20, 20), watermark, fill=(255, 255, 255), font=font_small)
+                # Draw line 2 (sub text, medium, white)
+                line2 = config["line2"]
+                bbox2 = draw.textbbox((0, 0), line2, font=font_large)
+                text2_w = bbox2[2] - bbox2[0]
+                x2 = (w - text2_w) // 2  # Center
+                
+                # Shadow
+                draw.text((x2+2, text_y_start+72), line2, fill=(0, 0, 0), font=font_large)
+                # Main
+                draw.text((x2, text_y_start+70), line2, fill=(255, 255, 255), font=font_large)
+                logger.info(f"      ✅ Line 2: '{line2[:20]}...'")
+                
+                # Add small brand watermark at top
+                draw.text((20, 20), f"📱 {brand}", fill=(255, 255, 255), font=font_medium)
                 
                 # Save overlaid image
                 overlaid_path = work_dir / f"overlaid_{idx:03d}.jpg"
-                img.save(overlaid_path, "JPEG", quality=92, optimize=True)
+                img.save(overlaid_path, "JPEG", quality=95)
                 overlaid_paths.append(overlaid_path)
                 
-                logger.info(f"✅ Overlay {idx + 1} added successfully")
+                logger.info(f"      ✅ Saved: {overlaid_path.name} ({overlaid_path.stat().st_size / 1024:.1f} KB)")
                 
                 img.close()
                 del img, draw
                 gc.collect()
                 
             except Exception as e:
-                logger.error(f"❌ Overlay {idx + 1} failed: {e}")
+                logger.error(f"      ❌ Overlay {idx+1} failed: {e}")
                 import traceback
                 logger.error(traceback.format_exc())
-                # If overlay fails, use original image
-                overlaid_paths.append(img_path)
+                overlaid_paths.append(base_path)
         
-        logger.info(f"✅ Total overlaid images: {len(overlaid_paths)}")
         return overlaid_paths
     
-    # =======================================================================
-    # STEP 3: Create video from overlaid images
-    # =======================================================================
+    async def _download_music(self, work_dir: Path, style: str) -> Optional[Path]:
+        """Download background music (royalty-free)"""
+        try:
+            music_url = self.BACKGROUND_MUSIC.get(style, self.BACKGROUND_MUSIC["upbeat"])
+            music_path = work_dir / "background_music.mp3"
+            
+            logger.info(f"   Downloading: {music_url}")
+            
+            # Download with timeout
+            urllib.request.urlretrieve(music_url, music_path)
+            
+            if music_path.exists():
+                logger.info(f"   ✅ Downloaded: {music_path.stat().st_size / 1024:.1f} KB")
+                return music_path
+            
+        except Exception as e:
+            logger.warning(f"   ⚠️  Music download failed: {e}")
+        
+        return None
     
-    async def _create_video_from_images(
+    async def _create_video_with_ffmpeg(
         self,
         image_paths: List[Path],
         duration: float,
         quality_tier: dict,
-        work_dir: Path
+        work_dir: Path,
+        music_path: Optional[Path] = None
     ) -> Optional[Path]:
-        """Create video from images using FFmpeg (no additional overlays)"""
+        """Create video with FFmpeg + optional background music"""
+        
         output_path = work_dir / "output.mp4"
         resolution = quality_tier['resolution']
         
-        # Create concat file for FFmpeg
-        filelist_path = work_dir / "filelist.txt"
-        with open(filelist_path, 'w') as f:
+        # Create concat file
+        concat_file = work_dir / "concat.txt"
+        with open(concat_file, 'w') as f:
             for img_path in image_paths:
                 f.write(f"file '{img_path}'\n")
                 f.write(f"duration {duration}\n")
-            # Repeat last image (FFmpeg requirement)
             f.write(f"file '{image_paths[-1]}'\n")
         
-        logger.info(f"📋 Concat file created: {filelist_path}")
+        logger.info(f"   Concat file: {concat_file}")
         
-        # FFmpeg command (simple, no complex filters)
+        # Build FFmpeg command
         cmd = [
             self.ffmpeg_path,
             "-f", "concat",
             "-safe", "0",
-            "-i", str(filelist_path),
+            "-i", str(concat_file),
+        ]
+        
+        # Add music input if available
+        if music_path and music_path.exists():
+            logger.info(f"   Adding background music: {music_path}")
+            cmd.extend(["-i", str(music_path)])
+            audio_filter = [
+                "-filter_complex", "[1:a]volume=0.3[a]",  # Lower music volume to 30%
+                "-map", "0:v",  # Video from input 0
+                "-map", "[a]",  # Audio from filter
+                "-shortest",  # Stop when shortest input ends
+            ]
+        else:
+            logger.info("   No music added")
+            audio_filter = []
+        
+        # Video encoding options
+        cmd.extend([
             "-vf", f"fps=30,scale={resolution[0]}:{resolution[1]}:force_original_aspect_ratio=decrease,pad={resolution[0]}:{resolution[1]}:(ow-iw)/2:(oh-ih)/2",
+            *audio_filter,
             "-c:v", "libx264",
             "-pix_fmt", "yuv420p",
             "-preset", quality_tier['preset'],
             "-crf", str(quality_tier['crf']),
+            "-c:a", "aac",  # Audio codec
+            "-b:a", "128k",  # Audio bitrate
             "-movflags", "+faststart",
             "-y",
             str(output_path)
-        ]
+        ])
         
-        logger.info(f"🎥 Running FFmpeg: {' '.join(cmd[:8])}...")
+        logger.info(f"   Running FFmpeg...")
+        logger.info(f"   Command: {' '.join(cmd[:10])}...")
         
         try:
             process = await asyncio.create_subprocess_exec(
@@ -872,36 +921,30 @@ class SlideshowGenerator:
             stdout, stderr = await process.communicate()
             
             if process.returncode != 0:
-                stderr_text = stderr.decode()
-                logger.error(f"❌ FFmpeg failed (code {process.returncode})")
-                logger.error(f"FFmpeg stderr: {stderr_text}")
+                logger.error(f"   ❌ FFmpeg failed (exit code {process.returncode})")
+                logger.error(f"   FFmpeg stderr: {stderr.decode()[:500]}")
                 raise Exception(f"FFmpeg failed: {process.returncode}")
             
             if not output_path.exists():
-                raise Exception("Video file not found after FFmpeg")
+                raise Exception("Output video not found")
             
-            file_size = output_path.stat().st_size / 1024 / 1024
-            logger.info(f"✅ Video created: {output_path} ({file_size:.2f} MB)")
-            
+            logger.info(f"   ✅ FFmpeg completed successfully")
             return output_path
             
         except Exception as e:
-            logger.error(f"❌ FFmpeg error: {e}")
+            logger.error(f"   ❌ FFmpeg error: {e}")
             raise
     
     async def _generate_thumbnail(self, first_image: Path, work_dir: Path) -> Path:
-        """Generate thumbnail from first image"""
+        """Generate thumbnail"""
         thumb_path = work_dir / "thumbnail.jpg"
-        
         try:
             img = Image.open(first_image)
             img.thumbnail((640, 360), Image.Resampling.LANCZOS)
             img.save(thumb_path, "JPEG", quality=85)
             img.close()
-            logger.info(f"✅ Thumbnail created: {thumb_path}")
             return thumb_path
-        except Exception as e:
-            logger.warning(f"⚠️  Thumbnail creation failed: {e}")
+        except:
             return first_image
 
 
@@ -909,9 +952,7 @@ class SlideshowGenerator:
 slideshow_generator = SlideshowGenerator()
 
 def get_slideshow_generator():
-    """Get global slideshow generator instance"""
     return slideshow_generator
 
 def get_video_generator():
-    """Alias for get_slideshow_generator"""
     return slideshow_generator
