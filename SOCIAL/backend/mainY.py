@@ -1125,7 +1125,82 @@ async def extract_video_frames_as_thumbnails(
         logger.error(f"Traceback: {traceback.format_exc()}")
         return []
 
+# ============================================================================
+# STEP 1: ADD THESE HELPER FUNCTIONS AT THE TOP OF mainY.py (after imports)
+# ============================================================================
 
+def generate_professional_youtube_description(product_data: dict, short_url: str = None) -> str:
+    """
+    Generate YouTube-compliant affiliate description
+    ✅ Clear disclosure
+    ✅ SEO-optimized
+    """
+    brand = product_data.get("brand", "Brand")
+    product_name = product_data.get("product_name", "Product")
+    price = product_data.get("price", 0)
+    original_price = product_data.get("original_price", price)
+    discount = product_data.get("discount", "")
+    category = product_data.get("category", "Unisex")
+    sizes = product_data.get("sizes", [])
+    colors = product_data.get("colors", [])
+    
+    buy_link = short_url if short_url else product_data.get("product_url", "")
+    
+    description = f"""🔥 {brand} {product_name}
+
+💰 PRICE DETAILS:
+Original: ₹{int(original_price):,}
+Selling: ₹{int(price):,}
+YOU SAVE: ₹{int(original_price - price):,} {discount}
+
+✅ 100% Original Product
+✅ Official Warranty
+✅ Fast Delivery
+
+🛒 BUY NOW (Best Deal):
+{buy_link}
+
+━━━━━━━━━━━━━━━━
+
+👔 PRODUCT DETAILS:
+Brand: {brand}
+Category: {category}
+"""
+    
+    if sizes:
+        description += f"Sizes: {', '.join(sizes[:8])}\n"
+    if colors:
+        description += f"Colors: {', '.join(colors[:6])}\n"
+    
+    description += """
+━━━━━━━━━━━━━━━━
+
+📢 DISCLOSURE:
+This video contains affiliate/sponsored product links. When you purchase through these links, we may earn a small commission at no extra cost to you. This helps support our channel. Thank you for your support!
+
+━━━━━━━━━━━━━━━━
+
+🔔 Subscribe for more product reviews and deals!
+
+#Shorts #ProductReview #Shopping #Deals #Fashion #TechDeals #BestPrice #OnlineShopping
+"""
+    
+    return description.strip()
+
+
+async def shorten_url_async(long_url: str) -> str:
+    """Shorten URL using TinyURL (async)"""
+    try:
+        import httpx
+        async with httpx.AsyncClient(timeout=10) as client:
+            response = await client.get(
+                f"http://tinyurl.com/api-create.php?url={long_url}"
+            )
+            if response.status_code == 200:
+                return response.text
+    except Exception as e:
+        logger.warning(f"URL shortening failed: {e}")
+    return long_url
 
 # Initialize FastAPI app
 @asynccontextmanager
@@ -4492,11 +4567,83 @@ async def _generate_platform_metadata(title: str, language: str, platforms: List
 
 
 
+# @app.post("/api/youtube/generate-slideshow")
+# async def generate_youtube_slideshow(request: dict):
+#     """
+#     Frontend endpoint - generates slideshow and uploads to YouTube
+#     Expected from frontend: images, title, description, duration_per_image
+#     """
+#     try:
+#         user_id = request.get('user_id')
+#         images = request.get('images', [])
+#         title = request.get('title', '')
+#         description = request.get('description', '')
+#         duration = request.get('duration_per_image', 2.0)
+        
+#         logger.info(f"🎬 Slideshow request: {title} ({len(images)} images)")
+        
+#         # Validate
+#         if not 2 <= len(images) <= 6:
+#             raise HTTPException(status_code=400, detail="Upload 2-6 images")
+        
+#         if not title or not description:
+#             raise HTTPException(status_code=400, detail="Title and description required")
+        
+#         # Check YouTube credentials
+#         credentials = await database_manager.get_youtube_credentials(user_id)
+#         if not credentials:
+#             raise HTTPException(status_code=400, detail="YouTube not connected")
+        
+#         # Generate slideshow
+#         slideshow_gen = get_slideshow_generator()
+#         result = await slideshow_gen.generate_slideshow(
+#             images=images,
+#             title=title,
+#             language='english',
+#             duration_per_image=duration,
+#             transition='fade',
+#             add_text=True,
+#             aspect_ratio="9:16"
+#         )
+        
+#         if not result.get('success'):
+#             raise HTTPException(status_code=500, detail=result.get('error'))
+        
+#         # Upload to YouTube
+#         upload_result = await youtube_scheduler.generate_and_upload_content(
+#             user_id=user_id,
+#             credentials_data=credentials,
+#             content_type="shorts",
+#             title=title,
+#             description=description,
+#             video_url=result['local_path']
+#         )
+        
+#         if upload_result.get('success'):
+#             # Clean up after 2 minutes
+#             asyncio.create_task(cleanup_temp_files(result['local_path'], delay=120))
+            
+#             return {
+#                 "success": True,
+#                 "message": "Video uploaded successfully!",
+#                 "video_id": upload_result.get('video_id'),
+#                 "video_url": upload_result.get('video_url'),
+#                 "title": title
+#             }
+#         else:
+#             raise HTTPException(status_code=500, detail=upload_result.get('error'))
+        
+#     except HTTPException:
+#         raise
+#     except Exception as e:
+#         logger.error(f"Slideshow generation failed: {e}")
+#         raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.post("/api/youtube/generate-slideshow")
 async def generate_youtube_slideshow(request: dict):
     """
-    Frontend endpoint - generates slideshow and uploads to YouTube
-    Expected from frontend: images, title, description, duration_per_image
+    ✅ UPDATED: Generate slideshow with product overlays + upload with affiliate description
     """
     try:
         user_id = request.get('user_id')
@@ -4505,22 +4652,36 @@ async def generate_youtube_slideshow(request: dict):
         description = request.get('description', '')
         duration = request.get('duration_per_image', 2.0)
         
+        # ✅ NEW: Get product data
+        product_data = request.get('product_data')
+        
         logger.info(f"🎬 Slideshow request: {title} ({len(images)} images)")
         
         # Validate
         if not 2 <= len(images) <= 6:
-            raise HTTPException(status_code=400, detail="Upload 2-6 images")
+            return {
+                "success": False,
+                "error": "Upload 2-6 images"
+            }
         
-        if not title or not description:
-            raise HTTPException(status_code=400, detail="Title and description required")
+        if not title:
+            return {
+                "success": False,
+                "error": "Title required"
+            }
         
         # Check YouTube credentials
         credentials = await database_manager.get_youtube_credentials(user_id)
         if not credentials:
-            raise HTTPException(status_code=400, detail="YouTube not connected")
+            return {
+                "success": False,
+                "error": "YouTube not connected. Please connect your YouTube account first."
+            }
         
-        # Generate slideshow
+        # ✅ GENERATE SLIDESHOW WITH PRODUCT OVERLAYS
+        from slideshow_generator import get_slideshow_generator
         slideshow_gen = get_slideshow_generator()
+        
         result = await slideshow_gen.generate_slideshow(
             images=images,
             title=title,
@@ -4528,41 +4689,86 @@ async def generate_youtube_slideshow(request: dict):
             duration_per_image=duration,
             transition='fade',
             add_text=True,
-            aspect_ratio="9:16"
+            aspect_ratio="9:16",
+            product_data=product_data  # ✅ This adds professional ad overlays
         )
         
         if not result.get('success'):
-            raise HTTPException(status_code=500, detail=result.get('error'))
+            return {
+                "success": False,
+                "error": result.get('error', 'Video generation failed')
+            }
+        
+        video_path = result.get('local_path')
+        
+        logger.info(f"✅ Video generated: {video_path}")
+        
+        # ✅ USE PROFESSIONAL DESCRIPTION (if no custom description provided)
+        if not description and product_data:
+            description = generate_professional_youtube_description(
+                product_data,
+                product_data.get('short_url', product_data.get('product_url'))
+            )
+            logger.info(f"✅ Generated professional description with affiliate link")
+        elif not description:
+            description = f"{title}\n\n#Shorts"
         
         # Upload to YouTube
+        logger.info("📤 Uploading to YouTube...")
+        
         upload_result = await youtube_scheduler.generate_and_upload_content(
             user_id=user_id,
             credentials_data=credentials,
             content_type="shorts",
             title=title,
-            description=description,
-            video_url=result['local_path']
+            description=description,  # ✅ Professional description with affiliate link
+            video_url=video_path
         )
         
         if upload_result.get('success'):
-            # Clean up after 2 minutes
-            asyncio.create_task(cleanup_temp_files(result['local_path'], delay=120))
+            video_id = upload_result.get('video_id')
+            
+            logger.info(f"✅ Video uploaded successfully: {video_id}")
+            
+            # Clean up temp file after 2 minutes
+            async def cleanup():
+                await asyncio.sleep(120)
+                try:
+                    if os.path.exists(video_path):
+                        os.unlink(video_path)
+                        logger.info(f"🗑️ Cleaned up: {video_path}")
+                except:
+                    pass
+            
+            asyncio.create_task(cleanup())
             
             return {
                 "success": True,
-                "message": "Video uploaded successfully!",
-                "video_id": upload_result.get('video_id'),
-                "video_url": upload_result.get('video_url'),
-                "title": title
+                "message": "🎉 Video uploaded to YouTube successfully!",
+                "video_id": video_id,
+                "video_url": f"https://www.youtube.com/watch?v={video_id}",
+                "shorts_url": f"https://www.youtube.com/shorts/{video_id}",
+                "title": title,
+                "has_affiliate_link": bool(product_data)
             }
         else:
-            raise HTTPException(status_code=500, detail=upload_result.get('error'))
+            return {
+                "success": False,
+                "error": upload_result.get('error', 'Upload failed')
+            }
         
-    except HTTPException:
-        raise
     except Exception as e:
-        logger.error(f"Slideshow generation failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"❌ Slideshow generation failed: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
+        
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+
+
 
 
 async def cleanup_temp_files(file_path: str, delay: int = 120):
@@ -4603,64 +4809,144 @@ async def generate_youtube_content_endpoint(request: dict):
 from YTvideo_services import get_video_service
 
 # In your slideshow preview endpoint
+# @app.post("/api/youtube/generate-slideshow-preview")
+# async def generate_slideshow_preview(request: dict):
+#     try:
+#         user_id = request.get("user_id")
+#         images = request.get("images", [])
+#         duration_per_image = request.get("duration_per_image", 2.0)
+        
+#         # DEBUG LOGGING
+#         logger.info(f"🎬 Generating preview for {len(images)} images")
+#         if images:
+#             logger.info(f"📊 First image preview: {images[0][:50] if isinstance(images[0], str) else 'Invalid'}")
+#         else:
+#             logger.error("❌ No images received in request")
+#             logger.error(f"📋 Full request: {request}")
+        
+#         # CHANGED: Allow 1 image minimum
+#         if not images or len(images) < 1:
+#             raise ValueError("Need at least 1 image")
+        
+#         # Get video service
+#         from YTvideo_services import get_video_service
+#         video_service = get_video_service()
+        
+#         if not video_service.ffmpeg_available:
+#             return JSONResponse({
+#                 "success": False,
+#                 "error": "FFmpeg not available. Please upload directly to YouTube."
+#             }, status_code=503)
+        
+#         # Generate video
+#         video_path = await video_service.create_slideshow(
+#             images=images,
+#             duration_per_image=duration_per_image,
+#             output_format='mp4'
+#         )
+        
+#         # Read as base64
+#         with open(video_path, 'rb') as f:
+#             video_data = base64.b64encode(f.read()).decode()
+        
+#         # Cleanup
+#         os.unlink(video_path)
+        
+#         return JSONResponse({
+#             "success": True,
+#             "video_preview": f"data:video/mp4;base64,{video_data}"
+#         })
+        
+#     except Exception as e:
+#         logger.error(f"Preview generation failed: {str(e)}")
+#         import traceback
+#         logger.error(f"Traceback: {traceback.format_exc()}")
+        
+#         return JSONResponse({
+#             "success": False,
+#             "error": f"Preview failed: {str(e)}"
+#         }, status_code=500)
+
 @app.post("/api/youtube/generate-slideshow-preview")
 async def generate_slideshow_preview(request: dict):
+    """
+    ✅ UPDATED: Generate preview with product overlays
+    User can review before uploading
+    """
     try:
         user_id = request.get("user_id")
         images = request.get("images", [])
         duration_per_image = request.get("duration_per_image", 2.0)
+        title = request.get("title", "Product Video")
+        description = request.get("description", "")
         
-        # DEBUG LOGGING
+        # ✅ NEW: Get product data for overlays
+        product_data = request.get("product_data")
+        
         logger.info(f"🎬 Generating preview for {len(images)} images")
-        if images:
-            logger.info(f"📊 First image preview: {images[0][:50] if isinstance(images[0], str) else 'Invalid'}")
-        else:
-            logger.error("❌ No images received in request")
-            logger.error(f"📋 Full request: {request}")
         
-        # CHANGED: Allow 1 image minimum
-        if not images or len(images) < 1:
-            raise ValueError("Need at least 1 image")
+        if not images or len(images) < 2:
+            return {
+                "success": False,
+                "error": "Need at least 2 images for preview"
+            }
         
         # Get video service
-        from YTvideo_services import get_video_service
-        video_service = get_video_service()
+        from slideshow_generator import get_slideshow_generator
+        slideshow_gen = get_slideshow_generator()
         
-        if not video_service.ffmpeg_available:
-            return JSONResponse({
-                "success": False,
-                "error": "FFmpeg not available. Please upload directly to YouTube."
-            }, status_code=503)
-        
-        # Generate video
-        video_path = await video_service.create_slideshow(
+        # ✅ GENERATE VIDEO WITH PRODUCT OVERLAYS
+        result = await slideshow_gen.generate_slideshow(
             images=images,
+            title=title,
             duration_per_image=duration_per_image,
-            output_format='mp4'
+            product_data=product_data,  # ✅ Pass product data for ad overlays
+            aspect_ratio="9:16"
         )
         
-        # Read as base64
-        with open(video_path, 'rb') as f:
-            video_data = base64.b64encode(f.read()).decode()
+        if not result.get('success'):
+            return {
+                "success": False,
+                "error": result.get('error', 'Preview generation failed')
+            }
         
-        # Cleanup
-        os.unlink(video_path)
+        # Read video as base64 for preview
+        video_path = result.get('local_path')
         
-        return JSONResponse({
+        try:
+            with open(video_path, 'rb') as f:
+                video_data = base64.b64encode(f.read()).decode()
+            
+            video_preview = f"data:video/mp4;base64,{video_data}"
+        except Exception as read_err:
+            logger.error(f"Failed to read video: {read_err}")
+            video_preview = None
+        
+        logger.info(f"✅ Preview generated successfully")
+        
+        return {
             "success": True,
-            "video_preview": f"data:video/mp4;base64,{video_data}"
-        })
+            "preview": {
+                "video_preview": video_preview,
+                "video_path": video_path,  # Keep for upload
+                "duration": result.get('duration'),
+                "quality": result.get('quality'),
+                "title": title,
+                "description": description,
+                "has_product_overlay": bool(product_data)
+            },
+            "message": "Preview generated! Review before uploading."
+        }
         
     except Exception as e:
-        logger.error(f"Preview generation failed: {str(e)}")
+        logger.error(f"❌ Preview generation failed: {str(e)}")
         import traceback
         logger.error(f"Traceback: {traceback.format_exc()}")
         
-        return JSONResponse({
+        return {
             "success": False,
             "error": f"Preview failed: {str(e)}"
-        }, status_code=500)
-
+        }
 
 
 
@@ -4812,9 +5098,220 @@ async def shorten_url(long_url: str) -> str:
 
 
 
+# @app.post("/api/product-video/generate")
+# async def generate_product_promo_video(request: dict):
+#     """Scrape product and return formatted data for YouTube"""
+#     try:
+#         user_id = request.get('user_id')
+#         product_url = request.get('product_url')
+        
+#         if not product_url:
+#             return {"success": False, "error": "Product URL required"}
+        
+#         logger.info(f"🔍 Scraping: {product_url}")
+        
+#         # Scrape product
+#         scraper = get_product_scraper()
+#         product_data = await scraper.scrape_product(product_url)
+        
+#         # Handle scraping failure with detailed error
+#         if not product_data.get('success'):
+#             error_msg = product_data.get('error', 'Scraping failed')
+#             logger.error(f"❌ Scraping failed: {error_msg}")
+            
+#             # Return error but with empty product structure so UI doesn't break
+#             return {
+#                 "success": False,
+#                 "error": error_msg,
+#                 "product_data": {
+#                     "product_name": "",
+#                     "brand": "Brand",
+#                     "price": 0,
+#                     "original_price": 0,
+#                     "discount": "0% OFF",
+#                     "colors": [],
+#                     "sizes": [],
+#                     "category": "Unisex",
+#                     "rating_count": 0,
+#                     "review_count": 0,
+#                     "images": []
+#                 },
+#                 "title": "",
+#                 "description": "",
+#                 "images": []
+#             }
+        
+#         logger.info(f"✅ Scraped: {product_data.get('product_name')}")
+        
+#         # Extract data
+#         brand = product_data.get('brand', 'Brand')
+#         product_name = product_data.get('product_name', 'Product')
+#         price = product_data.get('price', 0)
+#         original_price = product_data.get('original_price', price)
+#         discount = product_data.get('discount', '')
+#         colors = product_data.get('colors', [])
+#         sizes = product_data.get('sizes', [])
+#         rating_count = product_data.get('rating_count', 0)
+#         review_count = product_data.get('review_count', 0)
+#         images = product_data.get('images', [])
+        
+#         # Validate we have minimum required data
+#         if not images or len(images) < 1:
+#             logger.error("❌ No images found")
+#             return {
+#                 "success": False,
+#                 "error": "No product images found. Try a different URL or use manual image upload.",
+#                 "product_data": {
+#                     "product_name": product_name,
+#                     "brand": brand,
+#                     "price": price,
+#                     "original_price": original_price,
+#                     "discount": discount,
+#                     "colors": colors,
+#                     "sizes": sizes,
+#                     "category": "Unisex",
+#                     "rating_count": rating_count,
+#                     "review_count": review_count,
+#                     "images": []
+#                 },
+#                 "title": f"{brand} {product_name}",
+#                 "description": "",
+#                 "images": []
+#             }
+        
+#         # Determine category (Men/Women/Unisex)
+#         product_lower = product_name.lower()
+#         if 'men' in product_lower and 'women' not in product_lower:
+#             category = "Men"
+#         elif 'women' in product_lower or 'ladies' in product_lower:
+#             category = "Women"
+#         elif 'kids' in product_lower or 'baby' in product_lower:
+#             category = "Kids"
+#         else:
+#             category = "Unisex"
+        
+#         # Calculate discount percentage
+#         if original_price and price and original_price > price:
+#             discount_pct = int(((original_price - price) / original_price) * 100)
+#         else:
+#             discount_pct = 0
+#             if discount:
+#                 try:
+#                     discount_pct = int(''.join(filter(str.isdigit, discount)))
+#                 except:
+#                     pass
+        
+#         # Build YouTube-optimized title
+#         title = f"{brand} {product_name}"
+#         if len(title) > 90:
+#             title = title[:87] + "..."
+        
+#         # Shorten URL
+#         short_url = await shorten_url(product_url)
+        
+#         # Build formatted description
+#         description = f"""{brand.upper()}
+# {product_name}
+
+# 💰 PRICE DETAILS:
+# Original: ₹{original_price:,}
+# Selling Price: ₹{price:,}
+# YOU SAVE: ₹{int(original_price - price):,} ({discount_pct}% OFF)
+
+# 👔 BRAND: {brand}
+# 👥 CATEGORY: {category}
+# """
+        
+#         # Add sizes if available
+#         if sizes:
+#             size_text = ', '.join(sizes[:12])
+#             description += f"\n📏 SIZES AVAILABLE:\n{size_text}\n"
+        
+#         # Add colors if available
+#         if colors:
+#             color_text = ', '.join(colors[:6])
+#             description += f"\n🎨 COLORS:\n{color_text}\n"
+        
+#         # Add ratings if available
+#         if rating_count > 0:
+#             description += f"\n⭐ RATINGS:\n{rating_count:,} ratings"
+#             if review_count > 0:
+#                 description += f" and {review_count} reviews"
+#             description += "\n"
+        
+#         # Add purchase link
+#         description += f"\n🛒 BUY NOW 👇\n{short_url}\n"
+        
+#         # Add hashtags
+#         category_hashtags = {
+#             "Men": ["mensfashion", "menstyle", "menswear"],
+#             "Women": ["womensfashion", "womenswear", "ladiesfashion"],
+#             "Kids": ["kidsfashion", "babyfashion", "kidsclothing"],
+#             "Unisex": ["fashion", "style", "trending"]
+#         }
+        
+#         hashtags = ["shopping", "deals", "india", "fashion"]
+#         hashtags.extend(category_hashtags.get(category, []))
+        
+#         # Add brand hashtag (clean it up)
+#         brand_tag = brand.lower().replace(" ", "").replace("-", "")
+#         if brand_tag:
+#             hashtags.append(brand_tag)
+        
+#         description += f"\n{' '.join([f'#{tag}' for tag in hashtags[:15]])}"
+        
+#         logger.info(f"✅ Generated: {len(images)} images, title: {len(title)} chars")
+        
+#         # Return structured data
+#         return {
+#             "success": True,
+#             "product_data": {
+#                 "product_name": product_name,
+#                 "brand": brand,
+#                 "price": price,
+#                 "original_price": original_price,
+#                 "discount": f"{discount_pct}% OFF",
+#                 "colors": colors,
+#                 "sizes": sizes,
+#                 "category": category,
+#                 "rating_count": rating_count,
+#                 "review_count": review_count,
+#                 "images": images[:6]
+#             },
+#             "title": title,
+#             "description": description,
+#             "images": images[:6]
+#         }
+        
+#     except Exception as e:
+#         logger.error(f"❌ Error: {e}")
+#         import traceback
+#         logger.error(f"Traceback: {traceback.format_exc()}")
+        
+#         return {
+#             "success": False,
+#             "error": f"Internal error: {str(e)[:200]}",
+#             "product_data": {
+#                 "product_name": "",
+#                 "brand": "Brand",
+#                 "price": 0,
+#                 "original_price": 0,
+#                 "discount": "0% OFF",
+#                 "colors": [],
+#                 "sizes": [],
+#                 "category": "Unisex",
+#                 "rating_count": 0,
+#                 "review_count": 0,
+#                 "images": []
+#             },
+#             "title": "",
+#             "description": "",
+#             "images": []
+#         }
+
 @app.post("/api/product-video/generate")
 async def generate_product_promo_video(request: dict):
-    """Scrape product and return formatted data for YouTube"""
+    """Scrape product and return formatted data for YouTube with affiliate description"""
     try:
         user_id = request.get('user_id')
         product_url = request.get('product_url')
@@ -4828,12 +5325,9 @@ async def generate_product_promo_video(request: dict):
         scraper = get_product_scraper()
         product_data = await scraper.scrape_product(product_url)
         
-        # Handle scraping failure with detailed error
         if not product_data.get('success'):
             error_msg = product_data.get('error', 'Scraping failed')
             logger.error(f"❌ Scraping failed: {error_msg}")
-            
-            # Return error but with empty product structure so UI doesn't break
             return {
                 "success": False,
                 "error": error_msg,
@@ -4848,7 +5342,8 @@ async def generate_product_promo_video(request: dict):
                     "category": "Unisex",
                     "rating_count": 0,
                     "review_count": 0,
-                    "images": []
+                    "images": [],
+                    "product_url": product_url
                 },
                 "title": "",
                 "description": "",
@@ -4862,6 +5357,11 @@ async def generate_product_promo_video(request: dict):
         product_name = product_data.get('product_name', 'Product')
         price = product_data.get('price', 0)
         original_price = product_data.get('original_price', price)
+        
+        # ✅ FIX: If price is 0 but original_price exists, use it
+        if price == 0 and original_price > 0:
+            price = original_price
+        
         discount = product_data.get('discount', '')
         colors = product_data.get('colors', [])
         sizes = product_data.get('sizes', [])
@@ -4869,12 +5369,11 @@ async def generate_product_promo_video(request: dict):
         review_count = product_data.get('review_count', 0)
         images = product_data.get('images', [])
         
-        # Validate we have minimum required data
         if not images or len(images) < 1:
             logger.error("❌ No images found")
             return {
                 "success": False,
-                "error": "No product images found. Try a different URL or use manual image upload.",
+                "error": "No product images found. Try a different URL.",
                 "product_data": {
                     "product_name": product_name,
                     "brand": brand,
@@ -4886,14 +5385,15 @@ async def generate_product_promo_video(request: dict):
                     "category": "Unisex",
                     "rating_count": rating_count,
                     "review_count": review_count,
-                    "images": []
+                    "images": [],
+                    "product_url": product_url
                 },
-                "title": f"{brand} {product_name}",
+                "title": "",
                 "description": "",
                 "images": []
             }
         
-        # Determine category (Men/Women/Unisex)
+        # Determine category
         product_lower = product_name.lower()
         if 'men' in product_lower and 'women' not in product_lower:
             category = "Men"
@@ -4904,7 +5404,7 @@ async def generate_product_promo_video(request: dict):
         else:
             category = "Unisex"
         
-        # Calculate discount percentage
+        # Calculate discount
         if original_price and price and original_price > price:
             discount_pct = int(((original_price - price) / original_price) * 100)
         else:
@@ -4915,83 +5415,45 @@ async def generate_product_promo_video(request: dict):
                 except:
                     pass
         
-        # Build YouTube-optimized title
+        # ✅ BUILD PROFESSIONAL TITLE (optimized for YouTube)
         title = f"{brand} {product_name}"
-        if len(title) > 90:
-            title = title[:87] + "..."
+        if len(title) > 87:
+            title = title[:84] + "..."
+        title += " #Shorts"  # Always add #Shorts
         
-        # Shorten URL
-        short_url = await shorten_url(product_url)
+        # ✅ SHORTEN URL FOR TRACKING
+        short_url = await shorten_url_async(product_url)
         
-        # Build formatted description
-        description = f"""{brand.upper()}
-{product_name}
-
-💰 PRICE DETAILS:
-Original: ₹{original_price:,}
-Selling Price: ₹{price:,}
-YOU SAVE: ₹{int(original_price - price):,} ({discount_pct}% OFF)
-
-👔 BRAND: {brand}
-👥 CATEGORY: {category}
-"""
+        logger.info(f"✅ Shortened URL: {short_url}")
         
-        # Add sizes if available
-        if sizes:
-            size_text = ', '.join(sizes[:12])
-            description += f"\n📏 SIZES AVAILABLE:\n{size_text}\n"
-        
-        # Add colors if available
-        if colors:
-            color_text = ', '.join(colors[:6])
-            description += f"\n🎨 COLORS:\n{color_text}\n"
-        
-        # Add ratings if available
-        if rating_count > 0:
-            description += f"\n⭐ RATINGS:\n{rating_count:,} ratings"
-            if review_count > 0:
-                description += f" and {review_count} reviews"
-            description += "\n"
-        
-        # Add purchase link
-        description += f"\n🛒 BUY NOW 👇\n{short_url}\n"
-        
-        # Add hashtags
-        category_hashtags = {
-            "Men": ["mensfashion", "menstyle", "menswear"],
-            "Women": ["womensfashion", "womenswear", "ladiesfashion"],
-            "Kids": ["kidsfashion", "babyfashion", "kidsclothing"],
-            "Unisex": ["fashion", "style", "trending"]
+        # ✅ BUILD COMPLETE PRODUCT DATA (for video overlays)
+        complete_product_data = {
+            "product_name": product_name,
+            "brand": brand,
+            "price": price,
+            "original_price": original_price,
+            "discount": f"{discount_pct}% OFF" if discount_pct > 0 else discount,
+            "colors": colors,
+            "sizes": sizes,
+            "category": category,
+            "rating_count": rating_count,
+            "review_count": review_count,
+            "images": images[:6],
+            "product_url": product_url,
+            "short_url": short_url  # ✅ Include shortened URL
         }
         
-        hashtags = ["shopping", "deals", "india", "fashion"]
-        hashtags.extend(category_hashtags.get(category, []))
-        
-        # Add brand hashtag (clean it up)
-        brand_tag = brand.lower().replace(" ", "").replace("-", "")
-        if brand_tag:
-            hashtags.append(brand_tag)
-        
-        description += f"\n{' '.join([f'#{tag}' for tag in hashtags[:15]])}"
+        # ✅ GENERATE PROFESSIONAL DESCRIPTION (YouTube-compliant)
+        description = generate_professional_youtube_description(
+            complete_product_data, 
+            short_url
+        )
         
         logger.info(f"✅ Generated: {len(images)} images, title: {len(title)} chars")
         
-        # Return structured data
         return {
             "success": True,
-            "product_data": {
-                "product_name": product_name,
-                "brand": brand,
-                "price": price,
-                "original_price": original_price,
-                "discount": f"{discount_pct}% OFF",
-                "colors": colors,
-                "sizes": sizes,
-                "category": category,
-                "rating_count": rating_count,
-                "review_count": review_count,
-                "images": images[:6]
-            },
+            "product_data": complete_product_data,
             "title": title,
             "description": description,
             "images": images[:6]
@@ -5016,7 +5478,8 @@ YOU SAVE: ₹{int(original_price - price):,} ({discount_pct}% OFF)
                 "category": "Unisex",
                 "rating_count": 0,
                 "review_count": 0,
-                "images": []
+                "images": [],
+                "product_url": ""
             },
             "title": "",
             "description": "",
@@ -5024,9 +5487,66 @@ YOU SAVE: ₹{int(original_price - price):,} ({discount_pct}% OFF)
         }
 
 
+
+
 # ============================================================================
 # PRODUCT AUTOMATION - AUTO SCRAPE + VIDEO + UPLOAD
 # ============================================================================
+
+# @app.post("/api/product-automation/start")
+# async def start_product_automation(request: Request):
+#     """Start automated product scraping + video generation + upload"""
+#     try:
+#         body = await request.json()
+#         user_id = body.get('user_id')
+#         config = body.get('config', {})
+        
+#         if not user_id:
+#             return JSONResponse(
+#                 status_code=400,
+#                 content={"success": False, "error": "user_id required"}
+#             )
+        
+#         # Store automation config
+#         success = await database_manager.store_automation_config(
+#             user_id=user_id,
+#             config_type="product_automation",
+#             config_data={
+#                 "enabled": True,
+#                 "max_posts_per_day": config.get('max_posts_per_day', 10),
+#                 "upload_times": config.get('upload_times', ['01:35','09:00', '15:00', '21:00']),
+#                 "auto_scrape": config.get('auto_scrape', True),
+#                 "auto_generate_video": config.get('auto_generate_video', True),
+#                 "auto_upload": config.get('auto_upload', True),
+#                 "created_at": datetime.now().isoformat()
+#             }
+#         )
+        
+#         if not success:
+#             return JSONResponse(
+#                 status_code=500,
+#                 content={"success": False, "error": "Failed to store config"}
+#             )
+        
+#         logger.info(f"✅ Product automation started for user: {user_id}")
+        
+#         return JSONResponse(content={
+#             "success": True,
+#             "message": "Product automation started successfully",
+#             "config": config,
+#             "next_run": config.get('upload_times', [])[0] if config.get('upload_times') else "Not set"
+#         })
+        
+#     except Exception as e:
+#         logger.error(f"❌ Start automation failed: {e}")
+#         import traceback
+#         logger.error(traceback.format_exc())
+#         return JSONResponse(
+#             status_code=500,
+#             content={"success": False, "error": str(e)}
+#         )
+
+
 
 @app.post("/api/product-automation/start")
 async def start_product_automation(request: Request):
@@ -5049,7 +5569,7 @@ async def start_product_automation(request: Request):
             config_data={
                 "enabled": True,
                 "max_posts_per_day": config.get('max_posts_per_day', 10),
-                "upload_times": config.get('upload_times', ['01:35','09:00', '15:00', '21:00']),
+                "upload_times": config.get('upload_times', ['09:00', '15:00', '21:00']),
                 "auto_scrape": config.get('auto_scrape', True),
                 "auto_generate_video": config.get('auto_generate_video', True),
                 "auto_upload": config.get('auto_upload', True),
@@ -5080,8 +5600,6 @@ async def start_product_automation(request: Request):
             status_code=500,
             content={"success": False, "error": str(e)}
         )
-
-
 
 
 @app.post("/api/product-automation/stop")
