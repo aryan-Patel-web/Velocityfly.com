@@ -977,25 +977,54 @@ class UniversalProductScraper:
 
     async def _extract_flipkart_name(self, soup, page) -> str:
         """Extract product name"""
-        for selector in ['span.VU-ZEz', 'h1.yhB1nd', 'span._35KyD6']:
+        for selector in ['span.VU-ZEz', 'h1.yhB1nd', 'span._35KyD6','div.Nx9bqj.CxhGGd','div._30jeq3','div._25b18c','span.hl05eU']:
             elem = soup.select_one(selector)
             if elem and len(elem.text.strip()) > 10:
                 return elem.text.strip()
         return "Product"
+        
+
+
+
 
     async def _extract_flipkart_price(self, soup) -> float:
-        """Extract price"""
-        for selector in ['div.Nx9bqj.CxhGGd', 'div._30jeq3']:
+        """Extract price - FIXED VERSION"""
+        
+        # Try multiple selectors
+        for selector in [
+            'div.Nx9bqj.CxhGGd',  # New layout
+            'div._30jeq3',         # Old layout
+            'div._25b18c',         # Alternative
+            'span.hl05eU',         # Another variant
+        ]:
             elem = soup.select_one(selector)
             if elem:
                 try:
                     price_text = elem.text.replace('₹', '').replace(',', '').strip()
                     price = float(price_text)
                     if 10 < price < 100000000:
+                        logger.info(f"✅ Price found: ₹{price}")
                         return price
                 except:
                     continue
+        
+        # Last resort: find ANY number that looks like price
+        all_text = soup.get_text()
+        import re
+        price_matches = re.findall(r'₹\s*([\d,]+)', all_text)
+        for match in price_matches:
+            try:
+                price = float(match.replace(',', ''))
+                if 100 < price < 10000000:  # Reasonable price range
+                    logger.info(f"✅ Price found (fallback): ₹{price}")
+                    return price
+            except:
+                continue
+        
+        logger.warning("❌ Price not found, returning 0.0")
         return 0.0
+
+
 
     async def _extract_flipkart_original_price(self, soup, current_price) -> float:
         """Extract original price"""
