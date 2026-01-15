@@ -4870,88 +4870,125 @@ from YTvideo_services import get_video_service
 
 
 
-
 @app.post("/api/youtube/generate-slideshow-preview")
 async def generate_slideshow_preview(request: dict):
     """
     ✅ UPDATED: Generate preview with product overlays
-    User can review before uploading
+    Handles missing fields gracefully
     """
     try:
+        # ✅ Extract with defaults
         user_id = request.get("user_id")
         images = request.get("images", [])
         duration_per_image = request.get("duration_per_image", 2.0)
         title = request.get("title", "Product Video")
         description = request.get("description", "")
-        
-        # ✅ NEW: Get product data for overlays
         product_data = request.get("product_data")
         
-        logger.info(f"🎬 Generating preview for {len(images)} images")
+        # ✅ DEBUG LOGGING
+        logger.info(f"🎬 Preview request from user: {user_id}")
+        logger.info(f"📦 Images: {len(images)}, Title: {title[:50]}, Has product: {bool(product_data)}")
+        
+        if not user_id:
+            return JSONResponse({
+                "success": False,
+                "error": "user_id is required"
+            }, status_code=400)
         
         if not images or len(images) < 2:
-            return {
+            return JSONResponse({
                 "success": False,
-                "error": "Need at least 2 images for preview"
-            }
+                "error": f"Need at least 2 images, got {len(images)}"
+            }, status_code=400)
         
-        # Get video service
+        # ✅ Validate image format
+        for idx, img in enumerate(images[:3]):  # Check first 3
+            if not isinstance(img, str):
+                return JSONResponse({
+                    "success": False,
+                    "error": f"Image {idx+1} is not a string"
+                }, status_code=400)
+            
+            if not (img.startswith('data:image') or img.startswith('http')):
+                return JSONResponse({
+                    "success": False,
+                    "error": f"Image {idx+1} has invalid format (must be base64 or URL)"
+                }, status_code=400)
+        
+        logger.info("✅ Validation passed, generating video...")
+        
+        # Get slideshow generator
         from slideshow_generator import get_slideshow_generator
         slideshow_gen = get_slideshow_generator()
         
-        # ✅ GENERATE VIDEO WITH PRODUCT OVERLAYS
+        # ✅ Generate video with overlays
         result = await slideshow_gen.generate_slideshow(
             images=images,
             title=title,
+            language='english',
             duration_per_image=duration_per_image,
-            product_data=product_data,  # ✅ Pass product data for ad overlays
-            aspect_ratio="9:16"
+            transition='fade',
+            add_text=True,
+            aspect_ratio="9:16",
+            product_data=product_data  # ✅ Will be None if not provided
         )
         
         if not result.get('success'):
-            return {
+            logger.error(f"❌ Generation failed: {result.get('error')}")
+            return JSONResponse({
                 "success": False,
-                "error": result.get('error', 'Preview generation failed')
-            }
+                "error": result.get('error', 'Video generation failed')
+            }, status_code=500)
         
-        # Read video as base64 for preview
         video_path = result.get('local_path')
         
+        if not video_path or not os.path.exists(video_path):
+            return JSONResponse({
+                "success": False,
+                "error": "Video file not found after generation"
+            }, status_code=500)
+        
+        logger.info(f"✅ Video generated: {video_path}")
+        
+        # Read video as base64
         try:
             with open(video_path, 'rb') as f:
-                video_data = base64.b64encode(f.read()).decode()
+                video_bytes = f.read()
+                video_data = base64.b64encode(video_bytes).decode()
             
             video_preview = f"data:video/mp4;base64,{video_data}"
+            logger.info(f"✅ Video encoded: {len(video_data)} chars")
+            
         except Exception as read_err:
-            logger.error(f"Failed to read video: {read_err}")
-            video_preview = None
+            logger.error(f"❌ Failed to read video: {read_err}")
+            return JSONResponse({
+                "success": False,
+                "error": f"Failed to encode video: {str(read_err)}"
+            }, status_code=500)
         
-        logger.info(f"✅ Preview generated successfully")
-        
-        return {
+        return JSONResponse({
             "success": True,
             "preview": {
                 "video_preview": video_preview,
-                "video_path": video_path,  # Keep for upload
-                "duration": result.get('duration'),
-                "quality": result.get('quality'),
+                "video_path": video_path,
+                "duration": result.get('duration', 0),
+                "quality": result.get('quality', 'unknown'),
                 "title": title,
                 "description": description,
                 "has_product_overlay": bool(product_data)
             },
-            "message": "Preview generated! Review before uploading."
-        }
+            "message": "Preview generated successfully!"
+        })
         
     except Exception as e:
         logger.error(f"❌ Preview generation failed: {str(e)}")
         import traceback
         logger.error(f"Traceback: {traceback.format_exc()}")
         
-        return {
+        return JSONResponse({
             "success": False,
-            "error": f"Preview failed: {str(e)}"
-        }
-
+            "error": f"Internal error: {str(e)}"
+        }, status_code=500)
 
 
 
