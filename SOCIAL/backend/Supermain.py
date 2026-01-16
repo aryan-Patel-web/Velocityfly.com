@@ -5303,6 +5303,7 @@ try:
         reddit_oauth_callback,
         get_reddit_connection_status,
         test_reddit_connection,
+        disconnect_reddit_account,
         manual_reddit_post,
         test_auto_post,
         setup_auto_posting,
@@ -5328,6 +5329,7 @@ try:
     app.get("/api/reddit/connection-status")(get_reddit_connection_status)
     app.get("/api/reddit/test-connection")(test_reddit_connection)
     app.post("/api/reddit/post")(manual_reddit_post)
+    app.post("/api/reddit/disconnect")(disconnect_reddit_account)
     app.post("/api/automation/test-auto-post")(test_auto_post)
     app.post("/api/automation/setup-auto-posting")(setup_auto_posting)
     app.post("/api/automation/setup-auto-replies")(setup_auto_replies)

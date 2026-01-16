@@ -344,7 +344,59 @@ const handleRedditConnect = useCallback(async () => {
   }
 }, [makeAuthenticatedRequest, showNotification, user?.email]);
 
-
+// ===================================
+// ✅ NEW: Disconnect Reddit account
+const handleRedditDisconnect = useCallback(async () => {
+  if (!window.confirm('Are you sure you want to disconnect your Reddit account? This will stop all automation.')) {
+    return;
+  }
+  
+  try {
+    setLoading(true);
+    showNotification('Disconnecting Reddit...', 'info');
+    
+    console.log('🔌 Disconnecting Reddit account...');
+    
+    const response = await makeAuthenticatedRequest('/api/reddit/disconnect', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    const result = await response.json();
+    
+    console.log('📥 Disconnect response:', result);
+    
+    if (result.success) {
+      // ✅ Clear state
+      setRedditConnected(false);
+      setRedditUsername('');
+      
+      // ✅ Clear localStorage
+      localStorage.removeItem(`reddit_connected_${user.email}`);
+      localStorage.removeItem(`reddit_username_${user.email}`);
+      
+      // ✅ Update user context
+      updateUser({ 
+        reddit_connected: false, 
+        reddit_username: null 
+      });
+      
+      showNotification(`✅ Reddit disconnected! (was u/${result.disconnected_username})`, 'success');
+      
+      console.log('✅ Reddit account disconnected successfully');
+    } else {
+      showNotification(`Failed to disconnect: ${result.error}`, 'error');
+    }
+    
+  } catch (error) {
+    console.error('❌ Disconnect error:', error);
+    showNotification(`Disconnect failed: ${error.message}`, 'error');
+  } finally {
+    setLoading(false);
+  }
+}, [makeAuthenticatedRequest, showNotification, user?.email, updateUser]);
 
   // Save user profile
   const saveUserProfile = useCallback(() => {
@@ -787,115 +839,192 @@ const generateRedditContent = useCallback(async () => {
         </div>
 
         {/* Setup Tab */}
-        {activeTab === 'setup' && (
-          <div style={{
-            background: 'rgba(255, 255, 255, 0.95)',
-            borderRadius: '20px',
-            padding: 'clamp(20px, 4vw, 40px)',
-            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2)'
+{/* Setup Tab */}
+{activeTab === 'setup' && (
+  <div style={{
+    background: 'rgba(255, 255, 255, 0.95)',
+    borderRadius: '20px',
+    padding: 'clamp(20px, 4vw, 40px)',
+    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2)'
+  }}>
+    <h2 style={{
+      color: '#FF4500',
+      marginBottom: '24px',
+      fontSize: 'clamp(22px, 4vw, 28px)',
+      fontWeight: '700'
+    }}>
+      Reddit Connection Setup
+    </h2>
+
+    {!redditConnected ? (
+      <div>
+        <div style={{
+          background: '#fff3cd',
+          border: '1px solid #ffeaa7',
+          borderRadius: '12px',
+          padding: '20px',
+          marginBottom: '24px'
+        }}>
+          <p style={{ margin: 0, color: '#856404', fontSize: 'clamp(14px, 2.5vw, 16px)' }}>
+            ⚠️ Connect your Reddit account to start automating your posts
+          </p>
+        </div>
+
+        <button
+          onClick={handleRedditConnect}
+          disabled={loading}
+          style={{
+            background: loading ? '#ccc' : 'linear-gradient(135deg, #FF4500, #FF8717)',
+            padding: 'clamp(14px, 3vw, 18px) clamp(32px, 6vw, 48px)',
+            color: 'white',
+            border: 'none',
+            borderRadius: '12px',
+            fontSize: 'clamp(16px, 3vw, 18px)',
+            fontWeight: '700',
+            cursor: loading ? 'not-allowed' : 'pointer',
+            width: '100%',
+            maxWidth: '400px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '12px',
+            margin: '0 auto 24px auto'
+          }}
+        >
+          {loading ? '⏳ Connecting...' : '🤖 Connect Reddit Account'}
+        </button>
+
+        <div style={{
+          background: '#f8f9fa',
+          borderRadius: '12px',
+          padding: '20px'
+        }}>
+          <h3 style={{
+            color: '#FF4500',
+            marginTop: 0,
+            marginBottom: '16px',
+            fontSize: 'clamp(16px, 3vw, 18px)'
           }}>
-            <h2 style={{
-              color: '#FF4500',
-              marginBottom: '24px',
-              fontSize: 'clamp(22px, 4vw, 28px)',
-              fontWeight: '700'
-            }}>
-              Reddit Connection Setup
-            </h2>
-
-            {!redditConnected ? (
-              <div>
-                <div style={{
-                  background: '#fff3cd',
-                  border: '1px solid #ffeaa7',
-                  borderRadius: '12px',
-                  padding: '20px',
-                  marginBottom: '24px'
-                }}>
-                  <p style={{ margin: 0, color: '#856404', fontSize: 'clamp(14px, 2.5vw, 16px)' }}>
-                    ⚠️ Connect your Reddit account to start automating your posts
-                  </p>
-                </div>
-
-                <button
-                  onClick={handleRedditConnect}
-                  disabled={loading}
-                  style={{
-                    background: loading ? '#ccc' : 'linear-gradient(135deg, #FF4500, #FF8717)',
-                    padding: 'clamp(14px, 3vw, 18px) clamp(32px, 6vw, 48px)',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '12px',
-                    fontSize: 'clamp(16px, 3vw, 18px)',
-                    fontWeight: '700',
-                    cursor: loading ? 'not-allowed' : 'pointer',
-                    width: '100%',
-                    maxWidth: '400px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '12px',
-                    margin: '0 auto 24px auto'
-                  }}
-                >
-                  {loading ? '⏳ Connecting...' : '🤖 Connect Reddit Account'}
-                </button>
-
-                <div style={{
-                  background: '#f8f9fa',
-                  borderRadius: '12px',
-                  padding: '20px'
-                }}>
-                  <h3 style={{
-                    color: '#FF4500',
-                    marginTop: 0,
-                    marginBottom: '16px',
-                    fontSize: 'clamp(16px, 3vw, 18px)'
-                  }}>
-                    What you'll get:
-                  </h3>
-                  <ul style={{
-                    margin: 0,
-                    paddingLeft: '24px',
-                    color: '#333',
-                    lineHeight: '1.8',
-                    fontSize: 'clamp(13px, 2.5vw, 15px)'
-                  }}>
-                    <li>AI-powered content generation for Reddit</li>
-                    <li>Auto-generate engaging posts and comments</li>
-                    <li>Find and answer questions in your niche</li>
-                    <li>Schedule and automate posts</li>
-                    <li>Track performance analytics</li>
-                  </ul>
-                </div>
-              </div>
-            ) : (
-              <div style={{
-                background: '#d4edda',
-                border: '1px solid #c3e6cb',
-                borderRadius: '12px',
-                padding: '20px',
-                textAlign: 'center'
+            What you'll get:
+          </h3>
+          <ul style={{
+            margin: 0,
+            paddingLeft: '24px',
+            color: '#333',
+            lineHeight: '1.8',
+            fontSize: 'clamp(13px, 2.5vw, 15px)'
+          }}>
+            <li>AI-powered content generation for Reddit</li>
+            <li>Auto-generate engaging posts and comments</li>
+            <li>Find and answer questions in your niche</li>
+            <li>Schedule and automate posts</li>
+            <li>Track performance analytics</li>
+          </ul>
+        </div>
+      </div>
+    ) : (
+      <div>
+        {/* ✅ CONNECTED STATE - IMPROVED UI */}
+        <div style={{
+          background: '#d4edda',
+          border: '2px solid #c3e6cb',
+          borderRadius: '12px',
+          padding: '20px',
+          marginBottom: '20px'
+        }}>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '16px'
+          }}>
+            <div>
+              <p style={{
+                margin: '0 0 8px 0',
+                color: '#155724',
+                fontSize: 'clamp(16px, 3vw, 18px)',
+                fontWeight: '600'
               }}>
-                <p style={{
-                  margin: '0 0 12px 0',
-                  color: '#155724',
-                  fontSize: 'clamp(16px, 3vw, 18px)',
-                  fontWeight: '600'
-                }}>
-                  ✅ Reddit Connected!
-                </p>
-                <p style={{
-                  margin: 0,
-                  color: '#155724',
-                  fontSize: 'clamp(14px, 2.5vw, 16px)'
-                }}>
-                  You're logged in as <strong>u/{redditUsername}</strong>
-                </p>
-              </div>
-            )}
+                ✅ Reddit Connected!
+              </p>
+              <p style={{
+                margin: 0,
+                color: '#155724',
+                fontSize: 'clamp(14px, 2.5vw, 16px)'
+              }}>
+                Logged in as <strong>u/{redditUsername}</strong>
+              </p>
+            </div>
+            
+            {/* ✅ DISCONNECT BUTTON */}
+            <button
+              onClick={handleRedditDisconnect}
+              disabled={loading}
+              style={{
+                background: loading ? '#ccc' : '#dc3545',
+                padding: 'clamp(10px, 2vw, 12px) clamp(20px, 4vw, 24px)',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                fontSize: 'clamp(13px, 2.5vw, 15px)',
+                fontWeight: '600',
+                cursor: loading ? 'not-allowed' : 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                transition: 'all 0.3s ease'
+              }}
+              onMouseEnter={(e) => {
+                if (!loading) {
+                  e.target.style.background = '#c82333';
+                  e.target.style.transform = 'scale(1.05)';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!loading) {
+                  e.target.style.background = '#dc3545';
+                  e.target.style.transform = 'scale(1)';
+                }
+              }}
+            >
+              {loading ? '⏳ Disconnecting...' : '🔌 Disconnect'}
+            </button>
           </div>
-        )}
+        </div>
+
+        {/* ✅ RECONNECT INFO BOX */}
+        <div style={{
+          background: '#e7f3ff',
+          border: '2px solid #b3d9ff',
+          borderRadius: '12px',
+          padding: '20px'
+        }}>
+          <h3 style={{
+            color: '#0066cc',
+            marginTop: 0,
+            marginBottom: '12px',
+            fontSize: 'clamp(16px, 3vw, 18px)',
+            fontWeight: '600'
+          }}>
+            💡 Want to switch accounts?
+          </h3>
+          <p style={{
+            margin: 0,
+            color: '#333',
+            fontSize: 'clamp(13px, 2.5vw, 15px)',
+            lineHeight: '1.6'
+          }}>
+            Click "Disconnect" above, then click "Connect Reddit Account" again to log in with a different Reddit account.
+            All your automation settings will be preserved and will work with the new account.
+          </p>
+        </div>
+      </div>
+    )}
+  </div>
+)}
+
+
 
         {/* Profile Tab */}
         {activeTab === 'profile' && (
