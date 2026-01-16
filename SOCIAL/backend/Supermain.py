@@ -7635,165 +7635,212 @@ Generate NOW in PURE JSON (no ```json wrapper):"""
 # ============================================================================
 # SMART COMMENT AUTO-REPLY WITH WEB SEARCH & CONTEXT AWARENESS
 # ============================================================================
+# ============================================================================
+# ENHANCED SMART COMMENT AUTO-REPLY WITH WEB SEARCH & NATURAL RESPONSES
+# ============================================================================
 @app.post("/api/youtube/smart-auto-reply")
 async def smart_auto_reply(request: Request):
-    """Generate human-like, context-aware comment replies with web search integration"""
+    """Generate highly human-like, context-aware replies with web search"""
     try:
         data = await request.json()
         
         comment_text = data.get("comment_text", "")
         video_title = data.get("video_title", "")
         video_description = data.get("video_description", "")
+        channel_name = data.get("channel_name", "")
         
         if not comment_text:
             return {"success": False, "error": "Comment text required"}
         
-        logger.info(f"💬 Smart reply request for: '{comment_text[:60]}...'")
+        logger.info(f"💬 Smart reply for: '{comment_text[:60]}...'")
         
-        # Detect comment intent
+        # Advanced intent detection with tone analysis
         comment_lower = comment_text.lower()
         
-        # Location/place questions
-        if any(word in comment_lower for word in ['where', 'location', 'place', 'kaha', 'kahaan', 'कहां']):
+        # Detect tone (casual/formal/excited/questioning)
+        is_casual = any(x in comment_lower for x in ['bro', 'dude', 'yaar', 'bhai', 'mate'])
+        is_excited = '!' in comment_text or any(x in comment_lower for x in ['wow', 'amazing', 'awesome', 'omg'])
+        is_question = '?' in comment_text
+        
+        # Detect language hints
+        has_hindi = any(word in comment_text for word in ['hai', 'kya', 'kahan', 'kaise', 'bhai', 'yaar'])
+        
+        # Enhanced intent detection
+        if any(word in comment_lower for word in ['where', 'location', 'place', 'kaha', 'kahaan', 'कहां', 'address', 'exact location']):
             intent = "location"
-        # Distance/travel questions
-        elif any(word in comment_lower for word in ['distance', 'far', 'kitna dur', 'कितना दूर', 'how to reach', 'travel', 'train', 'bus', 'flight']):
+        elif any(word in comment_lower for word in ['distance', 'far', 'kitna dur', 'कितना दूर', 'how to reach', 'route', 'travel time', 'train', 'bus', 'flight']):
             intent = "distance"
-        # Music/song questions
-        elif any(word in comment_lower for word in ['music', 'song', 'track', 'background music', 'bgm', 'गाना']):
+        elif any(word in comment_lower for word in ['music', 'song', 'track', 'background music', 'bgm', 'गाना', 'soundtrack', 'tune']):
             intent = "music"
-        # Price/cost questions
-        elif any(word in comment_lower for word in ['price', 'cost', 'kitna', 'कितना', 'expensive', 'cheap', 'budget']):
+        elif any(word in comment_lower for word in ['price', 'cost', 'kitna', 'कितना', 'expensive', 'cheap', 'budget', 'paisa', 'rupees']):
             intent = "price"
-        # Generic compliments
-        elif any(word in comment_lower for word in ['nice', 'good', 'amazing', 'beautiful', 'awesome', 'great', 'love', 'best']):
+        elif any(word in comment_lower for word in ['camera', 'shot', 'edit', 'filming', 'gear', 'equipment']):
+            intent = "production"
+        elif any(word in comment_lower for word in ['nice', 'good', 'amazing', 'beautiful', 'awesome', 'great', 'love', 'best', 'superb', 'fantastic']):
             intent = "compliment"
-        # Negative/criticism
-        elif any(word in comment_lower for word in ['bad', 'worst', 'disappointed', 'fake', 'boring', 'waste']):
+        elif any(word in comment_lower for word in ['bad', 'worst', 'disappointed', 'fake', 'boring', 'waste', 'clickbait']):
             intent = "negative"
+        elif any(word in comment_lower for word in ['how', 'why', 'when', 'what', 'kaise', 'kyun', 'kab']):
+            intent = "question"
         else:
             intent = "general"
         
-        logger.info(f"🔍 Detected intent: {intent}")
+        logger.info(f"🔍 Intent: {intent} | Tone: {'casual' if is_casual else 'formal'} | Excited: {is_excited}")
+        
+        # Web search for factual queries
+        search_context = ""
+        if intent in ["location", "distance", "price"]:
+            try:
+                # Extract key entities for search
+                search_query = f"{video_title} {comment_text[:50]}"
+                
+                logger.info(f"🌐 Searching web for context: {search_query}")
+                
+                async with httpx.AsyncClient(timeout=15) as client:
+                    # Use a search API (you can use SerpAPI, Google Custom Search, etc.)
+                    # For this example, I'll show the structure
+                    search_response = await client.get(
+                        f"https://api.search-engine.com/search",  # Replace with actual API
+                        params={"q": search_query, "limit": 3}
+                    )
+                    
+                    if search_response.status_code == 200:
+                        results = search_response.json()
+                        search_context = f"\n\nWeb search results: {results.get('snippet', '')}"
+                        logger.info("✅ Web search context added")
+            except Exception as e:
+                logger.warning(f"Web search failed: {e}")
         
         # Get AI service keys
         mistral_key = os.getenv("MISTRAL_API_KEY")
         groq_key = os.getenv("GROQ_API_KEY")
         
-        # Build context-aware prompt
+        # Build enhanced, human-like prompts
+        system_prompt = """You are a real Indian YouTuber responding to comments. Rules:
+1. Match the commenter's tone EXACTLY (casual/formal/excited)
+2. Use Hinglish if they use Hindi words
+3. Be brief - max 2 short sentences (like real YouTube replies)
+4. Use emojis naturally (1-2 max, not every sentence)
+5. Never be robotic or template-like
+6. Add personality - use "bro", "yaar" if they do
+7. Don't always end with subscribe requests - vary responses
+8. Sound like you're typing quickly, not writing an essay"""
+
         if intent == "location":
-            prompt = f"""User comment: "{comment_text}"
-Video context: "{video_title}"
+            prompt = f"""Comment: "{comment_text}"
+Video: "{video_title}"
+{search_context}
 
-Generate a helpful, HUMAN-LIKE reply that:
-1. Answers their location question based on video title
-2. Gives specific directions if location is clear from title
-3. Mentions best time to visit (if travel-related)
-4. Uses 2-3 emojis naturally (🗺️ 📍 ✨)
-5. Ends with "Let me know if you need more info! 🗺️" or "DM me for detailed directions! 📍"
-6. Keep it conversational and friendly
-7. Max 2-3 sentences
+Reply naturally about the location. If you know it from the video title, mention it. If not, say you'll pin the location in comments or description.
 
-Reply:"""
+Match their tone: {'casual/friendly' if is_casual else 'helpful'}.
+Reply as if you're quickly typing on your phone:"""
         
         elif intent == "distance":
-            # Extract cities if present
             import re
-            # Look for capital words (city names)
             cities = re.findall(r'\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)?\b', comment_text)
             
             if len(cities) >= 2:
-                from_city = cities[0]
-                to_city = cities[1]
-                
-                prompt = f"""User asked: "{comment_text}"
+                prompt = f"""Comment: "{comment_text}"
+They're asking about distance from {cities[0]} to {cities[1]}.
 
-They want to know distance from {from_city} to {to_city}.
+Give a quick, helpful reply with:
+- Approximate distance (use real-world knowledge)
+- Travel time estimate
+- Best transport mode
 
-Generate a helpful reply that:
-1. Estimates distance (use common knowledge: Delhi-Manali ~530km, Delhi-Mumbai ~1400km, etc.)
-2. Mentions travel time by road (typically 40-50 km/hr in mountains, 60-80 km/hr on highway)
-3. Suggests best mode (road/train/flight)
-4. Uses emojis 🚗 ✈️ 🚆 naturally
-5. Ends with "Safe travels! Subscribe for more tips 🔔" or similar CTA
-6. Max 3 sentences, conversational tone
+Be conversational like: "Around 530km bro, takes 12-13 hours by road. Totally worth it! 🚗"
 
-Reply:"""
+Match their tone: {'casual' if is_casual else 'helpful'}.
+Quick reply:"""
             else:
-                prompt = f"""Reply to: "{comment_text}"
+                prompt = f"""Comment: "{comment_text}"
 
-Suggest checking Google Maps for exact distance, be helpful, use travel emojis 🗺️ 🚗, ask them to subscribe for more travel content.
+They're asking about distance/travel. Reply naturally suggesting Google Maps or saying you'll share route details.
 
-Reply (2 sentences max):"""
+Keep it brief and friendly:"""
         
         elif intent == "music":
-            prompt = f"""User asked: "{comment_text}"
+            prompt = f"""Comment: "{comment_text}"
 
-Generate a reply that:
-1. Says you'll share music details
-2. Asks what content they want next
-3. Uses music emojis 🎵 🎶 naturally
-4. Ends with subscribe request
-5. Friendly, conversational tone
-6. Max 2 sentences
+They want to know the music. Reply like:
+- "Track name is [song if you know] 🎵"
+- Or "I'll drop the link in description"
+- Or "It's from YouTube Audio Library"
 
-Reply:"""
+Be quick and casual:"""
         
         elif intent == "price":
-            prompt = f"""User asked: "{comment_text}"
+            prompt = f"""Comment: "{comment_text}"
+Video: "{video_title}"
+{search_context}
 
-Generate a reply that:
-1. Acknowledges their price question
-2. If product/place mentioned in video title, give realistic estimate
-3. Uses money emojis 💰 naturally
-4. Mentions value for money
-5. Ends with "Check description for links! 👇"
-6. Max 2-3 sentences
+Give realistic price estimate if you can tell from video title. Otherwise say approximate range or "check description for details".
 
-Reply:"""
+Match their vibe: {'casual' if is_casual else 'helpful'}.
+Quick reply:"""
+        
+        elif intent == "production":
+            prompt = f"""Comment: "{comment_text}"
+
+They're asking about camera/editing. Reply naturally:
+- Mention gear if asked
+- Or "Shot on [phone/camera]"
+- Keep it real and brief
+
+{'Casual tone' if is_casual else 'Helpful tone'}:"""
         
         elif intent == "compliment":
-            prompt = f"""User said: "{comment_text}"
+            gratitude_variations = [
+                "Thanks so much! 🙏",
+                "Really appreciate it! ❤️",
+                "Thank you bro! 😊",
+                "Means a lot! 🙏",
+                "Glad you liked it! ✨"
+            ]
+            
+            prompt = f"""Comment: "{comment_text}"
 
-Reply warmly that:
-1. Thanks them genuinely
-2. Asks which part they liked most
-3. Mentions you have similar content
-4. Asks them to subscribe
-5. Uses emojis 🙏 😊 ❤️ naturally
-6. Conversational, appreciative tone
-7. Max 2 sentences
+Reply warmly. Variations:
+- Just thank them
+- Ask what they liked most
+- Mention next video topic
 
-Reply:"""
+Use one of: {', '.join(gratitude_variations[:3])}
+
+{'Be casual and friendly' if is_casual else 'Be warm and genuine'}.
+Keep it SHORT (1-2 sentences):"""
         
         elif intent == "negative":
-            prompt = f"""User criticized: "{comment_text}"
+            prompt = f"""Comment: "{comment_text}"
 
-Reply professionally that:
-1. Thanks them for feedback
-2. Asks what could be improved
-3. Stays positive and humble
-4. Uses 🙏 emoji
-5. Invites them to suggest content
-6. Max 2 sentences, gracious tone
+Handle criticism gracefully:
+- Thank them for feedback
+- Stay positive, don't be defensive
+- Maybe ask what they'd like to see
 
-Reply:"""
+Professional but human:"""
+        
+        elif intent == "question":
+            prompt = f"""Comment: "{comment_text}"
+Video: "{video_title}"
+
+Answer their question directly if you can tell from video context. If not, say you'll reply with details or make a video on it.
+
+Be helpful and conversational:"""
         
         else:
-            prompt = f"""Reply to: "{comment_text}"
-Video title: "{video_title}"
+            prompt = f"""Comment: "{comment_text}"
+Video: "{video_title}"
 
-Generate a helpful, engaging reply that:
-1. Addresses their comment specifically
-2. Uses 1-2 relevant emojis
-3. Encourages engagement
-4. Ends with subscribe request or question
-5. Friendly, conversational tone
-6. Max 2 sentences
+Reply naturally to engage them. Could be:
+- Answer their point
+- Ask them something back
+- Share a quick thought
 
-Reply:"""
+Match their energy. Be BRIEF:"""
         
-        # Get AI reply
+        # Call AI with improved parameters
         ai_reply = None
         service_used = None
         
@@ -7809,20 +7856,20 @@ Reply:"""
                         json={
                             "model": "mistral-large-latest",
                             "messages": [
-                                {
-                                    "role": "system", 
-                                    "content": "You are a friendly YouTube creator from India. Reply naturally like a human. Be concise and warm."
-                                },
+                                {"role": "system", "content": system_prompt},
                                 {"role": "user", "content": prompt}
                             ],
-                            "temperature": 0.75,
-                            "max_tokens": 150
+                            "temperature": 0.85,  # Higher for more natural variation
+                            "max_tokens": 100,  # Shorter for brevity
+                            "top_p": 0.9
                         }
                     )
                     
                     if response.status_code == 200:
                         result = response.json()
                         ai_reply = result["choices"][0]["message"]["content"].strip()
+                        # Clean up any quotes or formatting
+                        ai_reply = ai_reply.strip('"\'')
                         service_used = "mistral"
                         logger.info("✅ Mistral reply generated")
             except Exception as e:
@@ -7841,58 +7888,110 @@ Reply:"""
                         json={
                             "model": "llama-3.1-70b-versatile",
                             "messages": [
-                                {
-                                    "role": "system", 
-                                    "content": "You are a friendly Indian YouTuber. Reply naturally, concise, warm."
-                                },
+                                {"role": "system", "content": system_prompt},
                                 {"role": "user", "content": prompt}
                             ],
-                            "temperature": 0.75,
-                            "max_tokens": 150
+                            "temperature": 0.85,
+                            "max_tokens": 100,
+                            "top_p": 0.9
                         }
                     )
                     
                     if response.status_code == 200:
                         result = response.json()
                         ai_reply = result["choices"][0]["message"]["content"].strip()
+                        ai_reply = ai_reply.strip('"\'')
                         service_used = "groq"
                         logger.info("✅ Groq reply generated")
             except Exception as e:
                 logger.error(f"Groq error: {e}")
         
-        # Fallback replies if AI fails
+        # Enhanced fallback replies (more human)
         if not ai_reply:
-            logger.info("📝 Using fallback reply templates")
+            logger.info("📝 Using enhanced fallback")
             service_used = "fallback"
             
+            # Multiple variations for each intent
+            import random
+            
             fallback_replies = {
-                "location": f"This is near {video_title.split()[0] if video_title else 'the location shown'}! 📍 Let me know if you need directions! 🗺️",
-                "distance": "It's a great road trip! 🚗 Check Google Maps for exact route and time. Safe travels! ✨ Subscribe for more! 🔔",
-                "music": "I'll share the track details soon! 🎵 What else would you like to see? Subscribe for updates! 🔔",
-                "price": "It's quite affordable! 💰 Check description for details. Thanks for watching! 🙏",
-                "compliment": "Thank you so much! 🙏❤️ Which part did you like most? Subscribe for more content! 🔔",
-                "negative": "Thanks for your feedback! 🙏 What would you like to see improved? Your suggestions help me grow!",
-                "general": "Thanks for watching! 😊 What content would you like next? Don't forget to subscribe! 🔔"
+                "location": [
+                    f"It's mentioned in the video title! 📍 DM if you need exact location",
+                    "Check description for location details! 🗺️",
+                    f"Near {video_title.split()[0] if video_title else 'here'}! Let me know if you need directions"
+                ],
+                "distance": [
+                    "Check Google Maps for exact distance bro! 🚗 It's a great trip though",
+                    "Takes about a day by road. Totally worth it! ✨",
+                    "Not too far! Best to check Maps for current route 🗺️"
+                ],
+                "music": [
+                    "I'll add the track name in description! 🎵",
+                    "It's from YouTube Audio Library. Lemme find the exact name",
+                    "Will pin the music details! 🎶 Stay tuned"
+                ],
+                "price": [
+                    "Check description for price details! 💰",
+                    "Quite affordable honestly! Details in description 👇",
+                    "Budget-friendly! Around 2-3k range"
+                ],
+                "compliment": [
+                    "Thank you so much! 🙏 Really appreciate it",
+                    "Means a lot! ❤️ Which part did you like most?",
+                    "Thanks bro! 😊 More content coming soon"
+                ],
+                "negative": [
+                    "Thanks for the feedback! 🙏 What would you improve?",
+                    "Appreciate your honesty! Will work on it",
+                    "Sorry it didn't meet expectations. What should I change?"
+                ],
+                "question": [
+                    "Good question! Let me make a video on this",
+                    "I'll explain this in detail soon! Stay subscribed 🔔",
+                    "Great point! Will cover this in next video"
+                ],
+                "general": [
+                    "Thanks for watching! 😊",
+                    "Appreciate the support! 🙏",
+                    "Glad you're here! More content coming soon ✨"
+                ]
             }
-            ai_reply = fallback_replies.get(intent, fallback_replies["general"])
+            
+            ai_reply = random.choice(fallback_replies.get(intent, fallback_replies["general"]))
         
-        logger.info(f"✅ Generated {intent} reply using {service_used}")
+        # Post-processing: ensure brevity
+        sentences = ai_reply.split('.')
+        if len(sentences) > 3:
+            ai_reply = '. '.join(sentences[:2]) + '.'
+        
+        logger.info(f"✅ Generated {intent} reply via {service_used}")
         
         return {
             "success": True,
             "reply": ai_reply,
             "intent": intent,
-            "service": service_used
+            "tone": "casual" if is_casual else "formal",
+            "service": service_used,
+            "has_search_context": bool(search_context)
         }
         
     except Exception as e:
         logger.error(f"❌ Smart reply error: {e}")
         import traceback
         logger.error(traceback.format_exc())
+        
+        # Even error fallback should be natural
+        casual_fallbacks = [
+            "Thanks for your comment! 😊",
+            "Appreciate the support! 🙏",
+            "Thanks for watching! ❤️"
+        ]
+        import random
+        
         return {
             "success": False,
             "error": str(e),
-            "reply": "Thanks for your comment! 😊 Appreciate your support! 🙏"
+            "reply": random.choice(casual_fallbacks)
         }
 
 # ============================================================================
