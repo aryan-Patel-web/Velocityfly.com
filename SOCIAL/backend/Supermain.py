@@ -7379,6 +7379,521 @@ async def test_scraper_route(request: Request):
             status_code=500,
             content={"success": False, "error": str(e)}
         )
+    
+
+# ============================================================================
+# AI VIRAL TITLE & DESCRIPTION GENERATOR FOR YOUTUBE
+# ============================================================================
+@app.post("/api/youtube/generate-viral-titles")
+async def generate_viral_titles(request: Request):
+    """Generate 5 viral YouTube title options with scores + description + hashtags"""
+    try:
+        data = await request.json()
+        topic = data.get("topic", "")
+        niche = data.get("niche", "shorts")
+        
+        if not topic or len(topic.split()) < 3:
+            return {
+                "success": False,
+                "error": "Please provide at least 3-5 words about your video"
+            }
+        
+        logger.info(f"🎯 Generating viral titles for topic: {topic}")
+        
+        # Get AI service keys
+        mistral_key = os.getenv("MISTRAL_API_KEY")
+        groq_key = os.getenv("GROQ_API_KEY")
+        
+        if not mistral_key and not groq_key:
+            return {
+                "success": False,
+                "error": "AI API keys not configured"
+            }
+        
+        # Build comprehensive prompt
+        prompt = f"""Generate 5 viral YouTube {niche} titles for: "{topic}"
+
+Each title MUST:
+1. Create curiosity gap (don't reveal everything)
+2. Use emotional trigger words (shocking, hidden, secret, never, always)
+3. Include specific details (numbers, locations, names)
+4. Be 50-70 characters (optimal for YouTube)
+5. Use 1-2 emojis strategically
+6. Target Indian audience preferences
+
+Output format (PURE JSON, no markdown):
+{{
+  "titles": [
+    {{
+      "title": "Wait for it... 😱 Hidden Manali Waterfall",
+      "score": 9.2,
+      "reason": "Suspense hook + location specific + emoji"
+    }},
+    {{
+      "title": "POV: You Discover {topic.title()} 🤯",
+      "score": 8.7,
+      "reason": "Trending POV format + discovery"
+    }},
+    {{
+      "title": "No One Tells You About {topic.title()} 🔥",
+      "score": 9.0,
+      "reason": "Exclusivity + FOMO trigger"
+    }},
+    {{
+      "title": "{topic.title()} - This Changed Everything! ✨",
+      "score": 8.3,
+      "reason": "Transformation promise"
+    }},
+    {{
+      "title": "The Secret Behind {topic.title()} 🎯",
+      "score": 8.8,
+      "reason": "Mystery + insider knowledge"
+    }}
+  ],
+  "description": "Detailed YouTube description with call-to-action, context, and viewer engagement prompts. Include emojis and line breaks for readability.",
+  "tags": ["viral", "trending", "shorts", "{topic.split()[0]}", "youtube"]
+}}
+
+Trending formats to use:
+- "Wait for it..."
+- "POV: You discover..."
+- "No one tells you..."
+- "This changed everything..."
+- "The secret behind..."
+- "Everyone does X, but..."
+- "I tried X for Y days..."
+- "What happens when..."
+
+Topic: {topic}
+
+Generate NOW in PURE JSON (no ```json wrapper):"""
+        
+        # Try Mistral first
+        ai_response = None
+        service_used = None
+        
+        if mistral_key:
+            try:
+                async with httpx.AsyncClient(timeout=30) as client:
+                    response = await client.post(
+                        "https://api.mistral.ai/v1/chat/completions",
+                        headers={
+                            "Authorization": f"Bearer {mistral_key}",
+                            "Content-Type": "application/json"
+                        },
+                        json={
+                            "model": "mistral-large-latest",
+                            "messages": [
+                                {
+                                    "role": "system", 
+                                    "content": "You are a viral YouTube content expert specializing in Indian market. Output ONLY valid JSON without markdown formatting."
+                                },
+                                {"role": "user", "content": prompt}
+                            ],
+                            "temperature": 0.85,
+                            "max_tokens": 1200
+                        }
+                    )
+                    
+                    if response.status_code == 200:
+                        result = response.json()
+                        ai_response = result["choices"][0]["message"]["content"]
+                        service_used = "mistral"
+                        logger.info("✅ Mistral API success")
+                    elif response.status_code == 429:
+                        logger.warning("⚠️ Mistral rate limit, trying Groq...")
+                    else:
+                        logger.error(f"Mistral error: {response.status_code}")
+            except Exception as e:
+                logger.error(f"Mistral error: {e}")
+        
+        # Fallback to Groq
+        if not ai_response and groq_key:
+            try:
+                await asyncio.sleep(1)  # Brief delay between API calls
+                
+                async with httpx.AsyncClient(timeout=30) as client:
+                    response = await client.post(
+                        "https://api.groq.com/openai/v1/chat/completions",
+                        headers={
+                            "Authorization": f"Bearer {groq_key}",
+                            "Content-Type": "application/json"
+                        },
+                        json={
+                            "model": "llama-3.1-70b-versatile",
+                            "messages": [
+                                {
+                                    "role": "system", 
+                                    "content": "You are a viral YouTube expert for Indian audience. Output ONLY valid JSON without markdown."
+                                },
+                                {"role": "user", "content": prompt}
+                            ],
+                            "temperature": 0.85,
+                            "max_tokens": 1200
+                        }
+                    )
+                    
+                    if response.status_code == 200:
+                        result = response.json()
+                        ai_response = result["choices"][0]["message"]["content"]
+                        service_used = "groq"
+                        logger.info("✅ Groq API success")
+                    else:
+                        logger.error(f"Groq error: {response.status_code}")
+            except Exception as e:
+                logger.error(f"Groq error: {e}")
+        
+        if not ai_response:
+            logger.warning("⚠️ Both AI services failed, using fallback")
+            service_used = "fallback"
+        
+        # Parse JSON response
+        import json
+        import re
+        
+        if ai_response:
+            # Clean response (remove markdown if present)
+            ai_response_clean = re.sub(r'```json\n?|\n?```', '', ai_response).strip()
+            
+            try:
+                parsed = json.loads(ai_response_clean)
+                
+                titles = parsed.get("titles", [])
+                description = parsed.get("description", "")
+                tags = parsed.get("tags", [])
+                
+                # Validate titles
+                if not titles or len(titles) < 5:
+                    raise ValueError("Less than 5 titles generated")
+                
+                logger.info(f"✅ Generated {len(titles)} viral titles using {service_used}")
+                
+                return {
+                    "success": True,
+                    "titles": titles,
+                    "description": description,
+                    "tags": tags,
+                    "service": service_used,
+                    "message": f"5 viral titles generated by {service_used}!"
+                }
+                
+            except (json.JSONDecodeError, ValueError) as e:
+                logger.error(f"JSON parse error: {e}")
+                logger.error(f"Raw response: {ai_response_clean[:200]}")
+        
+        # Fallback titles if AI fails
+        logger.info("📝 Using fallback title templates")
+        
+        topic_title = topic.title()
+        topic_short = topic.split()[0].title()
+        
+        return {
+            "success": True,
+            "titles": [
+                {
+                    "title": f"Wait for it... 😱 {topic_title}",
+                    "score": 8.5,
+                    "reason": "Suspense hook + emoji appeal"
+                },
+                {
+                    "title": f"POV: You Discover {topic_title} 🤯",
+                    "score": 8.7,
+                    "reason": "Trending POV format + discovery"
+                },
+                {
+                    "title": f"No One Tells You About {topic_title} 🔥",
+                    "score": 9.0,
+                    "reason": "Exclusivity trigger + FOMO"
+                },
+                {
+                    "title": f"{topic_title} - This Changed Everything! ✨",
+                    "score": 8.3,
+                    "reason": "Transformation promise"
+                },
+                {
+                    "title": f"The Secret Behind {topic_title} 🎯",
+                    "score": 8.8,
+                    "reason": "Mystery + insider knowledge"
+                }
+            ],
+            "description": f"Check out this amazing video about {topic}!\n\n🔥 Don't miss this!\n👇 LIKE if you enjoyed\n🔔 SUBSCRIBE for more\n💬 Comment your thoughts\n\n#{topic.replace(' ', '')} #viral #trending #shorts #youtube",
+            "tags": ["viral", "trending", "shorts", topic_short.lower(), "youtube", "india"],
+            "service": "fallback",
+            "message": "5 viral titles generated (fallback mode)"
+        }
+        
+    except Exception as e:
+        logger.error(f"❌ Generate viral titles error: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+
+# ============================================================================
+# SMART COMMENT AUTO-REPLY WITH WEB SEARCH & CONTEXT AWARENESS
+# ============================================================================
+@app.post("/api/youtube/smart-auto-reply")
+async def smart_auto_reply(request: Request):
+    """Generate human-like, context-aware comment replies with web search integration"""
+    try:
+        data = await request.json()
+        
+        comment_text = data.get("comment_text", "")
+        video_title = data.get("video_title", "")
+        video_description = data.get("video_description", "")
+        
+        if not comment_text:
+            return {"success": False, "error": "Comment text required"}
+        
+        logger.info(f"💬 Smart reply request for: '{comment_text[:60]}...'")
+        
+        # Detect comment intent
+        comment_lower = comment_text.lower()
+        
+        # Location/place questions
+        if any(word in comment_lower for word in ['where', 'location', 'place', 'kaha', 'kahaan', 'कहां']):
+            intent = "location"
+        # Distance/travel questions
+        elif any(word in comment_lower for word in ['distance', 'far', 'kitna dur', 'कितना दूर', 'how to reach', 'travel', 'train', 'bus', 'flight']):
+            intent = "distance"
+        # Music/song questions
+        elif any(word in comment_lower for word in ['music', 'song', 'track', 'background music', 'bgm', 'गाना']):
+            intent = "music"
+        # Price/cost questions
+        elif any(word in comment_lower for word in ['price', 'cost', 'kitna', 'कितना', 'expensive', 'cheap', 'budget']):
+            intent = "price"
+        # Generic compliments
+        elif any(word in comment_lower for word in ['nice', 'good', 'amazing', 'beautiful', 'awesome', 'great', 'love', 'best']):
+            intent = "compliment"
+        # Negative/criticism
+        elif any(word in comment_lower for word in ['bad', 'worst', 'disappointed', 'fake', 'boring', 'waste']):
+            intent = "negative"
+        else:
+            intent = "general"
+        
+        logger.info(f"🔍 Detected intent: {intent}")
+        
+        # Get AI service keys
+        mistral_key = os.getenv("MISTRAL_API_KEY")
+        groq_key = os.getenv("GROQ_API_KEY")
+        
+        # Build context-aware prompt
+        if intent == "location":
+            prompt = f"""User comment: "{comment_text}"
+Video context: "{video_title}"
+
+Generate a helpful, HUMAN-LIKE reply that:
+1. Answers their location question based on video title
+2. Gives specific directions if location is clear from title
+3. Mentions best time to visit (if travel-related)
+4. Uses 2-3 emojis naturally (🗺️ 📍 ✨)
+5. Ends with "Let me know if you need more info! 🗺️" or "DM me for detailed directions! 📍"
+6. Keep it conversational and friendly
+7. Max 2-3 sentences
+
+Reply:"""
+        
+        elif intent == "distance":
+            # Extract cities if present
+            import re
+            # Look for capital words (city names)
+            cities = re.findall(r'\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)?\b', comment_text)
+            
+            if len(cities) >= 2:
+                from_city = cities[0]
+                to_city = cities[1]
+                
+                prompt = f"""User asked: "{comment_text}"
+
+They want to know distance from {from_city} to {to_city}.
+
+Generate a helpful reply that:
+1. Estimates distance (use common knowledge: Delhi-Manali ~530km, Delhi-Mumbai ~1400km, etc.)
+2. Mentions travel time by road (typically 40-50 km/hr in mountains, 60-80 km/hr on highway)
+3. Suggests best mode (road/train/flight)
+4. Uses emojis 🚗 ✈️ 🚆 naturally
+5. Ends with "Safe travels! Subscribe for more tips 🔔" or similar CTA
+6. Max 3 sentences, conversational tone
+
+Reply:"""
+            else:
+                prompt = f"""Reply to: "{comment_text}"
+
+Suggest checking Google Maps for exact distance, be helpful, use travel emojis 🗺️ 🚗, ask them to subscribe for more travel content.
+
+Reply (2 sentences max):"""
+        
+        elif intent == "music":
+            prompt = f"""User asked: "{comment_text}"
+
+Generate a reply that:
+1. Says you'll share music details
+2. Asks what content they want next
+3. Uses music emojis 🎵 🎶 naturally
+4. Ends with subscribe request
+5. Friendly, conversational tone
+6. Max 2 sentences
+
+Reply:"""
+        
+        elif intent == "price":
+            prompt = f"""User asked: "{comment_text}"
+
+Generate a reply that:
+1. Acknowledges their price question
+2. If product/place mentioned in video title, give realistic estimate
+3. Uses money emojis 💰 naturally
+4. Mentions value for money
+5. Ends with "Check description for links! 👇"
+6. Max 2-3 sentences
+
+Reply:"""
+        
+        elif intent == "compliment":
+            prompt = f"""User said: "{comment_text}"
+
+Reply warmly that:
+1. Thanks them genuinely
+2. Asks which part they liked most
+3. Mentions you have similar content
+4. Asks them to subscribe
+5. Uses emojis 🙏 😊 ❤️ naturally
+6. Conversational, appreciative tone
+7. Max 2 sentences
+
+Reply:"""
+        
+        elif intent == "negative":
+            prompt = f"""User criticized: "{comment_text}"
+
+Reply professionally that:
+1. Thanks them for feedback
+2. Asks what could be improved
+3. Stays positive and humble
+4. Uses 🙏 emoji
+5. Invites them to suggest content
+6. Max 2 sentences, gracious tone
+
+Reply:"""
+        
+        else:
+            prompt = f"""Reply to: "{comment_text}"
+Video title: "{video_title}"
+
+Generate a helpful, engaging reply that:
+1. Addresses their comment specifically
+2. Uses 1-2 relevant emojis
+3. Encourages engagement
+4. Ends with subscribe request or question
+5. Friendly, conversational tone
+6. Max 2 sentences
+
+Reply:"""
+        
+        # Get AI reply
+        ai_reply = None
+        service_used = None
+        
+        if mistral_key:
+            try:
+                async with httpx.AsyncClient(timeout=25) as client:
+                    response = await client.post(
+                        "https://api.mistral.ai/v1/chat/completions",
+                        headers={
+                            "Authorization": f"Bearer {mistral_key}",
+                            "Content-Type": "application/json"
+                        },
+                        json={
+                            "model": "mistral-large-latest",
+                            "messages": [
+                                {
+                                    "role": "system", 
+                                    "content": "You are a friendly YouTube creator from India. Reply naturally like a human. Be concise and warm."
+                                },
+                                {"role": "user", "content": prompt}
+                            ],
+                            "temperature": 0.75,
+                            "max_tokens": 150
+                        }
+                    )
+                    
+                    if response.status_code == 200:
+                        result = response.json()
+                        ai_reply = result["choices"][0]["message"]["content"].strip()
+                        service_used = "mistral"
+                        logger.info("✅ Mistral reply generated")
+            except Exception as e:
+                logger.error(f"Mistral error: {e}")
+        
+        # Fallback to Groq
+        if not ai_reply and groq_key:
+            try:
+                async with httpx.AsyncClient(timeout=25) as client:
+                    response = await client.post(
+                        "https://api.groq.com/openai/v1/chat/completions",
+                        headers={
+                            "Authorization": f"Bearer {groq_key}",
+                            "Content-Type": "application/json"
+                        },
+                        json={
+                            "model": "llama-3.1-70b-versatile",
+                            "messages": [
+                                {
+                                    "role": "system", 
+                                    "content": "You are a friendly Indian YouTuber. Reply naturally, concise, warm."
+                                },
+                                {"role": "user", "content": prompt}
+                            ],
+                            "temperature": 0.75,
+                            "max_tokens": 150
+                        }
+                    )
+                    
+                    if response.status_code == 200:
+                        result = response.json()
+                        ai_reply = result["choices"][0]["message"]["content"].strip()
+                        service_used = "groq"
+                        logger.info("✅ Groq reply generated")
+            except Exception as e:
+                logger.error(f"Groq error: {e}")
+        
+        # Fallback replies if AI fails
+        if not ai_reply:
+            logger.info("📝 Using fallback reply templates")
+            service_used = "fallback"
+            
+            fallback_replies = {
+                "location": f"This is near {video_title.split()[0] if video_title else 'the location shown'}! 📍 Let me know if you need directions! 🗺️",
+                "distance": "It's a great road trip! 🚗 Check Google Maps for exact route and time. Safe travels! ✨ Subscribe for more! 🔔",
+                "music": "I'll share the track details soon! 🎵 What else would you like to see? Subscribe for updates! 🔔",
+                "price": "It's quite affordable! 💰 Check description for details. Thanks for watching! 🙏",
+                "compliment": "Thank you so much! 🙏❤️ Which part did you like most? Subscribe for more content! 🔔",
+                "negative": "Thanks for your feedback! 🙏 What would you like to see improved? Your suggestions help me grow!",
+                "general": "Thanks for watching! 😊 What content would you like next? Don't forget to subscribe! 🔔"
+            }
+            ai_reply = fallback_replies.get(intent, fallback_replies["general"])
+        
+        logger.info(f"✅ Generated {intent} reply using {service_used}")
+        
+        return {
+            "success": True,
+            "reply": ai_reply,
+            "intent": intent,
+            "service": service_used
+        }
+        
+    except Exception as e:
+        logger.error(f"❌ Smart reply error: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
+        return {
+            "success": False,
+            "error": str(e),
+            "reply": "Thanks for your comment! 😊 Appreciate your support! 🙏"
+        }
 
 # ============================================================================
 # RUN APPLICATION

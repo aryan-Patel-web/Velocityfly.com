@@ -694,36 +694,88 @@ const replyToComment = useCallback(async (commentId, replyText) => {
   }
 }, [token, API_BASE, selectedVideoId, fetchComments]);
 
-const generateAutoReply = useCallback(async (commentText, commentId) => {
+
+
+
+
+
+
+
+// const generateAutoReply = useCallback(async (commentText, commentId) => {
+//   if (!token) return;
+  
+//   try {
+//     const userData = getUserData();
+//     if (!userData?.user_id) return;
+    
+//     const response = await fetch(`${API_BASE}/api/youtube/generate-auto-reply`, {
+//       method: 'POST',
+//       headers: {
+//         'Content-Type': 'application/json',
+//         'Authorization': `Bearer ${token}`
+//       },
+//       body: JSON.stringify({
+//         user_id: userData.user_id,
+//         comment_text: commentText,
+//         reply_style: autoReplyConfig.reply_style
+//       })
+//     });
+    
+//     const result = await response.json();
+    
+//     if (result.success) {
+//       // Auto-post the reply
+//       await replyToComment(commentId, result.reply);
+//     }
+//   } catch (error) {
+//     console.error('Auto reply failed:', error);
+//   }
+// }, [token, API_BASE, autoReplyConfig.reply_style, replyToComment]);
+
+
+const generateAutoReply = useCallback(async (commentText, commentId, videoTitle = '') => {
   if (!token) return;
+  
   
   try {
     const userData = getUserData();
     if (!userData?.user_id) return;
     
-    const response = await fetch(`${API_BASE}/api/youtube/generate-auto-reply`, {
+    console.log('🤖 Generating smart reply for:', commentText);
+    
+    // Use NEW smart auto-reply endpoint
+    const response = await fetch(`${API_BASE}/api/youtube/smart-auto-reply`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`
       },
       body: JSON.stringify({
-        user_id: userData.user_id,
         comment_text: commentText,
+        video_title: videoTitle || contentData.title || '',
+        video_description: contentData.description || '',
         reply_style: autoReplyConfig.reply_style
       })
     });
     
     const result = await response.json();
+    console.log('📥 Smart reply result:', result);
     
-    if (result.success) {
-      // Auto-post the reply
+    if (result.success && result.reply) {
+      // Auto-post the smart reply
       await replyToComment(commentId, result.reply);
+      
+      // Show notification
+      alert(`✅ Smart reply posted!\n\nIntent: ${result.intent}\nReply: ${result.reply.substring(0, 100)}...`);
+    } else {
+      console.error('Smart reply failed:', result.error);
     }
   } catch (error) {
-    console.error('Auto reply failed:', error);
+    console.error('❌ Auto reply failed:', error);
   }
-}, [token, API_BASE, autoReplyConfig.reply_style, replyToComment]);
+}, [token, API_BASE, autoReplyConfig.reply_style, replyToComment, contentData.title, contentData.description]);
+
+
 
 const startAutomatedReplies = useCallback(async () => {
   try {
@@ -5510,11 +5562,15 @@ https://picsum.photos/1080/1920?random=2`}
 
 
         {/* Step 2: Title & Description - NO AI FOR TITLE */}
-        {uploadedImages.length >= 2 && (
+        {/* {uploadedImages.length >= 2 && (
           <div style={{ marginBottom: '30px' }}>
             <h3 style={{ color: '#333', marginBottom: '16px', fontSize: '20px' }}>
               ✍️ Step 2: Add Title & Description
             </h3>
+
+
+
+
             
             <label style={{display: 'block', marginBottom: '8px', fontWeight: '600'}}>
               Video Title:
@@ -5533,6 +5589,12 @@ https://picsum.photos/1080/1920?random=2`}
                 marginBottom: '20px'
               }}
             />
+
+
+
+
+
+            
 
             <label style={{display: 'block', marginBottom: '8px', fontWeight: '600'}}>
               Video Description:
@@ -5596,7 +5658,365 @@ https://picsum.photos/1080/1920?random=2`}
               </button>
             </div>
           </div>
+        )} */}
+
+
+
+
+{/* ===== STEP 2: AI-POWERED TITLE & DESCRIPTION ===== */}
+        {uploadedImages.length >= 2 && (
+          <div style={{ marginBottom: '30px' }}>
+            <h3 style={{ color: '#333', marginBottom: '16px', fontSize: '20px' }}>
+              ✍️ Step 2: Add Title & Description
+            </h3>
+            
+            {/* ===== AI VIRAL TITLE GENERATOR ===== */}
+            <div style={{ 
+              marginBottom: '25px',
+              padding: '20px',
+              background: 'linear-gradient(135deg, #667eea10, #764ba210)',
+              borderRadius: '12px',
+              border: '2px solid #667eea'
+            }}>
+              <label style={{
+                display: 'block', 
+                marginBottom: '12px', 
+                fontWeight: '700',
+                color: '#667eea',
+                fontSize: '16px'
+              }}>
+                🤖 AI Viral Title Generator
+              </label>
+              
+              {/* Topic Input (3-5 words) */}
+              <div style={{ display: 'flex', gap: '10px', marginBottom: '15px' }}>
+                <input
+                  type="text"
+                  value={contentData.ai_topic || ''}
+                  onChange={(e) => setContentData(prev => ({...prev, ai_topic: e.target.value}))}
+                  placeholder="Enter 3-5 keywords (e.g., 'manali hidden waterfall trek')"
+                  style={{
+                    flex: 1,
+                    padding: '14px',
+                    borderRadius: '8px',
+                    border: '2px solid #ddd',
+                    fontSize: '14px',
+                    outline: 'none'
+                  }}
+                  onFocus={(e) => e.target.style.borderColor = '#667eea'}
+                  onBlur={(e) => e.target.style.borderColor = '#ddd'}
+                />
+                <button
+                  onClick={async () => {
+                    const topic = contentData.ai_topic?.trim();
+                    const wordCount = topic ? topic.split(' ').filter(w => w).length : 0;
+                    
+                    if (!topic || wordCount < 3) {
+                      alert('⚠️ Please enter at least 3-5 words about your video\n\nExample: "manali hidden waterfall trek"');
+                      return;
+                    }
+                    
+                    setLoading(true);
+                    setError('');
+                    
+                    try {
+                      console.log('🎯 Generating titles for:', topic);
+                      
+                      const response = await fetch(`${API_BASE}/api/youtube/generate-viral-titles`, {
+                        method: 'POST',
+                        headers: {
+                          'Content-Type': 'application/json',
+                          'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify({
+                          topic: topic,
+                          niche: 'shorts'
+                        })
+                      });
+                      
+                      const result = await response.json();
+                      console.log('📥 Response:', result);
+                      
+                      if (result.success && result.titles && result.titles.length > 0) {
+                        setContentData(prev => ({
+                          ...prev,
+                          viral_titles: result.titles,
+                          title: result.titles[0].title, // Auto-select highest scoring
+                          description: result.description || prev.description,
+                          tags: result.tags || []
+                        }));
+                        
+                        // Also update slideshow states
+                        setSlideshowTitle(result.titles[0].title);
+                        setSlideshowDescription(result.description || '');
+                        
+                        alert(`✅ Generated 5 viral titles!\n\n🏆 Top pick: "${result.titles[0].title}"\n\nClick any title below to select it.`);
+                      } else {
+                        alert('❌ Failed: ' + (result.error || 'No titles generated'));
+                      }
+                    } catch (error) {
+                      console.error('❌ Error:', error);
+                      alert('❌ Error: ' + error.message);
+                    } finally {
+                      setLoading(false);
+                    }
+                  }}
+                  disabled={loading}
+                  style={{
+                    padding: '14px 28px',
+                    background: loading 
+                      ? '#ccc' 
+                      : 'linear-gradient(135deg, #667eea, #764ba2)',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '10px',
+                    fontWeight: '700',
+                    fontSize: '15px',
+                    cursor: loading ? 'not-allowed' : 'pointer',
+                    whiteSpace: 'nowrap',
+                    boxShadow: loading ? 'none' : '0 4px 15px rgba(102, 126, 234, 0.4)',
+                    transition: 'all 0.3s'
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!loading) e.currentTarget.style.transform = 'translateY(-2px)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = 'translateY(0)';
+                  }}
+                >
+                  {loading ? '⏳ Generating...' : '🚀 Generate 5 Titles'}
+                </button>
+              </div>
+              
+              {/* Helper Text */}
+              <div style={{
+                fontSize: '12px',
+                color: '#666',
+                marginBottom: '15px'
+              }}>
+                💡 <strong>Tip:</strong> Use specific keywords like "manali snow trek" instead of just "travel video"
+              </div>
+              
+              {/* Display Generated Title Options */}
+              {contentData.viral_titles && contentData.viral_titles.length > 0 && (
+                <div style={{
+                  background: 'white',
+                  padding: '16px',
+                  borderRadius: '10px',
+                  border: '2px solid #667eea',
+                  marginTop: '15px'
+                }}>
+                  <h4 style={{ 
+                    color: '#667eea', 
+                    marginBottom: '12px', 
+                    fontSize: '15px',
+                    fontWeight: '700',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px'
+                  }}>
+                    <span style={{ fontSize: '20px' }}>🎯</span>
+                    Pick Your Viral Title (Click to Select)
+                  </h4>
+                  
+                  {contentData.viral_titles.map((titleObj, idx) => (
+                    <div
+                      key={idx}
+                      onClick={() => {
+                        setContentData(prev => ({...prev, title: titleObj.title}));
+                        setSlideshowTitle(titleObj.title);
+                        console.log('✅ Selected:', titleObj.title);
+                      }}
+                      style={{
+                        padding: '12px 14px',
+                        background: slideshowTitle === titleObj.title 
+                          ? 'linear-gradient(135deg, #667eea, #764ba2)' 
+                          : '#f8f9fa',
+                        color: slideshowTitle === titleObj.title ? 'white' : '#333',
+                        borderRadius: '8px',
+                        marginBottom: '8px',
+                        cursor: 'pointer',
+                        border: slideshowTitle === titleObj.title 
+                          ? '2px solid #764ba2' 
+                          : '2px solid transparent',
+                        transition: 'all 0.3s',
+                        boxShadow: slideshowTitle === titleObj.title 
+                          ? '0 4px 12px rgba(102, 126, 234, 0.3)' 
+                          : 'none'
+                      }}
+                      onMouseEnter={(e) => {
+                        if (slideshowTitle !== titleObj.title) {
+                          e.currentTarget.style.background = '#e9ecef';
+                          e.currentTarget.style.borderColor = '#667eea';
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (slideshowTitle !== titleObj.title) {
+                          e.currentTarget.style.background = '#f8f9fa';
+                          e.currentTarget.style.borderColor = 'transparent';
+                        }
+                      }}
+                    >
+                      <div style={{ 
+                        display: 'flex',
+                        alignItems: 'flex-start',
+                        gap: '10px'
+                      }}>
+                        <span style={{ 
+                          fontSize: '18px',
+                          minWidth: '24px'
+                        }}>
+                          {slideshowTitle === titleObj.title ? '✅' : `${idx + 1}.`}
+                        </span>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ 
+                            fontWeight: '700', 
+                            marginBottom: '4px',
+                            fontSize: '14px',
+                            lineHeight: '1.4'
+                          }}>
+                            {titleObj.title}
+                          </div>
+                          <div style={{ 
+                            fontSize: '11px', 
+                            opacity: 0.9,
+                            fontWeight: '500',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            flexWrap: 'wrap'
+                          }}>
+                            <span style={{
+                              background: slideshowTitle === titleObj.title 
+                                ? 'rgba(255,255,255,0.2)' 
+                                : '#fff',
+                              padding: '2px 8px',
+                              borderRadius: '12px',
+                              border: slideshowTitle === titleObj.title 
+                                ? '1px solid rgba(255,255,255,0.3)' 
+                                : '1px solid #ddd'
+                            }}>
+                              🔥 Score: {titleObj.score}/10
+                            </span>
+                            <span>• {titleObj.reason}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  
+                  <div style={{
+                    marginTop: '12px',
+                    padding: '10px',
+                    background: '#e7f3ff',
+                    borderRadius: '6px',
+                    fontSize: '12px',
+                    color: '#004085'
+                  }}>
+                    💡 <strong>Selected:</strong> {slideshowTitle || 'None yet - click a title above'}
+                  </div>
+                </div>
+              )}
+            </div>
+            
+            {/* Manual Title Input */}
+            <label style={{display: 'block', marginBottom: '8px', fontWeight: '600', color: '#333'}}>
+              Video Title:
+            </label>
+            <input
+              type="text"
+              value={slideshowTitle}
+              onChange={(e) => setSlideshowTitle(e.target.value)}
+              placeholder="Selected title appears here, or enter manually"
+              style={{
+                width: '100%',
+                padding: '12px',
+                borderRadius: '8px',
+                border: '2px solid #ddd',
+                fontSize: '15px',
+                marginBottom: '20px',
+                outline: 'none'
+              }}
+              onFocus={(e) => e.target.style.borderColor = '#667eea'}
+              onBlur={(e) => e.target.style.borderColor = '#ddd'}
+            />
+
+            {/* Description Section */}
+            <label style={{display: 'block', marginBottom: '8px', fontWeight: '600', color: '#333'}}>
+              Video Description:
+            </label>
+            <textarea
+              value={slideshowDescription}
+              onChange={(e) => setSlideshowDescription(e.target.value)}
+              placeholder="AI-generated description will appear here, or write your own"
+              rows={6}
+              style={{
+                width: '100%',
+                padding: '12px',
+                borderRadius: '8px',
+                border: '2px solid #ddd',
+                fontSize: '14px',
+                marginBottom: '10px',
+                resize: 'vertical',
+                outline: 'none'
+              }}
+              onFocus={(e) => e.target.style.borderColor = '#667eea'}
+              onBlur={(e) => e.target.style.borderColor = '#ddd'}
+            />
+            
+            {/* Show Hashtags if Generated */}
+            {contentData.tags && contentData.tags.length > 0 && (
+              <div style={{
+                padding: '14px',
+                background: 'linear-gradient(135deg, #d4edda, #c3f0d2)',
+                borderRadius: '10px',
+                marginBottom: '15px',
+                border: '2px solid #28a745'
+              }}>
+                <div style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '8px',
+                  marginBottom: '8px'
+                }}>
+                  <span style={{ fontSize: '18px' }}>📌</span>
+                  <strong style={{ color: '#155724', fontSize: '15px' }}>
+                    Hashtags (copy to description):
+                  </strong>
+                </div>
+                <div style={{ 
+                  fontSize: '14px', 
+                  color: '#155724',
+                  fontWeight: '500',
+                  wordBreak: 'break-word'
+                }}>
+                  {contentData.tags.map(tag => `#${tag}`).join(' ')}
+                </div>
+                <button
+                  onClick={() => {
+                    const hashtags = contentData.tags.map(tag => `#${tag}`).join(' ');
+                    navigator.clipboard.writeText(hashtags);
+                    alert('✅ Hashtags copied to clipboard!');
+                  }}
+                  style={{
+                    marginTop: '10px',
+                    padding: '6px 12px',
+                    background: '#28a745',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '6px',
+                    fontSize: '12px',
+                    cursor: 'pointer',
+                    fontWeight: '600'
+                  }}
+                >
+                  📋 Copy Hashtags
+                </button>
+              </div>
+            )}
+          </div>
         )}
+
 
 
 

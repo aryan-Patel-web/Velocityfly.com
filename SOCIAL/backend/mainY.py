@@ -5833,6 +5833,14 @@ async def get_next_product_url(user_id: str) -> str:
     except:
         return None
 
+
+
+
+
+
+
+
+
 # Start automation background task
 
 @app.on_event("startup")
