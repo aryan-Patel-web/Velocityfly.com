@@ -1166,6 +1166,43 @@ useEffect(() => {
   loadAutomationConfig();
 }, [user, token]);
 
+
+
+
+// ✅ Load automation config on mount
+useEffect(() => {
+  const loadAutomationConfig = async () => {
+    if (!user?.user_id || !token) return;
+    
+    try {
+      const response = await fetch(`${API_BASE}/api/automation/config/${user.user_id}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.config) {
+          setAutomationConfig(prev => ({
+            ...prev,
+            ...data.config
+          }));
+          setAutomationEnabled(data.config.enabled || false);
+          console.log('✅ Loaded automation config:', data.config);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load automation config:', error);
+    }
+  };
+  
+  loadAutomationConfig();
+}, [user, token]);
+
+
+
 // ✅ NEW: Load saved URL on component mount
 useEffect(() => {
   const loadSavedUrl = async () => {

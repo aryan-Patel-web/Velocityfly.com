@@ -2729,6 +2729,10 @@ async def debug_my_reddit_connection(current_user: dict = Depends(get_current_us
 
 # /////////////////////auto-post of 3 image --
 
+# ============================================================================
+# FIXED PRODUCT AUTOMATION ENDPOINTS - REPLACE YOUR EXISTING ONES
+# ============================================================================
+
 @app.post("/api/product-automation/start")
 async def start_product_automation(request: Request):
     """Start automated product scraping + video generation + upload"""
@@ -2743,18 +2747,38 @@ async def start_product_automation(request: Request):
                 content={"success": False, "error": "user_id required"}
             )
         
-        # Store automation config
+        # Validate required fields
+        base_url = config.get('base_url', '')
+        search_query = config.get('search_query', '')
+        upload_times = config.get('upload_times', [])
+        
+        if not base_url or not search_query:
+            return JSONResponse(
+                status_code=400,
+                content={"success": False, "error": "base_url and search_query required"}
+            )
+        
+        if len(upload_times) == 0:
+            return JSONResponse(
+                status_code=400,
+                content={"success": False, "error": "At least one upload time required"}
+            )
+        
+        # Store automation config with ENABLED = TRUE
         success = await database_manager.store_automation_config(
             user_id=user_id,
             config_type="product_automation",
             config_data={
-                "enabled": True,
+                "enabled": True,  # ✅ CRITICAL: Must be True
+                "base_url": base_url,
+                "search_query": search_query,
                 "max_posts_per_day": config.get('max_posts_per_day', 10),
-                "upload_times": config.get('upload_times', ['09:00', '15:00', '21:00']),
+                "upload_times": upload_times,
                 "auto_scrape": config.get('auto_scrape', True),
                 "auto_generate_video": config.get('auto_generate_video', True),
                 "auto_upload": config.get('auto_upload', True),
-                "created_at": datetime.now().isoformat()
+                "created_at": datetime.now().isoformat(),
+                "updated_at": datetime.now().isoformat()
             }
         )
         
@@ -2764,13 +2788,21 @@ async def start_product_automation(request: Request):
                 content={"success": False, "error": "Failed to store config"}
             )
         
-        logger.info(f"✅ Product automation started for user: {user_id}")
+        logger.info(f"✅ Product automation STARTED for user: {user_id}")
+        logger.info(f"   Base URL: {base_url}")
+        logger.info(f"   Search: {search_query}")
+        logger.info(f"   Times: {upload_times}")
         
         return JSONResponse(content={
             "success": True,
             "message": "Product automation started successfully",
-            "config": config,
-            "next_run": config.get('upload_times', [])[0] if config.get('upload_times') else "Not set"
+            "config": {
+                "base_url": base_url,
+                "search_query": search_query,
+                "upload_times": upload_times,
+                "max_posts_per_day": config.get('max_posts_per_day', 10)
+            },
+            "next_run": upload_times[0] if upload_times else "Not set"
         })
         
     except Exception as e:
@@ -2781,7 +2813,6 @@ async def start_product_automation(request: Request):
             status_code=500,
             content={"success": False, "error": str(e)}
         )
-
 
 
 @app.post("/api/product-automation/stop")
@@ -2797,7 +2828,7 @@ async def stop_product_automation(request: Request):
                 content={"success": False, "error": "user_id required"}
             )
         
-        # Disable automation
+        # Disable automation by setting enabled = False
         success = await database_manager.disable_automation(user_id, "product_automation")
         
         if not success:
@@ -2806,7 +2837,7 @@ async def stop_product_automation(request: Request):
                 content={"success": False, "error": "Failed to disable automation"}
             )
         
-        logger.info(f"⏹️ Product automation stopped for user: {user_id}")
+        logger.info(f"⏹️ Product automation STOPPED for user: {user_id}")
         
         return JSONResponse(content={
             "success": True,
@@ -2825,67 +2856,93 @@ async def stop_product_automation(request: Request):
 
 
 
-
 # Background task runner (runs every hour)
+# ============================================================================
+# FIXED BACKGROUND TASK - REPLACE run_product_automation_tasks()
+# ============================================================================
+
 async def run_product_automation_tasks():
-    """Background task: Check and execute automated product posts every minute"""
+    """Check and execute automated product posts every minute"""
     logger.info("🚀 Product automation background task STARTED")
     
     while True:
         try:
             current_time = datetime.now().strftime('%H:%M')
-            current_hour = datetime.now().hour
             current_minute = datetime.now().minute
             
-            # Only log every 5 minutes to reduce spam
+            # Log every 5 minutes
             if current_minute % 5 == 0:
                 logger.info(f"🤖 Automation check at {current_time}")
             
-            # Get all active automation configs
             if not database_manager or not database_manager.connected:
                 await asyncio.sleep(60)
                 continue
             
+            # Get all active automation configs
             configs = await database_manager.get_all_automation_configs_by_type("product_automation")
             
             if current_minute % 5 == 0 and len(configs) > 0:
-                logger.info(f"📋 Found {len(configs)} active automations")
+                logger.info(f"📋 Found {len(configs)} total automation configs")
             
+            active_count = 0
             for config in configs:
                 try:
-                    if not config.get("enabled"):
-                        continue
-                    
                     user_id = config.get("user_id")
                     config_data = config.get("config_data", {})
-                    upload_times = config_data.get("upload_times", [])
+                    enabled = config_data.get("enabled", False)
                     
-                    # Check if current time matches any upload time
+                    # ✅ DEBUG LOG - Show config status
+                    if current_minute % 5 == 0:
+                        logger.info(f"   User {user_id}: enabled={enabled}, times={config_data.get('upload_times', [])}")
+                    
+                    if not enabled:
+                        continue
+                    
+                    active_count += 1
+                    
+                    upload_times = config_data.get("upload_times", [])
+                    base_url = config_data.get("base_url", "")
+                    search_query = config_data.get("search_query", "")
+                    
+                    # ✅ DEBUG LOG - Show what we're checking
+                    if current_minute % 5 == 0:
+                        logger.info(f"   ✅ ACTIVE: User {user_id} | Search: '{search_query}' | Times: {upload_times}")
+                    
+                    # Check if current time matches
                     if current_time in upload_times:
-                        logger.info(f"⏰ TRIGGERING automation for user: {user_id} at {current_time}")
+                        logger.info(f"🔔 TIME MATCH! Triggering automation for user {user_id}")
+                        logger.info(f"   Current: {current_time} | Scheduled: {upload_times}")
+                        logger.info(f"   URL: {base_url} | Query: {search_query}")
                         
-                        # Check daily post limit
+                        # Check daily limit
                         posts_today = await database_manager.get_automation_posts_count(
-                            user_id, 
+                            user_id,
                             date=datetime.now().date()
                         )
                         
                         max_posts = config_data.get("max_posts_per_day", 10)
                         
+                        logger.info(f"   Posts today: {posts_today}/{max_posts}")
+                        
                         if posts_today >= max_posts:
-                            logger.warning(f"❌ Daily limit reached for user {user_id} ({posts_today}/{max_posts})")
+                            logger.warning(f"❌ Daily limit reached for user {user_id}: {posts_today}/{max_posts}")
                             continue
                         
-                        logger.info(f"✅ Proceeding with automation ({posts_today}/{max_posts} posts today)")
+                        logger.info(f"✅ Executing automation for user {user_id}")
                         
-                        # Execute automation in background (don't block)
+                        # Execute automation (don't block)
                         asyncio.create_task(execute_product_automation(user_id, config_data))
-                        
+                    
                 except Exception as config_error:
                     logger.error(f"❌ Config processing error: {config_error}")
+                    import traceback
+                    logger.error(traceback.format_exc())
                     continue
             
-            # Wait 60 seconds before next check
+            if current_minute % 5 == 0:
+                logger.info(f"📊 Summary: {active_count} active automations out of {len(configs)} total")
+            
+            # Wait 60 seconds
             await asyncio.sleep(60)
             
         except Exception as e:
@@ -3073,72 +3130,72 @@ async def execute_product_automation(user_id: str, config: dict):
         logger.error(traceback.format_exc())
 
 
-# Background task runner (checks every minute)
-async def run_product_automation_tasks():
-    """Check and execute automated product posts every minute"""
-    logger.info("🚀 Product automation background task STARTED")
+# # Background task runner (checks every minute)
+# async def run_product_automation_tasks():
+#     """Check and execute automated product posts every minute"""
+#     logger.info("🚀 Product automation background task STARTED")
     
-    while True:
-        try:
-            current_time = datetime.now().strftime('%H:%M')
-            current_minute = datetime.now().minute
+#     while True:
+#         try:
+#             current_time = datetime.now().strftime('%H:%M')
+#             current_minute = datetime.now().minute
             
-            # Only log every 5 minutes
-            if current_minute % 5 == 0:
-                logger.info(f"🤖 Automation check at {current_time}")
+#             # Only log every 5 minutes
+#             if current_minute % 5 == 0:
+#                 logger.info(f"🤖 Automation check at {current_time}")
             
-            if not database_manager or not database_manager.connected:
-                await asyncio.sleep(60)
-                continue
+#             if not database_manager or not database_manager.connected:
+#                 await asyncio.sleep(60)
+#                 continue
             
-            # Get all active automation configs
-            configs = await database_manager.get_all_automation_configs_by_type("product_automation")
+#             # Get all active automation configs
+#             configs = await database_manager.get_all_automation_configs_by_type("product_automation")
             
-            if current_minute % 5 == 0 and len(configs) > 0:
-                logger.info(f"📋 Found {len(configs)} active automations")
+#             if current_minute % 5 == 0 and len(configs) > 0:
+#                 logger.info(f"📋 Found {len(configs)} active automations")
             
-            for config in configs:
-                try:
-                    if not config.get("enabled"):
-                        continue
+#             for config in configs:
+#                 try:
+#                     if not config.get("enabled"):
+#                         continue
                     
-                    user_id = config.get("user_id")
-                    config_data = config.get("config_data", {})
-                    upload_times = config_data.get("upload_times", [])
+#                     user_id = config.get("user_id")
+#                     config_data = config.get("config_data", {})
+#                     upload_times = config_data.get("upload_times", [])
                     
-                    # Check if current time matches
-                    if current_time in upload_times:
-                        logger.info(f"⏰ TRIGGERING automation for user: {user_id} at {current_time}")
+#                     # Check if current time matches
+#                     if current_time in upload_times:
+#                         logger.info(f"⏰ TRIGGERING automation for user: {user_id} at {current_time}")
                         
-                        # Check daily limit
-                        posts_today = await database_manager.get_automation_posts_count(
-                            user_id,
-                            date=datetime.now().date()
-                        )
+#                         # Check daily limit
+#                         posts_today = await database_manager.get_automation_posts_count(
+#                             user_id,
+#                             date=datetime.now().date()
+#                         )
                         
-                        max_posts = config_data.get("max_posts_per_day", 10)
+#                         max_posts = config_data.get("max_posts_per_day", 10)
                         
-                        if posts_today >= max_posts:
-                            logger.warning(f"❌ Daily limit reached: {posts_today}/{max_posts}")
-                            continue
+#                         if posts_today >= max_posts:
+#                             logger.warning(f"❌ Daily limit reached: {posts_today}/{max_posts}")
+#                             continue
                         
-                        logger.info(f"✅ Proceeding ({posts_today}/{max_posts} posts today)")
+#                         logger.info(f"✅ Proceeding ({posts_today}/{max_posts} posts today)")
                         
-                        # Execute automation (don't block)
-                        asyncio.create_task(execute_product_automation(user_id, config_data))
+#                         # Execute automation (don't block)
+#                         asyncio.create_task(execute_product_automation(user_id, config_data))
                         
-                except Exception as e:
-                    logger.error(f"❌ Config processing error: {e}")
-                    continue
+#                 except Exception as e:
+#                     logger.error(f"❌ Config processing error: {e}")
+#                     continue
             
-            # Wait 60 seconds
-            await asyncio.sleep(60)
+#             # Wait 60 seconds
+#             await asyncio.sleep(60)
             
-        except Exception as e:
-            logger.error(f"❌ Automation task error: {e}")
-            import traceback
-            logger.error(traceback.format_exc())
-            await asyncio.sleep(60)
+#         except Exception as e:
+#             logger.error(f"❌ Automation task error: {e}")
+#             import traceback
+#             logger.error(traceback.format_exc())
+#             await asyncio.sleep(60)
 
 
 
@@ -3730,26 +3787,26 @@ async def upload_video_now(request: Request):
         )
 
 
-@app.delete("/api/automation/delete-url/{user_id}")
-async def delete_scrape_url_route(user_id: str):
-    """Stop automation and delete saved URL"""
-    try:
-        success = await database_manager.delete_scrape_url(user_id)
+# @app.delete("/api/automation/delete-url/{user_id}")
+# async def delete_scrape_url_route(user_id: str):
+#     """Stop automation and delete saved URL"""
+#     try:
+#         success = await database_manager.delete_scrape_url(user_id)
         
-        if success:
-            logger.info(f"✅ Automation stopped for user {user_id}")
+#         if success:
+#             logger.info(f"✅ Automation stopped for user {user_id}")
         
-        return JSONResponse(content={
-            "success": success,
-            "message": "Automation stopped successfully" if success else "Failed to stop automation"
-        })
+#         return JSONResponse(content={
+#             "success": success,
+#             "message": "Automation stopped successfully" if success else "Failed to stop automation"
+#         })
         
-    except Exception as e:
-        logger.error(f"❌ Delete URL failed: {e}")
-        return JSONResponse(
-            status_code=500,
-            content={"success": False, "error": str(e)}
-        )
+#     except Exception as e:
+#         logger.error(f"❌ Delete URL failed: {e}")
+#         return JSONResponse(
+#             status_code=500,
+#             content={"success": False, "error": str(e)}
+#         )
 
 
 @app.post("/api/automation/scrape-single-product")
@@ -3797,45 +3854,40 @@ async def scrape_single_product_route(request: Request):
 
 
 # ============================================================================
-# GET/SAVE AUTOMATION CONFIG
-# ============================================================================
-@app.get("/api/automation/config/{user_id}")
-async def get_automation_config(user_id: str):
-    """Get saved automation configuration"""
+@app.get("/api/automation/logs/{user_id}")
+async def get_automation_logs(user_id: str, limit: int = 20):
+    """Get automation activity logs"""
     try:
-        if not database_manager or not database_manager.connected:
-            return JSONResponse(
-                status_code=500,
-                content={"success": False, "error": "Database not connected"}
-            )
+        logs = []
+        cursor = database_manager.db.automation_logs.find(
+            {"user_id": user_id}
+        ).sort("timestamp", -1).limit(limit)
         
-        config = await database_manager.get_automation_config(user_id, "product_automation")
-        
-        if config:
-            return JSONResponse(content={
-                "success": True,
-                "config": config.get("config_data", {})
+        async for log in cursor:
+            logs.append({
+                "timestamp": log.get("timestamp").isoformat() if log.get("timestamp") else "",
+                "product_url": log.get("product_url", ""),
+                "video_id": log.get("video_id", ""),
+                "success": log.get("success", False),
+                "error": log.get("error", "")
             })
         
         return JSONResponse(content={
-            "success": False,
-            "error": "No config found"
+            "success": True,
+            "logs": logs
         })
         
     except Exception as e:
-        logger.error(f"Get config failed: {e}")
+        logger.error(f"Get logs failed: {e}")
         return JSONResponse(
             status_code=500,
             content={"success": False, "error": str(e)}
         )
-    
-
 # ============================================================================
 # PRODUCT AUTOMATION ENDPOINTS - PASTE BEFORE get_automation_status
 # ============================================================================
-
 @app.get("/api/automation/config/{user_id}")
-async def get_automation_config(user_id: str):
+async def get_automation_config_endpoint(user_id: str):
     """Get saved automation configuration"""
     try:
         if not database_manager or not database_manager.connected:
@@ -3847,9 +3899,16 @@ async def get_automation_config(user_id: str):
         config = await database_manager.get_automation_config(user_id, "product_automation")
         
         if config:
+            config_data = config.get("config_data", {})
             return JSONResponse(content={
                 "success": True,
-                "config": config.get("config_data", {})
+                "config": {
+                    "enabled": config_data.get("enabled", False),
+                    "base_url": config_data.get("base_url", ""),
+                    "search_query": config_data.get("search_query", ""),
+                    "upload_times": config_data.get("upload_times", []),
+                    "max_posts_per_day": config_data.get("max_posts_per_day", 10)
+                }
             })
         
         return JSONResponse(content={
@@ -3997,12 +4056,22 @@ async def delete_scrape_url_route(user_id: str):
         )
 
 
+
+
+
+
 @app.get("/api/automation/status/{user_id}")
-async def get_automation_status(user_id: str):
-    """Get automation status"""
+async def get_automation_status_endpoint(user_id: str):
+    """Get automation status and today's post count"""
     try:
-        # Get URL data
-        url_doc = await database_manager.get_scrape_url(user_id)
+        if not database_manager or not database_manager.connected:
+            return JSONResponse(
+                status_code=500,
+                content={"success": False, "error": "Database not connected"}
+            )
+        
+        # Get config
+        config = await database_manager.get_automation_config(user_id, "product_automation")
         
         # Get today's posts count
         from datetime import datetime
@@ -4011,68 +4080,29 @@ async def get_automation_status(user_id: str):
             date=datetime.now().date()
         )
         
-        if not url_doc:
+        if not config:
             return JSONResponse(content={
                 "success": True,
                 "active": False,
-                "posts_today": today_posts
+                "posts_today": today_posts,
+                "config": None
             })
+        
+        config_data = config.get("config_data", {})
+        enabled = config_data.get("enabled", False)
         
         return JSONResponse(content={
             "success": True,
-            "active": True,
-            "url": url_doc.get('url'),
-            "total_products": url_doc.get('total_products_found', 0),
-            "products_processed": url_doc.get('products_processed', 0),
+            "active": enabled,
             "posts_today": today_posts,
-            "daily_limit": 10,
-            "remaining_today": max(0, 10 - today_posts)
-        })
-        
-    except Exception as e:
-        logger.error(f"❌ Get status failed: {e}")
-        return JSONResponse(
-            status_code=500,
-            content={"success": False, "error": str(e)}
-        )
-
-
-
-
-
-
-
-
-@app.get("/api/automation/status/{user_id}")
-async def get_automation_status(user_id: str):
-    """Get current automation status"""
-    try:
-        # Get URL data
-        url_doc = await database_manager.get_scrape_url(user_id)
-        
-        # Get today's posts
-        from datetime import datetime
-        today_posts = await database_manager.get_automation_posts_count(
-            user_id,
-            date=datetime.now().date()
-        )
-        
-        if not url_doc:
-            return JSONResponse(content={
-                "success": True,
-                "active": False,
-                "posts_today": today_posts
-            })
-        
-        return JSONResponse(content={
-            "success": True,
-            "active": True,
-            "url": url_doc.get('url'),
-            "total_products": url_doc.get('total_products_found', 0),
-            "products_processed": url_doc.get('products_processed', 0),
-            "posts_today": today_posts,
-            "daily_limit": 10,  # You can make this configurable
-            "remaining_today": max(0, 10 - today_posts)
+            "config": {
+                "base_url": config_data.get("base_url", ""),
+                "search_query": config_data.get("search_query", ""),
+                "upload_times": config_data.get("upload_times", []),
+                "max_posts_per_day": config_data.get("max_posts_per_day", 10),
+                "daily_limit": config_data.get("max_posts_per_day", 10),
+                "remaining_today": max(0, config_data.get("max_posts_per_day", 10) - today_posts)
+            }
         })
         
     except Exception as e:
@@ -4081,7 +4111,6 @@ async def get_automation_status(user_id: str):
             status_code=500,
             content={"success": False, "error": str(e)}
         )
-
 
 @app.post("/api/automation/test-scraper")
 async def test_scraper_route(request: Request):
