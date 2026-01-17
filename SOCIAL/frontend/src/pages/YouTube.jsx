@@ -75,15 +75,26 @@ const [replyText, setReplyText] = useState('');
 const [userVideos, setUserVideos] = useState([]);
 const [selectedVideos, setSelectedVideos] = useState([]);
 
+
+
 // ✅ NEW: Product Automation States
 const [automationEnabled, setAutomationEnabled] = useState(false);
 const [automationConfig, setAutomationConfig] = useState({
   max_posts_per_day: 10,
-  upload_times: ['09:00', '15:00', '21:00'],
+  upload_times: ['07:00', '13:00', '18:00'], // Default 3 times
   auto_scrape: true,
   auto_generate_video: true,
-  auto_upload: true
+  auto_upload: true,
+  base_url: 'https://www.flipkart.com', // NEW
+  search_query: '', // NEW: e.g., "earbuds"
+  scrape_mode: 'search' // NEW: 'search' or 'category'
 });
+
+// NEW: Test scheduling state
+const [testScheduleTime, setTestScheduleTime] = useState('');
+const [showTestScheduler, setShowTestScheduler] = useState(false);
+
+
 const [automationLogs, setAutomationLogs] = useState([]);
 
 // ✅ NEW: URL Management States
@@ -736,7 +747,7 @@ const replyToComment = useCallback(async (commentId, replyText) => {
 const generateAutoReply = useCallback(async (commentText, commentId, videoTitle = '') => {
   if (!token) return;
   
-  
+
   try {
     const userData = getUserData();
     if (!userData?.user_id) return;
@@ -1122,6 +1133,38 @@ useEffect(() => {
 }, [isAuthenticated, token, handleOAuthCallbackDirect]);
 
 // }, [isAuthenticated, token, handleOAuthCallbackDirect]);
+// NEW: Load saved automation config
+useEffect(() => {
+  const loadAutomationConfig = async () => {
+    if (!user?.user_id || !token) return;
+    
+    try {
+      const response = await fetch(`${API_BASE}/api/automation/config/${user.user_id}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.config) {
+          setAutomationConfig(data.config);
+          setAutomationEnabled(data.config.enabled || false);
+          
+          // If has base_url and search_query, set as savedUrl too
+          if (data.config.base_url && data.config.search_query) {
+            setSavedUrl(`${data.config.base_url} | Search: ${data.config.search_query}`);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load automation config:', error);
+    }
+  };
+  
+  loadAutomationConfig();
+}, [user, token]);
 
 // ✅ NEW: Load saved URL on component mount
 useEffect(() => {
@@ -6658,6 +6701,9 @@ onClick={async () => {
 {/* ============================================ */}
 {/* AUTOMATION TAB - COMPLETE A-Z AUTOMATION */}
 {/* ============================================ */}
+{/* ============================================ */}
+{/* AUTOMATION TAB - COMPLETE REPLACEMENT */}
+{/* ============================================ */}
 {activeTab === 'automation' && status?.youtube_connected && (
   <div style={{ 
     background: 'rgba(255, 255, 255, 0.95)', 
@@ -6671,17 +6717,17 @@ onClick={async () => {
       fontSize: '32px', 
       fontWeight: '700' 
     }}>
-      🤖 Auto Product Ads
+      🤖 Smart Product Automation
     </h2>
     <p style={{ 
       color: '#666', 
       marginBottom: '30px', 
       fontSize: '16px' 
     }}>
-      Automatically scrape products → Generate promotional videos → Upload to YouTube
+      Automatically search products → Generate videos → Upload to YouTube at scheduled times
     </p>
 
-    {/* URL Input Section */}
+    {/* URL + SEARCH COMMAND INPUT */}
     <div style={{
       padding: '30px',
       background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
@@ -6694,169 +6740,78 @@ onClick={async () => {
         fontSize: '22px',
         fontWeight: '700'
       }}>
-        📍 Step 1: Enter Category URL
+        📍 Step 1: Configure Search
       </h3>
-      <p style={{ 
-        marginBottom: '20px', 
-        fontSize: '14px',
-        opacity: 0.9
-      }}>
-        Enter a product category page (e.g., https://www.bewakoof.com/men-t-shirts)
-      </p>
       
-      {savedUrl ? (
-        <div style={{
-          padding: '20px',
-          background: 'rgba(255,255,255,0.15)',
-          borderRadius: '10px',
-          backdropFilter: 'blur(10px)'
+      <div style={{ marginBottom: '20px' }}>
+        <label style={{
+          display: 'block',
+          marginBottom: '8px',
+          fontWeight: '600',
+          fontSize: '14px'
         }}>
-          <div style={{ 
-            display: 'flex', 
-            justifyContent: 'space-between', 
-            alignItems: 'center',
-            flexWrap: 'wrap',
-            gap: '15px'
-          }}>
-            <div style={{ flex: 1, minWidth: '250px' }}>
-              <div style={{ 
-                fontSize: '13px', 
-                opacity: 0.8, 
-                marginBottom: '8px' 
-              }}>
-                Current URL:
-              </div>
-              <div style={{ 
-                fontSize: '15px', 
-                fontWeight: '600',
-                wordBreak: 'break-all'
-              }}>
-                {savedUrl}
-              </div>
-              <div style={{ 
-                fontSize: '13px', 
-                marginTop: '10px',
-                opacity: 0.9
-              }}>
-                📊 {urlStats.total} products found | {urlStats.processed} processed
-              </div>
-            </div>
-            <button
-              onClick={async () => {
-                if (!window.confirm('Delete this URL? You can add a new one.')) return;
-                
-                try {
-                  const response = await fetch(
-                    `${API_BASE}/api/automation/delete-url/${user.user_id}`,
-                    { method: 'DELETE' }
-                  );
-                  
-                  const data = await response.json();
-                  
-                  if (data.success) {
-                    setSavedUrl(null);
-                    setUrlStats({ total: 0, processed: 0 });
-                    alert('✅ URL deleted! You can add a new one.');
-                  } else {
-                    alert('❌ Failed to delete URL');
-                  }
-                } catch (error) {
-                  alert('❌ Error: ' + error.message);
-                }
-              }}
-              style={{
-                padding: '12px 24px',
-                background: 'rgba(220, 53, 69, 0.9)',
-                color: 'white',
-                border: 'none',
-                borderRadius: '8px',
-                fontWeight: '600',
-                cursor: 'pointer',
-                fontSize: '14px',
-                whiteSpace: 'nowrap'
-              }}
-            >
-              🗑️ Delete URL
-            </button>
-          </div>
+          Base Website URL:
+        </label>
+        <input
+          type="text"
+          value={automationConfig.base_url}
+          onChange={(e) => setAutomationConfig(prev => ({
+            ...prev,
+            base_url: e.target.value
+          }))}
+          placeholder="https://www.flipkart.com"
+          disabled={automationEnabled}
+          style={{
+            width: '100%',
+            padding: '14px',
+            borderRadius: '10px',
+            border: '2px solid rgba(255,255,255,0.3)',
+            fontSize: '15px',
+            background: 'rgba(255,255,255,0.95)',
+            color: '#333'
+          }}
+        />
+      </div>
+
+      <div style={{ marginBottom: '20px' }}>
+        <label style={{
+          display: 'block',
+          marginBottom: '8px',
+          fontWeight: '600',
+          fontSize: '14px'
+        }}>
+          Search Query (e.g., "earbuds", "laptop", "shoes"):
+        </label>
+        <input
+          type="text"
+          value={automationConfig.search_query}
+          onChange={(e) => setAutomationConfig(prev => ({
+            ...prev,
+            search_query: e.target.value
+          }))}
+          placeholder="Enter product to search (e.g., earbuds)"
+          disabled={automationEnabled}
+          style={{
+            width: '100%',
+            padding: '14px',
+            borderRadius: '10px',
+            border: '2px solid rgba(255,255,255,0.3)',
+            fontSize: '15px',
+            background: 'rgba(255,255,255,0.95)',
+            color: '#333'
+          }}
+        />
+        <div style={{
+          marginTop: '8px',
+          fontSize: '13px',
+          opacity: 0.9
+        }}>
+          💡 The system will search this on {automationConfig.base_url}
         </div>
-      ) : (
-        <div style={{ display: 'flex', gap: '10px' }}>
-          <input
-            type="text"
-            placeholder="https://www.bewakoof.com/men-t-shirts"
-            value={scrapeUrl}
-            onChange={(e) => setScrapeUrl(e.target.value)}
-            style={{
-              flex: 1,
-              padding: '15px 20px',
-              borderRadius: '10px',
-              border: '2px solid rgba(255,255,255,0.3)',
-              fontSize: '15px',
-              background: 'rgba(255,255,255,0.95)',
-              color: '#333'
-            }}
-          />
-          <button
-            onClick={async () => {
-              if (!scrapeUrl.trim()) {
-                alert('❌ Please enter a URL');
-                return;
-              }
-              
-              if (!scrapeUrl.startsWith('http')) {
-                alert('❌ Please enter a valid URL starting with http:// or https://');
-                return;
-              }
-              
-              try {
-                const response = await fetch(`${API_BASE}/api/automation/save-url`, {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json'
-                  },
-                  body: JSON.stringify({
-                    user_id: user.user_id,
-                    url: scrapeUrl.trim()
-                  })
-                });
-                
-                const data = await response.json();
-                
-                if (data.success) {
-                  setSavedUrl(scrapeUrl.trim());
-                  setUrlStats({ 
-                    total: data.total_products || 0, 
-                    processed: 0 
-                  });
-                  setScrapeUrl('');
-                  alert(`✅ URL saved! Found ${data.total_products} products.`);
-                } else {
-                  alert('❌ Failed: ' + data.error);
-                }
-              } catch (error) {
-                alert('❌ Error: ' + error.message);
-              }
-            }}
-            style={{
-              padding: '15px 35px',
-              background: '#28a745',
-              color: 'white',
-              border: 'none',
-              borderRadius: '10px',
-              fontWeight: '700',
-              fontSize: '16px',
-              cursor: 'pointer',
-              whiteSpace: 'nowrap'
-            }}
-          >
-            💾 Save URL
-          </button>
-        </div>
-      )}
+      </div>
     </div>
 
-    {/* Automation Control */}
+    {/* AUTOMATION STATUS */}
     <div style={{
       padding: '25px',
       background: automationEnabled 
@@ -6888,18 +6843,22 @@ onClick={async () => {
             color: automationEnabled ? 'rgba(255,255,255,0.95)' : '#666'
           }}>
             {automationEnabled 
-              ? `Running • Max ${automationConfig.max_posts_per_day} posts/day • ${automationConfig.upload_times.length} scheduled times` 
-              : savedUrl 
-                ? 'Configure settings and start automation below' 
-                : '⚠️ Please save a URL first'}
+              ? `Running • Searching: "${automationConfig.search_query}" • ${automationConfig.upload_times.length} scheduled times` 
+              : 'Configure settings below to start automation'}
           </p>
         </div>
         
         <button
           onClick={async () => {
             if (!automationEnabled) {
-              if (!savedUrl) {
-                alert('❌ Please save a category URL first!');
+              // Validate inputs
+              if (!automationConfig.base_url || !automationConfig.search_query) {
+                alert('❌ Please enter both Base URL and Search Query!');
+                return;
+              }
+              
+              if (automationConfig.upload_times.length === 0) {
+                alert('❌ Please add at least one upload time!');
                 return;
               }
               
@@ -6907,19 +6866,14 @@ onClick={async () => {
                 const response = await fetch(`${API_BASE}/api/product-automation/start`, {
                   method: 'POST',
                   headers: {
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
                   },
                   body: JSON.stringify({
                     user_id: user.user_id,
                     config: automationConfig
                   })
                 });
-                
-                if (!response.ok) {
-                  const errorData = await response.json();
-                  alert('❌ Failed: ' + (errorData.error || 'Unknown error'));
-                  return;
-                }
                 
                 const result = await response.json();
                 
@@ -6933,6 +6887,7 @@ onClick={async () => {
                 alert('❌ Error: ' + error.message);
               }
             } else {
+              // Stop automation
               try {
                 const response = await fetch(`${API_BASE}/api/product-automation/stop`, {
                   method: 'POST',
@@ -6943,12 +6898,6 @@ onClick={async () => {
                     user_id: user.user_id
                   })
                 });
-                
-                if (!response.ok) {
-                  const errorData = await response.json();
-                  alert('❌ Failed: ' + (errorData.error || 'Unknown error'));
-                  return;
-                }
                 
                 const result = await response.json();
                 
@@ -6963,7 +6912,7 @@ onClick={async () => {
               }
             }
           }}
-          disabled={!savedUrl && !automationEnabled}
+          disabled={!automationConfig.base_url || !automationConfig.search_query}
           style={{
             padding: '16px 40px',
             background: automationEnabled ? '#dc3545' : '#28a745',
@@ -6972,8 +6921,8 @@ onClick={async () => {
             borderRadius: '12px',
             fontWeight: '700',
             fontSize: '18px',
-            cursor: (!savedUrl && !automationEnabled) ? 'not-allowed' : 'pointer',
-            opacity: (!savedUrl && !automationEnabled) ? 0.5 : 1,
+            cursor: (!automationConfig.base_url || !automationConfig.search_query) ? 'not-allowed' : 'pointer',
+            opacity: (!automationConfig.base_url || !automationConfig.search_query) ? 0.5 : 1,
             boxShadow: '0 4px 15px rgba(0,0,0,0.2)'
           }}
         >
@@ -6982,7 +6931,7 @@ onClick={async () => {
       </div>
     </div>
 
-    {/* Configuration Panel */}
+    {/* CONFIGURATION PANEL */}
     <div style={{
       padding: '30px',
       background: '#fff',
@@ -6999,7 +6948,7 @@ onClick={async () => {
         ⚙️ Configuration
       </h3>
       
-      {/* Max Posts */}
+      {/* Max Posts Per Day */}
       <div style={{ marginBottom: '25px' }}>
         <label style={{ 
           display: 'block', 
@@ -7030,7 +6979,7 @@ onClick={async () => {
           }}
         />
         <small style={{ color: '#666', fontSize: '13px', marginTop: '5px', display: 'block' }}>
-          Recommended: 5-10 posts per day to avoid spam
+          Recommended: 5-10 posts per day
         </small>
       </div>
 
@@ -7043,7 +6992,7 @@ onClick={async () => {
           color: '#333',
           fontSize: '15px'
         }}>
-          🕐 Upload Times (24-hour format):
+          🕐 Upload Times (IST - 24-hour format):
         </label>
         <div style={{ 
           display: 'flex', 
@@ -7096,131 +7045,145 @@ onClick={async () => {
         </div>
         
         {!automationEnabled && (
-          <div style={{ display: 'flex', gap: '10px' }}>
-            <input
-              type="time"
-              id="newUploadTime"
-              style={{
-                padding: '12px',
-                borderRadius: '8px',
-                border: '2px solid #ddd',
-                fontSize: '14px',
-                flex: 1
-              }}
-            />
-            <button
-              onClick={() => {
-                const input = document.getElementById('newUploadTime');
-                if (input.value && !automationConfig.upload_times.includes(input.value)) {
-                  setAutomationConfig(prev => ({
-                    ...prev,
-                    upload_times: [...prev.upload_times, input.value].sort()
-                  }));
-                  input.value = '';
-                } else if (automationConfig.upload_times.includes(input.value)) {
-                  alert('⚠️ This time is already added!');
-                }
-              }}
-              style={{
-                padding: '12px 24px',
-                background: '#28a745',
-                color: 'white',
-                border: 'none',
-                borderRadius: '8px',
-                fontSize: '14px',
-                fontWeight: '600',
-                cursor: 'pointer'
-              }}
-            >
-              ➕ Add Time
-            </button>
-          </div>
+          <>
+            <div style={{ display: 'flex', gap: '10px', marginBottom: '15px' }}>
+              <input
+                type="time"
+                id="newUploadTime"
+                style={{
+                  padding: '12px',
+                  borderRadius: '8px',
+                  border: '2px solid #ddd',
+                  fontSize: '14px',
+                  flex: 1
+                }}
+              />
+              <button
+                onClick={() => {
+                  const input = document.getElementById('newUploadTime');
+                  if (input.value && !automationConfig.upload_times.includes(input.value)) {
+                    setAutomationConfig(prev => ({
+                      ...prev,
+                      upload_times: [...prev.upload_times, input.value].sort()
+                    }));
+                    input.value = '';
+                  } else if (automationConfig.upload_times.includes(input.value)) {
+                    alert('⚠️ This time is already added!');
+                  }
+                }}
+                style={{
+                  padding: '12px 24px',
+                  background: '#28a745',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  cursor: 'pointer'
+                }}
+              >
+                ➕ Add Time
+              </button>
+            </div>
+
+            {/* TEST SCHEDULER */}
+            <div style={{
+              marginTop: '15px',
+              padding: '15px',
+              background: '#fff3cd',
+              border: '2px solid #ffc107',
+              borderRadius: '10px'
+            }}>
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                marginBottom: '10px'
+              }}>
+                <strong style={{ color: '#856404', fontSize: '15px' }}>
+                  🧪 Test Automation (Add Custom Time)
+                </strong>
+                <button
+                  onClick={() => setShowTestScheduler(!showTestScheduler)}
+                  style={{
+                    padding: '6px 12px',
+                    background: '#ffc107',
+                    color: '#000',
+                    border: 'none',
+                    borderRadius: '6px',
+                    fontSize: '12px',
+                    fontWeight: '600',
+                    cursor: 'pointer'
+                  }}
+                >
+                  {showTestScheduler ? 'Hide' : 'Show'}
+                </button>
+              </div>
+
+              {showTestScheduler && (
+                <>
+                  <p style={{ color: '#856404', fontSize: '13px', marginBottom: '10px' }}>
+                    Add a test time (e.g., 2 minutes from now) to verify automation works:
+                  </p>
+                  <div style={{ display: 'flex', gap: '10px' }}>
+                    <input
+                      type="time"
+                      value={testScheduleTime}
+                      onChange={(e) => setTestScheduleTime(e.target.value)}
+                      style={{
+                        flex: 1,
+                        padding: '10px',
+                        borderRadius: '6px',
+                        border: '2px solid #ffc107',
+                        fontSize: '14px'
+                      }}
+                    />
+                    <button
+                      onClick={() => {
+                        if (testScheduleTime && !automationConfig.upload_times.includes(testScheduleTime)) {
+                          setAutomationConfig(prev => ({
+                            ...prev,
+                            upload_times: [...prev.upload_times, testScheduleTime].sort()
+                          }));
+                          setTestScheduleTime('');
+                          alert(`✅ Test time ${testScheduleTime} added! Make sure to START automation.`);
+                        }
+                      }}
+                      style={{
+                        padding: '10px 20px',
+                        background: '#ffc107',
+                        color: '#000',
+                        border: 'none',
+                        borderRadius: '6px',
+                        fontSize: '13px',
+                        fontWeight: '600',
+                        cursor: 'pointer',
+                        whiteSpace: 'nowrap'
+                      }}
+                    >
+                      Add Test Time
+                    </button>
+                  </div>
+                  <small style={{ color: '#856404', fontSize: '12px', marginTop: '8px', display: 'block' }}>
+                    💡 Current time: {new Date().toLocaleTimeString('en-IN', {hour: '2-digit', minute: '2-digit'})} IST
+                  </small>
+                </>
+              )}
+            </div>
+          </>
         )}
+        
         <small style={{ color: '#666', fontSize: '13px', marginTop: '5px', display: 'block' }}>
           System checks every minute and posts at these times
         </small>
       </div>
-
-      {/* Feature Toggles */}
-      <div style={{ marginTop: '25px' }}>
-        <label style={{ 
-          display: 'block', 
-          marginBottom: '15px', 
-          fontWeight: '600',
-          color: '#333',
-          fontSize: '15px'
-        }}>
-          🎯 Features:
-        </label>
-        {[
-          { 
-            key: 'auto_scrape', 
-            label: '🔍 Auto-scrape products from saved URL',
-            desc: 'Automatically extract product details and images'
-          },
-          { 
-            key: 'auto_generate_video', 
-            label: '🎬 Auto-generate promotional videos',
-            desc: 'Create slideshow videos with product URL overlay'
-          },
-          { 
-            key: 'auto_upload', 
-            label: '📤 Auto-upload to YouTube Shorts',
-            desc: 'Upload videos with clickable product links'
-          }
-        ].map(option => (
-          <label key={option.key} style={{
-            display: 'flex',
-            alignItems: 'flex-start',
-            gap: '12px',
-            marginBottom: '18px',
-            cursor: 'pointer',
-            padding: '15px',
-            background: '#f8f9fa',
-            borderRadius: '10px',
-            border: '2px solid #e0e0e0'
-          }}>
-            <input
-              type="checkbox"
-              checked={automationConfig[option.key]}
-              onChange={(e) => setAutomationConfig(prev => ({
-                ...prev,
-                [option.key]: e.target.checked
-              }))}
-              disabled={automationEnabled}
-              style={{ 
-                width: '20px', 
-                height: '20px',
-                marginTop: '2px',
-                cursor: automationEnabled ? 'not-allowed' : 'pointer'
-              }}
-            />
-            <div>
-              <div style={{ 
-                fontSize: '15px', 
-                fontWeight: '600',
-                marginBottom: '4px'
-              }}>
-                {option.label}
-              </div>
-              <div style={{ 
-                fontSize: '13px', 
-                color: '#666'
-              }}>
-                {option.desc}
-              </div>
-            </div>
-          </label>
-        ))}
-      </div>
     </div>
 
-    {/* How It Works */}
+    {/* HOW IT WORKS */}
     <div style={{
       padding: '25px',
       background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
       borderRadius: '15px',
-      marginBottom: '30px',
       color: 'white'
     }}>
       <h3 style={{ marginBottom: '20px', fontSize: '20px', fontWeight: '700' }}>
@@ -7228,12 +7191,13 @@ onClick={async () => {
       </h3>
       <div style={{ display: 'grid', gap: '15px' }}>
         {[
-          { icon: '1️⃣', text: 'Enter a product category URL (e.g., t-shirts page)' },
-          { icon: '2️⃣', text: 'System scrapes ALL products from that page' },
-          { icon: '3️⃣', text: 'For each product: downloads 3 images + product info' },
-          { icon: '4️⃣', text: 'Creates promotional video with product URL overlay' },
-          { icon: '5️⃣', text: 'Uploads to YouTube Shorts with clickable link' },
-          { icon: '6️⃣', text: 'Repeats at scheduled times (respects daily limit)' }
+          { icon: '1️⃣', text: `Goes to ${automationConfig.base_url || 'your website'}` },
+          { icon: '2️⃣', text: `Searches for "${automationConfig.search_query || 'your product'}"` },
+          { icon: '3️⃣', text: 'Scrapes product details from search results (one by one)' },
+          { icon: '4️⃣', text: 'Downloads 3 product images for each item' },
+          { icon: '5️⃣', text: 'Creates promotional slideshow video with overlays' },
+          { icon: '6️⃣', text: 'Uploads to YouTube Shorts at scheduled times' },
+          { icon: '7️⃣', text: `Respects daily limit (max ${automationConfig.max_posts_per_day} posts/day)` }
         ].map((step, idx) => (
           <div key={idx} style={{
             display: 'flex',
@@ -7250,6 +7214,13 @@ onClick={async () => {
         ))}
       </div>
     </div>
+  
+
+
+
+
+
+
 
     {/* Activity Logs */}
     <div style={{

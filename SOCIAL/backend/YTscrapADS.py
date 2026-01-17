@@ -780,6 +780,134 @@ class UniversalProductScraper:
         except Exception as e:
             logger.debug(f"Extract product error: {e}")
             return None
+        
+    
+    
+
+# ============================================================================
+# 🔍 GOOGLE SEARCH-BASED PRODUCT SCRAPING
+# ============================================================================
+
+    async def search_and_scrape_products(
+        self,
+        search_query: str,
+        max_products: int = 50,
+        site_filter: str = ""  # e.g., "flipkart.com" or "myntra.com"
+    ) -> list:
+        """
+        Search Google for products and scrape them one by one
+        
+        Args:
+            search_query: e.g., "wireless earbuds"
+            max_products: How many products to scrape
+            site_filter: Restrict to specific site (optional)
+        
+        Returns:
+            List of product data dicts
+        """
+        try:
+            from googlesearch import search
+            
+            logger.info(f"🔍 Searching Google: '{search_query}' (max {max_products} results)")
+            
+            # Build search query
+            if site_filter:
+                full_query = f"{search_query} site:{site_filter}"
+            else:
+                full_query = f"{search_query} buy online india"
+            
+            logger.info(f"📝 Full search query: {full_query}")
+            
+            # Perform Google search
+            search_results = []
+            try:
+                for url in search(full_query, num_results=max_products * 2, lang="en", region="in"):
+                    # Filter for product pages
+                    if self._is_product_url(url):
+                        search_results.append(url)
+                        logger.info(f"✅ Found product URL: {url[:60]}...")
+                    
+                    if len(search_results) >= max_products:
+                        break
+            except Exception as search_error:
+                logger.error(f"❌ Google search failed: {search_error}")
+                return []
+            
+            logger.info(f"📦 Found {len(search_results)} product URLs from search")
+            
+            # Scrape each product
+            scraped_products = []
+            
+            for i, product_url in enumerate(search_results[:max_products], 1):
+                try:
+                    logger.info(f"🔄 Scraping product {i}/{len(search_results)}: {product_url[:60]}...")
+                    
+                    product_data = await self.scrape_product(product_url)
+                    
+                    if product_data.get('success') and product_data.get('images'):
+                        scraped_products.append({
+                            'url': product_url,
+                            'product_name': product_data.get('product_name', 'Product'),
+                            'brand': product_data.get('brand', 'Brand'),
+                            'price': product_data.get('price', 0),
+                            'images': product_data.get('images', [])[:3],  # Take 3 images
+                            'discount': product_data.get('discount', ''),
+                        })
+                        
+                        logger.info(f"✅ Product {i} scraped: {product_data.get('product_name', '')[:30]}")
+                    else:
+                        logger.warning(f"⚠️ Product {i} scraping failed or no images")
+                    
+                    # Rate limiting
+                    await asyncio.sleep(2)
+                    
+                except Exception as product_error:
+                    logger.error(f"❌ Product {i} error: {product_error}")
+                    continue
+            
+            logger.info(f"✅ Scraping complete: {len(scraped_products)}/{len(search_results)} products successful")
+            
+            return scraped_products
+            
+        except Exception as e:
+            logger.error(f"❌ search_and_scrape_products failed: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
+            return []
+
+    def _is_product_url(self, url: str) -> bool:
+        """Check if URL looks like a product page"""
+        url_lower = url.lower()
+        
+        # Product page indicators
+        product_indicators = [
+            '/p/', '/product/', '/dp/', '/buy/', '-p-', '/item/',
+            'flipkart.com', 'myntra.com', 'amazon.in', 'ajio.com'
+        ]
+        
+        # Exclude category/search pages
+        exclude_patterns = [
+            '/search', '/category', '/s?', '/browse', '/shop', '/collections'
+        ]
+        
+        has_product = any(indicator in url_lower for indicator in product_indicators)
+        is_excluded = any(exclude in url_lower for exclude in exclude_patterns)
+        
+        return has_product and not is_excluded
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     # ============================================================================
     # EXISTING METHODS (Keep all your existing code below)

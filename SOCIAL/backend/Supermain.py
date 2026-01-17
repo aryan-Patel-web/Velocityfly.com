@@ -3703,7 +3703,7 @@ from urllib.parse import quote
 # import base64          gdf;lh,er
 from PIL import Image, ImageDraw, ImageFont
 import io
-
+from datetime import time as time_type
 
 from mainY import app
 from YTscrapADS import get_product_scraper
@@ -4307,6 +4307,12 @@ class UnifiedDatabaseManager:
     # PRODUCT URL QUEUE MANAGEMENT - ADD THESE NEW METHODS
     # ============================================================================
 
+
+
+
+
+
+
     async def save_scrape_url(self, user_id: str, url: str) -> bool:
         """Save website URL to scrape (replaces any existing URL)"""
         try:
@@ -4435,6 +4441,16 @@ class UnifiedDatabaseManager:
             logger.error(f"Get automation posts count failed: {e}")
             return 0
         
+
+
+
+
+
+
+
+
+
+
 
 
     async def get_all_automation_configs_by_type(self, config_type: str) -> list:
@@ -7290,6 +7306,39 @@ async def scrape_single_product_route(request: Request):
             content={"success": False, "error": str(e)}
         )
 
+
+# ============================================================================
+# GET/SAVE AUTOMATION CONFIG
+# ============================================================================
+@app.get("/api/automation/config/{user_id}")
+async def get_automation_config(user_id: str):
+    """Get saved automation configuration"""
+    try:
+        if not database_manager or not database_manager.connected:
+            return JSONResponse(
+                status_code=500,
+                content={"success": False, "error": "Database not connected"}
+            )
+        
+        config = await database_manager.get_automation_config(user_id, "product_automation")
+        
+        if config:
+            return JSONResponse(content={
+                "success": True,
+                "config": config.get("config_data", {})
+            })
+        
+        return JSONResponse(content={
+            "success": False,
+            "error": "No config found"
+        })
+        
+    except Exception as e:
+        logger.error(f"Get config failed: {e}")
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "error": str(e)}
+        )
 
 @app.get("/api/automation/status/{user_id}")
 async def get_automation_status(user_id: str):
