@@ -2860,10 +2860,11 @@ async def stop_product_automation(request: Request):
 # ============================================================================
 # FIXED BACKGROUND TASK - REPLACE run_product_automation_tasks()
 # ============================================================================
-
 async def run_product_automation_tasks():
     """Check and execute automated product posts every minute"""
-    logger.info("🚀 Product automation background task STARTED")
+    logger.info("=" * 70)
+    logger.info("🚀 PRODUCT AUTOMATION BACKGROUND TASK STARTED")
+    logger.info("=" * 70)
     
     while True:
         try:
@@ -2875,13 +2876,15 @@ async def run_product_automation_tasks():
                 logger.info(f"🤖 Automation check at {current_time}")
             
             if not database_manager or not database_manager.connected:
+                if current_minute % 5 == 0:
+                    logger.warning("⚠️ Database not connected, skipping check")
                 await asyncio.sleep(60)
                 continue
             
             # Get all active automation configs
             configs = await database_manager.get_all_automation_configs_by_type("product_automation")
             
-            if current_minute % 5 == 0 and len(configs) > 0:
+            if current_minute % 5 == 0:
                 logger.info(f"📋 Found {len(configs)} total automation configs")
             
             active_count = 0
@@ -2891,11 +2894,16 @@ async def run_product_automation_tasks():
                     config_data = config.get("config_data", {})
                     enabled = config_data.get("enabled", False)
                     
-                    # ✅ DEBUG LOG - Show config status
+                    # ✅ CRITICAL: Log EVERY config we find
                     if current_minute % 5 == 0:
-                        logger.info(f"   User {user_id}: enabled={enabled}, times={config_data.get('upload_times', [])}")
+                        logger.info(f"   User {user_id[:8]}... | enabled={enabled}")
+                        logger.info(f"      base_url: {config_data.get('base_url', 'NOT SET')}")
+                        logger.info(f"      search_query: {config_data.get('search_query', 'NOT SET')}")
+                        logger.info(f"      upload_times: {config_data.get('upload_times', [])}")
                     
                     if not enabled:
+                        if current_minute % 5 == 0:
+                            logger.warning(f"      ❌ SKIPPED: Automation disabled for user {user_id[:8]}...")
                         continue
                     
                     active_count += 1
@@ -2904,15 +2912,17 @@ async def run_product_automation_tasks():
                     base_url = config_data.get("base_url", "")
                     search_query = config_data.get("search_query", "")
                     
-                    # ✅ DEBUG LOG - Show what we're checking
                     if current_minute % 5 == 0:
-                        logger.info(f"   ✅ ACTIVE: User {user_id} | Search: '{search_query}' | Times: {upload_times}")
+                        logger.info(f"      ✅ ACTIVE automation for user {user_id[:8]}...")
                     
                     # Check if current time matches
                     if current_time in upload_times:
-                        logger.info(f"🔔 TIME MATCH! Triggering automation for user {user_id}")
-                        logger.info(f"   Current: {current_time} | Scheduled: {upload_times}")
-                        logger.info(f"   URL: {base_url} | Query: {search_query}")
+                        logger.info(f"🔔 🔔 🔔 TIME MATCH! 🔔 🔔 🔔")
+                        logger.info(f"   User: {user_id}")
+                        logger.info(f"   Current time: {current_time}")
+                        logger.info(f"   Scheduled times: {upload_times}")
+                        logger.info(f"   URL: {base_url}")
+                        logger.info(f"   Search: {search_query}")
                         
                         # Check daily limit
                         posts_today = await database_manager.get_automation_posts_count(
@@ -2925,13 +2935,18 @@ async def run_product_automation_tasks():
                         logger.info(f"   Posts today: {posts_today}/{max_posts}")
                         
                         if posts_today >= max_posts:
-                            logger.warning(f"❌ Daily limit reached for user {user_id}: {posts_today}/{max_posts}")
+                            logger.warning(f"   ❌ Daily limit reached: {posts_today}/{max_posts}")
                             continue
                         
-                        logger.info(f"✅ Executing automation for user {user_id}")
+                        logger.info(f"   ✅ EXECUTING AUTOMATION NOW!")
+                        logger.info("=" * 70)
                         
                         # Execute automation (don't block)
                         asyncio.create_task(execute_product_automation(user_id, config_data))
+                    else:
+                        # Only log mismatch every 5 minutes to reduce spam
+                        if current_minute % 5 == 0:
+                            logger.info(f"      ⏰ No match: current={current_time}, scheduled={upload_times}")
                     
                 except Exception as config_error:
                     logger.error(f"❌ Config processing error: {config_error}")
@@ -2940,7 +2955,8 @@ async def run_product_automation_tasks():
                     continue
             
             if current_minute % 5 == 0:
-                logger.info(f"📊 Summary: {active_count} active automations out of {len(configs)} total")
+                logger.info(f"📊 Summary: {active_count} active / {len(configs)} total configs")
+                logger.info("-" * 70)
             
             # Wait 60 seconds
             await asyncio.sleep(60)
