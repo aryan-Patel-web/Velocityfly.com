@@ -921,44 +921,24 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
         logger.error(f"Authentication failed: {e}")
         raise HTTPException(status_code=401, detail=f"Authentication error: {str(e)}")
 
-
-
-
-
-
-
-# ============================================================================
-# GLOBAL INSTANCES
-# ============================================================================
-database_manager = None
-youtube_services = {}
-reddit_services = {}
-
-# Authentication
-security = HTTPBearer()
-
 # ============================================================================
 # SERVICE INITIALIZATION
 # ============================================================================
 async def initialize_all_services():
-    """Initialize YouTube and Reddit services with unified database"""
+    """Initialize YouTube and Reddit services"""
     global database_manager, youtube_services, reddit_services
     
     logger.info("="*60)
     logger.info("🚀 STARTING UNIFIED AUTOMATION PLATFORM")
     logger.info("="*60)
     
-    # ============================================================================
-    # STEP 1: Initialize Unified Database Manager
-    # ============================================================================
+    # Initialize database
     try:
         mongodb_uri = os.getenv("MONGODB_URI")
         if not mongodb_uri:
             raise Exception("MONGODB_URI not found in environment")
         
         logger.info("Initializing unified database...")
-        
-        # ✅ CRITICAL FIX: Use UnifiedDatabaseManager which wraps both
         database_manager = UnifiedDatabaseManager(mongodb_uri)
         connected = await database_manager.connect()
         
@@ -966,16 +946,6 @@ async def initialize_all_services():
             raise Exception("Database connection failed")
         
         logger.info("✅ Unified database initialized and connected")
-        
-        # ✅ Verify YouTube credentials collection exists
-        try:
-            if hasattr(database_manager, 'youtube'):
-                creds_count = await database_manager.youtube.youtube_credentials_collection.count_documents({})
-                logger.info(f"✅ Found {creds_count} YouTube credentials in database")
-            else:
-                logger.warning("⚠️ YouTube database manager not found in unified manager")
-        except Exception as e:
-            logger.warning(f"⚠️ Could not count YouTube credentials: {e}")
         
         # Load existing Reddit tokens
         try:
@@ -1011,19 +981,15 @@ async def initialize_all_services():
         logger.error(traceback.format_exc())
         return False
     
-    # ============================================================================
-    # STEP 2: Initialize YouTube Services
-    # ============================================================================
+    # Initialize YouTube services
     try:
         logger.info("Initializing YouTube services...")
         
         from mainY import initialize_services as init_youtube
         
-        # ✅ CRITICAL: Initialize YouTube with the SAME database manager
         success = await init_youtube()
         
         if success:
-            # Import YouTube services
             from mainY import (
                 youtube_connector,
                 youtube_scheduler,
@@ -1039,14 +1005,6 @@ async def initialize_all_services():
             }
             
             logger.info("✅ YouTube services initialized")
-            
-            # ✅ PATCH: Make mainY use our unified database manager
-            try:
-                import mainY
-                mainY.database_manager = database_manager
-                logger.info("✅ Patched mainY to use unified database")
-            except Exception as patch_error:
-                logger.warning(f"⚠️ Could not patch mainY database: {patch_error}")
         else:
             logger.warning("⚠️ YouTube services initialization failed")
             
@@ -1054,15 +1012,13 @@ async def initialize_all_services():
         logger.error(f"❌ YouTube initialization error: {e}")
         logger.error(traceback.format_exc())
     
-    # ============================================================================
-    # STEP 3: Initialize Reddit Services
-    # ============================================================================
+    # Initialize Reddit services
     try:
         logger.info("Initializing Reddit services...")
         
         import main as reddit_main
         
-        # ✅ Patch main.py's database_manager
+        # Patch main.py's database_manager
         reddit_main.database_manager = database_manager
         logger.info("✅ Patched main.py database_manager")
         
@@ -1163,9 +1119,7 @@ async def initialize_all_services():
         logger.error(f"❌ Reddit initialization error: {e}")
         logger.error(traceback.format_exc())
     
-    # ============================================================================
-    # STEP 4: Load Automation Configs
-    # ============================================================================
+    # Load automation configs
     try:
         logger.info("Loading automation configs from database...")
         
@@ -1219,9 +1173,6 @@ async def initialize_all_services():
     except Exception as e:
         logger.error(f"⚠️ Failed to load automation configs: {e}")
     
-    # ============================================================================
-    # FINAL STATUS
-    # ============================================================================
     logger.info("="*60)
     logger.info("✅ SERVICE INITIALIZATION COMPLETE")
     logger.info(f"Database: {'✓' if database_manager and database_manager.connected else '✗'}")
@@ -1235,24 +1186,10 @@ async def initialize_all_services():
     except:
         pass
     
-    # ✅ Verify database collections
-    if database_manager:
-        try:
-            logger.info("📊 Database Collections Status:")
-            if hasattr(database_manager, 'youtube'):
-                logger.info(f"   - YouTube Credentials: ✓")
-            if hasattr(database_manager, 'reddit_tokens'):
-                logger.info(f"   - Reddit Tokens: ✓")
-            if hasattr(database_manager, 'automation_configs'):
-                logger.info(f"   - Automation Configs: ✓")
-        except Exception as e:
-            logger.warning(f"⚠️ Could not verify collections: {e}")
-    
     logger.info(f"Playwright: {PLAYWRIGHT_PATH}")
     logger.info("="*60)
     
     return True
-
 
 async def cleanup_all_services():
     """Cleanup all services on shutdown"""
@@ -1282,15 +1219,6 @@ async def cleanup_all_services():
         logger.error(f"Database cleanup error: {e}")
     
     logger.info("✅ Services cleaned up")
-
-
-
-
-
-
-
-
-
 
 # ============================================================================
 # FASTAPI LIFESPAN
