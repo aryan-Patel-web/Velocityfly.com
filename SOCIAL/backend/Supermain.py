@@ -38,7 +38,7 @@ from urllib.parse import quote
 # import base64          gdf;lh,er
 from PIL import Image, ImageDraw, ImageFont
 import io
-from datetime import time as time_type
+from datetime import time as time_type, timezone
 
 from mainY import app
 from YTscrapADS import get_product_scraper
@@ -2873,7 +2873,10 @@ async def run_product_automation_tasks():
     
     while True:
         try:
-            current_time = datetime.now().strftime('%H:%M')
+            # current_time = datetime.now().strftime('%H:%M')
+            IST = timezone(timedelta(hours=5, minutes=30))
+            current_time = datetime.now(IST).strftime('%H:%M')
+            logger.info(f"🕐 Current IST time: {current_time}")
             current_minute = datetime.now().minute
             
             # Log every 5 minutes
@@ -2979,12 +2982,29 @@ async def run_product_automation_tasks():
 
 
 
+async def log_step(step: str, success: bool, details: str = "", error: str = ""):
+    """Log automation step to database"""
+    try:
+        await database_manager.db.automation_logs.insert_one({
+            "user_id": user_id,
+            "timestamp": datetime.now(),
+            "step": step,
+            "success": success,
+            "details": details,
+            "error": error,
+            "product_url": "",
+            "video_id": ""
+        })
+    except Exception as e:
+        logger.error(f"Failed to log step: {e}")
 
+
+      
 
 
 
 async def execute_product_automation(user_id: str, config: dict):
-    """Execute automation with detailed logging"""
+    """Execute automation with detailed logging and IST timezone"""
     
     # Helper function to log each step
     async def log_step(step: str, success: bool, details: str = "", error: str = ""):
@@ -3024,34 +3044,22 @@ async def execute_product_automation(user_id: str, config: dict):
         
         await log_step("start", True, f"Starting automation for: {search_query}")
         
-        # STEP 1: Build search URL
-        logger.info(f"📍 STEP 1: Building search URL...")
-        
-        if "flipkart.com" in base_url.lower():
-            search_url = f"{base_url}/search?q={search_query.replace(' ', '+')}"
-        elif "amazon.in" in base_url.lower():
-            search_url = f"{base_url}/s?k={search_query.replace(' ', '+')}"
-        elif "myntra.com" in base_url.lower():
-            search_url = f"{base_url}/{search_query.replace(' ', '-')}"
-        else:
-            search_url = f"{base_url}/search?q={search_query.replace(' ', '+')}"
-        
-        logger.info(f"   ✅ Search URL: {search_url}")
-        await log_step("build_url", True, f"Search URL: {search_url}")
-        
-
-
+        # STEP 1: Build search URL (not needed, scraper does this)
+        logger.info(f"📍 STEP 1: Preparing scraper...")
+        await log_step("prepare", True, "Initializing scraper")
         
         # STEP 2: Scrape search results
         logger.info(f"📍 STEP 2: Scraping search results page...")
         
         scraper = get_product_scraper()
-        product_links = await scraper.scrape_category_page(search_url, max_products=50)
         
-
-
-
-
+        # ✅ CRITICAL FIX: Pass search_query to scraper
+        product_links = await scraper.scrape_category_page(
+            base_url,  # Use base URL, not search URL
+            max_products=50,
+            search_query=search_query  # ← Pass search query
+        )
+        
         if not product_links or len(product_links) == 0:
             error_msg = f"No products found for: {search_query}"
             logger.error(f"   ❌ {error_msg}")
@@ -3248,6 +3256,10 @@ async def execute_product_automation(user_id: str, config: dict):
         import traceback
         logger.error(traceback.format_exc())
         await log_step("fatal_error", False, error=str(e))
+
+
+
+
 
 
 # # Background task runner (checks every minute)
@@ -4146,7 +4158,6 @@ async def delete_scrape_url_route(user_id: str):
         )
 
 # ✅ ADD THIS ENDPOINT BEFORE @app.get("/api/automation/status/{user_id}")
-
 @app.get("/api/automation/logs/{user_id}")
 async def get_automation_logs(user_id: str, limit: int = 20):
     """Get automation activity logs"""
@@ -4184,7 +4195,6 @@ async def get_automation_logs(user_id: str, limit: int = 20):
             status_code=500,
             content={"success": False, "error": str(e)}
         )
-
 
 
 @app.get("/api/automation/status/{user_id}")
