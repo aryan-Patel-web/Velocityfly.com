@@ -89,6 +89,7 @@ class UnifiedDatabaseManager:
         self.reddit_tokens = None
         self.automation_configs = None
         self.scheduled_posts = None
+        self.scrape_urls = None
         
     async def connect(self):
         """Initialize MongoDB connection"""
@@ -107,6 +108,7 @@ class UnifiedDatabaseManager:
             self.reddit_tokens = self.db.reddit_tokens
             self.automation_configs = self.db.automation_configs
             self.scheduled_posts = self.db.scheduled_posts
+            self.scrape_urls = self.db.scrape_urls
             
             # Test connection
             await self.client.admin.command('ping')
