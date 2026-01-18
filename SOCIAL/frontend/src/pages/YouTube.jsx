@@ -78,24 +78,23 @@ const [selectedVideos, setSelectedVideos] = useState([]);
 
 
 // ✅ NEW: Product Automation States
+// ✅ AUTOMATION STATE
 const [automationEnabled, setAutomationEnabled] = useState(false);
 const [automationConfig, setAutomationConfig] = useState({
   max_posts_per_day: 10,
-  upload_times: ['07:00', '13:00', '18:00'], // Default 3 times
+  upload_times: ['07:00', '13:00', '18:00'],
+  base_url: 'https://www.flipkart.com',
+  search_query: '',
   auto_scrape: true,
   auto_generate_video: true,
-  auto_upload: true,
-  base_url: 'https://www.flipkart.com', // NEW
-  search_query: '', // NEW: e.g., "earbuds"
-  scrape_mode: 'search' // NEW: 'search' or 'category'
+  auto_upload: true
 });
-
-// NEW: Test scheduling state
 const [testScheduleTime, setTestScheduleTime] = useState('');
 const [showTestScheduler, setShowTestScheduler] = useState(false);
-
-
 const [automationLogs, setAutomationLogs] = useState([]);
+const [loadingLogs, setLoadingLogs] = useState(false);
+
+
 
 // ✅ NEW: URL Management States
 const [scrapeUrl, setScrapeUrl] = useState('');
@@ -1201,7 +1200,77 @@ useEffect(() => {
   loadAutomationConfig();
 }, [user, token]);
 
+// ✅ Load automation config on mount
+useEffect(() => {
+  const loadAutomationConfig = async () => {
+    if (!user?.user_id || !token) return;
+    
+    try {
+      console.log('📥 Loading automation config...');
+      
+      const response = await fetch(`${API_BASE}/api/automation/config/${user.user_id}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.config) {
+          console.log('✅ Config loaded:', data.config);
+          
+          setAutomationConfig({
+            base_url: data.config.base_url || 'https://www.flipkart.com',
+            search_query: data.config.search_query || '',
+            upload_times: Array.isArray(data.config.upload_times) ? data.config.upload_times : ['07:00', '13:00', '18:00'],
+            max_posts_per_day: data.config.max_posts_per_day || 10,
+            auto_scrape: data.config.auto_scrape !== false,
+            auto_generate_video: data.config.auto_generate_video !== false,
+            auto_upload: data.config.auto_upload !== false
+          });
+          
+          setAutomationEnabled(data.config.enabled === true);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load automation config:', error);
+    }
+  };
+  
+  loadAutomationConfig();
+}, [user, token]);
 
+// ✅ Load activity logs
+useEffect(() => {
+  const loadLogs = async () => {
+    if (!user?.user_id || !token) return;
+    
+    try {
+      const response = await fetch(`${API_BASE}/api/automation/logs/${user.user_id}?limit=20`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          setAutomationLogs(data.logs || []);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load logs:', error);
+    }
+  };
+  
+  loadLogs();
+  
+  // Refresh logs every 30 seconds
+  const interval = setInterval(loadLogs, 30000);
+  return () => clearInterval(interval);
+}, [user, token]);
 
 // ✅ NEW: Load saved URL on component mount
 useEffect(() => {
@@ -6741,6 +6810,10 @@ onClick={async () => {
 {/* ============================================ */}
 {/* AUTOMATION TAB - COMPLETE REPLACEMENT */}
 {/* ============================================ */}
+{/* ============================================ */}
+{/* AUTOMATION TAB - COMPLETE WORKING VERSION */}
+{/* Paste this REPLACING your entire automation tab */}
+{/* ============================================ */}
 {activeTab === 'automation' && status?.youtube_connected && (
   <div style={{ 
     background: 'rgba(255, 255, 255, 0.95)', 
@@ -6748,23 +6821,14 @@ onClick={async () => {
     padding: '40px', 
     boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2)' 
   }}>
-    <h2 style={{ 
-      color: '#FF0000', 
-      marginBottom: '10px', 
-      fontSize: '32px', 
-      fontWeight: '700' 
-    }}>
+    <h2 style={{ color: '#FF0000', marginBottom: '10px', fontSize: '32px', fontWeight: '700' }}>
       🤖 Smart Product Automation
     </h2>
-    <p style={{ 
-      color: '#666', 
-      marginBottom: '30px', 
-      fontSize: '16px' 
-    }}>
-      Automatically search products → Generate videos → Upload to YouTube at scheduled times
+    <p style={{ color: '#666', marginBottom: '30px', fontSize: '16px' }}>
+      Automatically search products → Scrape → Generate videos → Upload to YouTube
     </p>
 
-    {/* URL + SEARCH COMMAND INPUT */}
+    {/* STEP 1: CONFIGURATION */}
     <div style={{
       padding: '30px',
       background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
@@ -6772,14 +6836,11 @@ onClick={async () => {
       marginBottom: '30px',
       color: 'white'
     }}>
-      <h3 style={{ 
-        marginBottom: '20px', 
-        fontSize: '22px',
-        fontWeight: '700'
-      }}>
+      <h3 style={{ marginBottom: '20px', fontSize: '22px', fontWeight: '700' }}>
         📍 Step 1: Configure Search
       </h3>
       
+      {/* Product Category/Domain */}
       <div style={{ marginBottom: '20px' }}>
         <label style={{
           display: 'block',
@@ -6787,37 +6848,7 @@ onClick={async () => {
           fontWeight: '600',
           fontSize: '14px'
         }}>
-          Base Website URL:
-        </label>
-        <input
-          type="text"
-          value={automationConfig.base_url}
-          onChange={(e) => setAutomationConfig(prev => ({
-            ...prev,
-            base_url: e.target.value
-          }))}
-          placeholder="https://www.flipkart.com"
-          disabled={automationEnabled}
-          style={{
-            width: '100%',
-            padding: '14px',
-            borderRadius: '10px',
-            border: '2px solid rgba(255,255,255,0.3)',
-            fontSize: '15px',
-            background: 'rgba(255,255,255,0.95)',
-            color: '#333'
-          }}
-        />
-      </div>
-
-      <div style={{ marginBottom: '20px' }}>
-        <label style={{
-          display: 'block',
-          marginBottom: '8px',
-          fontWeight: '600',
-          fontSize: '14px'
-        }}>
-          Search Query (e.g., "earbuds", "laptop", "shoes"):
+          Product Category (Required) *
         </label>
         <input
           type="text"
@@ -6826,7 +6857,48 @@ onClick={async () => {
             ...prev,
             search_query: e.target.value
           }))}
-          placeholder="Enter product to search (e.g., earbuds)"
+          placeholder="e.g., wireless earbuds, gaming laptop, running shoes"
+          disabled={automationEnabled}
+          style={{
+            width: '100%',
+            padding: '14px',
+            borderRadius: '10px',
+            border: automationConfig.search_query ? '2px solid #4CAF50' : '2px solid rgba(255,255,255,0.3)',
+            fontSize: '15px',
+            background: automationEnabled ? '#f5f5f5' : 'rgba(255,255,255,0.95)',
+            color: '#333'
+          }}
+        />
+        {!automationConfig.search_query && (
+          <small style={{ display: 'block', marginTop: '5px', color: '#ffeb3b', fontWeight: '600' }}>
+            ⚠️ Required: Enter product type (e.g., "earbuds", "phone", "laptop")
+          </small>
+        )}
+        {automationConfig.search_query && (
+          <small style={{ display: 'block', marginTop: '5px', opacity: 0.9 }}>
+            ✅ Will search for: "{automationConfig.search_query}"
+          </small>
+        )}
+      </div>
+
+      {/* Website URL */}
+      <div style={{ marginBottom: '20px' }}>
+        <label style={{
+          display: 'block',
+          marginBottom: '8px',
+          fontWeight: '600',
+          fontSize: '14px'
+        }}>
+          Website URL (Optional - Leave blank for Flipkart):
+        </label>
+        <input
+          type="text"
+          value={automationConfig.base_url}
+          onChange={(e) => setAutomationConfig(prev => ({
+            ...prev,
+            base_url: e.target.value || 'https://www.flipkart.com'
+          }))}
+          placeholder="https://www.flipkart.com (default)"
           disabled={automationEnabled}
           style={{
             width: '100%',
@@ -6834,18 +6906,28 @@ onClick={async () => {
             borderRadius: '10px',
             border: '2px solid rgba(255,255,255,0.3)',
             fontSize: '15px',
-            background: 'rgba(255,255,255,0.95)',
+            background: automationEnabled ? '#f5f5f5' : 'rgba(255,255,255,0.95)',
             color: '#333'
           }}
         />
-        <div style={{
-          marginTop: '8px',
-          fontSize: '13px',
-          opacity: 0.9
-        }}>
-          💡 The system will search this on {automationConfig.base_url}
-        </div>
+        <small style={{ display: 'block', marginTop: '5px', opacity: 0.9 }}>
+          💡 Supported: Flipkart, Amazon.in, Myntra
+        </small>
       </div>
+
+      {/* Preview */}
+      {automationConfig.search_query && (
+        <div style={{
+          marginTop: '15px',
+          padding: '12px',
+          background: 'rgba(255,255,255,0.2)',
+          borderRadius: '8px',
+          borderLeft: '4px solid #4CAF50'
+        }}>
+          <strong>Preview:</strong> Will search "{automationConfig.search_query}" on{' '}
+          {automationConfig.base_url || 'https://www.flipkart.com'}
+        </div>
+      )}
     </div>
 
     {/* AUTOMATION STATUS */}
@@ -6880,17 +6962,17 @@ onClick={async () => {
             color: automationEnabled ? 'rgba(255,255,255,0.95)' : '#666'
           }}>
             {automationEnabled 
-              ? `Running • Searching: "${automationConfig.search_query}" • ${automationConfig.upload_times.length} scheduled times` 
-              : 'Configure settings below to start automation'}
+              ? `Searching "${automationConfig.search_query}" • ${automationConfig.upload_times.length} scheduled times` 
+              : 'Configure settings and click START to begin'}
           </p>
         </div>
         
         <button
           onClick={async () => {
             if (!automationEnabled) {
-              // Validate inputs
-              if (!automationConfig.base_url || !automationConfig.search_query) {
-                alert('❌ Please enter both Base URL and Search Query!');
+              // Validate
+              if (!automationConfig.search_query || automationConfig.search_query.trim().length < 3) {
+                alert('❌ Please enter a product category (at least 3 characters)!');
                 return;
               }
               
@@ -6899,6 +6981,7 @@ onClick={async () => {
                 return;
               }
               
+              // Start automation
               try {
                 const response = await fetch(`${API_BASE}/api/product-automation/start`, {
                   method: 'POST',
@@ -6916,7 +6999,7 @@ onClick={async () => {
                 
                 if (result.success) {
                   setAutomationEnabled(true);
-                  alert('✅ Automation started! Videos will be created and uploaded automatically.');
+                  alert(`✅ Automation started!\n\nSearching: ${automationConfig.search_query}\nTimes: ${automationConfig.upload_times.join(', ')}`);
                 } else {
                   alert('❌ Failed: ' + result.error);
                 }
@@ -6925,11 +7008,14 @@ onClick={async () => {
               }
             } else {
               // Stop automation
+              if (!confirm('Are you sure you want to stop automation?')) return;
+              
               try {
                 const response = await fetch(`${API_BASE}/api/product-automation/stop`, {
                   method: 'POST',
                   headers: {
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
                   },
                   body: JSON.stringify({
                     user_id: user.user_id
@@ -6949,7 +7035,7 @@ onClick={async () => {
               }
             }
           }}
-          disabled={!automationConfig.base_url || !automationConfig.search_query}
+          disabled={!automationEnabled && (!automationConfig.search_query || automationConfig.search_query.length < 3)}
           style={{
             padding: '16px 40px',
             background: automationEnabled ? '#dc3545' : '#28a745',
@@ -6958,12 +7044,13 @@ onClick={async () => {
             borderRadius: '12px',
             fontWeight: '700',
             fontSize: '18px',
-            cursor: (!automationConfig.base_url || !automationConfig.search_query) ? 'not-allowed' : 'pointer',
-            opacity: (!automationConfig.base_url || !automationConfig.search_query) ? 0.5 : 1,
-            boxShadow: '0 4px 15px rgba(0,0,0,0.2)'
+            cursor: (!automationEnabled && (!automationConfig.search_query || automationConfig.search_query.length < 3)) ? 'not-allowed' : 'pointer',
+            opacity: (!automationEnabled && (!automationConfig.search_query || automationConfig.search_query.length < 3)) ? 0.5 : 1,
+            boxShadow: '0 4px 15px rgba(0,0,0,0.2)',
+            transition: 'all 0.3s'
           }}
         >
-          {automationEnabled ? '⏹️ STOP' : '▶️ START AUTOMATION'}
+          {automationEnabled ? '⏹️ STOP AUTOMATION' : '▶️ START AUTOMATION'}
         </button>
       </div>
     </div>
@@ -6976,12 +7063,7 @@ onClick={async () => {
       marginBottom: '30px',
       border: '2px solid #e0e0e0'
     }}>
-      <h3 style={{ 
-        color: '#333', 
-        marginBottom: '25px', 
-        fontSize: '20px',
-        fontWeight: '700'
-      }}>
+      <h3 style={{ color: '#333', marginBottom: '25px', fontSize: '20px', fontWeight: '700' }}>
         ⚙️ Configuration
       </h3>
       
@@ -7031,13 +7113,10 @@ onClick={async () => {
         }}>
           🕐 Upload Times (IST - 24-hour format):
         </label>
-        <div style={{ 
-          display: 'flex', 
-          gap: '10px', 
-          flexWrap: 'wrap', 
-          marginBottom: '15px' 
-        }}>
-          {automationConfig.upload_times.map((time, idx) => (
+        
+        {/* Display existing times */}
+        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '15px' }}>
+          {automationConfig.upload_times.filter(t => t && t.trim()).map((time, idx) => (
             <span key={idx} style={{
               padding: '10px 18px',
               background: 'linear-gradient(135deg, #FF0000, #CC0000)',
@@ -7101,11 +7180,13 @@ onClick={async () => {
                   if (input.value && !automationConfig.upload_times.includes(input.value)) {
                     setAutomationConfig(prev => ({
                       ...prev,
-                      upload_times: [...prev.upload_times, input.value].sort()
+                      upload_times: [...prev.upload_times.filter(t => t && t.trim()), input.value].sort()
                     }));
                     input.value = '';
                   } else if (automationConfig.upload_times.includes(input.value)) {
                     alert('⚠️ This time is already added!');
+                  } else {
+                    alert('⚠️ Please select a time!');
                   }
                 }}
                 style={{
@@ -7138,7 +7219,7 @@ onClick={async () => {
                 marginBottom: '10px'
               }}>
                 <strong style={{ color: '#856404', fontSize: '15px' }}>
-                  🧪 Test Automation (Add Custom Time)
+                  🧪 Test Automation (Quick Test)
                 </strong>
                 <button
                   onClick={() => setShowTestScheduler(!showTestScheduler)}
@@ -7160,9 +7241,9 @@ onClick={async () => {
               {showTestScheduler && (
                 <>
                   <p style={{ color: '#856404', fontSize: '13px', marginBottom: '10px' }}>
-                    Add a test time (e.g., 2 minutes from now) to verify automation works:
+                    Add a test time (2-3 minutes from now) to verify automation:
                   </p>
-                  <div style={{ display: 'flex', gap: '10px' }}>
+                  <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
                     <input
                       type="time"
                       value={testScheduleTime}
@@ -7180,10 +7261,12 @@ onClick={async () => {
                         if (testScheduleTime && !automationConfig.upload_times.includes(testScheduleTime)) {
                           setAutomationConfig(prev => ({
                             ...prev,
-                            upload_times: [...prev.upload_times, testScheduleTime].sort()
+                            upload_times: [...prev.upload_times.filter(t => t && t.trim()), testScheduleTime].sort()
                           }));
                           setTestScheduleTime('');
-                          alert(`✅ Test time ${testScheduleTime} added! Make sure to START automation.`);
+                          alert(`✅ Test time ${testScheduleTime} added!\n\nDon't forget to:\n1. Enter product category\n2. Click START AUTOMATION`);
+                        } else {
+                          alert('⚠️ Please select a time or time already exists!');
                         }
                       }}
                       style={{
@@ -7202,7 +7285,7 @@ onClick={async () => {
                     </button>
                   </div>
                   <small style={{ color: '#856404', fontSize: '12px', marginTop: '8px', display: 'block' }}>
-                    💡 Current time: {new Date().toLocaleTimeString('en-IN', {hour: '2-digit', minute: '2-digit'})} IST
+                    💡 Current time: {new Date().toLocaleTimeString('en-IN', {hour: '2-digit', minute: '2-digit', hour12: true})} IST
                   </small>
                 </>
               )}
@@ -7210,10 +7293,109 @@ onClick={async () => {
           </>
         )}
         
-        <small style={{ color: '#666', fontSize: '13px', marginTop: '5px', display: 'block' }}>
-          System checks every minute and posts at these times
+        <small style={{ color: '#666', fontSize: '13px', marginTop: '10px', display: 'block' }}>
+          System checks every minute and posts at scheduled times
         </small>
       </div>
+    </div>
+
+    {/* ACTIVITY LOGS */}
+    <div style={{
+      padding: '25px',
+      background: '#fff',
+      borderRadius: '15px',
+      border: '2px solid #e0e0e0'
+    }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+        <h3 style={{ color: '#333', fontSize: '20px', fontWeight: '700', margin: 0 }}>
+          📋 Activity Logs
+        </h3>
+        <button
+          onClick={async () => {
+            setLoadingLogs(true);
+            try {
+              const response = await fetch(`${API_BASE}/api/automation/logs/${user.user_id}?limit=20`, {
+                headers: {
+                  'Authorization': `Bearer ${token}`,
+                  'Content-Type': 'application/json'
+                }
+              });
+              if (response.ok) {
+                const data = await response.json();
+                if (data.success) {
+                  setAutomationLogs(data.logs || []);
+                }
+              }
+            } catch (error) {
+              console.error('Failed to refresh logs:', error);
+            }
+            setLoadingLogs(false);
+          }}
+          style={{
+            padding: '8px 16px',
+            background: '#007bff',
+            color: 'white',
+            border: 'none',
+            borderRadius: '6px',
+            fontSize: '13px',
+            fontWeight: '600',
+            cursor: 'pointer'
+          }}
+        >
+          {loadingLogs ? '⏳ Refreshing...' : '🔄 Refresh'}
+        </button>
+      </div>
+
+      {automationLogs.length === 0 ? (
+        <div style={{
+          padding: '40px',
+          textAlign: 'center',
+          color: '#999',
+          background: '#f8f9fa',
+          borderRadius: '10px'
+        }}>
+          <div style={{ fontSize: '48px', marginBottom: '10px' }}>📭</div>
+          <p style={{ margin: 0, fontSize: '16px' }}>
+            No activity yet. Start automation to see logs here.
+          </p>
+        </div>
+      ) : (
+        <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
+          {automationLogs.map((log, idx) => (
+            <div key={idx} style={{
+              padding: '15px',
+              background: log.success ? '#f0f9ff' : '#fff1f0',
+              borderLeft: `4px solid ${log.success ? '#0284c7' : '#ef4444'}`,
+              borderRadius: '8px',
+              marginBottom: '10px'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                <span style={{ fontWeight: '600', color: log.success ? '#0284c7' : '#ef4444' }}>
+                  {log.success ? '✅ Success' : '❌ Failed'}
+                </span>
+                <span style={{ fontSize: '13px', color: '#666' }}>
+                  {new Date(log.timestamp).toLocaleString('en-IN')}
+                </span>
+              </div>
+              {log.video_id && (
+                <div style={{ fontSize: '14px', color: '#333', marginBottom: '4px' }}>
+                  🎬 Video ID: <code style={{ background: '#e5e7eb', padding: '2px 6px', borderRadius: '4px' }}>{log.video_id}</code>
+                </div>
+              )}
+              {log.product_url && (
+                <div style={{ fontSize: '13px', color: '#666' }}>
+                  🔗 Product: {log.product_url.substring(0, 60)}...
+                </div>
+              )}
+              {log.error && (
+                <div style={{ fontSize: '13px', color: '#dc2626', marginTop: '8px', background: '#fee2e2', padding: '8px', borderRadius: '4px' }}>
+                  Error: {log.error}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
 
     {/* HOW IT WORKS */}
@@ -7221,14 +7403,15 @@ onClick={async () => {
       padding: '25px',
       background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
       borderRadius: '15px',
-      color: 'white'
+      color: 'white',
+      marginTop: '30px'
     }}>
       <h3 style={{ marginBottom: '20px', fontSize: '20px', fontWeight: '700' }}>
         📖 How It Works
       </h3>
       <div style={{ display: 'grid', gap: '15px' }}>
         {[
-          { icon: '1️⃣', text: `Goes to ${automationConfig.base_url || 'your website'}` },
+          { icon: '1️⃣', text: `Goes to ${automationConfig.base_url || 'Flipkart'}` },
           { icon: '2️⃣', text: `Searches for "${automationConfig.search_query || 'your product'}"` },
           { icon: '3️⃣', text: 'Scrapes product details from search results (one by one)' },
           { icon: '4️⃣', text: 'Downloads 3 product images for each item' },
@@ -7251,7 +7434,11 @@ onClick={async () => {
         ))}
       </div>
     </div>
-  
+
+
+
+
+
 
 
 

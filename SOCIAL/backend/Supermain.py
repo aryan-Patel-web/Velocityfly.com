@@ -2860,8 +2860,13 @@ async def stop_product_automation(request: Request):
 # ============================================================================
 # FIXED BACKGROUND TASK - REPLACE run_product_automation_tasks()
 # ============================================================================
+
+
+
+
+
 async def run_product_automation_tasks():
-    """Check and execute automated product posts every minute"""
+    """Background task with detailed logging"""
     logger.info("=" * 70)
     logger.info("🚀 PRODUCT AUTOMATION BACKGROUND TASK STARTED")
     logger.info("=" * 70)
@@ -2877,11 +2882,11 @@ async def run_product_automation_tasks():
             
             if not database_manager or not database_manager.connected:
                 if current_minute % 5 == 0:
-                    logger.warning("⚠️ Database not connected, skipping check")
+                    logger.warning("⚠️ Database not connected")
                 await asyncio.sleep(60)
                 continue
             
-            # Get all active automation configs
+            # Get all configs
             configs = await database_manager.get_all_automation_configs_by_type("product_automation")
             
             if current_minute % 5 == 0:
@@ -2894,7 +2899,7 @@ async def run_product_automation_tasks():
                     config_data = config.get("config_data", {})
                     enabled = config_data.get("enabled", False)
                     
-                    # ✅ CRITICAL: Log EVERY config we find
+                    # Log config details every 5 minutes
                     if current_minute % 5 == 0:
                         logger.info(f"   User {user_id[:8]}... | enabled={enabled}")
                         logger.info(f"      base_url: {config_data.get('base_url', 'NOT SET')}")
@@ -2903,7 +2908,7 @@ async def run_product_automation_tasks():
                     
                     if not enabled:
                         if current_minute % 5 == 0:
-                            logger.warning(f"      ❌ SKIPPED: Automation disabled for user {user_id[:8]}...")
+                            logger.warning(f"      ❌ SKIPPED: Disabled")
                         continue
                     
                     active_count += 1
@@ -2913,16 +2918,18 @@ async def run_product_automation_tasks():
                     search_query = config_data.get("search_query", "")
                     
                     if current_minute % 5 == 0:
-                        logger.info(f"      ✅ ACTIVE automation for user {user_id[:8]}...")
+                        logger.info(f"      ✅ ACTIVE automation")
                     
-                    # Check if current time matches
+                    # Check time match
                     if current_time in upload_times:
-                        logger.info(f"🔔 🔔 🔔 TIME MATCH! 🔔 🔔 🔔")
+                        logger.info("=" * 70)
+                        logger.info(f"🔔 TIME MATCH! TRIGGERING AUTOMATION")
                         logger.info(f"   User: {user_id}")
-                        logger.info(f"   Current time: {current_time}")
-                        logger.info(f"   Scheduled times: {upload_times}")
+                        logger.info(f"   Current: {current_time}")
+                        logger.info(f"   Scheduled: {upload_times}")
                         logger.info(f"   URL: {base_url}")
                         logger.info(f"   Search: {search_query}")
+                        logger.info("=" * 70)
                         
                         # Check daily limit
                         posts_today = await database_manager.get_automation_posts_count(
@@ -2935,34 +2942,33 @@ async def run_product_automation_tasks():
                         logger.info(f"   Posts today: {posts_today}/{max_posts}")
                         
                         if posts_today >= max_posts:
-                            logger.warning(f"   ❌ Daily limit reached: {posts_today}/{max_posts}")
+                            logger.warning(f"   ❌ Daily limit reached")
                             continue
                         
                         logger.info(f"   ✅ EXECUTING AUTOMATION NOW!")
-                        logger.info("=" * 70)
                         
-                        # Execute automation (don't block)
+                        # Execute (non-blocking)
                         asyncio.create_task(execute_product_automation(user_id, config_data))
                     else:
-                        # Only log mismatch every 5 minutes to reduce spam
+                        # Log mismatch every 5 min
                         if current_minute % 5 == 0:
-                            logger.info(f"      ⏰ No match: current={current_time}, scheduled={upload_times}")
+                            logger.info(f"      ⏰ No match: {current_time} vs {upload_times}")
                     
-                except Exception as config_error:
-                    logger.error(f"❌ Config processing error: {config_error}")
+                except Exception as e:
+                    logger.error(f"❌ Config error: {e}")
                     import traceback
                     logger.error(traceback.format_exc())
                     continue
             
             if current_minute % 5 == 0:
-                logger.info(f"📊 Summary: {active_count} active / {len(configs)} total configs")
+                logger.info(f"📊 Summary: {active_count} active / {len(configs)} total")
                 logger.info("-" * 70)
             
             # Wait 60 seconds
             await asyncio.sleep(60)
             
         except Exception as e:
-            logger.error(f"❌ Automation task error: {e}")
+            logger.error(f"❌ Task error: {e}")
             import traceback
             logger.error(traceback.format_exc())
             await asyncio.sleep(60)
@@ -2971,26 +2977,56 @@ async def run_product_automation_tasks():
 # BACKGROUND AUTOMATION TASK - REPLACE execute_product_automation
 # ============================================================================
 
+
+
+
+
+
+
 async def execute_product_automation(user_id: str, config: dict):
-    """Execute automation: URL → search → scrape → video → upload"""
+    """Execute automation with detailed logging"""
+    
+    # Helper function to log each step
+    async def log_step(step: str, success: bool, details: str = "", error: str = ""):
+        """Log automation step to database"""
+        try:
+            await database_manager.db.automation_logs.insert_one({
+                "user_id": user_id,
+                "timestamp": datetime.now(),
+                "step": step,
+                "success": success,
+                "details": details,
+                "error": error,
+                "product_url": "",
+                "video_id": ""
+            })
+        except Exception as e:
+            logger.error(f"Failed to log step: {e}")
+    
     try:
-        logger.info(f"🔄 Executing automation for user: {user_id}")
+        logger.info("=" * 70)
+        logger.info(f"🔄 EXECUTING AUTOMATION FOR USER: {user_id}")
+        logger.info("=" * 70)
         
-        # Get base URL and search query from config
-        base_url = config.get("base_url", "")
+        # Get config
+        base_url = config.get("base_url", "https://www.flipkart.com")
         search_query = config.get("search_query", "")
         
         if not base_url or not search_query:
-            logger.error("Missing base_url or search_query in config")
+            error_msg = "Missing base_url or search_query in config"
+            logger.error(f"❌ {error_msg}")
+            await log_step("validation", False, error=error_msg)
             return
         
-        logger.info(f"🔍 Searching: {search_query} on {base_url}")
+        logger.info(f"🔍 Search Config:")
+        logger.info(f"   URL: {base_url}")
+        logger.info(f"   Query: {search_query}")
         
-        # STEP 1: Get product scraper
-        scraper = get_product_scraper()
+        await log_step("start", True, f"Starting automation for: {search_query}")
         
-        # STEP 2: Perform search on the website
-        # Build search URL (Flipkart example: /search?q=earbuds)
+        # STEP 1: Build search URL
+        logger.info(f"📍 STEP 1: Building search URL...")
+        
         if "flipkart.com" in base_url.lower():
             search_url = f"{base_url}/search?q={search_query.replace(' ', '+')}"
         elif "amazon.in" in base_url.lower():
@@ -2998,83 +3034,126 @@ async def execute_product_automation(user_id: str, config: dict):
         elif "myntra.com" in base_url.lower():
             search_url = f"{base_url}/{search_query.replace(' ', '-')}"
         else:
-            # Generic search pattern
             search_url = f"{base_url}/search?q={search_query.replace(' ', '+')}"
         
-        logger.info(f"🌐 Search URL: {search_url}")
+        logger.info(f"   ✅ Search URL: {search_url}")
+        await log_step("build_url", True, f"Search URL: {search_url}")
         
-        # STEP 3: Scrape search results page to get product links
+        # STEP 2: Scrape search results
+        logger.info(f"📍 STEP 2: Scraping search results page...")
+        
+        scraper = get_product_scraper()
         product_links = await scraper.scrape_category_page(search_url, max_products=50)
         
         if not product_links or len(product_links) == 0:
-            logger.error(f"No products found for search: {search_query}")
+            error_msg = f"No products found for: {search_query}"
+            logger.error(f"   ❌ {error_msg}")
+            await log_step("scrape_search", False, error=error_msg)
             return
         
-        logger.info(f"✅ Found {len(product_links)} products")
+        logger.info(f"   ✅ Found {len(product_links)} products")
+        await log_step("scrape_search", True, f"Found {len(product_links)} products")
         
-        # STEP 4: Get next product to process
-        url_doc = await database_manager.get_scrape_url(user_id)
+        # STEP 3: Get next product to process
+        logger.info(f"📍 STEP 3: Selecting next product...")
+        
+        # Get saved state
+        url_doc = await database_manager.scrape_urls.find_one({"user_id": user_id})
         
         if not url_doc:
-            logger.error("No scrape URL doc found")
-            return
-        
-        processed_count = url_doc.get('products_processed', 0)
-        
-        # Loop back to first product if we've processed all
-        if processed_count >= len(product_links):
+            # Create new state
+            await database_manager.scrape_urls.insert_one({
+                "user_id": user_id,
+                "url": base_url,
+                "search_query": search_query,
+                "total_products_found": len(product_links),
+                "products_processed": 0,
+                "created_at": datetime.now()
+            })
             processed_count = 0
-            await database_manager.update_scrape_progress(
-                user_id,
-                len(product_links),
-                0
-            )
+        else:
+            processed_count = url_doc.get('products_processed', 0)
+            
+            # Loop back to first if we've processed all
+            if processed_count >= len(product_links):
+                processed_count = 0
+                await database_manager.scrape_urls.update_one(
+                    {"user_id": user_id},
+                    {"$set": {"products_processed": 0}}
+                )
         
-        # Get next product URL
+        # Get next product
         next_product = product_links[processed_count]
         product_url = next_product.get('url')
         
-        logger.info(f"📦 Processing product {processed_count + 1}/{len(product_links)}: {product_url}")
+        logger.info(f"   ✅ Selected product {processed_count + 1}/{len(product_links)}")
+        logger.info(f"   URL: {product_url}")
+        await log_step("select_product", True, f"Product {processed_count + 1}/{len(product_links)}")
         
-        # STEP 5: Scrape product details
+        # STEP 4: Scrape product details
+        logger.info(f"📍 STEP 4: Scraping product details...")
+        
         product_data = await scraper.scrape_product(product_url)
         
         if not product_data.get("success"):
-            logger.error(f"Scraping failed: {product_data.get('error')}")
+            error_msg = f"Scraping failed: {product_data.get('error', 'Unknown error')}"
+            logger.error(f"   ❌ {error_msg}")
+            await log_step("scrape_product", False, error=error_msg)
             return
         
-        # STEP 6: Get product images (max 3)
+        product_name = product_data.get('product_name', 'Product')
+        brand = product_data.get('brand', 'Brand')
+        price = product_data.get('price', 0)
+        
+        logger.info(f"   ✅ Product: {brand} - {product_name}")
+        logger.info(f"   Price: Rs.{price}")
+        await log_step("scrape_product", True, f"{brand} - {product_name} (Rs.{price})")
+        
+        # STEP 5: Download images
+        logger.info(f"📍 STEP 5: Downloading product images...")
+        
         images = product_data.get("images", [])[:3]
         
         if len(images) < 1:
-            logger.error("No images found")
+            error_msg = "No images found"
+            logger.error(f"   ❌ {error_msg}")
+            await log_step("download_images", False, error=error_msg)
             return
         
-        # STEP 7: Convert image URLs to base64
+        logger.info(f"   Found {len(images)} images")
+        
+        # Convert to base64
         base64_images = []
         async with httpx.AsyncClient(timeout=30) as client:
-            for img_url in images:
+            for i, img_url in enumerate(images):
                 try:
+                    logger.info(f"   Downloading image {i+1}/{len(images)}...")
                     response = await client.get(img_url)
                     if response.status_code == 200:
                         img_base64 = base64.b64encode(response.content).decode()
                         base64_images.append(f"data:image/jpeg;base64,{img_base64}")
+                        logger.info(f"      ✅ Image {i+1} downloaded")
                 except Exception as e:
-                    logger.warning(f"Failed to fetch image: {e}")
+                    logger.warning(f"      ⚠️ Image {i+1} failed: {e}")
                     continue
         
         if not base64_images:
-            logger.error("Failed to convert images")
+            error_msg = "Failed to download images"
+            logger.error(f"   ❌ {error_msg}")
+            await log_step("download_images", False, error=error_msg)
             return
         
-        logger.info(f"✅ Converted {len(base64_images)} images to base64")
+        logger.info(f"   ✅ Downloaded {len(base64_images)} images")
+        await log_step("download_images", True, f"{len(base64_images)} images downloaded")
         
-        # STEP 8: Generate video slideshow
+        # STEP 6: Generate video
+        logger.info(f"📍 STEP 6: Generating video slideshow...")
+        
         video_gen = get_video_generator()
         
         video_result = await video_gen.generate_slideshow(
             images=base64_images,
-            title=product_data.get("product_name", "Product"),
+            title=product_name,
             language='english',
             duration_per_image=2.0,
             transition='fade',
@@ -3086,33 +3165,40 @@ async def execute_product_automation(user_id: str, config: dict):
         )
         
         if not video_result.get("success"):
-            logger.error("Video generation failed")
+            error_msg = f"Video generation failed: {video_result.get('error', 'Unknown')}"
+            logger.error(f"   ❌ {error_msg}")
+            await log_step("generate_video", False, error=error_msg)
             return
         
-        logger.info(f"✅ Video generated: {video_result.get('local_path')}")
+        video_path = video_result.get('local_path')
+        logger.info(f"   ✅ Video generated: {video_path}")
+        await log_step("generate_video", True, f"Video: {video_path}")
         
-        # STEP 9: Upload to YouTube
+        # STEP 7: Upload to YouTube
+        logger.info(f"📍 STEP 7: Uploading to YouTube...")
+        
         credentials = await database_manager.get_youtube_credentials(user_id)
         
         if not credentials:
-            logger.error("No YouTube credentials")
+            error_msg = "No YouTube credentials"
+            logger.error(f"   ❌ {error_msg}")
+            await log_step("upload_youtube", False, error=error_msg)
             return
         
         # Import YouTube services
         from mainY import youtube_scheduler
         
         # Generate title and description
-        brand = product_data.get('brand', 'Brand')
-        product_name = product_data.get('product_name', 'Product')
-        price = product_data.get('price', 0)
-        
         title = f"{brand} - {product_name[:30]}"
-        description = f"Check out this amazing product!\n\n{brand} - {product_name}\nPrice: ₹{price}\n\n🛒 Buy now: {product_url}\n\n#shorts #product #shopping #{brand.lower()}"
+        description = f"Check out this amazing product!\n\n{brand} - {product_name}\nPrice: ₹{price}\n\n🛒 Buy: {product_url}\n\n#shorts #product #shopping #{brand.lower()}"
+        
+        logger.info(f"   Title: {title}")
+        logger.info(f"   Uploading to YouTube...")
         
         upload_result = await youtube_scheduler.upload_video(
             user_id=user_id,
             credentials_data=credentials,
-            video_file_path=video_result["local_path"],
+            video_file_path=video_path,
             title=title,
             description=description,
             category_id="22",
@@ -3121,29 +3207,40 @@ async def execute_product_automation(user_id: str, config: dict):
         )
         
         if upload_result.get("success"):
-            logger.info(f"✅ Video uploaded: {upload_result.get('video_id')}")
+            video_id = upload_result.get("video_id")
+            logger.info(f"   ✅ Uploaded! Video ID: {video_id}")
+            logger.info(f"   URL: https://youtube.com/shorts/{video_id}")
             
-            # Log to database
+            await log_step("upload_youtube", True, f"Video ID: {video_id}")
+            
+            # Final success log
             await database_manager.log_automation_post(user_id, {
                 "product_url": product_url,
-                "video_id": upload_result.get("video_id"),
+                "video_id": video_id,
                 "timestamp": datetime.now(),
                 "success": True
             })
             
             # Update processed count
-            await database_manager.update_scrape_progress(
-                user_id,
-                len(product_links),
-                processed_count + 1
+            await database_manager.scrape_urls.update_one(
+                {"user_id": user_id},
+                {"$set": {"products_processed": processed_count + 1}}
             )
+            
+            logger.info("=" * 70)
+            logger.info("✅ AUTOMATION COMPLETED SUCCESSFULLY!")
+            logger.info("=" * 70)
+            
         else:
-            logger.error(f"Upload failed: {upload_result.get('error')}")
+            error_msg = f"Upload failed: {upload_result.get('error', 'Unknown')}"
+            logger.error(f"   ❌ {error_msg}")
+            await log_step("upload_youtube", False, error=error_msg)
         
     except Exception as e:
-        logger.error(f"❌ Automation execution failed: {e}")
+        logger.error(f"❌ AUTOMATION FAILED: {e}")
         import traceback
         logger.error(traceback.format_exc())
+        await log_step("fatal_error", False, error=str(e))
 
 
 # # Background task runner (checks every minute)
@@ -3874,6 +3971,12 @@ async def scrape_single_product_route(request: Request):
 async def get_automation_logs(user_id: str, limit: int = 20):
     """Get automation activity logs"""
     try:
+        if not database_manager or not database_manager.connected:
+            return JSONResponse(
+                status_code=500,
+                content={"success": False, "error": "Database not connected"}
+            )
+        
         logs = []
         cursor = database_manager.db.automation_logs.find(
             {"user_id": user_id}
@@ -3885,7 +3988,9 @@ async def get_automation_logs(user_id: str, limit: int = 20):
                 "product_url": log.get("product_url", ""),
                 "video_id": log.get("video_id", ""),
                 "success": log.get("success", False),
-                "error": log.get("error", "")
+                "error": log.get("error", ""),
+                "step": log.get("step", ""),  # NEW: Track which step failed
+                "details": log.get("details", "")  # NEW: Additional details
             })
         
         return JSONResponse(content={
@@ -3898,6 +4003,7 @@ async def get_automation_logs(user_id: str, limit: int = 20):
         return JSONResponse(
             status_code=500,
             content={"success": False, "error": str(e)}
+        )
         )
 # ============================================================================
 # PRODUCT AUTOMATION ENDPOINTS - PASTE BEFORE get_automation_status
@@ -4073,7 +4179,43 @@ async def delete_scrape_url_route(user_id: str):
 
 
 
-
+@app.get("/api/automation/logs/{user_id}")
+async def get_automation_logs(user_id: str, limit: int = 20):
+    """Get automation activity logs"""
+    try:
+        if not database_manager or not database_manager.connected:
+            return JSONResponse(
+                status_code=500,
+                content={"success": False, "error": "Database not connected"}
+            )
+        
+        logs = []
+        cursor = database_manager.db.automation_logs.find(
+            {"user_id": user_id}
+        ).sort("timestamp", -1).limit(limit)
+        
+        async for log in cursor:
+            logs.append({
+                "timestamp": log.get("timestamp").isoformat() if log.get("timestamp") else "",
+                "step": log.get("step", ""),
+                "success": log.get("success", False),
+                "details": log.get("details", ""),
+                "error": log.get("error", ""),
+                "product_url": log.get("product_url", ""),
+                "video_id": log.get("video_id", "")
+            })
+        
+        return JSONResponse(content={
+            "success": True,
+            "logs": logs
+        })
+        
+    except Exception as e:
+        logger.error(f"Get logs failed: {e}")
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "error": str(e)}
+        )
 
 
 @app.get("/api/automation/status/{user_id}")
