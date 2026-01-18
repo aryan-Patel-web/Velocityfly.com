@@ -3169,7 +3169,6 @@ async def execute_product_automation(user_id: str, config: dict):
 
         from slideshow_generator import get_slideshow_generator
         
-        
         # video_gen = get_video_generator()
         slideshow_gen = get_slideshow_generator()
         
