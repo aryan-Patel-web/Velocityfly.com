@@ -3169,7 +3169,6 @@ async def execute_product_automation(user_id: str, config: dict):
 
         from slideshow_generator import get_slideshow_generator
         
-        # video_gen = get_video_generator()
         slideshow_gen = get_slideshow_generator()
         
         video_result = await slideshow_gen.generate_slideshow(
@@ -3195,15 +3194,34 @@ async def execute_product_automation(user_id: str, config: dict):
         logger.info(f"   ✅ Video generated: {video_path}")
         await log_step("generate_video", True, f"Video: {video_path}")
         
-        # STEP 7: Upload to YouTube
+        # STEP 7: Upload to YouTube (✅ FIXED VERSION)
         logger.info(f"📍 STEP 7: Uploading to YouTube...")
         
         credentials = await database_manager.get_youtube_credentials(user_id)
         
         if not credentials:
-            error_msg = "No YouTube credentials"
+            error_msg = "No YouTube credentials found. User needs to connect YouTube account first."
             logger.error(f"   ❌ {error_msg}")
             await log_step("upload_youtube", False, error=error_msg)
+            
+            # ✅ CRITICAL FIX: Still log as partial success (video generated but not uploaded)
+            await database_manager.log_automation_post(user_id, {
+                "product_url": product_data.get("product_url", product_url),
+                "video_id": None,
+                "video_path": video_path,
+                "timestamp": datetime.now(),
+                "success": False,
+                "error": error_msg,
+                "step_completed": "video_generated"
+            })
+            
+            logger.warning("=" * 70)
+            logger.warning("⚠️ AUTOMATION PARTIAL SUCCESS - VIDEO GENERATED")
+            logger.warning(f"   Video saved at: {video_path}")
+            logger.warning("   User needs to:")
+            logger.warning("   1. Connect YouTube account")
+            logger.warning("   2. Re-run automation OR manually upload the video")
+            logger.warning("=" * 70)
             return
         
         # Import YouTube services
@@ -3262,8 +3280,6 @@ async def execute_product_automation(user_id: str, config: dict):
         import traceback
         logger.error(traceback.format_exc())
         await log_step("fatal_error", False, error=str(e))
-
-
 
 
 
