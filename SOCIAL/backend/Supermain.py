@@ -1300,29 +1300,29 @@ app.add_middleware(
     allowed_hosts=["*"]
 )
 
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
-import os
+# from fastapi.staticfiles import StaticFiles
+# from fastapi.responses import FileResponse
+# import os
 
-FRONTEND_BUILD_PATH = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), "..", "frontend", "build")
-)
+# FRONTEND_BUILD_PATH = os.path.abspath(
+#     os.path.join(os.path.dirname(__file__), "..", "frontend", "build")
+# )
 
-# Serve React static files
-if os.path.exists(FRONTEND_BUILD_PATH):
-    app.mount(
-        "/",
-        StaticFiles(directory=FRONTEND_BUILD_PATH, html=True),
-        name="frontend"
-    )
+# # Serve React static files
+# if os.path.exists(FRONTEND_BUILD_PATH):
+#     app.mount(
+#         "/",
+#         StaticFiles(directory=FRONTEND_BUILD_PATH, html=True),
+#         name="frontend"
+#     )
 
-# React Router fallback
-@app.get("/{full_path:path}")
-async def react_fallback(full_path: str):
-    index_path = os.path.join(FRONTEND_BUILD_PATH, "index.html")
-    if os.path.exists(index_path):
-        return FileResponse(index_path)
-    return {"error": "React build not found"}
+# # React Router fallback
+# @app.get("/{full_path:path}")
+# async def react_fallback(full_path: str):
+#     index_path = os.path.join(FRONTEND_BUILD_PATH, "index.html")
+#     if os.path.exists(index_path):
+#         return FileResponse(index_path)
+#     return {"error": "React build not found"}
 
 
 
