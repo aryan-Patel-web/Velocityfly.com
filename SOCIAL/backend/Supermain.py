@@ -2774,7 +2774,7 @@ async def start_product_automation(request: Request):
                 "enabled": True,  # ✅ CRITICAL: Must be True
                 "base_url": base_url,
                 "search_query": search_query,
-                "max_posts_per_day": config.get('max_posts_per_day', 10),
+                "max_posts_per_day": config.get('max_posts_per_day', 50),
                 "upload_times": upload_times,
                 "auto_scrape": config.get('auto_scrape', True),
                 "auto_generate_video": config.get('auto_generate_video', True),
@@ -2802,7 +2802,7 @@ async def start_product_automation(request: Request):
                 "base_url": base_url,
                 "search_query": search_query,
                 "upload_times": upload_times,
-                "max_posts_per_day": config.get('max_posts_per_day', 10)
+                "max_posts_per_day": config.get('max_posts_per_day', 50)
             },
             "next_run": upload_times[0] if upload_times else "Not set"
         })
@@ -2942,7 +2942,7 @@ async def run_product_automation_tasks():
                             date=datetime.now().date()
                         )
                         
-                        max_posts = config_data.get("max_posts_per_day", 10)
+                        max_posts = config_data.get("max_posts_per_day", 50)
                         
                         logger.info(f"   Posts today: {posts_today}/{max_posts}")
                         
@@ -4011,7 +4011,7 @@ async def get_automation_config_endpoint(user_id: str):
                     "base_url": config_data.get("base_url", ""),
                     "search_query": config_data.get("search_query", ""),
                     "upload_times": config_data.get("upload_times", []),
-                    "max_posts_per_day": config_data.get("max_posts_per_day", 10)
+                    "max_posts_per_day": config_data.get("max_posts_per_day", 50)
                 }
             })
         
@@ -4238,9 +4238,9 @@ async def get_automation_status_endpoint(user_id: str):
                 "base_url": config_data.get("base_url", ""),
                 "search_query": config_data.get("search_query", ""),
                 "upload_times": config_data.get("upload_times", []),
-                "max_posts_per_day": config_data.get("max_posts_per_day", 10),
-                "daily_limit": config_data.get("max_posts_per_day", 10),
-                "remaining_today": max(0, config_data.get("max_posts_per_day", 10) - today_posts)
+                "max_posts_per_day": config_data.get("max_posts_per_day", 50),
+                "daily_limit": config_data.get("max_posts_per_day", 50),
+                "remaining_today": max(0, config_data.get("max_posts_per_day", 50) - today_posts)
             }
         })
         
