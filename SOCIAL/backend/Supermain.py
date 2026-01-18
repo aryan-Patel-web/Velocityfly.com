@@ -2737,18 +2737,22 @@ async def debug_my_reddit_connection(current_user: dict = Depends(get_current_us
 # ============================================================================
 
 @app.post("/api/product-automation/start")
-async def start_product_automation(request: Request):
+async def start_product_automation(request: Request, current_user: dict = Depends(get_current_user)):
     """Start automated product scraping + video generation + upload"""
     try:
         body = await request.json()
-        user_id = body.get('user_id')
-        config = body.get('config', {})
+        
+        # ✅ FIX: Use authenticated user's ID from JWT token
+        user_id = current_user.get("id") or current_user.get("user_id")
+        user_email = current_user.get("email", "Unknown")
         
         if not user_id:
             return JSONResponse(
-                status_code=400,
-                content={"success": False, "error": "user_id required"}
+                status_code=401,
+                content={"success": False, "error": "Authentication required"}
             )
+        
+        config = body.get('config', {})
         
         # Validate required fields
         base_url = config.get('base_url', '')
@@ -2767,9 +2771,29 @@ async def start_product_automation(request: Request):
                 content={"success": False, "error": "At least one upload time required"}
             )
         
+        # ✅ CRITICAL: Verify YouTube is connected for THIS authenticated user
+        youtube_creds = await database_manager.get_youtube_credentials(user_id)
+        
+        if not youtube_creds:
+            logger.error(f"❌ No YouTube credentials found for user: {user_email} ({user_id})")
+            return JSONResponse(
+                status_code=403,
+                content={
+                    "success": False, 
+                    "error": "YouTube not connected. Please connect your YouTube account first.",
+                    "action_required": "connect_youtube",
+                    "user_info": {
+                        "email": user_email,
+                        "user_id": user_id
+                    }
+                }
+            )
+        
+        logger.info(f"✅ YouTube credentials verified for user: {user_email}")
+        
         # Store automation config with ENABLED = TRUE
         success = await database_manager.store_automation_config(
-            user_id=user_id,
+            user_id=user_id,  # ✅ Use authenticated user_id
             config_type="product_automation",
             config_data={
                 "enabled": True,  # ✅ CRITICAL: Must be True
@@ -2791,21 +2815,26 @@ async def start_product_automation(request: Request):
                 content={"success": False, "error": "Failed to store config"}
             )
         
-        logger.info(f"✅ Product automation STARTED for user: {user_id}")
+        logger.info(f"✅ Product automation STARTED for user: {user_email} ({user_id})")
         logger.info(f"   Base URL: {base_url}")
         logger.info(f"   Search: {search_query}")
         logger.info(f"   Times: {upload_times}")
         
         return JSONResponse(content={
             "success": True,
-            "message": "Product automation started successfully",
+            "message": "Product automation started successfully! Videos will be uploaded to your connected YouTube channel.",
             "config": {
                 "base_url": base_url,
                 "search_query": search_query,
                 "upload_times": upload_times,
                 "max_posts_per_day": config.get('max_posts_per_day', 50)
             },
-            "next_run": upload_times[0] if upload_times else "Not set"
+            "next_run": upload_times[0] if upload_times else "Not set",
+            "user_info": {
+                "email": user_email,
+                "youtube_connected": True,
+                "channel_name": youtube_creds.get('channel_info', {}).get('title', 'Your Channel')
+            }
         })
         
     except Exception as e:
@@ -2817,18 +2846,18 @@ async def start_product_automation(request: Request):
             content={"success": False, "error": str(e)}
         )
 
-
 @app.post("/api/product-automation/stop")
-async def stop_product_automation(request: Request):
+async def stop_product_automation(request: Request, current_user: dict = Depends(get_current_user)):
     """Stop automated product scraping"""
     try:
-        body = await request.json()
-        user_id = body.get('user_id')
+        # ✅ Use authenticated user from JWT token
+        user_id = current_user.get("id") or current_user.get("user_id")
+        user_email = current_user.get("email", "Unknown")
         
         if not user_id:
             return JSONResponse(
-                status_code=400,
-                content={"success": False, "error": "user_id required"}
+                status_code=401,
+                content={"success": False, "error": "Authentication required"}
             )
         
         # Disable automation by setting enabled = False
@@ -2840,11 +2869,15 @@ async def stop_product_automation(request: Request):
                 content={"success": False, "error": "Failed to disable automation"}
             )
         
-        logger.info(f"⏹️ Product automation STOPPED for user: {user_id}")
+        logger.info(f"⏹️ Product automation STOPPED for user: {user_email} ({user_id})")
         
         return JSONResponse(content={
             "success": True,
-            "message": "Product automation stopped successfully"
+            "message": "Product automation stopped successfully",
+            "user_info": {
+                "email": user_email,
+                "user_id": user_id
+            }
         })
         
     except Exception as e:
@@ -2855,7 +2888,6 @@ async def stop_product_automation(request: Request):
             status_code=500,
             content={"success": False, "error": str(e)}
         )
-
 
 
 
@@ -3535,17 +3567,26 @@ except Exception as e:
 # ============================================================================
 
 @app.post("/api/automation/save-url")
-async def save_scrape_url_route(request: Request):
+async def save_scrape_url_route(request: Request, current_user: dict = Depends(get_current_user)):
     """Save URL and intelligently detect if it's a category or product page"""
     try:
         body = await request.json()
-        user_id = body.get('user_id')
+        
+        # ✅ Use authenticated user from JWT token
+        user_id = current_user.get("id") or current_user.get("user_id")
+        user_email = current_user.get("email", "Unknown")
         url = body.get('url')
         
-        if not user_id or not url:
+        if not user_id:
+            return JSONResponse(
+                status_code=401,
+                content={"success": False, "error": "Authentication required"}
+            )
+        
+        if not url:
             return JSONResponse(
                 status_code=400,
-                content={"success": False, "error": "user_id and url required"}
+                content={"success": False, "error": "URL required"}
             )
         
         if not url.startswith('http'):
@@ -3554,7 +3595,7 @@ async def save_scrape_url_route(request: Request):
                 content={"success": False, "error": "Invalid URL format. Must start with http:// or https://"}
             )
         
-        logger.info(f"🔍 Analyzing URL for user {user_id}: {url}")
+        logger.info(f"🔍 Analyzing URL for user {user_email} ({user_id}): {url}")
         
         # ✅ SMART URL DETECTION
         scraper = get_product_scraper()
@@ -3600,7 +3641,7 @@ async def save_scrape_url_route(request: Request):
                 processed=0
             )
             
-            logger.info(f"✅ Single product saved for user {user_id}")
+            logger.info(f"✅ Single product saved for user {user_email}")
             
             return JSONResponse(content={
                 "success": True,
@@ -3618,6 +3659,10 @@ async def save_scrape_url_route(request: Request):
                         "image": product_data.get('images', [None])[0],
                         "url": url
                     }
+                },
+                "user_info": {
+                    "email": user_email,
+                    "user_id": user_id
                 }
             })
         
@@ -3652,7 +3697,7 @@ async def save_scrape_url_route(request: Request):
                 processed=0
             )
             
-            logger.info(f"✅ Found {len(product_links)} products for user {user_id}")
+            logger.info(f"✅ Found {len(product_links)} products for user {user_email}")
             
             return JSONResponse(content={
                 "success": True,
@@ -3662,6 +3707,10 @@ async def save_scrape_url_route(request: Request):
                     "total_products": len(product_links),
                     "url": url,
                     "sample_products": product_links[:5]  # Show first 5 as preview
+                },
+                "user_info": {
+                    "email": user_email,
+                    "user_id": user_id
                 }
             })
         
@@ -4048,117 +4097,117 @@ async def get_automation_config_endpoint(user_id: str):
         )
 
 
-@app.post("/api/automation/save-url")
-async def save_scrape_url_route(request: Request):
-    """Save URL for scraping (category or product page)"""
-    try:
-        body = await request.json()
-        user_id = body.get('user_id')
-        url = body.get('url')
+# @app.post("/api/automation/save-url")
+# async def save_scrape_url_route(request: Request):
+#     """Save URL for scraping (category or product page)"""
+#     try:
+#         body = await request.json()
+#         user_id = body.get('user_id')
+#         url = body.get('url')
         
-        if not user_id or not url:
-            return JSONResponse(
-                status_code=400,
-                content={"success": False, "error": "user_id and url required"}
-            )
+#         if not user_id or not url:
+#             return JSONResponse(
+#                 status_code=400,
+#                 content={"success": False, "error": "user_id and url required"}
+#             )
         
-        if not url.startswith('http'):
-            return JSONResponse(
-                status_code=400,
-                content={"success": False, "error": "Invalid URL format"}
-            )
+#         if not url.startswith('http'):
+#             return JSONResponse(
+#                 status_code=400,
+#                 content={"success": False, "error": "Invalid URL format"}
+#             )
         
-        logger.info(f"🔍 Saving URL for user {user_id}: {url}")
+#         logger.info(f"🔍 Saving URL for user {user_id}: {url}")
         
-        # Save URL to database
-        success = await database_manager.save_scrape_url(user_id, url)
+#         # Save URL to database
+#         success = await database_manager.save_scrape_url(user_id, url)
         
-        if not success:
-            return JSONResponse(
-                status_code=500,
-                content={"success": False, "error": "Failed to save URL"}
-            )
+#         if not success:
+#             return JSONResponse(
+#                 status_code=500,
+#                 content={"success": False, "error": "Failed to save URL"}
+#             )
         
-        # Get product scraper
-        scraper = get_product_scraper()
+#         # Get product scraper
+#         scraper = get_product_scraper()
         
-        # Check if it's a product or category page
-        url_lower = url.lower()
-        is_product_page = (
-            '/p/' in url_lower or 
-            '/product/' in url_lower or 
-            '/dp/' in url_lower or
-            '/buy/' in url_lower or
-            '-p-' in url_lower
-        )
+#         # Check if it's a product or category page
+#         url_lower = url.lower()
+#         is_product_page = (
+#             '/p/' in url_lower or 
+#             '/product/' in url_lower or 
+#             '/dp/' in url_lower or
+#             '/buy/' in url_lower or
+#             '-p-' in url_lower
+#         )
         
-        if is_product_page:
-            # Single product page
-            product_data = await scraper.scrape_product(url)
+#         if is_product_page:
+#             # Single product page
+#             product_data = await scraper.scrape_product(url)
             
-            if not product_data.get('success'):
-                return JSONResponse(
-                    status_code=400,
-                    content={
-                        "success": False,
-                        "error": f"Failed to scrape product: {product_data.get('error')}"
-                    }
-                )
+#             if not product_data.get('success'):
+#                 return JSONResponse(
+#                     status_code=400,
+#                     content={
+#                         "success": False,
+#                         "error": f"Failed to scrape product: {product_data.get('error')}"
+#                     }
+#                 )
             
-            # Set as 1 product (will repeat)
-            await database_manager.update_scrape_progress(user_id, 1, 0)
+#             # Set as 1 product (will repeat)
+#             await database_manager.update_scrape_progress(user_id, 1, 0)
             
-            return JSONResponse(content={
-                "success": True,
-                "type": "single_product",
-                "message": "Product saved for automation!",
-                "data": {
-                    "total_products": 1,
-                    "url": url,
-                    "product_name": product_data.get('product_name'),
-                    "price": product_data.get('price'),
-                    "images": len(product_data.get('images', []))
-                }
-            })
+#             return JSONResponse(content={
+#                 "success": True,
+#                 "type": "single_product",
+#                 "message": "Product saved for automation!",
+#                 "data": {
+#                     "total_products": 1,
+#                     "url": url,
+#                     "product_name": product_data.get('product_name'),
+#                     "price": product_data.get('price'),
+#                     "images": len(product_data.get('images', []))
+#                 }
+#             })
         
-        else:
-            # Category page - scrape product links
-            product_links = await scraper.scrape_category_page(url, max_products=100)
+#         else:
+#             # Category page - scrape product links
+#             product_links = await scraper.scrape_category_page(url, max_products=100)
             
-            if not product_links:
-                return JSONResponse(
-                    status_code=404,
-                    content={
-                        "success": False,
-                        "error": "No products found at this URL"
-                    }
-                )
+#             if not product_links:
+#                 return JSONResponse(
+#                     status_code=404,
+#                     content={
+#                         "success": False,
+#                         "error": "No products found at this URL"
+#                     }
+#                 )
             
-            await database_manager.update_scrape_progress(
-                user_id, 
-                len(product_links), 
-                0
-            )
+#             await database_manager.update_scrape_progress(
+#                 user_id, 
+#                 len(product_links), 
+#                 0
+#             )
             
-            return JSONResponse(content={
-                "success": True,
-                "type": "category",
-                "message": f"Found {len(product_links)} products!",
-                "data": {
-                    "total_products": len(product_links),
-                    "url": url,
-                    "sample_products": product_links[:5]
-                }
-            })
+#             return JSONResponse(content={
+#                 "success": True,
+#                 "type": "category",
+#                 "message": f"Found {len(product_links)} products!",
+#                 "data": {
+#                     "total_products": len(product_links),
+#                     "url": url,
+#                     "sample_products": product_links[:5]
+#                 }
+#             })
         
-    except Exception as e:
-        logger.error(f"❌ Save URL failed: {e}")
-        import traceback
-        logger.error(traceback.format_exc())
-        return JSONResponse(
-            status_code=500,
-            content={"success": False, "error": str(e)}
-        )
+#     except Exception as e:
+#         logger.error(f"❌ Save URL failed: {e}")
+#         import traceback
+#         logger.error(traceback.format_exc())
+#         return JSONResponse(
+#             status_code=500,
+#             content={"success": False, "error": str(e)}
+#         )
 
 
 @app.delete("/api/automation/delete-url/{user_id}")
