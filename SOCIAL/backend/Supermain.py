@@ -3039,12 +3039,19 @@ async def execute_product_automation(user_id: str, config: dict):
         logger.info(f"   ✅ Search URL: {search_url}")
         await log_step("build_url", True, f"Search URL: {search_url}")
         
+
+
+        
         # STEP 2: Scrape search results
         logger.info(f"📍 STEP 2: Scraping search results page...")
         
         scraper = get_product_scraper()
         product_links = await scraper.scrape_category_page(search_url, max_products=50)
         
+
+
+
+
         if not product_links or len(product_links) == 0:
             error_msg = f"No products found for: {search_query}"
             logger.error(f"   ❌ {error_msg}")
@@ -4285,21 +4292,24 @@ async def test_scraper_route(request: Request):
 # ============================================================================
 # AI VIRAL TITLE & DESCRIPTION GENERATOR FOR YOUTUBE
 # ============================================================================
+# ============================================================================
+# AI VIRAL TITLE GENERATOR FOR YOUTUBE SHORTS (SHORT TITLES = MORE VIEWS)
+# ============================================================================
 @app.post("/api/youtube/generate-viral-titles")
 async def generate_viral_titles(request: Request):
-    """Generate 5 viral YouTube title options with scores + description + hashtags"""
+    """Generate 5 SHORT viral YouTube title options (2-5 words max) with scores"""
     try:
         data = await request.json()
         topic = data.get("topic", "")
         niche = data.get("niche", "shorts")
         
-        if not topic or len(topic.split()) < 3:
+        if not topic or len(topic.split()) < 2:
             return {
                 "success": False,
-                "error": "Please provide at least 3-5 words about your video"
+                "error": "Please provide at least 2-3 words about your video"
             }
         
-        logger.info(f"🎯 Generating viral titles for topic: {topic}")
+        logger.info(f"🎯 Generating SHORT viral titles for: {topic}")
         
         # Get AI service keys
         mistral_key = os.getenv("MISTRAL_API_KEY")
@@ -4311,63 +4321,73 @@ async def generate_viral_titles(request: Request):
                 "error": "AI API keys not configured"
             }
         
-        # Build comprehensive prompt
-        prompt = f"""Generate 5 viral YouTube {niche} titles for: "{topic}"
+        # Build prompt for SHORT titles
+        prompt = f"""Generate 5 SHORT viral YouTube Shorts titles for: "{topic}"
 
-Each title MUST:
-1. Create curiosity gap (don't reveal everything)
-2. Use emotional trigger words (shocking, hidden, secret, never, always)
-3. Include specific details (numbers, locations, names)
-4. Be 50-70 characters (optimal for YouTube)
-5. Use 1-2 emojis strategically
-6. Target Indian audience preferences
+CRITICAL RULES:
+1. MAXIMUM 5 WORDS per title (2-5 words only!)
+2. MINIMUM 2 WORDS per title
+3. Use 1 emoji max (at end)
+4. Create curiosity gap
+5. Use power words: Wait, POV, Rare, Never, Secret, Watch
+
+SHORT TITLE EXAMPLES (these get 1000+ views):
+- "Rare vulture 🦅"
+- "Wait for it 😱"
+- "This went wrong 💀"
+- "POV: You discover 🤯"
+- "Never do this ⚠️"
+
+BAD (too long):
+- "Everyone Does Chill Life, WRONG... Try THIS Instead" ❌
+- "POV: You Never Leave Eat Sleep Office 🏢 #Corporate" ❌
 
 Output format (PURE JSON, no markdown):
 {{
   "titles": [
     {{
-      "title": "Wait for it... 😱 Hidden Manali Waterfall",
+      "title": "Rare {topic.split()[0]} 🦅",
+      "word_count": 2,
+      "score": 9.5,
+      "reason": "Short + curiosity + emoji"
+    }},
+    {{
+      "title": "Wait for it 😱",
+      "word_count": 3,
       "score": 9.2,
-      "reason": "Suspense hook + location specific + emoji"
+      "reason": "Universal hook + suspense"
     }},
     {{
-      "title": "POV: You Discover {topic.title()} 🤯",
-      "score": 8.7,
-      "reason": "Trending POV format + discovery"
-    }},
-    {{
-      "title": "No One Tells You About {topic.title()} 🔥",
+      "title": "This is insane 🤯",
+      "word_count": 3,
       "score": 9.0,
-      "reason": "Exclusivity + FOMO trigger"
+      "reason": "Emotion + shock value"
     }},
     {{
-      "title": "{topic.title()} - This Changed Everything! ✨",
-      "score": 8.3,
-      "reason": "Transformation promise"
-    }},
-    {{
-      "title": "The Secret Behind {topic.title()} 🎯",
+      "title": "POV: {topic.split()[0]} life 🎯",
+      "word_count": 3,
       "score": 8.8,
-      "reason": "Mystery + insider knowledge"
+      "reason": "Trending format + relatable"
+    }},
+    {{
+      "title": "Never ignore this ⚠️",
+      "word_count": 3,
+      "score": 8.5,
+      "reason": "Warning + urgency"
     }}
   ],
-  "description": "Detailed YouTube description with call-to-action, context, and viewer engagement prompts. Include emojis and line breaks for readability.",
-  "tags": ["viral", "trending", "shorts", "{topic.split()[0]}", "youtube"]
+  "analysis": {{
+    "best_length": "2-5 words",
+    "reason": "Short titles get 10x more views on Shorts - proven by your 'Rare vulture' getting 1,858 views"
+  }},
+  "description": "Engaging description with emojis and CTAs",
+  "tags": ["viral", "shorts", "{topic.split()[0].lower()}"]
 }}
 
-Trending formats to use:
-- "Wait for it..."
-- "POV: You discover..."
-- "No one tells you..."
-- "This changed everything..."
-- "The secret behind..."
-- "Everyone does X, but..."
-- "I tried X for Y days..."
-- "What happens when..."
-
 Topic: {topic}
+Target: Indian audience on YouTube Shorts
 
-Generate NOW in PURE JSON (no ```json wrapper):"""
+REMEMBER: MAX 5 WORDS PER TITLE! Generate NOW in PURE JSON:"""
         
         # Try Mistral first
         ai_response = None
@@ -4387,12 +4407,12 @@ Generate NOW in PURE JSON (no ```json wrapper):"""
                             "messages": [
                                 {
                                     "role": "system", 
-                                    "content": "You are a viral YouTube content expert specializing in Indian market. Output ONLY valid JSON without markdown formatting."
+                                    "content": "You are a viral YouTube Shorts expert. Generate ONLY SHORT titles (2-5 words max). Output ONLY valid JSON without markdown."
                                 },
                                 {"role": "user", "content": prompt}
                             ],
-                            "temperature": 0.85,
-                            "max_tokens": 1200
+                            "temperature": 0.9,
+                            "max_tokens": 1500
                         }
                     )
                     
@@ -4411,7 +4431,7 @@ Generate NOW in PURE JSON (no ```json wrapper):"""
         # Fallback to Groq
         if not ai_response and groq_key:
             try:
-                await asyncio.sleep(1)  # Brief delay between API calls
+                await asyncio.sleep(1)
                 
                 async with httpx.AsyncClient(timeout=30) as client:
                     response = await client.post(
@@ -4425,12 +4445,12 @@ Generate NOW in PURE JSON (no ```json wrapper):"""
                             "messages": [
                                 {
                                     "role": "system", 
-                                    "content": "You are a viral YouTube expert for Indian audience. Output ONLY valid JSON without markdown."
+                                    "content": "You are a viral YouTube Shorts expert. Generate ONLY SHORT titles (2-5 words max). Output ONLY valid JSON."
                                 },
                                 {"role": "user", "content": prompt}
                             ],
-                            "temperature": 0.85,
-                            "max_tokens": 1200
+                            "temperature": 0.9,
+                            "max_tokens": 1500
                         }
                     )
                     
@@ -4453,74 +4473,93 @@ Generate NOW in PURE JSON (no ```json wrapper):"""
         import re
         
         if ai_response:
-            # Clean response (remove markdown if present)
+            # Clean response
             ai_response_clean = re.sub(r'```json\n?|\n?```', '', ai_response).strip()
             
             try:
                 parsed = json.loads(ai_response_clean)
-                
                 titles = parsed.get("titles", [])
-                description = parsed.get("description", "")
-                tags = parsed.get("tags", [])
                 
-                # Validate titles
-                if not titles or len(titles) < 5:
-                    raise ValueError("Less than 5 titles generated")
+                # FILTER: Remove titles longer than 5 words
+                filtered_titles = []
+                for t in titles:
+                    title_text = t.get("title", "")
+                    # Count words (exclude emojis)
+                    word_count = len(re.sub(r'[^\w\s]', '', title_text).split())
+                    
+                    if 2 <= word_count <= 5:
+                        t["word_count"] = word_count
+                        filtered_titles.append(t)
                 
-                logger.info(f"✅ Generated {len(titles)} viral titles using {service_used}")
-                
-                return {
-                    "success": True,
-                    "titles": titles,
-                    "description": description,
-                    "tags": tags,
-                    "service": service_used,
-                    "message": f"5 viral titles generated by {service_used}!"
-                }
+                # If we have enough filtered titles
+                if len(filtered_titles) >= 3:
+                    logger.info(f"✅ Generated {len(filtered_titles)} SHORT titles using {service_used}")
+                    
+                    return {
+                        "success": True,
+                        "titles": filtered_titles[:5],  # Max 5
+                        "analysis": parsed.get("analysis", {
+                            "best_length": "2-5 words",
+                            "reason": "Short titles proven to get 10x more views"
+                        }),
+                        "description": parsed.get("description", ""),
+                        "tags": parsed.get("tags", []),
+                        "service": service_used,
+                        "message": f"{len(filtered_titles[:5])} SHORT viral titles generated!"
+                    }
                 
             except (json.JSONDecodeError, ValueError) as e:
                 logger.error(f"JSON parse error: {e}")
-                logger.error(f"Raw response: {ai_response_clean[:200]}")
         
-        # Fallback titles if AI fails
-        logger.info("📝 Using fallback title templates")
+        # FALLBACK: Short template-based titles
+        logger.info("📝 Using SHORT fallback templates")
         
-        topic_title = topic.title()
-        topic_short = topic.split()[0].title()
+        topic_words = topic.split()
+        first_word = topic_words[0].title()
         
         return {
             "success": True,
             "titles": [
                 {
-                    "title": f"Wait for it... 😱 {topic_title}",
-                    "score": 8.5,
-                    "reason": "Suspense hook + emoji appeal"
+                    "title": f"Rare {first_word} 🦅",
+                    "word_count": 2,
+                    "score": 9.5,
+                    "reason": "Proven winner - mirrors your 1.8k view video"
                 },
                 {
-                    "title": f"POV: You Discover {topic_title} 🤯",
-                    "score": 8.7,
-                    "reason": "Trending POV format + discovery"
+                    "title": "Wait for it 😱",
+                    "word_count": 3,
+                    "score": 9.3,
+                    "reason": "Universal suspense hook"
                 },
                 {
-                    "title": f"No One Tells You About {topic_title} 🔥",
+                    "title": f"POV: {first_word} life 🎯",
+                    "word_count": 3,
                     "score": 9.0,
-                    "reason": "Exclusivity trigger + FOMO"
+                    "reason": "Trending POV format"
                 },
                 {
-                    "title": f"{topic_title} - This Changed Everything! ✨",
-                    "score": 8.3,
-                    "reason": "Transformation promise"
-                },
-                {
-                    "title": f"The Secret Behind {topic_title} 🎯",
+                    "title": "This is insane 🤯",
+                    "word_count": 3,
                     "score": 8.8,
-                    "reason": "Mystery + insider knowledge"
+                    "reason": "Shock value + emotion"
+                },
+                {
+                    "title": f"Never ignore {first_word} ⚠️",
+                    "word_count": 3,
+                    "score": 8.5,
+                    "reason": "Warning + urgency"
                 }
             ],
-            "description": f"Check out this amazing video about {topic}!\n\n🔥 Don't miss this!\n👇 LIKE if you enjoyed\n🔔 SUBSCRIBE for more\n💬 Comment your thoughts\n\n#{topic.replace(' ', '')} #viral #trending #shorts #youtube",
-            "tags": ["viral", "trending", "shorts", topic_short.lower(), "youtube", "india"],
+            "analysis": {
+                "best_length": "2-5 words",
+                "reason": "Your 'Rare vulture #Shorts' (3 words) got 1,858 views while longer titles got <150 views. SHORT = VIRAL for Shorts.",
+                "proof": "Rare vulture = 1,858 views vs long titles = 42-137 views"
+            },
+            "description": f"🔥 Check this out!\n\n👇 LIKE if you enjoyed\n🔔 SUBSCRIBE for more\n💬 Comment below\n\n#{topic.replace(' ', '')} #viral #shorts #trending",
+            "tags": ["viral", "shorts", "trending", first_word.lower(), "youtube"],
             "service": "fallback",
-            "message": "5 viral titles generated (fallback mode)"
+            "message": "5 SHORT viral titles generated (proven strategy)"
         }
         
     except Exception as e:
