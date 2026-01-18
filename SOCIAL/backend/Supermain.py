@@ -3967,45 +3967,6 @@ async def scrape_single_product_route(request: Request):
 
 
 # ============================================================================
-@app.get("/api/automation/logs/{user_id}")
-async def get_automation_logs(user_id: str, limit: int = 20):
-    """Get automation activity logs"""
-    try:
-        if not database_manager or not database_manager.connected:
-            return JSONResponse(
-                status_code=500,
-                content={"success": False, "error": "Database not connected"}
-            )
-        
-        logs = []
-        cursor = database_manager.db.automation_logs.find(
-            {"user_id": user_id}
-        ).sort("timestamp", -1).limit(limit)
-        
-        async for log in cursor:
-            logs.append({
-                "timestamp": log.get("timestamp").isoformat() if log.get("timestamp") else "",
-                "product_url": log.get("product_url", ""),
-                "video_id": log.get("video_id", ""),
-                "success": log.get("success", False),
-                "error": log.get("error", ""),
-                "step": log.get("step", ""),  # NEW: Track which step failed
-                "details": log.get("details", "")  # NEW: Additional details
-            })
-        
-        return JSONResponse(content={
-            "success": True,
-            "logs": logs
-        })
-        
-    except Exception as e:
-        logger.error(f"Get logs failed: {e}")
-        return JSONResponse(
-            status_code=500,
-            content={"success": False, "error": str(e)}
-        )
-        )
-# ============================================================================
 # PRODUCT AUTOMATION ENDPOINTS - PASTE BEFORE get_automation_status
 # ============================================================================
 @app.get("/api/automation/config/{user_id}")
@@ -4217,43 +4178,6 @@ async def get_automation_logs(user_id: str, limit: int = 20):
             content={"success": False, "error": str(e)}
         )
 
-@app.get("/api/automation/logs/{user_id}")
-async def get_automation_logs(user_id: str, limit: int = 20):
-    """Get automation activity logs"""
-    try:
-        if not database_manager or not database_manager.connected:
-            return JSONResponse(
-                status_code=500,
-                content={"success": False, "error": "Database not connected"}
-            )
-        
-        logs = []
-        cursor = database_manager.db.automation_logs.find(
-            {"user_id": user_id}
-        ).sort("timestamp", -1).limit(limit)
-        
-        async for log in cursor:
-            logs.append({
-                "timestamp": log.get("timestamp").isoformat() if log.get("timestamp") else "",
-                "step": log.get("step", ""),
-                "success": log.get("success", False),
-                "details": log.get("details", ""),
-                "error": log.get("error", ""),
-                "product_url": log.get("product_url", ""),
-                "video_id": log.get("video_id", "")
-            })
-        
-        return JSONResponse(content={
-            "success": True,
-            "logs": logs
-        })
-        
-    except Exception as e:
-        logger.error(f"Get logs failed: {e}")
-        return JSONResponse(
-            status_code=500,
-            content={"success": False, "error": str(e)}
-        )
 
 
 @app.get("/api/automation/status/{user_id}")
