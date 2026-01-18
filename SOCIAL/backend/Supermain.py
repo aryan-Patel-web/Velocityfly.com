@@ -3166,10 +3166,13 @@ async def execute_product_automation(user_id: str, config: dict):
         
         # STEP 6: Generate video
         logger.info(f"📍 STEP 6: Generating video slideshow...")
+
+        from slideshow_generator import get_slideshow_generator
         
-        video_gen = get_video_generator()
+        # video_gen = get_video_generator()
+        slideshow_gen = get_slideshow_generator()
         
-        video_result = await video_gen.generate_slideshow(
+        video_result = await slideshow_gen.generate_slideshow(
             images=base64_images,
             title=product_name,
             language='english',
