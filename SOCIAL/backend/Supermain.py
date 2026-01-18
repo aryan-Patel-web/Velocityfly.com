@@ -45,6 +45,7 @@ from YTscrapADS import get_product_scraper
 from YTvideoGenerator import get_video_generator
 # That's it! The automation task starts automatically from mainY.py
 from YTdatabase import database_manager
+
 # ============================================================================
 # ✅ CRITICAL: SET PLAYWRIGHT PATH BEFORE ANY IMPORTS
 # ============================================================================
@@ -3171,13 +3172,13 @@ async def execute_product_automation(user_id: str, config: dict):
         video_result = await video_gen.generate_slideshow(
             images=base64_images,
             title=product_name,
-            # language='english',
+            language='english',
             duration_per_image=2.0,
             transition='fade',
             add_text=True,
             aspect_ratio="9:16",
             product_data=product_data,
-            # add_music=True,
+            add_music=True,
             music_style='upbeat'
         )
         
