@@ -3563,9 +3563,9 @@ async def execute_product_automation(user_id: str, config: dict):
         # STEP 4: Download images and convert to base64
         logger.info(f"📍 STEP 4: Downloading product images...")
         
-        images = product_data.get("images", [])[:6]
+        images = product_data.get("images", [])[:3]
         
-        if len(images) < 3:
+        if len(images) < 1:
             error_msg = "No images found"
             logger.error(f"   ❌ {error_msg}")
             await log_step("download_images", False, error=error_msg)
@@ -4218,7 +4218,7 @@ async def generate_video_now(request: Request):
         # Get images
         images = product_data.get('images', [])[:3]  # Take 3 images
         
-        if len(images) < 3:
+        if len(images) < 1:
             return JSONResponse(
                 status_code=400,
                 content={"success": False, "error": "No images found for this product"}
