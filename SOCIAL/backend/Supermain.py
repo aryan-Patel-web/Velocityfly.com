@@ -3637,7 +3637,8 @@ async def execute_product_automation(user_id: str, config: dict):
         short_url = await shorten_url_async(product_url)
         
         # Generate professional description
-        from Supermain import generate_professional_youtube_description
+        # from Supermain import generate_professional_youtube_description
+        from mainY import generate_professional_youtube_description
         description = generate_professional_youtube_description(product_data, short_url)
         
         logger.info(f"   Title: {title}")
