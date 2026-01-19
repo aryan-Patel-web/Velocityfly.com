@@ -49,8 +49,6 @@ const [thumbnails, setThumbnails] = useState([]);
 // const [generatingThumbnails, setGeneratingThumbnails] = useState(false);
 
 
-
-
 // NEW: Scheduling states
 const [scheduleMode, setScheduleMode] = useState(false);
 const [scheduledPosts, setScheduledPosts] = useState([]);
