@@ -7078,7 +7078,7 @@ onClick={async () => {
         <input
           type="number"
           min="1"
-          max="50"
+          max="100"
           value={automationConfig.max_posts_per_day}
           onChange={(e) => setAutomationConfig(prev => ({
             ...prev,
