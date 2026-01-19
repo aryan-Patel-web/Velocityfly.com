@@ -940,6 +940,7 @@ async def initialize_all_services():
         
         logger.info("Initializing unified database...")
         database_manager = UnifiedDatabaseManager(mongodb_uri)
+        database_manager = get_yt_db_manager()
         connected = await database_manager.connect()
         
         if not connected:
@@ -3405,7 +3406,6 @@ async def execute_product_automation(user_id: str, config: dict):
         from YTscrapADS import get_product_scraper
         scraper = get_product_scraper()
         
-        # ✅ CRITICAL FIX: Pass search_query to scraper
         product_links = await scraper.scrape_category_page(
             base_url,
             max_products=50,
@@ -3539,87 +3539,15 @@ async def execute_product_automation(user_id: str, config: dict):
         logger.info(f"   ✅ Video generated: {video_path}")
         await log_step("generate_video", True, f"Video: {video_path}")
         
-        # STEP 6: Get YouTube credentials (FIXED VERSION)
+        # STEP 6: Get YouTube credentials
         logger.info(f"📍 STEP 6: Getting YouTube credentials...")
         
-        # ✅ FIX 1: Try multiple ways to get credentials
-        credentials = None
+        credentials = await database_manager.get_youtube_credentials(user_id)
         
-        # Method 1: Direct database lookup
-        try:
-            credentials = await database_manager.get_youtube_credentials(user_id)
-            if credentials:
-                logger.info(f"   ✅ Method 1: Found credentials in database")
-            else:
-                logger.warning(f"   ⚠️ Method 1: No credentials in database")
-        except Exception as db_error:
-            logger.error(f"   ❌ Method 1 failed: {db_error}")
-        
-        # Method 2: Check if user exists and get their email
         if not credentials:
-            try:
-                user = await database_manager.get_user_by_id(user_id)
-                if user:
-                    user_email = user.get("email")
-                    logger.info(f"   📧 User email: {user_email}")
-                    
-                    # Try to find credentials by user_id in YouTube collection
-                    creds_doc = await database_manager.youtube_credentials.find_one({"user_id": user_id})
-                    if creds_doc:
-                        credentials = creds_doc.get("credentials")
-                        logger.info(f"   ✅ Method 2: Found credentials via direct query")
-                    else:
-                        logger.warning(f"   ⚠️ Method 2: No credentials document found")
-            except Exception as user_error:
-                logger.error(f"   ❌ Method 2 failed: {user_error}")
-        
-        # ✅ FIX 2: If still no credentials, check all credentials and match by user
-        if not credentials:
-            try:
-                logger.info(f"   🔍 Method 3: Searching all YouTube credentials...")
-                
-                cursor = database_manager.youtube_credentials.find({})
-                all_creds = await cursor.to_list(length=100)
-                
-                logger.info(f"   Found {len(all_creds)} total YouTube credentials in database")
-                
-                for cred_doc in all_creds:
-                    doc_user_id = cred_doc.get("user_id")
-                    if doc_user_id == user_id:
-                        credentials = cred_doc.get("credentials")
-                        logger.info(f"   ✅ Method 3: Found matching credentials!")
-                        break
-                
-                if not credentials:
-                    logger.warning(f"   ⚠️ Method 3: No matching credentials found")
-            except Exception as search_error:
-                logger.error(f"   ❌ Method 3 failed: {search_error}")
-        
-        # If we STILL don't have credentials, fail gracefully
-        if not credentials:
-            error_msg = f"No YouTube credentials found after 3 attempts. User needs to connect YouTube account."
+            error_msg = "No YouTube credentials found"
             logger.error(f"   ❌ {error_msg}")
-            
-            # Log partial success
-            await database_manager.log_automation_post(user_id, {
-                "product_url": product_data.get("product_url", product_url),
-                "video_id": None,
-                "video_path": video_path,
-                "timestamp": datetime.now(),
-                "success": False,
-                "error": error_msg,
-                "step_completed": "video_generated"
-            })
-            
             await log_step("upload_youtube", False, error=error_msg)
-            
-            logger.warning("=" * 70)
-            logger.warning("⚠️ AUTOMATION PARTIAL SUCCESS - VIDEO GENERATED")
-            logger.warning(f"   Video saved at: {video_path}")
-            logger.warning("   User needs to:")
-            logger.warning("   1. Connect YouTube account via dashboard")
-            logger.warning("   2. Re-run automation OR manually upload the video")
-            logger.warning("=" * 70)
             return
         
         logger.info(f"   ✅ YouTube credentials found")
@@ -3627,33 +3555,29 @@ async def execute_product_automation(user_id: str, config: dict):
         # STEP 7: Upload to YouTube
         logger.info(f"📍 STEP 7: Uploading to YouTube...")
         
-        from mainY import youtube_scheduler
+        # ✅ FIX: Import the function from mainY.py
+        from mainY import generate_professional_youtube_description, shorten_url_async
         
-        # Generate professional title and description
+        # Generate title
         title = f"{brand} - {product_name[:30]}"
         
-        # Shorten URL for description
-        from Supermain import shorten_url_async
+        # Shorten URL
         short_url = await shorten_url_async(product_url)
         
-        # Generate professional description
-        # from Supermain import generate_professional_youtube_description
-        from mainY import generate_professional_youtube_description
+        # Generate description
         description = generate_professional_youtube_description(product_data, short_url)
         
         logger.info(f"   Title: {title}")
         logger.info(f"   Uploading to YouTube...")
         
-        # ✅ Upload using the SAME method as manual upload
-        upload_result = await youtube_scheduler.upload_video(
+        # ✅ CORRECTED: Use the correct method name from mainY.py
+        upload_result = await youtube_scheduler.generate_and_upload_content(
             user_id=user_id,
             credentials_data=credentials,
-            video_file_path=video_path,
+            content_type="shorts",
             title=title,
             description=description,
-            category_id="22",
-            privacy_status="public",
-            tags=["shorts", "product", brand.lower(), "shopping"]
+            video_url=video_path  # ✅ Changed from video_file_path
         )
         
         if upload_result.get("success"):
@@ -3691,7 +3615,6 @@ async def execute_product_automation(user_id: str, config: dict):
         import traceback
         logger.error(traceback.format_exc())
         await log_step("fatal_error", False, error=str(e))
-
 
 # ============================================================================
 # ALSO ADD THIS HELPER FUNCTION IF NOT PRESENT
@@ -4334,14 +4257,13 @@ async def upload_video_now(request: Request):
         # Get YouTube services
         from mainY import youtube_scheduler
         
-        upload_result = await youtube_scheduler.upload_video(
+        upload_result = await youtube_scheduler.generate_and_upload_content(
             user_id=user_id,
             credentials_data=youtube_creds,
-            video_file_path=video_path,
+            content_type="shorts",
             title=f"{brand} - {product_name}",
             description=f"Check out this amazing product!\n\n{brand} - {product_name}\nPrice: ₹{price}\n\n#shorts #product #shopping",
-            category_id="22",  # People & Blogs
-            privacy_status="public",
+            video_url=video_path,
             tags=["shorts", "product", brand.lower(), "shopping"]
         )
         
