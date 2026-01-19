@@ -924,6 +924,69 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
 # ============================================================================
 # SERVICE INITIALIZATION
 # ============================================================================
+# async def initialize_all_services():
+#     """Initialize YouTube and Reddit services"""
+#     global database_manager, youtube_services, reddit_services
+    
+#     logger.info("="*60)
+#     logger.info("🚀 STARTING UNIFIED AUTOMATION PLATFORM")
+#     logger.info("="*60)
+    
+#     # Initialize database
+#     try:
+#         mongodb_uri = os.getenv("MONGODB_URI")
+#         if not mongodb_uri:
+#             raise Exception("MONGODB_URI not found in environment")
+        
+#         logger.info("Initializing unified database...")
+#         database_manager = UnifiedDatabaseManager(mongodb_uri)
+#         # database_manager = get_yt_db_manager()
+#         connected = await database_manager.connect()
+        
+#         if not connected:
+#             raise Exception("Database connection failed")
+        
+#         logger.info("✅ Unified database initialized and connected")
+        
+#         # Load existing Reddit tokens
+#         try:
+#             logger.info("Loading existing Reddit user tokens from database...")
+            
+#             reddit_tokens_cursor = database_manager.reddit_tokens.find({"is_active": True})
+            
+#             token_count = 0
+#             loaded_users = []
+            
+#             async for token_doc in reddit_tokens_cursor:
+#                 user_id = token_doc["user_id"]
+#                 reddit_username = token_doc.get("reddit_username", "Unknown")
+                
+#                 loaded_users.append({
+#                     "user_id": user_id,
+#                     "reddit_username": reddit_username
+#                 })
+                
+#                 token_count += 1
+#                 logger.info(f"Found Reddit token for user {user_id}: u/{reddit_username}")
+            
+#             logger.info(f"✅ Found {token_count} existing Reddit tokens in database")
+            
+#             if token_count > 0:
+#                 logger.info(f"Users with Reddit: {[u['reddit_username'] for u in loaded_users]}")
+            
+#         except Exception as e:
+#             logger.error(f"⚠️ Failed to load existing Reddit tokens: {e}")
+        
+#     except Exception as e:
+#         logger.error(f"❌ Database initialization failed: {e}")
+#         logger.error(traceback.format_exc())
+#         return False
+    
+
+# ============================================================================
+# CRITICAL FIX: Around line 830-840 in your initialize_all_services() function
+# ============================================================================
+
 async def initialize_all_services():
     """Initialize YouTube and Reddit services"""
     global database_manager, youtube_services, reddit_services
@@ -940,7 +1003,13 @@ async def initialize_all_services():
         
         logger.info("Initializing unified database...")
         database_manager = UnifiedDatabaseManager(mongodb_uri)
-        database_manager = get_yt_db_manager()
+        
+        # ❌ REMOVE THIS LINE - IT OVERWRITES database_manager
+        # database_manager = get_yt_db_manager()  # ← DELETE THIS
+        
+        # ✅ INSTEAD: Store YouTube DB manager separately
+        yt_db_manager = get_yt_db_manager()
+        
         connected = await database_manager.connect()
         
         if not connected:
@@ -951,6 +1020,12 @@ async def initialize_all_services():
         # Load existing Reddit tokens
         try:
             logger.info("Loading existing Reddit user tokens from database...")
+            
+            # ✅ FIX: Check if attribute exists first
+            if not hasattr(database_manager, 'reddit_tokens'):
+                logger.error("❌ database_manager missing reddit_tokens collection")
+                # Initialize it manually if needed
+                database_manager.reddit_tokens = database_manager.db.reddit_tokens
             
             reddit_tokens_cursor = database_manager.reddit_tokens.find({"is_active": True})
             
@@ -981,7 +1056,11 @@ async def initialize_all_services():
         logger.error(f"❌ Database initialization failed: {e}")
         logger.error(traceback.format_exc())
         return False
-    
+
+
+
+
+
     # Initialize YouTube services
     try:
         logger.info("Initializing YouTube services...")
@@ -1065,15 +1144,15 @@ async def initialize_all_services():
             logger.info("✅ Imported Reddit classes from main.py")
         except ImportError as ie:
             logger.warning(f"⚠️ Could not import Reddit classes: {ie}")
-            
+            # Provide fallback class definitions to ensure type safety
             class RedditOAuthConnector:
                 def __init__(self, config):
                     self.config = config
                     self.is_configured = True
-            
+
             class AIService:
                 pass
-            
+
             class RedditAutomationScheduler:
                 def __init__(self, *args, **kwargs):
                     self.is_running = False
