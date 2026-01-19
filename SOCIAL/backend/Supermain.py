@@ -868,10 +868,14 @@ class UnifiedDatabaseManager:
 # GLOBAL INSTANCES
 # ============================================================================
 # GLOBAL INSTANCES
-# ============================================================================
+# ✅ WITH THIS:
 database_manager = None
 youtube_services = {}
 reddit_services = {}
+youtube_scheduler = None  # ← ADD THIS LINE
+youtube_connector = None  # ← ADD THIS LINE
+# ============================================================================
+
 
 # ✅ CRITICAL FIX: Import YouTube database manager
 from YTdatabase import get_database_manager as get_yt_db_manager# ============================================================================
@@ -1003,12 +1007,7 @@ async def initialize_all_services():
         
         logger.info("Initializing unified database...")
         database_manager = UnifiedDatabaseManager(mongodb_uri)
-        
-        # ❌ REMOVE THIS LINE - IT OVERWRITES database_manager
-        # database_manager = get_yt_db_manager()  # ← DELETE THIS
-        
-        # ✅ INSTEAD: Store YouTube DB manager separately
-        yt_db_manager = get_yt_db_manager()
+
         
         connected = await database_manager.connect()
         
@@ -1071,11 +1070,16 @@ async def initialize_all_services():
         
         if success:
             from mainY import (
-                youtube_connector,
-                youtube_scheduler,
+                # youtube_connector,
+                youtube_connector as yt_connector,
+                # youtube_scheduler,
+                youtube_scheduler as yt_scheduler,
                 youtube_background_scheduler,
                 ai_service as youtube_ai
             )
+                        # ✅ Assign to global variables
+            youtube_connector = yt_connector
+            youtube_scheduler = yt_scheduler
             
             youtube_services = {
                 "connector": youtube_connector,
@@ -3437,9 +3441,14 @@ async def log_step(step: str, success: bool, details: str = "", error: str = "")
 # FIXED: execute_product_automation function in Supermain.py
 # PASTE THIS TO REPLACE THE EXISTING execute_product_automation FUNCTION
 # ============================================================================
-
 async def execute_product_automation(user_id: str, config: dict):
-    """Execute automation with detailed logging and proper YouTube credential handling"""
+    """
+    Execute automation with detailed logging and proper YouTube credential handling
+    COMPLETE FIXED VERSION - Ready to replace in Supermain.py
+    """
+    
+    # ✅ CRITICAL: Declare global variables at the very top
+    global youtube_scheduler
     
     # Helper function to log each step
     async def log_step(step: str, success: bool, details: str = "", error: str = ""):
@@ -3634,7 +3643,23 @@ async def execute_product_automation(user_id: str, config: dict):
         # STEP 7: Upload to YouTube
         logger.info(f"📍 STEP 7: Uploading to YouTube...")
         
-        # ✅ FIX: Import the function from mainY.py
+        # ✅ CRITICAL CHECK: Verify youtube_scheduler is available
+        if youtube_scheduler is None:
+            error_msg = "youtube_scheduler not initialized"
+            logger.error(f"   ❌ {error_msg}")
+            await log_step("upload_youtube", False, error=error_msg)
+            
+            # ✅ Try to recover by re-importing
+            try:
+                logger.info("   ⚠️ Attempting to re-import youtube_scheduler...")
+                from mainY import youtube_scheduler as yt_scheduler
+                youtube_scheduler = yt_scheduler
+                logger.info("   ✅ Successfully re-imported youtube_scheduler")
+            except Exception as import_err:
+                logger.error(f"   ❌ Re-import failed: {import_err}")
+                return
+        
+        # Import helper functions from mainY.py
         from mainY import generate_professional_youtube_description, shorten_url_async
         
         # Generate title
@@ -3643,20 +3668,21 @@ async def execute_product_automation(user_id: str, config: dict):
         # Shorten URL
         short_url = await shorten_url_async(product_url)
         
-        # Generate description
+        # Generate professional description with affiliate link
         description = generate_professional_youtube_description(product_data, short_url)
         
         logger.info(f"   Title: {title}")
+        logger.info(f"   Short URL: {short_url}")
         logger.info(f"   Uploading to YouTube...")
         
-        # ✅ CORRECTED: Use the correct method name from mainY.py
+        # ✅ UPLOAD TO YOUTUBE
         upload_result = await youtube_scheduler.generate_and_upload_content(
             user_id=user_id,
             credentials_data=credentials,
             content_type="shorts",
             title=title,
             description=description,
-            video_url=video_path  # ✅ Changed from video_file_path
+            video_url=video_path  # Local video file path
         )
         
         if upload_result.get("success"):
