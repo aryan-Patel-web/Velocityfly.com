@@ -81,7 +81,7 @@ const [selectedVideos, setSelectedVideos] = useState([]);
 // ✅ AUTOMATION STATE
 const [automationEnabled, setAutomationEnabled] = useState(false);
 const [automationConfig, setAutomationConfig] = useState({
-  max_posts_per_day: 50,
+  max_posts_per_day: 100,
   upload_times: ['07:00', '13:00', '18:00'],
   base_url: 'https://www.flipkart.com',
   search_query: '',
@@ -1224,7 +1224,7 @@ useEffect(() => {
             base_url: data.config.base_url || 'https://www.flipkart.com',
             search_query: data.config.search_query || '',
             upload_times: Array.isArray(data.config.upload_times) ? data.config.upload_times : ['07:00', '13:00', '18:00'],
-            max_posts_per_day: data.config.max_posts_per_day || 50,
+            max_posts_per_day: data.config.max_posts_per_day || 100,
             auto_scrape: data.config.auto_scrape !== false,
             auto_generate_video: data.config.auto_generate_video !== false,
             auto_upload: data.config.auto_upload !== false
