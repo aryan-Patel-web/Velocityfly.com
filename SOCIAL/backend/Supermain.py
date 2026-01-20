@@ -928,65 +928,6 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
 # ============================================================================
 # SERVICE INITIALIZATION
 # ============================================================================
-# async def initialize_all_services():
-#     """Initialize YouTube and Reddit services"""
-#     global database_manager, youtube_services, reddit_services
-    
-#     logger.info("="*60)
-#     logger.info("🚀 STARTING UNIFIED AUTOMATION PLATFORM")
-#     logger.info("="*60)
-    
-#     # Initialize database
-#     try:
-#         mongodb_uri = os.getenv("MONGODB_URI")
-#         if not mongodb_uri:
-#             raise Exception("MONGODB_URI not found in environment")
-        
-#         logger.info("Initializing unified database...")
-#         database_manager = UnifiedDatabaseManager(mongodb_uri)
-#         # database_manager = get_yt_db_manager()
-#         connected = await database_manager.connect()
-        
-#         if not connected:
-#             raise Exception("Database connection failed")
-        
-#         logger.info("✅ Unified database initialized and connected")
-        
-#         # Load existing Reddit tokens
-#         try:
-#             logger.info("Loading existing Reddit user tokens from database...")
-            
-#             reddit_tokens_cursor = database_manager.reddit_tokens.find({"is_active": True})
-            
-#             token_count = 0
-#             loaded_users = []
-            
-#             async for token_doc in reddit_tokens_cursor:
-#                 user_id = token_doc["user_id"]
-#                 reddit_username = token_doc.get("reddit_username", "Unknown")
-                
-#                 loaded_users.append({
-#                     "user_id": user_id,
-#                     "reddit_username": reddit_username
-#                 })
-                
-#                 token_count += 1
-#                 logger.info(f"Found Reddit token for user {user_id}: u/{reddit_username}")
-            
-#             logger.info(f"✅ Found {token_count} existing Reddit tokens in database")
-            
-#             if token_count > 0:
-#                 logger.info(f"Users with Reddit: {[u['reddit_username'] for u in loaded_users]}")
-            
-#         except Exception as e:
-#             logger.error(f"⚠️ Failed to load existing Reddit tokens: {e}")
-        
-#     except Exception as e:
-#         logger.error(f"❌ Database initialization failed: {e}")
-#         logger.error(traceback.format_exc())
-#         return False
-    
-
 # ============================================================================
 # CRITICAL FIX: Around line 830-840 in your initialize_all_services() function
 # ============================================================================
@@ -1010,6 +951,10 @@ async def initialize_all_services():
 
         
         connected = await database_manager.connect()
+
+        if not hasattr(database_manager, 'youtube_credentials'):
+            database_manager.youtube_credentials = database_manager.db.youtube_credentials
+            logger.info("✅ YouTube credentials collection initialized")
         
         if not connected:
             raise Exception("Database connection failed")
@@ -3009,25 +2954,26 @@ async def start_product_automation(request: Request, current_user: dict = Depend
         
         logger.info(f"🔍 Starting automation for user {user_email} ({user_id})")
         
-        # ✅ CRITICAL FIX: Check YouTube credentials using YOUTUBE database manager
+        # ✅ CRITICAL FIX: Use the GLOBAL database_manager that's already connected
         try:
-            # Use the YouTube-specific database manager
-            from YTdatabase import get_database_manager as get_yt_db
-            yt_db = get_yt_db()
-            
-            # Check if database is connected
-            if not yt_db or not yt_db.youtube.db:
-                logger.error("YouTube database not connected")
+            # Check if global database_manager is connected
+            if not database_manager or not database_manager.connected:
+                logger.error("Global database manager not connected")
                 return JSONResponse(
                     status_code=500,
                     content={
                         "success": False,
-                        "error": "Database not connected. Please try again."
+                        "error": "Database not connected. Please try again in a moment."
                     }
                 )
             
-            # ✅ Get credentials directly from youtube_credentials collection
-            youtube_creds = await yt_db.youtube.youtube_credentials_collection.find_one({
+            # ✅ Get credentials from the ALREADY CONNECTED youtube database
+            # Access the youtube manager's collection directly
+            if not hasattr(database_manager, 'youtube_credentials'):
+                # Initialize if missing
+                database_manager.youtube_credentials = database_manager.db.youtube_credentials
+            
+            youtube_creds = await database_manager.youtube_credentials.find_one({
                 "user_id": user_id
             })
             
@@ -3036,7 +2982,7 @@ async def start_product_automation(request: Request, current_user: dict = Depend
                 
                 # Debug: Show what's in the database
                 try:
-                    all_creds_cursor = yt_db.youtube.youtube_credentials_collection.find({})
+                    all_creds_cursor = database_manager.youtube_credentials.find({})
                     all_users = []
                     async for cred in all_creds_cursor:
                         all_users.append({
@@ -3129,8 +3075,6 @@ async def start_product_automation(request: Request, current_user: dict = Depend
             status_code=500,
             content={"success": False, "error": str(e)}
         )
-
-
 
 
 
@@ -3614,7 +3558,6 @@ async def log_step(step: str, success: bool, details: str = "", error: str = "")
 
 
 
-
 async def execute_product_automation(user_id: str, config: dict):
     """
     ✅ FIXED: Execute automation with direct database access for credentials
@@ -3652,50 +3595,35 @@ async def execute_product_automation(user_id: str, config: dict):
             await log_step("validation", False, error=error_msg)
             return
         
-        # ✅ STEP 0: VERIFY YOUTUBE CREDENTIALS FIRST (DIRECT DATABASE ACCESS)
+        # ============================================================
+        # ✅ STEP 0: VERIFY YOUTUBE CREDENTIALS FIRST (USE GLOBAL DATABASE)
+        # ============================================================
         logger.info(f"📍 STEP 0: Verifying YouTube connection for user: {user_id}")
         
         try:
-            # ✅ CRITICAL FIX: Get credentials directly from YouTube database
-            from YTdatabase import get_database_manager as get_yt_db
-            yt_db = get_yt_db()
-            
-            # Check database connection
-            if not yt_db or not yt_db.youtube.db:
-                error_msg = "YouTube database not connected"
+            # ✅ CRITICAL FIX: Use the GLOBAL database_manager that's already connected
+            if not database_manager or not getattr(database_manager, "connected", False):
+                error_msg = "Database not connected"
                 logger.error(f"   ❌ {error_msg}")
                 await log_step("youtube_check", False, error=error_msg)
                 return
             
-            # Get credentials directly from collection
-            credentials_raw = await yt_db.youtube.youtube_credentials_collection.find_one({
+            # ✅ Ensure youtube_credentials collection exists
+            if not hasattr(database_manager, "youtube_credentials"):
+                database_manager.youtube_credentials = database_manager.db.youtube_credentials
+            
+            # ✅ Fetch credentials
+            credentials_raw = await database_manager.youtube_credentials.find_one({
                 "user_id": user_id
             })
             
             if not credentials_raw:
                 error_msg = f"❌ No YouTube credentials found for user_id: {user_id}"
                 logger.error(error_msg)
-                logger.error(f"   💡 User must connect YouTube account first!")
-                
-                # ✅ Debug: Show what's actually in the database
-                try:
-                    all_creds = []
-                    cursor = yt_db.youtube.youtube_credentials_collection.find({})
-                    async for cred in cursor:
-                        all_creds.append({
-                            "user_id": cred.get("user_id"),
-                            "channel": cred.get("channel_info", {}).get("title", "Unknown")
-                        })
-                    
-                    logger.error(f"   💡 Available credentials in DB: {all_creds}")
-                    
-                except Exception as debug_error:
-                    logger.error(f"   ⚠️ Debug query failed: {debug_error}")
-                
+                logger.error("   💡 User must connect YouTube account first!")
                 await log_step("youtube_check", False, error=error_msg)
                 return
             
-            # ✅ Convert to the format expected by upload functions
             credentials = {
                 "access_token": credentials_raw.get("access_token"),
                 "refresh_token": credentials_raw.get("refresh_token"),
@@ -3707,7 +3635,6 @@ async def execute_product_automation(user_id: str, config: dict):
                 "channel_info": credentials_raw.get("channel_info", {})
             }
             
-            # ✅ Verify credentials have required fields
             if not credentials.get("access_token"):
                 error_msg = "YouTube credentials missing access_token"
                 logger.error(f"   ❌ {error_msg}")
@@ -3715,10 +3642,10 @@ async def execute_product_automation(user_id: str, config: dict):
                 return
             
             channel_name = credentials.get("channel_info", {}).get("title", "Unknown")
-            logger.info(f"   ✅ YouTube credentials verified!")
+            logger.info("   ✅ YouTube credentials verified!")
             logger.info(f"   ✅ Channel: {channel_name}")
             await log_step("youtube_check", True, f"Channel: {channel_name}")
-            
+        
         except Exception as cred_error:
             error_msg = f"Failed to retrieve credentials: {cred_error}"
             logger.error(f"   ❌ {error_msg}")
@@ -3727,7 +3654,9 @@ async def execute_product_automation(user_id: str, config: dict):
             await log_step("youtube_check", False, error=error_msg)
             return
         
-        # ✅ STEP 1: Verify user exists
+        # ============================================================
+        # STEP 1: Verify user exists
+        # ============================================================
         try:
             user_data = await database_manager.get_user_by_id(user_id)
             if not user_data:
@@ -3745,7 +3674,9 @@ async def execute_product_automation(user_id: str, config: dict):
             await log_step("validation", False, error=error_msg)
             return
         
-        # Get config
+        # ============================================================
+        # STEP 2: Validate config
+        # ============================================================
         base_url = config.get("base_url", "https://www.flipkart.com")
         search_query = config.get("search_query", "")
         
@@ -3755,7 +3686,7 @@ async def execute_product_automation(user_id: str, config: dict):
             await log_step("validation", False, error=error_msg)
             return
         
-        logger.info(f"🔍 Search Config:")
+        logger.info("🔍 Search Config:")
         logger.info(f"   URL: {base_url}")
         logger.info(f"   Query: {search_query}")
         logger.info(f"   User: {user_email}")
@@ -3763,9 +3694,9 @@ async def execute_product_automation(user_id: str, config: dict):
         
         await log_step("start", True, f"Starting automation for: {search_query}")
         
-        # STEP 2: Scrape search results
-        logger.info(f"📍 STEP 2: Scraping search results page...")
-        
+        # ============================================================
+        # STEP 3: Scrape search results
+        # ============================================================
         from YTscrapADS import get_product_scraper
         scraper = get_product_scraper()
         
@@ -3775,18 +3706,17 @@ async def execute_product_automation(user_id: str, config: dict):
             search_query=search_query
         )
         
-        if not product_links or len(product_links) == 0:
+        if not product_links:
             error_msg = f"No products found for: {search_query}"
-            logger.error(f"   ❌ {error_msg}")
+            logger.error(f"❌ {error_msg}")
             await log_step("scrape_search", False, error=error_msg)
             return
         
-        logger.info(f"   ✅ Found {len(product_links)} products")
         await log_step("scrape_search", True, f"Found {len(product_links)} products")
         
-        # STEP 3: Get next product to process
-        logger.info(f"📍 STEP 3: Selecting next product...")
-        
+        # ============================================================
+        # STEP 4: Select product
+        # ============================================================
         url_doc = await database_manager.scrape_urls.find_one({"user_id": user_id})
         
         if not url_doc:
@@ -3800,8 +3730,7 @@ async def execute_product_automation(user_id: str, config: dict):
             })
             processed_count = 0
         else:
-            processed_count = url_doc.get('products_processed', 0)
-            
+            processed_count = url_doc.get("products_processed", 0)
             if processed_count >= len(product_links):
                 processed_count = 0
                 await database_manager.scrape_urls.update_one(
@@ -3810,181 +3739,99 @@ async def execute_product_automation(user_id: str, config: dict):
                 )
         
         next_product = product_links[processed_count]
-        product_url = next_product.get('url')
+        product_url = next_product.get("url")
         
-        logger.info(f"   ✅ Selected product {processed_count + 1}/{len(product_links)}")
-        logger.info(f"   URL: {product_url}")
-        await log_step("select_product", True, f"Product {processed_count + 1}/{len(product_links)}")
+        await log_step("select_product", True, f"Product {processed_count + 1}")
         
-        # STEP 4: Scrape product details
-        logger.info(f"📍 STEP 4: Scraping product details...")
-        
+        # ============================================================
+        # STEP 5: Scrape product
+        # ============================================================
         product_data = await scraper.scrape_product(product_url)
         
         if not product_data.get("success"):
-            error_msg = f"Scraping failed: {product_data.get('error', 'Unknown error')}"
-            logger.error(f"   ❌ {error_msg}")
+            error_msg = product_data.get("error", "Scrape failed")
             await log_step("scrape_product", False, error=error_msg)
             return
         
-        product_name = product_data.get('product_name', 'Product')
-        brand = product_data.get('brand', 'Brand')
-        price = product_data.get('price', 0)
+        product_name = product_data.get("product_name", "Product")
+        brand = product_data.get("brand", "Brand")
         
-        logger.info(f"   ✅ Product: {brand} - {product_name}")
-        logger.info(f"   Price: Rs.{price}")
-        await log_step("scrape_product", True, f"{brand} - {product_name} (Rs.{price})")
+        await log_step("scrape_product", True, product_name)
         
-        # STEP 5: Download images and convert to base64
-        logger.info(f"📍 STEP 5: Downloading product images...")
-        
+        # ============================================================
+        # STEP 6: Download images
+        # ============================================================
         images = product_data.get("images", [])[:6]
-        
         if len(images) < 3:
-            error_msg = "No images found"
-            logger.error(f"   ❌ {error_msg}")
-            await log_step("download_images", False, error=error_msg)
+            await log_step("download_images", False, error="Not enough images")
             return
         
-        logger.info(f"   Found {len(images)} images")
-        
-        # Convert to base64
         base64_images = []
         async with httpx.AsyncClient(timeout=30) as client:
-            for i, img_url in enumerate(images):
-                try:
-                    logger.info(f"   Downloading image {i+1}/{len(images)}...")
-                    response = await client.get(img_url)
-                    if response.status_code == 200:
-                        img_base64 = base64.b64encode(response.content).decode()
-                        base64_images.append(f"data:image/jpeg;base64,{img_base64}")
-                        logger.info(f"      ✅ Image {i+1} downloaded")
-                except Exception as e:
-                    logger.warning(f"      ⚠️ Image {i+1} failed: {e}")
-                    continue
+            for img in images:
+                r = await client.get(img)
+                if r.status_code == 200:
+                    base64_images.append(
+                        f"data:image/jpeg;base64,{base64.b64encode(r.content).decode()}"
+                    )
         
-        if not base64_images:
-            error_msg = "Failed to download images"
-            logger.error(f"   ❌ {error_msg}")
-            await log_step("download_images", False, error=error_msg)
-            return
+        await log_step("download_images", True, f"{len(base64_images)} images")
         
-        logger.info(f"   ✅ Downloaded {len(base64_images)} images")
-        await log_step("download_images", True, f"{len(base64_images)} images downloaded")
-        
-        # STEP 6: Generate video slideshow
-        logger.info(f"📍 STEP 6: Generating video slideshow...")
-
+        # ============================================================
+        # STEP 7: Generate video
+        # ============================================================
         from slideshow_generator import get_slideshow_generator
-        
         slideshow_gen = get_slideshow_generator()
         
         video_result = await slideshow_gen.generate_slideshow(
             images=base64_images,
             title=product_name,
-            language='english',
+            language="english",
             duration_per_image=2.0,
-            transition='fade',
+            transition="fade",
             add_text=True,
             aspect_ratio="9:16",
             product_data=product_data,
             add_music=True,
-            music_style='upbeat'
+            music_style="upbeat"
         )
         
         if not video_result.get("success"):
-            error_msg = f"Video generation failed: {video_result.get('error', 'Unknown')}"
-            logger.error(f"   ❌ {error_msg}")
-            await log_step("generate_video", False, error=error_msg)
+            await log_step("generate_video", False, error=video_result.get("error"))
             return
         
-        video_path = video_result.get('local_path')
-        logger.info(f"   ✅ Video generated: {video_path}")
-        await log_step("generate_video", True, f"Video: {video_path}")
+        video_path = video_result["local_path"]
+        await log_step("generate_video", True, video_path)
         
-        # STEP 7: Upload to YouTube
-        logger.info(f"📍 STEP 7: Uploading to YouTube...")
-        logger.info(f"   User: {user_email}")
-        logger.info(f"   Channel: {channel_name}")
-        
-        # ✅ CRITICAL CHECK: Verify youtube_scheduler is available
-        if youtube_scheduler is None:
-            error_msg = "youtube_scheduler not initialized"
-            logger.error(f"   ❌ {error_msg}")
-            await log_step("upload_youtube", False, error=error_msg)
-            
-            # ✅ Try to recover by re-importing
-            try:
-                logger.info("   ⚠️ Attempting to re-import youtube_scheduler...")
-                from mainY import youtube_scheduler as yt_scheduler
-                youtube_scheduler = yt_scheduler
-                logger.info("   ✅ Successfully re-imported youtube_scheduler")
-            except Exception as import_err:
-                logger.error(f"   ❌ Re-import failed: {import_err}")
-                return
-        
-        # Import helper functions from mainY.py
+        # ============================================================
+        # STEP 8: Upload to YouTube
+        # ============================================================
         from mainY import generate_professional_youtube_description, shorten_url_async
         
-        # Generate title
         title = f"{brand} - {product_name[:30]}"
-        
-        # Shorten URL
         short_url = await shorten_url_async(product_url)
-        
-        # Generate professional description with affiliate link
         description = generate_professional_youtube_description(product_data, short_url)
         
-        logger.info(f"   Title: {title}")
-        logger.info(f"   Short URL: {short_url}")
-        logger.info(f"   Uploading to YouTube for: {user_email} → {channel_name}")
-        
-        # ✅ UPLOAD TO YOUTUBE
         upload_result = await youtube_scheduler.generate_and_upload_content(
-            user_id=user_id,  # ✅ CRITICAL: Use the SAME user_id
+            user_id=user_id,
             credentials_data=credentials,
             content_type="shorts",
             title=title,
             description=description,
-            video_url=video_path  # Local video file path
+            video_url=video_path
         )
         
         if upload_result.get("success"):
-            video_id = upload_result.get("video_id")
-            logger.info(f"   ✅ Uploaded! Video ID: {video_id}")
-            logger.info(f"   URL: https://youtube.com/shorts/{video_id}")
-            logger.info(f"   Uploaded to channel: {channel_name}")
+            video_id = upload_result["video_id"]
+            await log_step("upload_youtube", True, video_id)
             
-            await log_step("upload_youtube", True, f"Video ID: {video_id}")
-            
-            # Final success log
-            await database_manager.log_automation_post(user_id, {
-                "product_url": product_url,
-                "video_id": video_id,
-                "timestamp": datetime.now(),
-                "success": True,
-                "user_email": user_email,
-                "channel_name": channel_name
-            })
-            
-            # Update processed count
             await database_manager.scrape_urls.update_one(
                 {"user_id": user_id},
                 {"$set": {"products_processed": processed_count + 1}}
             )
-            
-            logger.info("=" * 70)
-            logger.info("✅ AUTOMATION COMPLETED SUCCESSFULLY!")
-            logger.info(f"✅ User: {user_email}")
-            logger.info(f"✅ Channel: {channel_name}")
-            logger.info(f"✅ Video: https://youtube.com/shorts/{video_id}")
-            logger.info("=" * 70)
-            
         else:
-            error_msg = f"Upload failed: {upload_result.get('error', 'Unknown')}"
-            logger.error(f"   ❌ {error_msg}")
-            await log_step("upload_youtube", False, error=error_msg)
-        
+            await log_step("upload_youtube", False, error=upload_result.get("error"))
+    
     except Exception as e:
         logger.error(f"❌ AUTOMATION FAILED: {e}")
         import traceback
