@@ -951,10 +951,6 @@ async def initialize_all_services():
 
         
         connected = await database_manager.connect()
-
-        if not hasattr(database_manager, 'youtube_credentials'):
-            database_manager.youtube_credentials = database_manager.db.youtube_credentials
-            logger.info("✅ YouTube credentials collection initialized")
         
         if not connected:
             raise Exception("Database connection failed")
