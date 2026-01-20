@@ -2860,13 +2860,125 @@ async def debug_my_reddit_connection(current_user: dict = Depends(get_current_us
 # FIXED PRODUCT AUTOMATION ENDPOINTS - REPLACE YOUR EXISTING ONES
 # ============================================================================
 
+# @app.post("/api/product-automation/start")
+# async def start_product_automation(request: Request, current_user: dict = Depends(get_current_user)):
+#     """Start automated product scraping + video generation + upload"""
+#     try:
+#         body = await request.json()
+        
+#         # ✅ FIX: Use authenticated user's ID from JWT token
+#         user_id = current_user.get("id") or current_user.get("user_id")
+#         user_email = current_user.get("email", "Unknown")
+        
+#         if not user_id:
+#             return JSONResponse(
+#                 status_code=401,
+#                 content={"success": False, "error": "Authentication required"}
+#             )
+        
+#         config = body.get('config', {})
+        
+#         # Validate required fields
+#         base_url = config.get('base_url', '')
+#         search_query = config.get('search_query', '')
+#         upload_times = config.get('upload_times', [])
+        
+#         if not base_url or not search_query:
+#             return JSONResponse(
+#                 status_code=400,
+#                 content={"success": False, "error": "base_url and search_query required"}
+#             )
+        
+#         if len(upload_times) == 0:
+#             return JSONResponse(
+#                 status_code=400,
+#                 content={"success": False, "error": "At least one upload time required"}
+#             )
+        
+#         # ✅ CRITICAL: Verify YouTube is connected for THIS authenticated user
+#         youtube_creds = await database_manager.get_youtube_credentials(user_id)
+        
+#         if not youtube_creds:
+#             logger.error(f"❌ No YouTube credentials found for user: {user_email} ({user_id})")
+#             return JSONResponse(
+#                 status_code=403,
+#                 content={
+#                     "success": False, 
+#                     "error": "YouTube not connected. Please connect your YouTube account first.",
+#                     "action_required": "connect_youtube",
+#                     "user_info": {
+#                         "email": user_email,
+#                         "user_id": user_id
+#                     }
+#                 }
+#             )
+        
+#         logger.info(f"✅ YouTube credentials verified for user: {user_email}")
+        
+#         # Store automation config with ENABLED = TRUE
+#         success = await database_manager.store_automation_config(
+#             user_id=user_id,  # ✅ Use authenticated user_id
+#             config_type="product_automation",
+#             config_data={
+#                 "enabled": True,  # ✅ CRITICAL: Must be True
+#                 "base_url": base_url,
+#                 "search_query": search_query,
+#                 "max_posts_per_day": config.get('max_posts_per_day', 200),
+#                 "upload_times": upload_times,
+#                 "auto_scrape": config.get('auto_scrape', True),
+#                 "auto_generate_video": config.get('auto_generate_video', True),
+#                 "auto_upload": config.get('auto_upload', True),
+#                 "created_at": datetime.now().isoformat(),
+#                 "updated_at": datetime.now().isoformat()
+#             }
+#         )
+        
+#         if not success:
+#             return JSONResponse(
+#                 status_code=500,
+#                 content={"success": False, "error": "Failed to store config"}
+#             )
+        
+#         logger.info(f"✅ Product automation STARTED for user: {user_email} ({user_id})")
+#         logger.info(f"   Base URL: {base_url}")
+#         logger.info(f"   Search: {search_query}")
+#         logger.info(f"   Times: {upload_times}")
+        
+#         return JSONResponse(content={
+#             "success": True,
+#             "message": "Product automation started successfully! Videos will be uploaded to your connected YouTube channel.",
+#             "config": {
+#                 "base_url": base_url,
+#                 "search_query": search_query,
+#                 "upload_times": upload_times,
+#                 "max_posts_per_day": config.get('max_posts_per_day', 200)
+#             },
+#             "next_run": upload_times[0] if upload_times else "Not set",
+#             "user_info": {
+#                 "email": user_email,
+#                 "youtube_connected": True,
+#                 "channel_name": youtube_creds.get('channel_info', {}).get('title', 'Your Channel')
+#             }
+#         })
+        
+#     except Exception as e:
+#         logger.error(f"❌ Start automation failed: {e}")
+#         import traceback
+#         logger.error(traceback.format_exc())
+#         return JSONResponse(
+#             status_code=500,
+#             content={"success": False, "error": str(e)}
+#         )
+
+
+
 @app.post("/api/product-automation/start")
 async def start_product_automation(request: Request, current_user: dict = Depends(get_current_user)):
     """Start automated product scraping + video generation + upload"""
     try:
         body = await request.json()
         
-        # ✅ FIX: Use authenticated user's ID from JWT token
+        # ✅ Use authenticated user from JWT token
         user_id = current_user.get("id") or current_user.get("user_id")
         user_email = current_user.get("email", "Unknown")
         
@@ -2895,35 +3007,83 @@ async def start_product_automation(request: Request, current_user: dict = Depend
                 content={"success": False, "error": "At least one upload time required"}
             )
         
-        # ✅ CRITICAL: Verify YouTube is connected for THIS authenticated user
-        youtube_creds = await database_manager.get_youtube_credentials(user_id)
+        logger.info(f"🔍 Starting automation for user {user_email} ({user_id})")
         
-        if not youtube_creds:
-            logger.error(f"❌ No YouTube credentials found for user: {user_email} ({user_id})")
-            return JSONResponse(
-                status_code=403,
-                content={
-                    "success": False, 
-                    "error": "YouTube not connected. Please connect your YouTube account first.",
-                    "action_required": "connect_youtube",
-                    "user_info": {
-                        "email": user_email,
-                        "user_id": user_id
+        # ✅ CRITICAL FIX: Check YouTube credentials using YOUTUBE database manager
+        try:
+            # Use the YouTube-specific database manager
+            from YTdatabase import get_database_manager as get_yt_db
+            yt_db = get_yt_db()
+            
+            # Check if database is connected
+            if not yt_db or not yt_db.youtube.db:
+                logger.error("YouTube database not connected")
+                return JSONResponse(
+                    status_code=500,
+                    content={
+                        "success": False,
+                        "error": "Database not connected. Please try again."
                     }
+                )
+            
+            # ✅ Get credentials directly from youtube_credentials collection
+            youtube_creds = await yt_db.youtube.youtube_credentials_collection.find_one({
+                "user_id": user_id
+            })
+            
+            if not youtube_creds:
+                logger.error(f"❌ No YouTube credentials found for user: {user_email} ({user_id})")
+                
+                # Debug: Show what's in the database
+                try:
+                    all_creds_cursor = yt_db.youtube.youtube_credentials_collection.find({})
+                    all_users = []
+                    async for cred in all_creds_cursor:
+                        all_users.append({
+                            "user_id": cred.get("user_id"),
+                            "channel": cred.get("channel_info", {}).get("title", "Unknown")
+                        })
+                    logger.error(f"Available credentials: {all_users}")
+                except Exception as debug_err:
+                    logger.error(f"Debug query failed: {debug_err}")
+                
+                return JSONResponse(
+                    status_code=403,
+                    content={
+                        "success": False,
+                        "error": "YouTube not connected. Please connect your YouTube account first.",
+                        "action_required": "connect_youtube",
+                        "user_info": {
+                            "email": user_email,
+                            "user_id": user_id
+                        }
+                    }
+                )
+            
+            logger.info(f"✅ YouTube credentials verified for user: {user_email}")
+            logger.info(f"   Channel: {youtube_creds.get('channel_info', {}).get('title', 'Unknown')}")
+            
+        except Exception as cred_check_error:
+            logger.error(f"Credential check failed: {cred_check_error}")
+            import traceback
+            logger.error(traceback.format_exc())
+            return JSONResponse(
+                status_code=500,
+                content={
+                    "success": False,
+                    "error": f"Failed to verify YouTube connection: {str(cred_check_error)}"
                 }
             )
         
-        logger.info(f"✅ YouTube credentials verified for user: {user_email}")
-        
         # Store automation config with ENABLED = TRUE
         success = await database_manager.store_automation_config(
-            user_id=user_id,  # ✅ Use authenticated user_id
+            user_id=user_id,
             config_type="product_automation",
             config_data={
-                "enabled": True,  # ✅ CRITICAL: Must be True
+                "enabled": True,
                 "base_url": base_url,
                 "search_query": search_query,
-                "max_posts_per_day": config.get('max_posts_per_day', 200),
+                "max_posts_per_day": config.get('max_posts_per_day', 100),
                 "upload_times": upload_times,
                 "auto_scrape": config.get('auto_scrape', True),
                 "auto_generate_video": config.get('auto_generate_video', True),
@@ -2951,7 +3111,7 @@ async def start_product_automation(request: Request, current_user: dict = Depend
                 "base_url": base_url,
                 "search_query": search_query,
                 "upload_times": upload_times,
-                "max_posts_per_day": config.get('max_posts_per_day', 200)
+                "max_posts_per_day": config.get('max_posts_per_day', 100)
             },
             "next_run": upload_times[0] if upload_times else "Not set",
             "user_info": {
@@ -2969,6 +3129,10 @@ async def start_product_automation(request: Request, current_user: dict = Depend
             status_code=500,
             content={"success": False, "error": str(e)}
         )
+
+
+
+
 
 @app.post("/api/product-automation/stop")
 async def stop_product_automation(request: Request, current_user: dict = Depends(get_current_user)):
@@ -3453,7 +3617,7 @@ async def log_step(step: str, success: bool, details: str = "", error: str = "")
 
 async def execute_product_automation(user_id: str, config: dict):
     """
-    ✅ FIXED: Execute automation with proper credential retrieval
+    ✅ FIXED: Execute automation with direct database access for credentials
     """
     
     # ✅ CRITICAL: Declare global variables at the very top
@@ -3488,14 +3652,27 @@ async def execute_product_automation(user_id: str, config: dict):
             await log_step("validation", False, error=error_msg)
             return
         
-        # ✅ STEP 0: VERIFY YOUTUBE CREDENTIALS FIRST (BEFORE DOING ANYTHING ELSE)
+        # ✅ STEP 0: VERIFY YOUTUBE CREDENTIALS FIRST (DIRECT DATABASE ACCESS)
         logger.info(f"📍 STEP 0: Verifying YouTube connection for user: {user_id}")
         
         try:
-            # ✅ CRITICAL: Get credentials using the database_manager instance
-            credentials = await database_manager.get_youtube_credentials(user_id)
+            # ✅ CRITICAL FIX: Get credentials directly from YouTube database
+            from YTdatabase import get_database_manager as get_yt_db
+            yt_db = get_yt_db()
             
-            if not credentials:
+            # Check database connection
+            if not yt_db or not yt_db.youtube.db:
+                error_msg = "YouTube database not connected"
+                logger.error(f"   ❌ {error_msg}")
+                await log_step("youtube_check", False, error=error_msg)
+                return
+            
+            # Get credentials directly from collection
+            credentials_raw = await yt_db.youtube.youtube_credentials_collection.find_one({
+                "user_id": user_id
+            })
+            
+            if not credentials_raw:
                 error_msg = f"❌ No YouTube credentials found for user_id: {user_id}"
                 logger.error(error_msg)
                 logger.error(f"   💡 User must connect YouTube account first!")
@@ -3503,7 +3680,7 @@ async def execute_product_automation(user_id: str, config: dict):
                 # ✅ Debug: Show what's actually in the database
                 try:
                     all_creds = []
-                    cursor = database_manager.youtube_credentials.find({})
+                    cursor = yt_db.youtube.youtube_credentials_collection.find({})
                     async for cred in cursor:
                         all_creds.append({
                             "user_id": cred.get("user_id"),
@@ -3512,19 +3689,23 @@ async def execute_product_automation(user_id: str, config: dict):
                     
                     logger.error(f"   💡 Available credentials in DB: {all_creds}")
                     
-                    # Check if user_id exists but doesn't match
-                    user_cred = await database_manager.youtube_credentials.find_one({"user_id": user_id})
-                    if not user_cred:
-                        logger.error(f"   ❌ CONFIRMED: No credentials for user_id '{user_id}'")
-                    else:
-                        logger.error(f"   ⚠️ Credentials exist but get_youtube_credentials() returned None!")
-                        logger.error(f"   ⚠️ Credential data: {user_cred}")
-                        
                 except Exception as debug_error:
                     logger.error(f"   ⚠️ Debug query failed: {debug_error}")
                 
                 await log_step("youtube_check", False, error=error_msg)
                 return
+            
+            # ✅ Convert to the format expected by upload functions
+            credentials = {
+                "access_token": credentials_raw.get("access_token"),
+                "refresh_token": credentials_raw.get("refresh_token"),
+                "token_uri": credentials_raw.get("token_uri"),
+                "client_id": credentials_raw.get("client_id"),
+                "client_secret": credentials_raw.get("client_secret"),
+                "scopes": credentials_raw.get("scopes"),
+                "expires_at": credentials_raw.get("expires_at"),
+                "channel_info": credentials_raw.get("channel_info", {})
+            }
             
             # ✅ Verify credentials have required fields
             if not credentials.get("access_token"):
@@ -3809,8 +3990,6 @@ async def execute_product_automation(user_id: str, config: dict):
         import traceback
         logger.error(traceback.format_exc())
         await log_step("fatal_error", False, error=str(e))
-
-
 
 
 
