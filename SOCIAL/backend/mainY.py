@@ -1532,9 +1532,115 @@ async def youtube_oauth_url(request: YouTubeOAuthRequest):
 
 
 
+# @app.get("/api/youtube/oauth-callback")
+# async def youtube_oauth_callback_get(code: str, state: str):
+#     """Handle YouTube OAuth callback from Google - FIXED to redirect to /youtube-callback"""
+#     try:
+#         logger.info(f"=== YouTube OAuth Callback Started ===")
+#         logger.info(f"State: {state}")
+#         logger.info(f"Code: {code[:20]}...")
+        
+#         # Extract user_id from state
+#         if "youtube_oauth_" in state:
+#             user_id = state.replace("youtube_oauth_", "")
+#             logger.info(f"✓ Extracted user_id: {user_id}")
+#         else:
+#             logger.error(f"✗ Invalid state format: {state}")
+#             return RedirectResponse(
+#                 url="https://velocitypost-984x.onrender.com/youtube-callback?error=invalid_state",
+#                 status_code=302
+#             )
+        
+#         # Check YouTube connector
+#         if not youtube_connector:
+#             logger.error("✗ YouTube connector not available")
+#             return RedirectResponse(
+#                 url="https://velocitypost-984x.onrender.com/youtube-callback?error=service_unavailable",
+#                 status_code=302
+#             )
+        
+#         # Exchange code for token
+#         backend_redirect_uri = "https://velocitypost-984x.onrender.com/api/youtube/oauth-callback"
+#         logger.info(f"Token exchange with redirect_uri: {backend_redirect_uri}")
+            
+#         token_result = await youtube_connector.exchange_code_for_token(
+#             code=code,
+#             redirect_uri=backend_redirect_uri
+#         )
+        
+#         # Check result
+#         if not token_result["success"]:
+#             error_msg = token_result.get('error', 'unknown')
+#             logger.error(f"✗ Token exchange failed: {error_msg}")
+#             return RedirectResponse(
+#                 url=f"https://velocitypost-984x.onrender.com/youtube-callback?error=token_failed&details={error_msg}",
+#                 status_code=302
+#             )
+        
+#         logger.info("✓ Token exchange successful")
+        
+#         # Prepare credentials
+#         youtube_credentials = {
+#             "access_token": token_result["access_token"],
+#             "refresh_token": token_result["refresh_token"],
+#             "token_uri": token_result["token_uri"],
+#             "client_id": token_result["client_id"],
+#             "client_secret": token_result["client_secret"],
+#             "scopes": token_result["scopes"],
+#             "expires_at": datetime.now() + timedelta(seconds=token_result.get("expires_in", 3600)),
+#             "channel_info": token_result["channel_info"]
+#         }
+        
+#         # Store in database
+#         try:
+#             success = await database_manager.store_youtube_credentials(
+#                 user_id=user_id,
+#                 credentials=youtube_credentials
+#             )
+            
+#             if success:
+#                 logger.info(f"✓ Credentials stored for user {user_id}")
+#             else:
+#                 logger.error(f"✗ Failed to store credentials")
+#                 return RedirectResponse(
+#                     url="https://velocitypost-984x.onrender.com/youtube-callback?error=storage_failed",
+#                     status_code=302
+#                 )
+                
+#         except Exception as db_error:
+#             logger.error(f"✗ Database error: {db_error}")
+#             return RedirectResponse(
+#                 url="https://velocitypost-984x.onrender.com/youtube-callback?error=database_error",
+#                 status_code=302
+#             )
+        
+#         # Get channel info
+#         channel_title = token_result["channel_info"].get("title", "Unknown Channel")
+#         channel_id = token_result["channel_info"].get("id", "")
+        
+#         logger.info(f"✓ Channel: {channel_title} (ID: {channel_id})")
+#         logger.info(f"=== Redirecting to /youtube-callback ===")
+        
+#         # CRITICAL: Redirect to /youtube-callback NOT /youtube
+#         redirect_url = f"https://velocitypost-984x.onrender.com/youtube-callback?youtube_connected=true&channel={channel_title}"
+#         logger.info(f"Redirect URL: {redirect_url}")
+        
+#         return RedirectResponse(
+#             url=redirect_url,
+#             status_code=302
+#         )
+        
+#     except Exception as e:
+#         logger.error(f"✗ OAuth callback exception: {e}")
+#         import traceback
+#         logger.error(traceback.format_exc())
+#         return RedirectResponse(
+#             url="https://velocitypost-984x.onrender.com/youtube-callback?error=oauth_failed",
+#             status_code=302
+#         )
 @app.get("/api/youtube/oauth-callback")
 async def youtube_oauth_callback_get(code: str, state: str):
-    """Handle YouTube OAuth callback from Google - FIXED to redirect to /youtube-callback"""
+    """Handle YouTube OAuth callback from Google - FIXED credential storage"""
     try:
         logger.info(f"=== YouTube OAuth Callback Started ===")
         logger.info(f"State: {state}")
@@ -1579,40 +1685,93 @@ async def youtube_oauth_callback_get(code: str, state: str):
         
         logger.info("✓ Token exchange successful")
         
-        # Prepare credentials
+        # ✅ CRITICAL FIX: Ensure expires_at is a proper datetime
+        expires_in = token_result.get("expires_in", 3600)
+        expires_at = datetime.now() + timedelta(seconds=expires_in)
+        
+        # ✅ CRITICAL FIX: Store credentials in FLAT structure (not nested)
         youtube_credentials = {
-            "access_token": token_result["access_token"],
+            "access_token": token_result["access_token"],  # ✅ MUST be at top level
             "refresh_token": token_result["refresh_token"],
             "token_uri": token_result["token_uri"],
             "client_id": token_result["client_id"],
             "client_secret": token_result["client_secret"],
             "scopes": token_result["scopes"],
-            "expires_at": datetime.now() + timedelta(seconds=token_result.get("expires_in", 3600)),
-            "channel_info": token_result["channel_info"]
+            "expires_at": expires_at.isoformat(),  # ✅ Store as ISO string
+            "channel_info": token_result["channel_info"],
+            "user_id": user_id,  # ✅ Include user_id
+            "created_at": datetime.now().isoformat(),
+            "updated_at": datetime.now().isoformat()
         }
+        
+        logger.info(f"✓ Credentials prepared:")
+        logger.info(f"   - access_token: {youtube_credentials['access_token'][:20]}...")
+        logger.info(f"   - refresh_token: {youtube_credentials['refresh_token'][:20] if youtube_credentials['refresh_token'] else 'None'}...")
+        logger.info(f"   - channel: {youtube_credentials['channel_info'].get('title', 'Unknown')}")
         
         # Store in database
         try:
-            success = await database_manager.store_youtube_credentials(
-                user_id=user_id,
-                credentials=youtube_credentials
-            )
-            
-            if success:
-                logger.info(f"✓ Credentials stored for user {user_id}")
-            else:
-                logger.error(f"✗ Failed to store credentials")
+            # ✅ CRITICAL: Access database directly to ensure proper storage
+            if not database_manager or not database_manager.connected:
+                logger.error("✗ Database not connected")
                 return RedirectResponse(
-                    url="https://velocitypost-984x.onrender.com/youtube-callback?error=storage_failed",
+                    url="https://velocitypost-984x.onrender.com/youtube-callback?error=database_not_connected",
                     status_code=302
                 )
+            
+            # ✅ Store directly in youtube_credentials collection
+            if not hasattr(database_manager, 'youtube_credentials'):
+                database_manager.youtube_credentials = database_manager.db.youtube_credentials
+            
+            # ✅ Use replace_one to overwrite any existing credentials
+            result = await database_manager.youtube_credentials.replace_one(
+                {"user_id": user_id},
+                youtube_credentials,
+                upsert=True
+            )
+            
+            logger.info(f"✓ Credentials stored for user {user_id}")
+            logger.info(f"   - Matched: {result.matched_count}")
+            logger.info(f"   - Modified: {result.modified_count}")
+            logger.info(f"   - Upserted: {result.upserted_id if result.upserted_id else 'None'}")
+            
+            # ✅ Verify storage by reading back
+            verify = await database_manager.youtube_credentials.find_one({"user_id": user_id})
+            if verify:
+                logger.info(f"✓ Verification successful:")
+                logger.info(f"   - Keys stored: {list(verify.keys())}")
+                logger.info(f"   - Has access_token: {'access_token' in verify}")
+                logger.info(f"   - Access token length: {len(verify.get('access_token', ''))}")
+            else:
+                logger.error(f"✗ Verification failed - credentials not found after storage!")
                 
         except Exception as db_error:
             logger.error(f"✗ Database error: {db_error}")
+            import traceback
+            logger.error(traceback.format_exc())
             return RedirectResponse(
                 url="https://velocitypost-984x.onrender.com/youtube-callback?error=database_error",
                 status_code=302
             )
+        
+        # Update user record
+        try:
+            if hasattr(database_manager, 'users_collection'):
+                await database_manager.users_collection.update_one(
+                    {"_id": user_id},
+                    {
+                        "$set": {
+                            "youtube_connected": True,
+                            "youtube_connected_at": datetime.now().isoformat()
+                        },
+                        "$addToSet": {
+                            "platforms_connected": "youtube"
+                        }
+                    }
+                )
+                logger.info(f"✓ User record updated")
+        except Exception as user_update_error:
+            logger.warning(f"⚠️ User update failed (non-critical): {user_update_error}")
         
         # Get channel info
         channel_title = token_result["channel_info"].get("title", "Unknown Channel")
@@ -1638,86 +1797,6 @@ async def youtube_oauth_callback_get(code: str, state: str):
             url="https://velocitypost-984x.onrender.com/youtube-callback?error=oauth_failed",
             status_code=302
         )
-
-# FIXED OAuth callback endpoint
-# @app.get("/api/youtube/oauth-callback")
-# async def youtube_oauth_callback_get(code: str, state: str):
-#     """Handle YouTube OAuth callback from Google - FIXED GET endpoint"""
-#     try:
-#         logger.info(f"YouTube OAuth callback received - state: {state}, code: {code[:20]}...")
-        
-#         if "youtube_oauth_" in state:
-#             user_id = state.replace("youtube_oauth_", "")
-#             logger.info(f"Extracted user_id from state: {user_id}")
-#         else:
-#             logger.error(f"Invalid state format: {state}")
-#             return RedirectResponse(
-#                 url="https://velocitypost-984x.onrender.com/youtube?error=invalid_state",
-#                 status_code=302
-#             )
-        
-#         if not youtube_connector:
-#             logger.error("YouTube connector not available")
-#             return RedirectResponse(
-#                 url="https://velocitypost-984x.onrender.com/youtube?error=service_unavailable",
-#                 status_code=302
-#             )
-        
-#         backend_redirect_uri = "https://velocitypost-984x.onrender.com/api/youtube/oauth-callback"
-#         logger.info(f"Token exchange with redirect_uri: {backend_redirect_uri}")
-            
-#         token_result = await youtube_connector.exchange_code_for_token(
-#             code=code,
-#             redirect_uri=backend_redirect_uri
-#         )
-        
-#         if not token_result["success"]:
-#             logger.error(f"Token exchange failed: {token_result.get('error')}")
-#             return RedirectResponse(
-#                 url="https://velocitypost-984x.onrender.com/youtube?error=token_exchange_failed",
-#                 status_code=302
-#             )
-        
-#         youtube_credentials = {
-#             "access_token": token_result["access_token"],
-#             "refresh_token": token_result["refresh_token"],
-#             "token_uri": token_result["token_uri"],
-#             "client_id": token_result["client_id"],
-#             "client_secret": token_result["client_secret"],
-#             "scopes": token_result["scopes"],
-#             "expires_at": datetime.now() + timedelta(seconds=token_result.get("expires_in", 3600)),
-#             "channel_info": token_result["channel_info"]
-#         }
-        
-#         try:
-#             success = await database_manager.store_youtube_credentials(
-#                 user_id=user_id,
-#                 credentials=youtube_credentials
-#             )
-            
-#             if success:
-#                 logger.info(f"YouTube credentials stored for user {user_id}")
-#             else:
-#                 logger.error(f"Failed to store YouTube credentials for user {user_id}")
-                
-#         except Exception as db_error:
-#             logger.error(f"Database error: {db_error}")
-        
-#         channel_title = token_result["channel_info"].get("title", "Unknown Channel")
-#         logger.info(f"YouTube OAuth SUCCESS - Channel: {channel_title}")
-        
-#         return RedirectResponse(
-#             url=f"https://velocitypost-984x.onrender.com/youtube?youtube_connected=true&channel={channel_title}",
-#             status_code=302
-#         )
-        
-#     except Exception as e:
-#         logger.error(f"YouTube OAuth callback failed: {e}")
-#         return RedirectResponse(
-#             url="https://velocitypost-984x.onrender.com/youtube?error=oauth_failed",
-#             status_code=302
-#         )
-
 
 
 

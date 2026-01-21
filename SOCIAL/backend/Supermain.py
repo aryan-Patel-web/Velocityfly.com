@@ -2912,7 +2912,6 @@ async def debug_my_reddit_connection(current_user: dict = Depends(get_current_us
 #         )
 
 
-
 @app.post("/api/product-automation/start")
 async def start_product_automation(request: Request, current_user: dict = Depends(get_current_user)):
     """Start automated product scraping + video generation + upload"""
@@ -2964,9 +2963,7 @@ async def start_product_automation(request: Request, current_user: dict = Depend
                 )
             
             # ✅ Get credentials from the ALREADY CONNECTED youtube database
-            # Access the youtube manager's collection directly
             if not hasattr(database_manager, 'youtube_credentials'):
-                # Initialize if missing
                 database_manager.youtube_credentials = database_manager.db.youtube_credentials
             
             youtube_creds = await database_manager.youtube_credentials.find_one({
@@ -2983,7 +2980,8 @@ async def start_product_automation(request: Request, current_user: dict = Depend
                     async for cred in all_creds_cursor:
                         all_users.append({
                             "user_id": cred.get("user_id"),
-                            "channel": cred.get("channel_info", {}).get("title", "Unknown")
+                            "channel": cred.get("channel_info", {}).get("title", "Unknown"),
+                            "has_access_token": bool(cred.get("access_token") or cred.get("credentials", {}).get("access_token"))
                         })
                     logger.error(f"Available credentials: {all_users}")
                 except Exception as debug_err:
@@ -3002,8 +3000,34 @@ async def start_product_automation(request: Request, current_user: dict = Depend
                     }
                 )
             
+            # ✅ Check if credentials have access_token (check both locations)
+            has_token = bool(
+                youtube_creds.get("access_token") or 
+                youtube_creds.get("credentials", {}).get("access_token")
+            )
+            
+            if not has_token:
+                logger.error(f"❌ YouTube credentials exist but missing access_token!")
+                logger.error(f"   Keys in credential doc: {list(youtube_creds.keys())}")
+                logger.error(f"   Has 'credentials' nested: {'credentials' in youtube_creds}")
+                return JSONResponse(
+                    status_code=403,
+                    content={
+                        "success": False,
+                        "error": "YouTube connection incomplete. Please reconnect your YouTube account.",
+                        "action_required": "reconnect_youtube",
+                        "debug_info": {
+                            "has_credentials_key": "credentials" in youtube_creds,
+                            "has_access_token_key": "access_token" in youtube_creds,
+                            "top_level_keys": list(youtube_creds.keys())
+                        }
+                    }
+                )
+            
+            channel_name = youtube_creds.get("channel_info", {}).get("title", "Unknown")
+            
             logger.info(f"✅ YouTube credentials verified for user: {user_email}")
-            logger.info(f"   Channel: {youtube_creds.get('channel_info', {}).get('title', 'Unknown')}")
+            logger.info(f"   Channel: {channel_name}")
             
         except Exception as cred_check_error:
             logger.error(f"Credential check failed: {cred_check_error}")
@@ -3059,7 +3083,7 @@ async def start_product_automation(request: Request, current_user: dict = Depend
             "user_info": {
                 "email": user_email,
                 "youtube_connected": True,
-                "channel_name": youtube_creds.get('channel_info', {}).get('title', 'Your Channel')
+                "channel_name": channel_name
             }
         })
         
@@ -3557,7 +3581,7 @@ async def log_step(step: str, success: bool, details: str = "", error: str = "")
 
 async def execute_product_automation(user_id: str, config: dict):
     """
-    ✅ FIXED: Execute automation with direct database access for credentials
+    ✅ FIXED: Execute automation with proper credential retrieval
     """
     
     # ✅ CRITICAL: Declare global variables at the very top
@@ -3592,23 +3616,22 @@ async def execute_product_automation(user_id: str, config: dict):
             await log_step("validation", False, error=error_msg)
             return
         
-        # ✅ STEP 0: VERIFY YOUTUBE CREDENTIALS FIRST (DIRECT DATABASE ACCESS)
+        # ✅ STEP 0: VERIFY YOUTUBE CREDENTIALS FIRST (USE GLOBAL DATABASE)
         logger.info(f"📍 STEP 0: Verifying YouTube connection for user: {user_id}")
         
         try:
-            # ✅ CRITICAL FIX: Get credentials directly from YouTube database
-            from YTdatabase import get_database_manager as get_yt_db
-            yt_db = get_yt_db()
-            
-            # Check database connection
-            if not yt_db or not yt_db.youtube.db:
-                error_msg = "YouTube database not connected"
+            # ✅ CRITICAL FIX: Use the GLOBAL database_manager that's already connected
+            if not database_manager or not database_manager.connected:
+                error_msg = "Database not connected"
                 logger.error(f"   ❌ {error_msg}")
                 await log_step("youtube_check", False, error=error_msg)
                 return
             
-            # Get credentials directly from collection
-            credentials_raw = await yt_db.youtube.youtube_credentials_collection.find_one({
+            # ✅ Get credentials from the ALREADY CONNECTED database
+            if not hasattr(database_manager, 'youtube_credentials'):
+                database_manager.youtube_credentials = database_manager.db.youtube_credentials
+            
+            credentials_raw = await database_manager.youtube_credentials.find_one({
                 "user_id": user_id
             })
             
@@ -3620,11 +3643,12 @@ async def execute_product_automation(user_id: str, config: dict):
                 # ✅ Debug: Show what's actually in the database
                 try:
                     all_creds = []
-                    cursor = yt_db.youtube.youtube_credentials_collection.find({})
+                    cursor = database_manager.youtube_credentials.find({})
                     async for cred in cursor:
                         all_creds.append({
                             "user_id": cred.get("user_id"),
-                            "channel": cred.get("channel_info", {}).get("title", "Unknown")
+                            "channel": cred.get("channel_info", {}).get("title", "Unknown"),
+                            "has_token": bool(cred.get("access_token") or cred.get("credentials", {}).get("access_token"))
                         })
                     
                     logger.error(f"   💡 Available credentials in DB: {all_creds}")
@@ -3635,14 +3659,29 @@ async def execute_product_automation(user_id: str, config: dict):
                 await log_step("youtube_check", False, error=error_msg)
                 return
             
-            # ✅ Convert to the format expected by upload functions
+            # ✅ CRITICAL FIX: Build credentials in the EXACT format expected
+            # The credentials might be stored with nested structure
+            access_token = credentials_raw.get("access_token") or credentials_raw.get("credentials", {}).get("access_token")
+            refresh_token = credentials_raw.get("refresh_token") or credentials_raw.get("credentials", {}).get("refresh_token")
+            
+            if not access_token:
+                # ✅ Try to get from nested credentials object
+                if "credentials" in credentials_raw:
+                    nested_creds = credentials_raw["credentials"]
+                    access_token = nested_creds.get("access_token") or nested_creds.get("token")
+                    refresh_token = nested_creds.get("refresh_token")
+            
+            # ✅ Build the credentials object
             credentials = {
-                "access_token": credentials_raw.get("access_token"),
-                "refresh_token": credentials_raw.get("refresh_token"),
-                "token_uri": credentials_raw.get("token_uri"),
-                "client_id": credentials_raw.get("client_id"),
-                "client_secret": credentials_raw.get("client_secret"),
-                "scopes": credentials_raw.get("scopes"),
+                "access_token": access_token,
+                "refresh_token": refresh_token,
+                "token_uri": credentials_raw.get("token_uri", "https://oauth2.googleapis.com/token"),
+                "client_id": credentials_raw.get("client_id") or os.getenv("YOUTUBE_CLIENT_ID"),
+                "client_secret": credentials_raw.get("client_secret") or os.getenv("YOUTUBE_CLIENT_SECRET"),
+                "scopes": credentials_raw.get("scopes", [
+                    "https://www.googleapis.com/auth/youtube.upload",
+                    "https://www.googleapis.com/auth/youtube.force-ssl"
+                ]),
                 "expires_at": credentials_raw.get("expires_at"),
                 "channel_info": credentials_raw.get("channel_info", {})
             }
@@ -3651,12 +3690,18 @@ async def execute_product_automation(user_id: str, config: dict):
             if not credentials.get("access_token"):
                 error_msg = "YouTube credentials missing access_token"
                 logger.error(f"   ❌ {error_msg}")
+                logger.error(f"   💡 Raw credentials structure: {list(credentials_raw.keys())}")
+                logger.error(f"   💡 Has 'credentials' key: {'credentials' in credentials_raw}")
+                logger.error(f"   💡 Has 'access_token' key: {'access_token' in credentials_raw}")
                 await log_step("youtube_check", False, error=error_msg)
                 return
             
             channel_name = credentials.get("channel_info", {}).get("title", "Unknown")
+            channel_id = credentials.get("channel_info", {}).get("id", "Unknown")
+            
             logger.info(f"   ✅ YouTube credentials verified!")
-            logger.info(f"   ✅ Channel: {channel_name}")
+            logger.info(f"   ✅ Channel: {channel_name} (ID: {channel_id})")
+            logger.info(f"   ✅ Access token present: {bool(credentials.get('access_token'))}")
             await log_step("youtube_check", True, f"Channel: {channel_name}")
             
         except Exception as cred_error:
@@ -3930,7 +3975,6 @@ async def execute_product_automation(user_id: str, config: dict):
         import traceback
         logger.error(traceback.format_exc())
         await log_step("fatal_error", False, error=str(e))
-
 
 
 
@@ -4991,6 +5035,45 @@ async def test_scraper_route(request: Request):
 
 # ============================================================================
 # AI VIRAL TITLE & DESCRIPTION GENERATOR FOR YOUTUBE
+@app.get("/api/debug/check-credentials/{user_id}")
+async def debug_check_credentials(user_id: str):
+    """Debug endpoint to check credential structure"""
+    try:
+        if not database_manager or not database_manager.connected:
+            return {"error": "Database not connected"}
+        
+        if not hasattr(database_manager, 'youtube_credentials'):
+            database_manager.youtube_credentials = database_manager.db.youtube_credentials
+        
+        creds = await database_manager.youtube_credentials.find_one({"user_id": user_id})
+        
+        if not creds:
+            return {
+                "found": False,
+                "user_id": user_id
+            }
+        
+        # Return structure WITHOUT exposing tokens
+        return {
+            "found": True,
+            "user_id": user_id,
+            "structure": {
+                "top_level_keys": list(creds.keys()),
+                "has_access_token": "access_token" in creds,
+                "has_credentials_object": "credentials" in creds,
+                "has_channel_info": "channel_info" in creds,
+                "channel_name": creds.get("channel_info", {}).get("title", "Unknown"),
+                "channel_id": creds.get("channel_info", {}).get("id", "Unknown"),
+                "access_token_length": len(creds.get("access_token", "")) if creds.get("access_token") else 0,
+                "credentials_object_keys": list(creds.get("credentials", {}).keys()) if "credentials" in creds else []
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"Debug check failed: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
+        return {"error": str(e)}
 # ============================================================================
 # ============================================================================
 # AI VIRAL TITLE GENERATOR FOR YOUTUBE SHORTS (SHORT TITLES = MORE VIEWS)
