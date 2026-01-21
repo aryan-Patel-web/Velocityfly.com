@@ -1015,6 +1015,7 @@ async def initialize_all_services():
                 youtube_connector as yt_connector,
                 # youtube_scheduler,
                 youtube_scheduler as yt_scheduler,
+                youtube_disconnect,
                 youtube_background_scheduler,
                 ai_service as youtube_ai
             )
@@ -1678,6 +1679,7 @@ try:
     
     # Register YouTube routes
     app.post("/api/youtube/oauth-url")(youtube_oauth_url)
+    app.post("/api/youtube/disconnect/{user_id}")(youtube_disconnect)
     app.get("/api/youtube/oauth-callback")(youtube_oauth_callback_get)
     app.get("/api/youtube/status/{user_id}")(get_youtube_status)
     app.post("/api/youtube/disconnect/{user_id}")(youtube_disconnect)

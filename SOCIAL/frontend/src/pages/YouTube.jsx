@@ -47,6 +47,10 @@ const [existingVideoUrl, setExistingVideoUrl] = useState('');
 const [thumbnails, setThumbnails] = useState([]);
 // const [selectedThumbnail, setSelectedThumbnail] = useState(null);
 // const [generatingThumbnails, setGeneratingThumbnails] = useState(false);
+  // ✅ NEW: Disconnect states
+  const [showDisconnectModal, setShowDisconnectModal] = useState(false);
+  const [disconnecting, setDisconnecting] = useState(false);
+  const [disconnectError, setDisconnectError] = useState(null);
 
 // NEW: Scheduling states
 const [scheduleMode, setScheduleMode] = useState(false);
@@ -148,7 +152,8 @@ const [customThumbnailPrompt, setCustomThumbnailPrompt] = useState('');
 
 const DEFAULT_IMAGE_URLS = `https://picsum.photos/1080/1920?random=1
 https://picsum.photos/1080/1920?random=2
-https://picsum.photos/1080/1920?random=3`;
+https://picsum.photos/1080/1920?random=3
+https://picsum.photos/1080/1920?random=4`;
 
 
 // Line 62-114: getUserData (stays here)
@@ -1087,7 +1092,64 @@ const handleOAuthCallbackDirect = useCallback(async (code) => {
 }, [getUserData, token, API_BASE, fetchAutomationStatus]);
 
 
+// ✅ Disconnect YouTube Handler
+const handleDisconnectYouTube = async () => {
+  setDisconnecting(true);
+  setDisconnectError(null);
 
+  try {
+    const userId = localStorage.getItem('user_id');
+    const token = localStorage.getItem('token');
+
+    if (!userId) {
+      throw new Error('User ID not found. Please log in again.');
+    }
+
+    console.log('🔴 Disconnecting YouTube for user:', userId);
+
+    const response = await axios.post(
+      `${API_URL}/api/youtube/disconnect/${userId}`,
+      {},
+      {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+
+    console.log('✅ Disconnect response:', response.data);
+
+    if (response.data.success) {
+      // Show success message
+      alert(`✅ ${response.data.message}\n\n${response.data.action || ''}`);
+      
+      // Close modal
+      setShowDisconnectModal(false);
+      
+      // Refresh status
+      await fetchYouTubeStatus();
+      
+      // Reset to connect tab
+      setActiveTab('connect');
+      
+      console.log('✅ YouTube disconnected successfully');
+    } else {
+      throw new Error(response.data.error || 'Disconnect failed');
+    }
+  } catch (error) {
+    console.error('❌ Disconnect error:', error);
+    
+    const errorMessage = error.response?.data?.detail 
+      || error.response?.data?.error 
+      || error.message 
+      || 'Failed to disconnect YouTube';
+    
+    setDisconnectError(errorMessage);
+  } finally {
+    setDisconnecting(false);
+  }
+};
 
 
 
@@ -1477,6 +1539,9 @@ useEffect(() => {
 
   return (
 
+
+
+
 <div style={{ 
       minHeight: '100vh', 
       background: 'linear-gradient(135deg, #FF0000 0%, #CC0000 100%)', 
@@ -1608,104 +1673,334 @@ useEffect(() => {
 />
         </div>
 
+
         {/* Connect YouTube Tab */}
-        {activeTab === 'connect' && (
+
+{/* Connect YouTube Tab */}
+{activeTab === 'connect' && (
+  <div style={{ 
+    background: 'rgba(255, 255, 255, 0.95)', 
+    borderRadius: '20px', 
+    padding: '40px', 
+    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2)' 
+  }}>
+    <h2 style={{ 
+      color: '#FF0000', 
+      marginBottom: '30px', 
+      fontSize: '28px', 
+      fontWeight: '700' 
+    }}>
+      Connect Your YouTube Channel
+    </h2>
+    
+    <div style={{ textAlign: 'center', maxWidth: '600px', margin: '0 auto' }}>
+      <div style={{ marginBottom: '30px' }}>
+        <div style={{ fontSize: '64px', marginBottom: '20px' }}>📺</div>
+        <h3 style={{ color: '#333', marginBottom: '16px' }}>
+          {status?.youtube_connected ? 'YouTube Connected!' : 'Connect to Get Started'}
+        </h3>
+        <p style={{ color: '#666', lineHeight: 1.6, marginBottom: '30px' }}>
+          {status?.youtube_connected 
+            ? 'Your YouTube channel is connected and ready for automation.' 
+            : 'Connect your YouTube channel to start automating content creation and uploads.'}
+        </p>
+      </div>
+
+      {status?.youtube_connected ? (
+        <div>
+          {/* ✅ CONNECTED STATE */}
           <div style={{ 
-            background: 'rgba(255, 255, 255, 0.95)', 
-            borderRadius: '20px', 
-            padding: '40px', 
-            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2)' 
+            background: '#d4edda', 
+            border: '2px solid #28a745', 
+            borderRadius: '12px', 
+            padding: '24px', 
+            marginBottom: '20px', 
+            color: '#155724' 
           }}>
-            <h2 style={{ 
-              color: '#FF0000', 
-              marginBottom: '30px', 
-              fontSize: '28px', 
-              fontWeight: '700' 
-            }}>
-              Connect Your YouTube Channel
-            </h2>
+            <div style={{ fontSize: '48px', marginBottom: '12px' }}>✅</div>
+            <h4 style={{ margin: '0 0 12px 0', fontSize: '20px', fontWeight: '700' }}>
+              Connected Successfully
+            </h4>
+            <p style={{ margin: '0 0 8px 0', fontSize: '16px', fontWeight: '600' }}>
+              Channel: <span style={{ color: '#0a3622' }}>
+                {status.channel_info?.channel_name || 'YouTube Channel'}
+              </span>
+            </p>
+            <p style={{ margin: 0, fontSize: '13px', color: '#155724' }}>
+              ✓ Ready for automation • ✓ Uploads enabled • ✓ API active
+            </p>
             
-            <div style={{ textAlign: 'center', maxWidth: '600px', margin: '0 auto' }}>
-              <div style={{ marginBottom: '30px' }}>
-                <div style={{ fontSize: '64px', marginBottom: '20px' }}>📺</div>
-                <h3 style={{ color: '#333', marginBottom: '16px' }}>
-                  {status?.youtube_connected ? 'YouTube Connected!' : 'Connect to Get Started'}
-                </h3>
-                <p style={{ color: '#666', lineHeight: 1.6, marginBottom: '30px' }}>
-                  {status?.youtube_connected 
-                    ? 'Your YouTube channel is connected and ready for automation.' 
-                    : 'Connect your YouTube channel to start automating content creation and uploads.'}
-                </p>
-              </div>
-
-              {status?.youtube_connected ? (
-                <div style={{ 
-                  background: '#d4edda', 
-                  border: '1px solid #c3e6cb', 
+            {/* Action Buttons */}
+            <div style={{ 
+              display: 'flex', 
+              gap: '12px', 
+              marginTop: '20px',
+              justifyContent: 'center',
+              flexWrap: 'wrap'
+            }}>
+              <button 
+                onClick={() => setActiveTab('setup')} 
+                style={{ 
+                  padding: '12px 24px', 
+                  background: '#28a745', 
+                  color: 'white', 
+                  border: 'none', 
                   borderRadius: '8px', 
-                  padding: '16px', 
-                  marginBottom: '20px', 
-                  color: '#155724' 
-                }}>
-                  <h4 style={{ margin: '0 0 8px 0' }}>✅ Connected Successfully</h4>
-                  <p style={{ margin: 0, fontSize: '14px' }}>
-                    Channel: {status.channel_info?.channel_name || 'YouTube Channel'}
-                  </p>
-                  <button 
-                    onClick={() => setActiveTab('setup')} 
-                    style={{ 
-                      marginTop: '12px', 
-                      padding: '8px 16px', 
-                      background: '#155724', 
-                      color: 'white', 
-                      border: 'none', 
-                      borderRadius: '6px', 
-                      cursor: 'pointer', 
-                      fontWeight: '600' 
-                    }}
-                  >
-                    Continue to Setup →
-                  </button>
-                </div>
-              ) : (
-                <button
-                  onClick={generateOAuthUrl}
-                  disabled={loading}
-                  style={{
-                    padding: '16px 32px',
-                    background: loading ? '#ccc' : '#FF0000',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '12px',
-                    fontSize: '16px',
-                    fontWeight: '700',
-                    cursor: loading ? 'not-allowed' : 'pointer',
-                    transition: 'background 0.3s ease'
-                  }}
-                >
-                  {loading ? '⏳ Connecting...' : '🔗 Connect YouTube Channel'}
-                </button>
-              )}
-
-              <div style={{ 
-                marginTop: '30px', 
-                padding: '20px', 
-                background: '#f8f9fa', 
-                borderRadius: '12px', 
-                fontSize: '14px', 
-                color: '#666' 
-              }}>
-                <h4 style={{ color: '#333', marginBottom: '12px' }}>📋 What happens next:</h4>
-                <ol style={{ textAlign: 'left', paddingLeft: '20px' }}>
-                  <li>You'll be redirected to Google's secure authentication page</li>
-                  <li>Sign in to your Google account that owns the YouTube channel</li>
-                  <li>Grant permissions for YouTube channel management</li>
-                  <li>You'll be redirected back here with confirmation</li>
-                </ol>
-              </div>
+                  cursor: 'pointer', 
+                  fontWeight: '600',
+                  fontSize: '15px',
+                  transition: 'all 0.3s ease'
+                }}
+                onMouseOver={(e) => e.currentTarget.style.background = '#218838'}
+                onMouseOut={(e) => e.currentTarget.style.background = '#28a745'}
+              >
+                Continue to Setup →
+              </button>
+              
+              {/* 🔴 DISCONNECT BUTTON */}
+              <button 
+                onClick={() => setShowDisconnectModal(true)}
+                style={{ 
+                  padding: '12px 24px', 
+                  background: '#dc3545', 
+                  color: 'white', 
+                  border: 'none', 
+                  borderRadius: '8px', 
+                  cursor: 'pointer', 
+                  fontWeight: '600',
+                  fontSize: '15px',
+                  transition: 'all 0.3s ease'
+                }}
+                onMouseOver={(e) => e.currentTarget.style.background = '#c82333'}
+                onMouseOut={(e) => e.currentTarget.style.background = '#dc3545'}
+              >
+                🔴 Disconnect
+              </button>
             </div>
           </div>
-        )}
+        </div>
+      ) : (
+        <div>
+          {/* ❌ NOT CONNECTED STATE */}
+          <button
+            onClick={generateOAuthUrl}
+            disabled={loading}
+            style={{
+              padding: '16px 32px',
+              background: loading ? '#ccc' : '#FF0000',
+              color: 'white',
+              border: 'none',
+              borderRadius: '12px',
+              fontSize: '16px',
+              fontWeight: '700',
+              cursor: loading ? 'not-allowed' : 'pointer',
+              transition: 'background 0.3s ease'
+            }}
+          >
+            {loading ? '⏳ Connecting...' : '🔗 Connect YouTube Channel'}
+          </button>
+        </div>
+      )}
+
+      <div style={{ 
+        marginTop: '30px', 
+        padding: '20px', 
+        background: '#f8f9fa', 
+        borderRadius: '12px', 
+        fontSize: '14px', 
+        color: '#666' 
+      }}>
+        <h4 style={{ color: '#333', marginBottom: '12px' }}>📋 What happens next:</h4>
+        <ol style={{ textAlign: 'left', paddingLeft: '20px', lineHeight: '1.8' }}>
+          <li>You'll be redirected to Google's secure authentication page</li>
+          <li>Sign in to your Google account that owns the YouTube channel</li>
+          <li>Grant permissions for YouTube channel management</li>
+          <li>You'll be redirected back here with confirmation</li>
+        </ol>
+      </div>
+    </div>
+  </div>
+)}
+
+{/* 🔴 DISCONNECT CONFIRMATION MODAL */}
+{showDisconnectModal && (
+  <div
+    style={{
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      background: 'rgba(0, 0, 0, 0.75)',
+      display: 'flex',
+      justifyContent: 'center',
+      alignItems: 'center',
+      zIndex: 9999,
+      backdropFilter: 'blur(4px)'
+    }}
+    onClick={() => !disconnecting && setShowDisconnectModal(false)}
+  >
+    <div
+      style={{
+        background: 'white',
+        padding: '40px',
+        borderRadius: '20px',
+        maxWidth: '550px',
+        width: '90%',
+        boxShadow: '0 20px 60px rgba(0, 0, 0, 0.4)'
+      }}
+      onClick={(e) => e.stopPropagation()}
+    >
+      {/* Warning Icon */}
+      <div style={{ textAlign: 'center', marginBottom: '24px' }}>
+        <div style={{ fontSize: '72px', lineHeight: 1 }}>⚠️</div>
+      </div>
+
+      {/* Title */}
+      <h2 style={{ 
+        textAlign: 'center', 
+        marginBottom: '20px', 
+        color: '#dc3545',
+        fontSize: '24px',
+        fontWeight: '700'
+      }}>
+        Disconnect YouTube Account?
+      </h2>
+
+      {/* Channel Info */}
+      <div style={{
+        background: 'linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%)',
+        padding: '20px',
+        borderRadius: '12px',
+        marginBottom: '24px',
+        border: '2px solid #ffc107',
+        textAlign: 'center'
+      }}>
+        <p style={{ 
+          margin: 0, 
+          fontWeight: '700', 
+          color: '#856404',
+          fontSize: '16px'
+        }}>
+          📺 Channel: {status?.channel_info?.channel_name || 'Your Channel'}
+        </p>
+      </div>
+
+      {/* Warning Text */}
+      <div style={{ 
+        marginBottom: '28px', 
+        color: '#495057', 
+        lineHeight: '1.7',
+        fontSize: '15px'
+      }}>
+        <p style={{ fontWeight: '700', marginBottom: '12px', color: '#212529' }}>
+          This action will:
+        </p>
+        <ul style={{ 
+          paddingLeft: '24px', 
+          margin: '0 0 16px 0',
+          listStyleType: 'none'
+        }}>
+          <li style={{ marginBottom: '8px' }}>
+            <span style={{ color: '#28a745', marginRight: '8px' }}>✓</span>
+            Revoke YouTube access tokens
+          </li>
+          <li style={{ marginBottom: '8px' }}>
+            <span style={{ color: '#28a745', marginRight: '8px' }}>✓</span>
+            Stop all active automations
+          </li>
+          <li style={{ marginBottom: '8px' }}>
+            <span style={{ color: '#28a745', marginRight: '8px' }}>✓</span>
+            Delete scheduled posts
+          </li>
+          <li style={{ marginBottom: '8px' }}>
+            <span style={{ color: '#28a745', marginRight: '8px' }}>✓</span>
+            Remove channel connection
+          </li>
+        </ul>
+        <div style={{ 
+          background: '#f8d7da', 
+          border: '1px solid #f5c6cb',
+          borderRadius: '8px',
+          padding: '12px',
+          marginTop: '16px'
+        }}>
+          <p style={{ 
+            color: '#721c24', 
+            fontWeight: '700', 
+            margin: 0,
+            fontSize: '14px'
+          }}>
+            ⚠️ You can reconnect anytime with fresh tokens
+          </p>
+        </div>
+      </div>
+
+      {/* Error Display */}
+      {disconnectError && (
+        <div style={{
+          background: '#f8d7da',
+          color: '#721c24',
+          padding: '16px',
+          borderRadius: '8px',
+          marginBottom: '20px',
+          fontSize: '14px',
+          border: '1px solid #f5c6cb'
+        }}>
+          <strong>❌ Error:</strong> {disconnectError}
+        </div>
+      )}
+
+      {/* Action Buttons */}
+      <div style={{ display: 'flex', gap: '12px' }}>
+        <button
+          onClick={() => setShowDisconnectModal(false)}
+          disabled={disconnecting}
+          style={{
+            flex: 1,
+            padding: '14px',
+            borderRadius: '10px',
+            border: '2px solid #dee2e6',
+            background: 'white',
+            cursor: disconnecting ? 'not-allowed' : 'pointer',
+            fontSize: '15px',
+            fontWeight: '700',
+            color: '#495057',
+            transition: 'all 0.2s ease'
+          }}
+        >
+          Cancel
+        </button>
+        <button
+          onClick={handleDisconnectYouTube}
+          disabled={disconnecting}
+          style={{
+            flex: 1,
+            padding: '14px',
+            borderRadius: '10px',
+            border: 'none',
+            background: disconnecting 
+              ? 'linear-gradient(135deg, #6c757d 0%, #495057 100%)' 
+              : 'linear-gradient(135deg, #dc3545 0%, #c82333 100%)',
+            color: 'white',
+            cursor: disconnecting ? 'not-allowed' : 'pointer',
+            fontSize: '15px',
+            fontWeight: '700',
+            transition: 'all 0.2s ease',
+            boxShadow: disconnecting ? 'none' : '0 4px 12px rgba(220, 53, 69, 0.3)'
+          }}
+        >
+          {disconnecting ? '⏳ Disconnecting...' : '🔴 Yes, Disconnect'}
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+
+
+
+
+
 
         {/* Setup Tab */}
         {activeTab === 'setup' && status?.youtube_connected && (
