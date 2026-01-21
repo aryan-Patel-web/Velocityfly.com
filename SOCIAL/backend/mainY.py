@@ -1532,115 +1532,9 @@ async def youtube_oauth_url(request: YouTubeOAuthRequest):
 
 
 
-# @app.get("/api/youtube/oauth-callback")
-# async def youtube_oauth_callback_get(code: str, state: str):
-#     """Handle YouTube OAuth callback from Google - FIXED to redirect to /youtube-callback"""
-#     try:
-#         logger.info(f"=== YouTube OAuth Callback Started ===")
-#         logger.info(f"State: {state}")
-#         logger.info(f"Code: {code[:20]}...")
-        
-#         # Extract user_id from state
-#         if "youtube_oauth_" in state:
-#             user_id = state.replace("youtube_oauth_", "")
-#             logger.info(f"✓ Extracted user_id: {user_id}")
-#         else:
-#             logger.error(f"✗ Invalid state format: {state}")
-#             return RedirectResponse(
-#                 url="https://velocitypost-984x.onrender.com/youtube-callback?error=invalid_state",
-#                 status_code=302
-#             )
-        
-#         # Check YouTube connector
-#         if not youtube_connector:
-#             logger.error("✗ YouTube connector not available")
-#             return RedirectResponse(
-#                 url="https://velocitypost-984x.onrender.com/youtube-callback?error=service_unavailable",
-#                 status_code=302
-#             )
-        
-#         # Exchange code for token
-#         backend_redirect_uri = "https://velocitypost-984x.onrender.com/api/youtube/oauth-callback"
-#         logger.info(f"Token exchange with redirect_uri: {backend_redirect_uri}")
-            
-#         token_result = await youtube_connector.exchange_code_for_token(
-#             code=code,
-#             redirect_uri=backend_redirect_uri
-#         )
-        
-#         # Check result
-#         if not token_result["success"]:
-#             error_msg = token_result.get('error', 'unknown')
-#             logger.error(f"✗ Token exchange failed: {error_msg}")
-#             return RedirectResponse(
-#                 url=f"https://velocitypost-984x.onrender.com/youtube-callback?error=token_failed&details={error_msg}",
-#                 status_code=302
-#             )
-        
-#         logger.info("✓ Token exchange successful")
-        
-#         # Prepare credentials
-#         youtube_credentials = {
-#             "access_token": token_result["access_token"],
-#             "refresh_token": token_result["refresh_token"],
-#             "token_uri": token_result["token_uri"],
-#             "client_id": token_result["client_id"],
-#             "client_secret": token_result["client_secret"],
-#             "scopes": token_result["scopes"],
-#             "expires_at": datetime.now() + timedelta(seconds=token_result.get("expires_in", 3600)),
-#             "channel_info": token_result["channel_info"]
-#         }
-        
-#         # Store in database
-#         try:
-#             success = await database_manager.store_youtube_credentials(
-#                 user_id=user_id,
-#                 credentials=youtube_credentials
-#             )
-            
-#             if success:
-#                 logger.info(f"✓ Credentials stored for user {user_id}")
-#             else:
-#                 logger.error(f"✗ Failed to store credentials")
-#                 return RedirectResponse(
-#                     url="https://velocitypost-984x.onrender.com/youtube-callback?error=storage_failed",
-#                     status_code=302
-#                 )
-                
-#         except Exception as db_error:
-#             logger.error(f"✗ Database error: {db_error}")
-#             return RedirectResponse(
-#                 url="https://velocitypost-984x.onrender.com/youtube-callback?error=database_error",
-#                 status_code=302
-#             )
-        
-#         # Get channel info
-#         channel_title = token_result["channel_info"].get("title", "Unknown Channel")
-#         channel_id = token_result["channel_info"].get("id", "")
-        
-#         logger.info(f"✓ Channel: {channel_title} (ID: {channel_id})")
-#         logger.info(f"=== Redirecting to /youtube-callback ===")
-        
-#         # CRITICAL: Redirect to /youtube-callback NOT /youtube
-#         redirect_url = f"https://velocitypost-984x.onrender.com/youtube-callback?youtube_connected=true&channel={channel_title}"
-#         logger.info(f"Redirect URL: {redirect_url}")
-        
-#         return RedirectResponse(
-#             url=redirect_url,
-#             status_code=302
-#         )
-        
-#     except Exception as e:
-#         logger.error(f"✗ OAuth callback exception: {e}")
-#         import traceback
-#         logger.error(traceback.format_exc())
-#         return RedirectResponse(
-#             url="https://velocitypost-984x.onrender.com/youtube-callback?error=oauth_failed",
-#             status_code=302
-#         )
 @app.get("/api/youtube/oauth-callback")
 async def youtube_oauth_callback_get(code: str, state: str):
-    """Handle YouTube OAuth callback from Google - FIXED credential storage"""
+    """Handle YouTube OAuth callback from Google - FIXED to redirect to /youtube-callback"""
     try:
         logger.info(f"=== YouTube OAuth Callback Started ===")
         logger.info(f"State: {state}")
@@ -1685,93 +1579,40 @@ async def youtube_oauth_callback_get(code: str, state: str):
         
         logger.info("✓ Token exchange successful")
         
-        # ✅ CRITICAL FIX: Ensure expires_at is a proper datetime
-        expires_in = token_result.get("expires_in", 3600)
-        expires_at = datetime.now() + timedelta(seconds=expires_in)
-        
-        # ✅ CRITICAL FIX: Store credentials in FLAT structure (not nested)
+        # Prepare credentials
         youtube_credentials = {
-            "access_token": token_result["access_token"],  # ✅ MUST be at top level
+            "access_token": token_result["access_token"],
             "refresh_token": token_result["refresh_token"],
             "token_uri": token_result["token_uri"],
             "client_id": token_result["client_id"],
             "client_secret": token_result["client_secret"],
             "scopes": token_result["scopes"],
-            "expires_at": expires_at.isoformat(),  # ✅ Store as ISO string
-            "channel_info": token_result["channel_info"],
-            "user_id": user_id,  # ✅ Include user_id
-            "created_at": datetime.now().isoformat(),
-            "updated_at": datetime.now().isoformat()
+            "expires_at": datetime.now() + timedelta(seconds=token_result.get("expires_in", 3600)),
+            "channel_info": token_result["channel_info"]
         }
-        
-        logger.info(f"✓ Credentials prepared:")
-        logger.info(f"   - access_token: {youtube_credentials['access_token'][:20]}...")
-        logger.info(f"   - refresh_token: {youtube_credentials['refresh_token'][:20] if youtube_credentials['refresh_token'] else 'None'}...")
-        logger.info(f"   - channel: {youtube_credentials['channel_info'].get('title', 'Unknown')}")
         
         # Store in database
         try:
-            # ✅ CRITICAL: Access database directly to ensure proper storage
-            if not database_manager or not database_manager.connected:
-                logger.error("✗ Database not connected")
-                return RedirectResponse(
-                    url="https://velocitypost-984x.onrender.com/youtube-callback?error=database_not_connected",
-                    status_code=302
-                )
-            
-            # ✅ Store directly in youtube_credentials collection
-            if not hasattr(database_manager, 'youtube_credentials'):
-                database_manager.youtube_credentials = database_manager.db.youtube_credentials
-            
-            # ✅ Use replace_one to overwrite any existing credentials
-            result = await database_manager.youtube_credentials.replace_one(
-                {"user_id": user_id},
-                youtube_credentials,
-                upsert=True
+            success = await database_manager.store_youtube_credentials(
+                user_id=user_id,
+                credentials=youtube_credentials
             )
             
-            logger.info(f"✓ Credentials stored for user {user_id}")
-            logger.info(f"   - Matched: {result.matched_count}")
-            logger.info(f"   - Modified: {result.modified_count}")
-            logger.info(f"   - Upserted: {result.upserted_id if result.upserted_id else 'None'}")
-            
-            # ✅ Verify storage by reading back
-            verify = await database_manager.youtube_credentials.find_one({"user_id": user_id})
-            if verify:
-                logger.info(f"✓ Verification successful:")
-                logger.info(f"   - Keys stored: {list(verify.keys())}")
-                logger.info(f"   - Has access_token: {'access_token' in verify}")
-                logger.info(f"   - Access token length: {len(verify.get('access_token', ''))}")
+            if success:
+                logger.info(f"✓ Credentials stored for user {user_id}")
             else:
-                logger.error(f"✗ Verification failed - credentials not found after storage!")
+                logger.error(f"✗ Failed to store credentials")
+                return RedirectResponse(
+                    url="https://velocitypost-984x.onrender.com/youtube-callback?error=storage_failed",
+                    status_code=302
+                )
                 
         except Exception as db_error:
             logger.error(f"✗ Database error: {db_error}")
-            import traceback
-            logger.error(traceback.format_exc())
             return RedirectResponse(
                 url="https://velocitypost-984x.onrender.com/youtube-callback?error=database_error",
                 status_code=302
             )
-        
-        # Update user record
-        try:
-            if hasattr(database_manager, 'users_collection'):
-                await database_manager.users_collection.update_one(
-                    {"_id": user_id},
-                    {
-                        "$set": {
-                            "youtube_connected": True,
-                            "youtube_connected_at": datetime.now().isoformat()
-                        },
-                        "$addToSet": {
-                            "platforms_connected": "youtube"
-                        }
-                    }
-                )
-                logger.info(f"✓ User record updated")
-        except Exception as user_update_error:
-            logger.warning(f"⚠️ User update failed (non-critical): {user_update_error}")
         
         # Get channel info
         channel_title = token_result["channel_info"].get("title", "Unknown Channel")
@@ -1797,6 +1638,86 @@ async def youtube_oauth_callback_get(code: str, state: str):
             url="https://velocitypost-984x.onrender.com/youtube-callback?error=oauth_failed",
             status_code=302
         )
+
+# FIXED OAuth callback endpoint
+# @app.get("/api/youtube/oauth-callback")
+# async def youtube_oauth_callback_get(code: str, state: str):
+#     """Handle YouTube OAuth callback from Google - FIXED GET endpoint"""
+#     try:
+#         logger.info(f"YouTube OAuth callback received - state: {state}, code: {code[:20]}...")
+        
+#         if "youtube_oauth_" in state:
+#             user_id = state.replace("youtube_oauth_", "")
+#             logger.info(f"Extracted user_id from state: {user_id}")
+#         else:
+#             logger.error(f"Invalid state format: {state}")
+#             return RedirectResponse(
+#                 url="https://velocitypost-984x.onrender.com/youtube?error=invalid_state",
+#                 status_code=302
+#             )
+        
+#         if not youtube_connector:
+#             logger.error("YouTube connector not available")
+#             return RedirectResponse(
+#                 url="https://velocitypost-984x.onrender.com/youtube?error=service_unavailable",
+#                 status_code=302
+#             )
+        
+#         backend_redirect_uri = "https://velocitypost-984x.onrender.com/api/youtube/oauth-callback"
+#         logger.info(f"Token exchange with redirect_uri: {backend_redirect_uri}")
+            
+#         token_result = await youtube_connector.exchange_code_for_token(
+#             code=code,
+#             redirect_uri=backend_redirect_uri
+#         )
+        
+#         if not token_result["success"]:
+#             logger.error(f"Token exchange failed: {token_result.get('error')}")
+#             return RedirectResponse(
+#                 url="https://velocitypost-984x.onrender.com/youtube?error=token_exchange_failed",
+#                 status_code=302
+#             )
+        
+#         youtube_credentials = {
+#             "access_token": token_result["access_token"],
+#             "refresh_token": token_result["refresh_token"],
+#             "token_uri": token_result["token_uri"],
+#             "client_id": token_result["client_id"],
+#             "client_secret": token_result["client_secret"],
+#             "scopes": token_result["scopes"],
+#             "expires_at": datetime.now() + timedelta(seconds=token_result.get("expires_in", 3600)),
+#             "channel_info": token_result["channel_info"]
+#         }
+        
+#         try:
+#             success = await database_manager.store_youtube_credentials(
+#                 user_id=user_id,
+#                 credentials=youtube_credentials
+#             )
+            
+#             if success:
+#                 logger.info(f"YouTube credentials stored for user {user_id}")
+#             else:
+#                 logger.error(f"Failed to store YouTube credentials for user {user_id}")
+                
+#         except Exception as db_error:
+#             logger.error(f"Database error: {db_error}")
+        
+#         channel_title = token_result["channel_info"].get("title", "Unknown Channel")
+#         logger.info(f"YouTube OAuth SUCCESS - Channel: {channel_title}")
+        
+#         return RedirectResponse(
+#             url=f"https://velocitypost-984x.onrender.com/youtube?youtube_connected=true&channel={channel_title}",
+#             status_code=302
+#         )
+        
+#     except Exception as e:
+#         logger.error(f"YouTube OAuth callback failed: {e}")
+#         return RedirectResponse(
+#             url="https://velocitypost-984x.onrender.com/youtube?error=oauth_failed",
+#             status_code=302
+#         )
+
 
 
 
@@ -1845,226 +1766,9 @@ async def debug_youtube_status():
     }
 
 
-@app.post("/api/youtube/disconnect/{user_id}")
-async def youtube_disconnect(user_id: str):
-    """
-    Disconnect YouTube account with token revocation and cleanup
-    ✅ Properly revokes tokens
-    ✅ Cleans up database
-    ✅ Stops all automations
-    """
-    try:
-        logger.info(f"🔴 YouTube disconnect requested for user: {user_id}")
-        
-        if not database_manager or not database_manager.connected:
-            raise HTTPException(status_code=503, detail="Database not available")
-        
-        # ✅ STEP 1: Get credentials before deleting (for revocation)
-        credentials = await database_manager.get_youtube_credentials(user_id)
-        
-        if not credentials:
-            logger.warning(f"No credentials found for user {user_id}")
-            return {
-                "success": True,
-                "message": "YouTube already disconnected",
-                "was_connected": False
-            }
-        
-        channel_name = credentials.get("channel_info", {}).get("title", "Unknown")
-        logger.info(f"Disconnecting channel: {channel_name}")
-        
-        # ✅ STEP 2: Try to revoke tokens with Google (best practice)
-        try:
-            access_token = credentials.get("access_token")
-            
-            if access_token:
-                async with httpx.AsyncClient(timeout=10) as client:
-                    revoke_response = await client.post(
-                        "https://oauth2.googleapis.com/revoke",
-                        params={"token": access_token},
-                        headers={"Content-Type": "application/x-www-form-urlencoded"}
-                    )
-                    
-                    if revoke_response.status_code == 200:
-                        logger.info("✅ Google OAuth token revoked successfully")
-                    else:
-                        logger.warning(f"Token revocation returned: {revoke_response.status_code}")
-        except Exception as revoke_error:
-            logger.warning(f"Token revocation failed (non-critical): {revoke_error}")
-        
-        # ✅ STEP 3: Delete credentials from database
-        try:
-            if not hasattr(database_manager, 'youtube_credentials'):
-                database_manager.youtube_credentials = database_manager.db.youtube_credentials
-            
-            delete_result = await database_manager.youtube_credentials.delete_one({
-                "user_id": user_id
-            })
-            
-            logger.info(f"Deleted {delete_result.deleted_count} credential document(s)")
-            
-        except Exception as db_error:
-            logger.error(f"Failed to delete credentials: {db_error}")
-            raise HTTPException(status_code=500, detail="Failed to disconnect YouTube")
-        
-        # ✅ STEP 4: Update user record
-        try:
-            if hasattr(database_manager, 'users_collection'):
-                await database_manager.users_collection.update_one(
-                    {"_id": user_id},
-                    {
-                        "$set": {
-                            "youtube_connected": False,
-                            "youtube_disconnected_at": datetime.now().isoformat()
-                        },
-                        "$pull": {
-                            "platforms_connected": "youtube"
-                        }
-                    }
-                )
-                logger.info("✅ User record updated")
-        except Exception as user_error:
-            logger.warning(f"User record update failed (non-critical): {user_error}")
-        
-        # ✅ STEP 5: Stop all active automations for this user
-        try:
-            automation_configs = database_manager.db.automation_configs
-            
-            # Disable product automation
-            await automation_configs.update_many(
-                {
-                    "user_id": user_id,
-                    "config_type": {"$in": ["product_automation", "youtube_automation"]}
-                },
-                {
-                    "$set": {
-                        "enabled": False,
-                        "disabled_reason": "YouTube disconnected",
-                        "disabled_at": datetime.now().isoformat()
-                    }
-                }
-            )
-            
-            logger.info("✅ All YouTube automations stopped")
-            
-        except Exception as auto_error:
-            logger.warning(f"Automation cleanup failed (non-critical): {auto_error}")
-        
-        # ✅ STEP 6: Delete scheduled posts
-        try:
-            scheduled_posts = database_manager.db.scheduled_posts
-            
-            delete_scheduled = await scheduled_posts.delete_many({
-                "user_id": user_id,
-                "status": "scheduled"
-            })
-            
-            logger.info(f"Deleted {delete_scheduled.deleted_count} scheduled posts")
-            
-        except Exception as schedule_error:
-            logger.warning(f"Scheduled posts cleanup failed (non-critical): {schedule_error}")
-        
-        logger.info("=" * 70)
-        logger.info(f"✅ YouTube disconnected successfully for user: {user_id}")
-        logger.info(f"   Channel: {channel_name}")
-        logger.info(f"   Tokens revoked: ✓")
-        logger.info(f"   Database cleaned: ✓")
-        logger.info(f"   Automations stopped: ✓")
-        logger.info("=" * 70)
-        
-        return {
-            "success": True,
-            "message": f"YouTube account disconnected successfully! Channel '{channel_name}' has been unlinked.",
-            "details": {
-                "channel_name": channel_name,
-                "tokens_revoked": True,
-                "automations_stopped": True,
-                "can_reconnect": True
-            },
-            "action": "You can now reconnect a different YouTube account or reconnect this one with fresh tokens."
-        }
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"❌ YouTube disconnect failed: {e}")
-        import traceback
-        logger.error(traceback.format_exc())
-        raise HTTPException(status_code=500, detail=f"Disconnect failed: {str(e)}")
 
 
 
-
-@app.post("/api/youtube/refresh-connection/{user_id}")
-async def refresh_youtube_connection(user_id: str):
-    """
-    Refresh YouTube connection by re-authenticating
-    ✅ Checks if tokens are expired
-    ✅ Offers to reconnect
-    """
-    try:
-        logger.info(f"🔄 Checking YouTube connection for user: {user_id}")
-        
-        if not database_manager or not database_manager.connected:
-            raise HTTPException(status_code=503, detail="Database not available")
-        
-        # Get current credentials
-        if not hasattr(database_manager, 'youtube_credentials'):
-            database_manager.youtube_credentials = database_manager.db.youtube_credentials
-        
-        credentials = await database_manager.youtube_credentials.find_one({
-            "user_id": user_id
-        })
-        
-        if not credentials:
-            return {
-                "success": False,
-                "status": "not_connected",
-                "message": "YouTube not connected",
-                "action_required": "connect"
-            }
-        
-        # Check token expiration
-        expires_at = credentials.get("expires_at")
-        is_expired = False
-        
-        if expires_at:
-            try:
-                if isinstance(expires_at, str):
-                    expires_at = datetime.fromisoformat(expires_at)
-                
-                if expires_at <= datetime.now():
-                    is_expired = True
-            except Exception as e:
-                logger.warning(f"Could not parse expires_at: {e}")
-        
-        channel_name = credentials.get("channel_info", {}).get("title", "Unknown")
-        
-        if is_expired:
-            return {
-                "success": False,
-                "status": "expired",
-                "message": f"YouTube tokens expired for channel '{channel_name}'",
-                "action_required": "reconnect",
-                "details": {
-                    "channel_name": channel_name,
-                    "expired_at": expires_at.isoformat() if isinstance(expires_at, datetime) else expires_at
-                }
-            }
-        
-        return {
-            "success": True,
-            "status": "active",
-            "message": "YouTube connection is active",
-            "details": {
-                "channel_name": channel_name,
-                "expires_at": expires_at.isoformat() if isinstance(expires_at, datetime) else expires_at
-            }
-        }
-        
-    except Exception as e:
-        logger.error(f"❌ Check connection failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
 
 # YouTube API Routes - FIXED all endpoints
 @app.get("/api/youtube/status/{user_id}")
