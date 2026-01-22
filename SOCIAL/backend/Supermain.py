@@ -2949,40 +2949,83 @@ async def start_product_automation(request: Request, current_user: dict = Depend
                 content={"success": False, "error": "At least one upload time required"}
             )
         
-        # ✅✅✅ CRITICAL FIX: Use YouTube's OWN database manager
-        from YTdatabase import get_database_manager as get_yt_db
-        yt_db = get_yt_db()
-        
-        # Check if YouTube database is connected
-        if not yt_db or not yt_db.connected:
-            logger.error("❌ YouTube database not connected")
+        # ✅✅✅ CRITICAL FIX: Safe YouTube database check
+        try:
+            from YTdatabase import get_database_manager as get_yt_db
+            yt_db = get_yt_db()
+            
+            # ✅ Safe check - handle both cases
+            is_yt_connected = (
+                yt_db is not None and 
+                (getattr(yt_db, 'connected', True) if hasattr(yt_db, 'connected') else True)
+            )
+            
+            if not is_yt_connected:
+                logger.error("❌ YouTube database not connected")
+                return JSONResponse(
+                    status_code=500,
+                    content={
+                        "success": False,
+                        "error": "YouTube database not connected. Please try again."
+                    }
+                )
+            
+            # ✅ Get credentials from YouTube's database manager
+            youtube_creds = await yt_db.get_youtube_credentials(user_id)
+            
+        except ImportError as import_err:
+            logger.error(f"❌ Failed to import YouTube database: {import_err}")
             return JSONResponse(
                 status_code=500,
                 content={
                     "success": False,
-                    "error": "YouTube database not connected. Please try again."
+                    "error": "YouTube service not available"
                 }
             )
-        
-        # ✅ Get credentials from YouTube's database manager
-        youtube_creds = await yt_db.get_youtube_credentials(user_id)
+        except Exception as db_err:
+            logger.error(f"❌ YouTube database error: {db_err}")
+            import traceback
+            logger.error(traceback.format_exc())
+            return JSONResponse(
+                status_code=500,
+                content={
+                    "success": False,
+                    "error": f"Database error: {str(db_err)}"
+                }
+            )
         
         if not youtube_creds:
             logger.error(f"❌ No YouTube credentials found for user: {user_email} ({user_id})")
             
             # 🔍 Debug: Show what's in the YouTube database
             try:
-                all_creds_cursor = yt_db.youtube_credentials_collection.find({})
-                all_users = []
-                async for cred in all_creds_cursor:
-                    all_users.append({
-                        "user_id": cred.get("user_id"),
-                        "channel": cred.get("channel_info", {}).get("title", "Unknown"),
-                        "email": "hidden"
-                    })
-                logger.error(f"💡 Available YouTube credentials: {all_users}")
+                # ✅ Safe attribute access
+                if hasattr(yt_db, 'youtube_credentials'):
+                    creds_collection = yt_db.youtube_credentials
+                elif hasattr(yt_db, 'youtube_credentials_collection'):
+                    creds_collection = yt_db.youtube_credentials_collection
+                else:
+                    logger.error("❌ Cannot access YouTube credentials collection")
+                    creds_collection = None
+                
+                if creds_collection:
+                    all_creds_cursor = creds_collection.find({})
+                    all_users = []
+                    async for cred in all_creds_cursor:
+                        all_users.append({
+                            "user_id": cred.get("user_id"),
+                            "channel": cred.get("channel_info", {}).get("title", "Unknown"),
+                            "email": "hidden"
+                        })
+                    logger.error(f"💡 Available YouTube credentials in DB: {all_users}")
+                    logger.error(f"💡 Total YouTube accounts: {len(all_users)}")
+                    
+                    # Check if THIS user's ID is in the list
+                    user_in_db = any(u["user_id"] == user_id for u in all_users)
+                    logger.error(f"💡 User {user_id} in database: {user_in_db}")
+                    
             except Exception as debug_err:
-                logger.error(f"Debug query failed: {debug_err}")
+                logger.error(f"⚠️ Debug query failed: {debug_err}")
             
             return JSONResponse(
                 status_code=403,
@@ -2995,12 +3038,14 @@ async def start_product_automation(request: Request, current_user: dict = Depend
                         "user_id": user_id
                     },
                     "debug": {
+                        "checked_user_id": user_id,
                         "available_accounts": len(all_users) if 'all_users' in locals() else 0
                     }
                 }
             )
         
         logger.info(f"✅ YouTube credentials verified for user: {user_email}")
+        logger.info(f"   Channel: {youtube_creds.get('channel_info', {}).get('title', 'Unknown')}")
         
         # Store automation config with ENABLED = TRUE
         success = await database_manager.store_automation_config(
