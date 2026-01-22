@@ -2949,28 +2949,22 @@ async def start_product_automation(request: Request, current_user: dict = Depend
                 content={"success": False, "error": "At least one upload time required"}
             )
         
-        # ✅✅✅ CRITICAL FIX: Safe YouTube database check
+        # ✅✅✅ CRITICAL FIX: Get YouTube credentials without checking 'connected'
         try:
             from YTdatabase import get_database_manager as get_yt_db
             yt_db = get_yt_db()
             
-            # ✅ Safe check - handle both cases
-            is_yt_connected = (
-                yt_db is not None and 
-                (getattr(yt_db, 'connected', True) if hasattr(yt_db, 'connected') else True)
-            )
-            
-            if not is_yt_connected:
-                logger.error("❌ YouTube database not connected")
+            if not yt_db:
+                logger.error("❌ YouTube database manager not available")
                 return JSONResponse(
                     status_code=500,
                     content={
                         "success": False,
-                        "error": "YouTube database not connected. Please try again."
+                        "error": "YouTube service not available. Please try again."
                     }
                 )
             
-            # ✅ Get credentials from YouTube's database manager
+            # ✅ Try to get credentials directly (no 'connected' check)
             youtube_creds = await yt_db.get_youtube_credentials(user_id)
             
         except ImportError as import_err:
