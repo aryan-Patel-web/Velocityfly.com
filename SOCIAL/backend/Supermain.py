@@ -2913,7 +2913,6 @@ async def debug_my_reddit_connection(current_user: dict = Depends(get_current_us
 #             content={"success": False, "error": str(e)}
 #         )
 
-
 @app.post("/api/product-automation/start")
 async def start_product_automation(request: Request, current_user: dict = Depends(get_current_user)):
     """Start automated product scraping + video generation + upload"""
@@ -2949,7 +2948,7 @@ async def start_product_automation(request: Request, current_user: dict = Depend
                 content={"success": False, "error": "At least one upload time required"}
             )
         
-        # ✅✅✅ CRITICAL FIX: Get YouTube credentials without checking 'connected'
+        # ✅✅✅ CRITICAL FIX: Ensure database connection before querying
         try:
             from YTdatabase import get_database_manager as get_yt_db
             yt_db = get_yt_db()
@@ -2964,7 +2963,24 @@ async def start_product_automation(request: Request, current_user: dict = Depend
                     }
                 )
             
-            # ✅ Try to get credentials directly (no 'connected' check)
+            # ✅ CRITICAL: Connect to MongoDB if not already connected
+            if not yt_db.youtube.client or yt_db.youtube.youtube_credentials_collection is None:
+                logger.info("📡 Connecting to YouTube database...")
+                connected = await yt_db.connect()
+                
+                if not connected:
+                    logger.error("❌ Failed to connect to YouTube database")
+                    return JSONResponse(
+                        status_code=500,
+                        content={
+                            "success": False,
+                            "error": "YouTube database connection failed. Please try again."
+                        }
+                    )
+                
+                logger.info("✅ YouTube database connected successfully")
+            
+            # ✅ Now get credentials (database is connected)
             youtube_creds = await yt_db.get_youtube_credentials(user_id)
             
         except ImportError as import_err:
@@ -2993,23 +3009,14 @@ async def start_product_automation(request: Request, current_user: dict = Depend
             
             # 🔍 Debug: Show what's in the YouTube database
             try:
-                # ✅ Safe attribute access
-                if hasattr(yt_db, 'youtube_credentials'):
-                    creds_collection = yt_db.youtube_credentials
-                elif hasattr(yt_db, 'youtube_credentials_collection'):
-                    creds_collection = yt_db.youtube_credentials_collection
-                else:
-                    logger.error("❌ Cannot access YouTube credentials collection")
-                    creds_collection = None
-                
-                if creds_collection:
-                    all_creds_cursor = creds_collection.find({})
+                if yt_db.youtube.youtube_credentials_collection:
+                    all_creds_cursor = yt_db.youtube.youtube_credentials_collection.find({})
                     all_users = []
                     async for cred in all_creds_cursor:
                         all_users.append({
                             "user_id": cred.get("user_id"),
                             "channel": cred.get("channel_info", {}).get("title", "Unknown"),
-                            "email": "hidden"
+                            "has_token": bool(cred.get("access_token"))
                         })
                     logger.error(f"💡 Available YouTube credentials in DB: {all_users}")
                     logger.error(f"💡 Total YouTube accounts: {len(all_users)}")
@@ -3017,6 +3024,8 @@ async def start_product_automation(request: Request, current_user: dict = Depend
                     # Check if THIS user's ID is in the list
                     user_in_db = any(u["user_id"] == user_id for u in all_users)
                     logger.error(f"💡 User {user_id} in database: {user_in_db}")
+                else:
+                    logger.error("❌ Credentials collection is None")
                     
             except Exception as debug_err:
                 logger.error(f"⚠️ Debug query failed: {debug_err}")

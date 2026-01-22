@@ -1425,6 +1425,7 @@ def get_database_manager() -> UnifiedDatabaseManager:
     global database_manager
     if not database_manager:
         database_manager = UnifiedDatabaseManager()
+        # Note: Connection must be awaited by caller via: await db.connect()
     return database_manager
 
 
