@@ -17,6 +17,7 @@ import re
 
 logger = logging.getLogger(__name__)
 
+
 class EnhancedAIService:
     """Enhanced AI Service with robust error handling for all social platforms"""
     
