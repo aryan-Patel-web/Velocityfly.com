@@ -1,103 +1,167 @@
 
-# # # Core FastAPI and ASGI Server
+# # # # Core FastAPI and ASGI Server
+# # # fastapi==0.104.1
+# # # uvicorn[standard]==0.24.0
+
+# # # # Database - MongoDB
+# # # motor==3.6.0
+# # # pymongo==4.9.1
+
+# # # # Authentication & Security
+# # # bcrypt==4.1.2
+# # # PyJWT==2.8.0
+# # # python-jose[cryptography]==3.3.0
+# # # cryptography==41.0.7
+
+# # # # HTTP Requests (replaces mistralai)
+# # # requests==2.31.0
+# # # httpx>=0.25.2
+
+# # # # AI Services - HTTP API only (no pyarrow dependencies)
+# # # groq==0.4.1
+
+# # # # Configuration & Environment
+# # # python-dotenv==1.0.0
+
+# # # # Data Validation
+# # # pydantic[email]==2.9.2
+# # # pydantic-core==2.23.4
+
+# # # # Scheduling & Background Tasks
+# # # schedule==1.2.0
+
+# # # # File Upload & Form Handling
+# # # python-multipart==0.0.6
+
+# # # # Additional Dependencies for Production
+# # # aiofiles==23.2.1
+# # # python-dateutil==2.8.2
+
+# # # # Development & Debugging
+# # # rich==13.7.0
+
+
+
+
+# # # # Google APIs (YouTube)
+# # # google-api-python-client==2.108.0
+# # # google-auth==2.23.4
+# # # google-auth-oauthlib==1.1.0
+# # # google-auth-httplib2==0.2.0
+
+
+# # # # Social Media Content Templates
+# # # # beautifulsoup4==4.12.2
+
+
+# # # # System Information
+# # # psutil==5.9.6
+
+# # # # Social Media Specific
+# # # tweepy==4.14.0
+
+
+# # # # WhatsApp Cloud API
+# # # facebook-business==18.0.2
+
+
+# # # # NEW: Image Processing for Thumbnails
+# # # Pillow==10.4.0
+
+# # # # NEW: For product scraping
+
+# # # # playwright==1.40.0
+# # # playwright==1.49.1
+
+
+# # # beautifulsoup4==4.12.2
+# # # lxml==4.9.3
+# # # playwright-stealth==1.0.6
+
+# # # html5lib==1.1
+# # # pandas==2.1.4
+
+# # # numpy==1.24.3
+# # # opencv-python-headless==4.8.1.78
+# # # yt-dlp>=2023.10.13
+
+
+
+# # # bcrypt>=4.0.0
+# # # PyJWT>=2.8.0
+# # # packaging>=21.0
+
+
+
+
+# # # opencv-python==4.8.1.78
+# # # Pillow==10.1.0
+
+# # # beautifulsoup4==4.12.2
+
+
+
+# # # ---------------- CORE API ----------------
 # # fastapi==0.104.1
 # # uvicorn[standard]==0.24.0
 
-# # # Database - MongoDB
+# # # ---------------- DATABASE ----------------
 # # motor==3.6.0
 # # pymongo==4.9.1
 
-# # # Authentication & Security
+# # # ---------------- AUTH & SECURITY ----------------
 # # bcrypt==4.1.2
 # # PyJWT==2.8.0
 # # python-jose[cryptography]==3.3.0
 # # cryptography==41.0.7
 
-# # # HTTP Requests (replaces mistralai)
+# # # ---------------- HTTP / CONFIG ----------------
 # # requests==2.31.0
-# # httpx>=0.25.2
-
-# # # AI Services - HTTP API only (no pyarrow dependencies)
-# # groq==0.4.1
-
-# # # Configuration & Environment
+# # httpx==0.28.1
 # # python-dotenv==1.0.0
 
-# # # Data Validation
+# # # ---------------- AI ----------------
+# # groq==0.4.1
+
+# # # ---------------- VALIDATION ----------------
 # # pydantic[email]==2.9.2
 # # pydantic-core==2.23.4
 
-# # # Scheduling & Background Tasks
+# # # ---------------- UTILITIES ----------------
 # # schedule==1.2.0
-
-# # # File Upload & Form Handling
 # # python-multipart==0.0.6
-
-# # # Additional Dependencies for Production
 # # aiofiles==23.2.1
 # # python-dateutil==2.8.2
-
-# # # Development & Debugging
 # # rich==13.7.0
+# # psutil==5.9.6
+# # packaging==25.0
 
-
-
-
-# # # Google APIs (YouTube)
+# # # ---------------- GOOGLE / YOUTUBE ----------------
 # # google-api-python-client==2.108.0
 # # google-auth==2.23.4
 # # google-auth-oauthlib==1.1.0
 # # google-auth-httplib2==0.2.0
 
-
-# # # Social Media Content Templates
-# # # beautifulsoup4==4.12.2
-
-
-# # # System Information
-# # psutil==5.9.6
-
-# # # Social Media Specific
+# # # ---------------- SOCIAL ----------------
 # # tweepy==4.14.0
-
-
-# # # WhatsApp Cloud API
 # # facebook-business==18.0.2
 
-
-# # # NEW: Image Processing for Thumbnails
-# # Pillow==10.4.0
-
-# # # NEW: For product scraping
-
-# # # playwright==1.40.0
+# # # ---------------- SCRAPING / AUTOMATION ----------------
 # # playwright==1.49.1
-
-
+# # playwright-stealth==1.0.6
 # # beautifulsoup4==4.12.2
 # # lxml==4.9.3
-# # playwright-stealth==1.0.6
-
 # # html5lib==1.1
-# # pandas==2.1.4
-
-# # numpy==1.24.3
-# # opencv-python-headless==4.8.1.78
 # # yt-dlp>=2023.10.13
 
+# # # ---------------- DATA ----------------
+# # pandas==2.1.4
+# # numpy==1.24.3
 
+# # # ---------------- CV / IMAGES (SERVER SAFE) ----------------
+# # opencv-python-headless==4.8.1.78
+# # Pillow==10.4.0
 
-# # bcrypt>=4.0.0
-# # PyJWT>=2.8.0
-# # packaging>=21.0
-
-
-
-
-# # opencv-python==4.8.1.78
-# # Pillow==10.1.0
-
-# # beautifulsoup4==4.12.2
 
 
 
@@ -106,8 +170,9 @@
 # uvicorn[standard]==0.24.0
 
 # # ---------------- DATABASE ----------------
-# motor==3.6.0
-# pymongo==4.9.1
+# # FIXED: Compatible versions of motor and pymongo
+# motor==3.3.2
+# pymongo==4.6.0
 
 # # ---------------- AUTH & SECURITY ----------------
 # bcrypt==4.1.2
@@ -164,69 +229,146 @@
 
 
 
+# googlesearch-python
 
-# ---------------- CORE API ----------------
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# ============================================================================
+# CORE FRAMEWORK (Python 3.11 Compatible)
+# ============================================================================
 fastapi==0.104.1
 uvicorn[standard]==0.24.0
+python-multipart==0.0.6
+python-dotenv==1.0.0
 
-# ---------------- DATABASE ----------------
-# FIXED: Compatible versions of motor and pymongo
+# ============================================================================
+# DATABASE
+# ============================================================================
 motor==3.3.2
 pymongo==4.6.0
+dnspython==2.4.2
 
-# ---------------- AUTH & SECURITY ----------------
+# ============================================================================
+# AUTHENTICATION & SECURITY
+# ============================================================================
+pyjwt==2.8.0
 bcrypt==4.1.2
-PyJWT==2.8.0
 python-jose[cryptography]==3.3.0
 cryptography==41.0.7
 
-# ---------------- HTTP / CONFIG ----------------
-requests==2.31.0
+# ============================================================================
+# HTTP & API CLIENTS
+# ============================================================================
 httpx==0.28.1
-python-dotenv==1.0.0
+aiohttp==3.9.1
+requests==2.31.0
 
-# ---------------- AI ----------------
-groq==0.4.1
-
-# ---------------- VALIDATION ----------------
+# ============================================================================
+# VALIDATION
+# ============================================================================
 pydantic[email]==2.9.2
 pydantic-core==2.23.4
+pydantic-settings==2.1.0
+email-validator==2.1.0
 
-# ---------------- UTILITIES ----------------
-schedule==1.2.0
-python-multipart==0.0.6
-aiofiles==23.2.1
-python-dateutil==2.8.2
-rich==13.7.0
-psutil==5.9.6
-packaging==25.0
-
-# ---------------- GOOGLE / YOUTUBE ----------------
-google-api-python-client==2.108.0
-google-auth==2.23.4
-google-auth-oauthlib==1.1.0
+# ============================================================================
+# GOOGLE APIs (YouTube)
+# ============================================================================
+google-api-python-client==2.110.0
+google-auth==2.25.2
+google-auth-oauthlib==1.2.0
 google-auth-httplib2==0.2.0
 
-# ---------------- SOCIAL ----------------
-tweepy==4.14.0
-facebook-business==18.0.2
+# ============================================================================
+# VIDEO PROCESSING (FFmpeg wrapper)
+# ============================================================================
+ffmpeg-python==0.2.0
+imageio==2.33.1
+imageio-ffmpeg==0.4.9
 
-# ---------------- SCRAPING / AUTOMATION ----------------
+# ============================================================================
+# IMAGE PROCESSING (Server-safe headless versions)
+# ============================================================================
+Pillow==10.4.0
+opencv-python-headless==4.8.1.78
+
+# ============================================================================
+# AUDIO PROCESSING (for Viral Pixel voiceovers)
+# ============================================================================
+gTTS==2.5.0
+pydub==0.25.1
+librosa==0.10.1
+soundfile==0.12.1
+
+# ============================================================================
+# WEB SCRAPING (for product automation)
+# ============================================================================
 playwright==1.49.1
 playwright-stealth==1.0.6
 beautifulsoup4==4.12.2
 lxml==4.9.3
 html5lib==1.1
+selenium==4.16.0
 yt-dlp>=2023.10.13
 
-# ---------------- DATA ----------------
+# ============================================================================
+# AI/ML LIBRARIES
+# ============================================================================
+openai==1.6.1
+anthropic==0.8.1
+groq==0.4.1
+
+# ============================================================================
+# SOCIAL MEDIA APIs
+# ============================================================================
+tweepy==4.14.0
+facebook-business==18.0.2
+
+# ============================================================================
+# DATA PROCESSING
+# ============================================================================
 pandas==2.1.4
 numpy==1.24.3
 
-# ---------------- CV / IMAGES (SERVER SAFE) ----------------
-opencv-python-headless==4.8.1.78
-Pillow==10.4.0
+# ============================================================================
+# DATE/TIME
+# ============================================================================
+python-dateutil==2.8.2
+pytz==2023.3
 
+# ============================================================================
+# UTILITIES
+# ============================================================================
+asyncio==3.4.3
+nest-asyncio==1.5.8
+colorama==0.4.6
+tqdm==4.66.1
+schedule==1.2.0
+aiofiles==23.2.1
+rich==13.7.0
+psutil==5.9.6
+packaging==25.0
 
+# ============================================================================
+# SEARCH (if needed for web search features)
+# ============================================================================
+googlesearch-python==1.2.3
 
-googlesearch-python
+# ============================================================================
+# RENDER DEPLOYMENT SPECIFIC
+# ============================================================================
+gunicorn==21.2.0

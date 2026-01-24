@@ -46,6 +46,11 @@ from YTvideoGenerator import get_video_generator
 # That's it! The automation task starts automatically from mainY.py
 from YTdatabase import database_manager
 
+
+from Viral_pixel import router as viral_pixel_router
+
+
+
 # ============================================================================
 # ✅ CRITICAL: SET PLAYWRIGHT PATH BEFORE ANY IMPORTS
 # ============================================================================
@@ -69,6 +74,19 @@ from dotenv import load_dotenv
 load_dotenv()
 
 logger.info(f"🎭 Playwright path set to: {PLAYWRIGHT_PATH}")
+
+
+
+
+# ✅ NEW: VIRAL PIXEL IMPORT
+# ============================================================================
+try:
+    from Viral_pixel import router as viral_pixel_router
+    logger.info("✅ Viral_pixel module imported successfully")
+except ImportError as e:
+    logger.error(f"❌ Failed to import Viral_pixel: {e}")
+    viral_pixel_router = None
+
 
 # ============================================================================
 # UNIFIED DATABASE MANAGER - MULTI-USER OPTIMIZED
@@ -1781,57 +1799,253 @@ except Exception as e:
     logger.error(f"❌ Reddit routes registration failed: {e}")
     logger.error(traceback.format_exc())
 
+
+# ===========================================================================
+# ✅ NEW: VIRAL PIXEL ROUTES (AI-POWERED VIRAL VIDEO GENERATION)
+# ============================================================================
+try:
+    if viral_pixel_router is not None:
+        app.include_router(viral_pixel_router, tags=["viral-pixel"])
+        
+        logger.info("✅ Viral Pixel routes registered successfully!")
+        logger.info("   📍 Available endpoints:")
+        logger.info("      - GET  /api/viral-pixel/niches")
+        logger.info("      - POST /api/viral-pixel/generate")
+    else:
+        logger.warning("⚠️ Viral Pixel router not available - routes not registered")
+        
+except Exception as e:
+    logger.error(f"❌ Viral Pixel routes registration failed: {e}")
+    logger.error(traceback.format_exc())
+
 # ============================================================================
 # PLATFORM STATUS ENDPOINT - MULTI-USER
 # ============================================================================
 @app.get("/api/platforms/status")
 async def get_platform_status(current_user: dict = Depends(get_current_user)):
-    """Get connection status for all platforms - MULTI-USER"""
+    """Get connection status - ALWAYS FRESH FROM DATABASE with Viral Pixel"""
     try:
         user_id = current_user["id"]
+        user_email = current_user.get("email", "Unknown")
         
-        # Check YouTube
+        logger.info(f"🔍 Platform status check for: {user_email} (ID: {user_id})")
+        
+        # ============================================================
+        # CHECK YOUTUBE CONNECTION
+        # ============================================================
         youtube_connected = False
         youtube_channel = None
+        youtube_channel_id = None
+        
         if youtube_services and database_manager and database_manager.connected:
             youtube_creds = await database_manager.get_youtube_credentials(user_id)
             if youtube_creds:
                 youtube_connected = True
                 youtube_channel = youtube_creds.get("channel_info", {}).get("title")
+                youtube_channel_id = youtube_creds.get("channel_info", {}).get("id")
+                logger.info(f"✅ YouTube connected for {user_email}: {youtube_channel}")
         
-        # ✅ Check Reddit - MULTI-USER
+        # ============================================================
+        # CHECK REDDIT CONNECTION - FRESH FROM DATABASE (NO CACHE)
+        # ============================================================
         reddit_connected = False
         reddit_username = None
-        if reddit_services and database_manager and database_manager.connected:
-            reddit_status = await database_manager.check_reddit_connection(user_id)
-            reddit_connected = reddit_status.get("connected", False)
-            reddit_username = reddit_status.get("reddit_username")
+        reddit_user_id = None
         
+        if reddit_services and database_manager and database_manager.connected:
+            # Force fresh query
+            reddit_tokens = await database_manager.get_reddit_tokens(user_id)
+            
+            if reddit_tokens:
+                reddit_connected = True
+                reddit_username = reddit_tokens.get("reddit_username")
+                reddit_user_id = reddit_tokens.get("reddit_user_id")
+                
+                logger.info(f"✅ Reddit connected for {user_email}: u/{reddit_username}")
+            else:
+                logger.warning(f"⚠️ No Reddit connection found for {user_email}")
+        
+        # ============================================================
+        # ✅ NEW: CHECK VIRAL PIXEL AVAILABILITY & CONFIGURATION
+        # ============================================================
+        viral_pixel_available = viral_pixel_router is not None
+        viral_pixel_config = None
+        viral_pixel_ready = False
+        
+        if viral_pixel_available:
+            # Check if user has required API keys for Viral Pixel
+            has_groq = bool(os.getenv("GROQ_API_KEY"))
+            has_mistral = bool(os.getenv("MISTRAL_API_KEY"))
+            has_pexels = bool(os.getenv("PEXELS_API_KEY"))
+            
+            # Viral Pixel is ready if:
+            # 1. Module is loaded
+            # 2. At least one AI service (Groq or Mistral) is available
+            # 3. Pexels API key is present
+            # 4. YouTube is connected (for auto-upload)
+            viral_pixel_ready = (
+                viral_pixel_available and 
+                (has_groq or has_mistral) and 
+                has_pexels and
+                youtube_connected
+            )
+            
+            viral_pixel_config = {
+                "module_loaded": True,
+                "ai_service_available": has_groq or has_mistral,
+                "ai_services": {
+                    "groq": has_groq,
+                    "mistral": has_mistral
+                },
+                "pexels_available": has_pexels,
+                "youtube_required": youtube_connected,
+                "ready_to_use": viral_pixel_ready,
+                "available_niches": [
+                    {
+                        "id": "space",
+                        "name": "Space & Universe 🌌",
+                        "cpm": "$4-8",
+                        "viral_potential": "Very High"
+                    },
+                    {
+                        "id": "tech_ai",
+                        "name": "Technology & AI 🤖",
+                        "cpm": "$6-12",
+                        "viral_potential": "Very High"
+                    },
+                    {
+                        "id": "ocean",
+                        "name": "Ocean & Marine Life 🌊",
+                        "cpm": "$3-7",
+                        "viral_potential": "High"
+                    },
+                    {
+                        "id": "nature",
+                        "name": "Nature & Wildlife 🦁",
+                        "cpm": "$3-6",
+                        "viral_potential": "High"
+                    },
+                    {
+                        "id": "success",
+                        "name": "Success & Motivation 💪",
+                        "cpm": "$4-10",
+                        "viral_potential": "Very High"
+                    },
+                    {
+                        "id": "sports",
+                        "name": "Sports & Fitness ⚽",
+                        "cpm": "$3-7",
+                        "viral_potential": "High"
+                    },
+                    {
+                        "id": "history",
+                        "name": "History & Mystery 🏛️",
+                        "cpm": "$4-8",
+                        "viral_potential": "High"
+                    },
+                    {
+                        "id": "luxury",
+                        "name": "Luxury & Lifestyle 💎",
+                        "cpm": "$5-10",
+                        "viral_potential": "Very High"
+                    }
+                ],
+                "features": [
+                    "AI script generation (Groq/Mistral)",
+                    "Pexels HD video download",
+                    "4 voice styles (male/female/loud/child)",
+                    "Background music (upbeat/calm/epic/cinematic)",
+                    "Text overlays with emojis",
+                    "Video effects (zoom, pan, saturation)",
+                    "Automatic YouTube Shorts upload"
+                ],
+                "requirements": {
+                    "youtube_connected": youtube_connected,
+                    "ai_service": has_groq or has_mistral,
+                    "video_source": has_pexels
+                },
+                "status_message": (
+                    "✅ Ready to generate viral videos!" if viral_pixel_ready else
+                    "⚠️ Connect YouTube to enable auto-upload" if not youtube_connected else
+                    "❌ Missing API keys - check server configuration"
+                )
+            }
+            
+            logger.info(f"🎬 Viral Pixel status: {'Ready' if viral_pixel_ready else 'Not Ready'}")
+        else:
+            viral_pixel_config = {
+                "module_loaded": False,
+                "ready_to_use": False,
+                "status_message": "❌ Viral Pixel module not loaded - check server logs"
+            }
+            logger.warning("⚠️ Viral Pixel module not available")
+        
+        # ============================================================
+        # RETURN COMPREHENSIVE PLATFORM STATUS
+        # ============================================================
         return {
             "success": True,
             "platforms": {
                 "youtube": {
                     "connected": youtube_connected,
                     "channel_name": youtube_channel,
-                    "available": bool(youtube_services)
+                    "channel_id": youtube_channel_id,
+                    "available": bool(youtube_services),
+                    "features_enabled": [
+                        "video_upload",
+                        "shorts_upload",
+                        "slideshow_generation",
+                        "product_video_automation",
+                        "viral_pixel_upload" if viral_pixel_ready else None
+                    ]
                 },
                 "reddit": {
                     "connected": reddit_connected,
-                    "username": reddit_username,  # ✅ Dynamic per user
-                    "available": bool(reddit_services)
-                }
+                    "username": reddit_username,
+                    "user_id": reddit_user_id,
+                    "available": bool(reddit_services),
+                    "features_enabled": [
+                        "manual_posting",
+                        "auto_posting",
+                        "auto_replies",
+                        "ai_content_generation"
+                    ] if reddit_connected else []
+                },
+                # ✅ NEW: VIRAL PIXEL PLATFORM
+                "viral_pixel": viral_pixel_config
             },
-            "user_id": user_id,
-            "user_name": current_user.get("name", "User")
+            "user_info": {
+                "user_id": user_id,
+                "email": user_email,
+                "name": current_user.get("name", "User")
+            },
+            "overall_status": {
+                "platforms_connected": sum([
+                    youtube_connected,
+                    reddit_connected
+                ]),
+                "total_platforms": 2,
+                "viral_pixel_ready": viral_pixel_ready,
+                "all_features_available": youtube_connected and reddit_connected and viral_pixel_ready
+            },
+            # ✅ Add timestamp to prevent caching
+            "fetched_at": datetime.now().isoformat(),
+            "server_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         }
         
     except Exception as e:
-        logger.error(f"Platform status check failed: {e}")
+        logger.error(f"❌ Platform status check failed: {e}")
+        logger.error(traceback.format_exc())
         return {
             "success": False,
-            "error": str(e)
+            "error": str(e),
+            "platforms": {
+                "youtube": {"connected": False, "available": False},
+                "reddit": {"connected": False, "available": False},
+                "viral_pixel": {"module_loaded": False, "ready_to_use": False}
+            },
+            "fetched_at": datetime.now().isoformat()
         }
-
 # ============================================================================
 # AI POST GENERATION - ENHANCED + MULTI-USER
 # ============================================================================
@@ -2612,72 +2826,7 @@ async def debug_current_reddit_user(current_user: dict = Depends(get_current_use
         }
 
 
-@app.get("/api/platforms/status")
-async def get_platform_status(current_user: dict = Depends(get_current_user)):
-    """Get connection status - ALWAYS FRESH FROM DATABASE"""
-    try:
-        user_id = current_user["id"]
-        user_email = current_user.get("email", "Unknown")
-        
-        logger.info(f"🔍 Platform status check for: {user_email} (ID: {user_id})")
-        
-        # Check YouTube
-        youtube_connected = False
-        youtube_channel = None
-        if youtube_services and database_manager and database_manager.connected:
-            youtube_creds = await database_manager.get_youtube_credentials(user_id)
-            if youtube_creds:
-                youtube_connected = True
-                youtube_channel = youtube_creds.get("channel_info", {}).get("title")
-        
-        # ✅ CRITICAL: Get Reddit status FRESH from database (no cache)
-        reddit_connected = False
-        reddit_username = None
-        reddit_user_id = None
-        
-        if reddit_services and database_manager and database_manager.connected:
-            # Force fresh query
-            reddit_tokens = await database_manager.get_reddit_tokens(user_id)
-            
-            if reddit_tokens:
-                reddit_connected = True
-                reddit_username = reddit_tokens.get("reddit_username")
-                reddit_user_id = reddit_tokens.get("reddit_user_id")
-                
-                logger.info(f"✅ Reddit connected for {user_email}: u/{reddit_username}")
-            else:
-                logger.warning(f"⚠️ No Reddit connection found for {user_email}")
-        
-        return {
-            "success": True,
-            "platforms": {
-                "youtube": {
-                    "connected": youtube_connected,
-                    "channel_name": youtube_channel,
-                    "available": bool(youtube_services)
-                },
-                "reddit": {
-                    "connected": reddit_connected,
-                    "username": reddit_username,
-                    "user_id": reddit_user_id,
-                    "available": bool(reddit_services)
-                }
-            },
-            "user_id": user_id,
-            "user_email": user_email,
-            "user_name": current_user.get("name", "User"),
-            # ✅ Add timestamp to prevent caching
-            "fetched_at": datetime.now().isoformat()
-        }
-        
-    except Exception as e:
-        logger.error(f"Platform status check failed: {e}")
-        logger.error(traceback.format_exc())
-        return {
-            "success": False,
-            "error": str(e)
-        }
-    
+
 
 # =======================================================================================
 
