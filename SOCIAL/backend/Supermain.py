@@ -1133,7 +1133,7 @@ async def initialize_all_services():
         reddit_config = {
             'REDDIT_CLIENT_ID': os.getenv('REDDIT_CLIENT_ID'),
             'REDDIT_CLIENT_SECRET': os.getenv('REDDIT_CLIENT_SECRET'),
-            'REDDIT_REDIRECT_URI': os.getenv('REDDIT_REDIRECT_URI', 'https://velocitypost-984x.onrender.com/api/oauth/reddit/callback'),
+            'REDDIT_REDIRECT_URI': os.getenv('REDDIT_REDIRECT_URI', 'https://velocityfly.onrender.com/api/oauth/reddit/callback'),
             'REDDIT_USER_AGENT': os.getenv('REDDIT_USER_AGENT', 'VelocityPost/1.0')
         }
         
@@ -1334,8 +1334,8 @@ app.add_middleware(
         "http://localhost:3000",
         "http://localhost:5173",
         "http://localhost:8080",
-        "https://velocitypost-ai.onrender.com",
-        "https://velocitypost-984x.onrender.com",
+        "https://velocityfly-ai.onrender.com",
+        "https://velocityfly.onrender.com",
         "https://frontend-agentic.onrender.com"
     ],
     allow_credentials=True,

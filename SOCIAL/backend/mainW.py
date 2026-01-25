@@ -348,7 +348,7 @@
 #         if YOUTUBE_AVAILABLE:
 #             google_client_id = os.getenv("GOOGLE_CLIENT_ID")
 #             google_client_secret = os.getenv("GOOGLE_CLIENT_SECRET")
-#             google_redirect_uri = os.getenv("GOOGLE_OAUTH_REDIRECT_URI", "https://velocitypost-984x.onrender.com/api/oauth/google/callback")
+#             google_redirect_uri = os.getenv("GOOGLE_OAUTH_REDIRECT_URI", "https://velocityfly.onrender.com/api/oauth/google/callback")
             
 #             if google_client_id and google_client_secret:
 #                 youtube_connector = YouTubeOAuthConnector(
@@ -444,8 +444,8 @@
 #     allow_origins=[
 #         "http://localhost:3000",
 #         "http://localhost:5173",
-#         "https://velocitypost-ai.onrender.com",
-#         "https://velocitypost-984x.onrender.com",
+#         "https://velocityfly-ai.onrender.com",
+#         "https://velocityfly.onrender.com",
 #         "*"
 #     ],
 #     allow_credentials=True,

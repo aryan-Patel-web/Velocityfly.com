@@ -936,14 +936,14 @@ async def lifespan(app: FastAPI):
     facebook_connector = FacebookOAuthConnector(
         app_id=os.getenv('FB_APP_ID', '788457114351565'),
         app_secret=os.getenv('FB_APP_SECRET', '3a6fba32779a94c001b274ab91c026ee'),
-        redirect_uri=os.getenv('FB_REDIRECT_URI', 'https://velocitypost-984x.onrender.com/api/oauth/facebook/callback')
+        redirect_uri=os.getenv('FB_REDIRECT_URI', 'https://velocityfly.onrender.com/api/oauth/facebook/callback')
     )
     
     # Initialize Instagram Connector
     instagram_connector = InstagramOAuthConnector(
         app_id=os.getenv('INSTAGRAM_APP_ID', '2247747609000742'),
         app_secret=os.getenv('INSTAGRAM_APP_SECRET', '55d50918f00e10f38a64c5e7b8dabdc8'),
-        redirect_uri=os.getenv('INSTAGRAM_REDIRECT_URI', 'https://velocitypost-984x.onrender.com/api/oauth/instagram/callback')
+        redirect_uri=os.getenv('INSTAGRAM_REDIRECT_URI', 'https://velocityfly.onrender.com/api/oauth/instagram/callback')
     )
     
     # Initialize WhatsApp Handler with Fallback Logic
@@ -1002,7 +1002,7 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "https://velocitypost-ai.onrender.com",
+        "https://velocityfly-ai.onrender.com",
         "http://localhost:3000",
         "http://localhost:5173",
     ],
@@ -1387,7 +1387,7 @@ async def oauth_callback(platform: str, code: str, state: str):
         user_id = oauth_states.get(state)
         if not user_id:
             return RedirectResponse(
-                url="https://velocitypost-ai.onrender.com/?error=invalid_state",
+                url="https://velocityfly-ai.onrender.com/?error=invalid_state",
                 status_code=302
             )
         
@@ -1441,18 +1441,18 @@ async def oauth_callback(platform: str, code: str, state: str):
         if result["success"]:
             username = result["user_info"].get("name" if platform == "facebook" else "username", "User")
             return RedirectResponse(
-                url=f"https://velocitypost-ai.onrender.com/?{platform}_connected=true&username={username}",
+                url=f"https://velocityfly-ai.onrender.com/?{platform}_connected=true&username={username}",
                 status_code=302
             )
         else:
             return RedirectResponse(
-                url=f"https://velocitypost-ai.onrender.com/?error={platform}_auth_failed",
+                url=f"https://velocityfly-ai.onrender.com/?error={platform}_auth_failed",
                 status_code=302
             )
     except Exception as e:
         logger.error(f"OAuth callback error: {e}")
         return RedirectResponse(
-            url="https://velocitypost-ai.onrender.com/?error=oauth_failed",
+            url="https://velocityfly-ai.onrender.com/?error=oauth_failed",
             status_code=302
         )
 

@@ -99,7 +99,7 @@ except ImportError:
             mongodb_uri = "mongodb+srv://aryan:aryan@cluster0.7iquw6v.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
             reddit_client_id = os.getenv("REDDIT_CLIENT_ID")
             reddit_client_secret = os.getenv("REDDIT_CLIENT_SECRET")
-            reddit_redirect_uri = os.getenv("REDDIT_REDIRECT_URI", "https://velocitypost-984x.onrender.com/api/oauth/reddit/callback")
+            reddit_redirect_uri = os.getenv("REDDIT_REDIRECT_URI", "https://velocityfly.onrender.com/api/oauth/reddit/callback")
             reddit_user_agent = "RedditAutomationPlatform/1.0"
             token_encryption_key = os.getenv("TOKEN_ENCRYPTION_KEY")
             mistral_api_key = os.getenv("MISTRAL_API_KEY")
@@ -710,7 +710,7 @@ async def lifespan(app: FastAPI):
             config = {
                 'REDDIT_CLIENT_ID': reddit_client_id,
                 'REDDIT_CLIENT_SECRET': reddit_client_secret,
-                'REDDIT_REDIRECT_URI': os.getenv('REDDIT_REDIRECT_URI', 'https://velocitypost-984x.onrender.com/api/oauth/reddit/callback'),
+                'REDDIT_REDIRECT_URI': os.getenv('REDDIT_REDIRECT_URI', 'https://velocityfly.onrender.com/api/oauth/reddit/callback'),
                 'REDDIT_USER_AGENT': os.getenv('REDDIT_USER_AGENT', 'IndianAutomationPlatform/1.0'),
                 'TOKEN_ENCRYPTION_KEY': os.getenv('TOKEN_ENCRYPTION_KEY', 'default_key_change_in_production')
             }
@@ -861,8 +861,8 @@ app.add_middleware(
         "http://localhost:3000",
         "http://localhost:5173", 
         "http://localhost:8080",
-        "https://velocitypost-ai.onrender.com",  # Your frontend domain
-        "https://velocitypost-984x.onrender.com"  # Your backend domain
+        "https://velocityfly-ai.onrender.com",  # Your frontend domain
+        "https://velocityfly.onrender.com"  # Your backend domain
          # Allow all origins for development
     ],
     allow_credentials=True,
@@ -1264,7 +1264,7 @@ async def reddit_oauth_authorize(current_user: dict = Depends(get_current_user))
         reddit_client_id = os.getenv("REDDIT_CLIENT_ID")
         reddit_redirect_uri = os.getenv(
             "REDDIT_REDIRECT_URI",
-            "https://velocitypost-984x.onrender.com/api/oauth/reddit/callback"
+            "https://velocityfly.onrender.com/api/oauth/reddit/callback"
         )
         
         if not reddit_client_id:
@@ -1339,7 +1339,7 @@ async def reddit_oauth_callback(
         logger.info(f"📥 State: {state[:50] + '...' if state else 'MISSING'}")
         logger.info(f"📥 Error: {error if error else 'None'}")
         
-        frontend_url = os.getenv("FRONTEND_URL", "https://velocitypost-ai.onrender.com")
+        frontend_url = os.getenv("FRONTEND_URL", "https://velocityfly-ai.onrender.com")
         
         # Check for OAuth errors
         if error:
@@ -1404,7 +1404,7 @@ async def reddit_oauth_callback(
         reddit_client_secret = os.getenv("REDDIT_CLIENT_SECRET")
         reddit_redirect_uri = os.getenv(
             "REDDIT_REDIRECT_URI",
-            "https://velocitypost-984x.onrender.com/api/oauth/reddit/callback"
+            "https://velocityfly.onrender.com/api/oauth/reddit/callback"
         )
         reddit_user_agent = os.getenv("REDDIT_USER_AGENT", "VelocityPost/1.0")
         
@@ -1538,7 +1538,7 @@ async def reddit_oauth_callback(
         logger.error(f"❌ OAuth callback error: {e}")
         logger.error(traceback.format_exc())
         
-        frontend_url = os.getenv("FRONTEND_URL", "https://velocitypost-ai.onrender.com")
+        frontend_url = os.getenv("FRONTEND_URL", "https://velocityfly-ai.onrender.com")
         return RedirectResponse(
             url=f"{frontend_url}?error=callback_exception",
             status_code=302
@@ -1560,7 +1560,7 @@ async def reddit_oauth_callback(
         logger.info(f"   - Request URL: {request.url if request else 'N/A'}")
         
         # ✅ Get frontend URL
-        frontend_url = os.getenv("FRONTEND_URL", "https://velocitypost-ai.onrender.com")
+        frontend_url = os.getenv("FRONTEND_URL", "https://velocityfly-ai.onrender.com")
         logger.info(f"🔗 Frontend URL: {frontend_url}")
         
         # Check for OAuth errors from Reddit
@@ -1632,7 +1632,7 @@ async def reddit_oauth_callback(
         reddit_client_secret = os.getenv("REDDIT_CLIENT_SECRET")
         reddit_redirect_uri = os.getenv(
             "REDDIT_REDIRECT_URI",
-            "https://velocitypost-984x.onrender.com/api/oauth/reddit/callback"
+            "https://velocityfly.onrender.com/api/oauth/reddit/callback"
         )
         reddit_user_agent = os.getenv("REDDIT_USER_AGENT", "VelocityPost/1.0")
         
@@ -1956,7 +1956,7 @@ async def reddit_oauth_callback(
         logger.error(traceback.format_exc())
         logger.error("=" * 80)
         
-        frontend_url = os.getenv("FRONTEND_URL", "https://velocitypost-ai.onrender.com")
+        frontend_url = os.getenv("FRONTEND_URL", "https://velocityfly-ai.onrender.com")
         return RedirectResponse(
             url=f"{frontend_url}?error=callback_exception",
             status_code=302
@@ -1972,7 +1972,7 @@ async def reddit_oauth_callback(
 #             logger.error(f"Invalid OAuth state from database: {state}")
 #             logger.error(f"Available states in database: {await database_manager.get_all_oauth_states() if hasattr(database_manager, 'get_all_oauth_states') else 'method not available'}")
 #             return RedirectResponse(
-#                 url="https://velocitypost-ai.onrender.com/?error=invalid_oauth_state",
+#                 url="https://velocityfly-ai.onrender.com/?error=invalid_oauth_state",
 #                 status_code=302
 #             )
         
@@ -1989,7 +1989,7 @@ async def reddit_oauth_callback(
 #         if not reddit_client_id or not reddit_client_secret:
 #             logger.error("Reddit credentials missing from environment")
 #             return RedirectResponse(
-#                 url="https://velocitypost-ai.onrender.com/?error=missing_credentials",
+#                 url="https://velocityfly-ai.onrender.com/?error=missing_credentials",
 #                 status_code=302
 #             )
         
@@ -2108,19 +2108,19 @@ async def reddit_oauth_callback(
                 
 #                 # Redirect to main page instead of /reddit-auto to avoid 404
 #                 return RedirectResponse(
-#                     url=f"https://velocitypost-ai.onrender.com/?reddit_connected=true&username={username}",
+#                     url=f"https://velocityfly-ai.onrender.com/?reddit_connected=true&username={username}",
 #                     status_code=302
 #                 )
 #             else:
 #                 logger.error("No access token in Reddit response")
 #                 return RedirectResponse(
-#                     url="https://velocitypost-ai.onrender.com/?error=no_access_token",
+#                     url="https://velocityfly-ai.onrender.com/?error=no_access_token",
 #                     status_code=302
 #                 )
 #         else:
 #             logger.error(f"Token exchange failed: {response.status_code} - {response.text}")
 #             return RedirectResponse(
-#                 url="https://velocitypost-ai.onrender.com/?error=token_exchange_failed",
+#                 url="https://velocityfly-ai.onrender.com/?error=token_exchange_failed",
 #                 status_code=302
 #             )
         
@@ -2128,7 +2128,7 @@ async def reddit_oauth_callback(
 #         logger.error(f"OAuth callback failed: {e}")
 #         logger.error(traceback.format_exc())
 #         return RedirectResponse(
-#             url="https://velocitypost-ai.onrender.com/?error=oauth_failed",
+#             url="https://velocityfly-ai.onrender.com/?error=oauth_failed",
 #             status_code=302
 #         )
 
@@ -2159,7 +2159,7 @@ async def debug_reddit_config():
             },
             "redirect_uri": {
                 "value": reddit_redirect_uri if reddit_redirect_uri else "NOT_SET",
-                "expected": "https://velocitypost-984x.onrender.com/api/oauth/reddit/callback"
+                "expected": "https://velocityfly.onrender.com/api/oauth/reddit/callback"
             },
             "user_agent": {
                 "value": reddit_user_agent if reddit_user_agent else "NOT_SET",
@@ -2167,13 +2167,13 @@ async def debug_reddit_config():
             },
             "frontend_url": {
                 "value": frontend_url if frontend_url else "NOT_SET",
-                "expected": "https://velocitypost-ai.onrender.com"
+                "expected": "https://velocityfly-ai.onrender.com"
             }
         },
         "validation": {
             "all_credentials_set": all([reddit_client_id, reddit_client_secret, reddit_redirect_uri]),
             "client_id_matches": reddit_client_id == "luTBXCyUteWCHyhoKeE6Lw" if reddit_client_id else False,
-            "redirect_uri_correct": reddit_redirect_uri == "https://velocitypost-984x.onrender.com/api/oauth/reddit/callback" if reddit_redirect_uri else False
+            "redirect_uri_correct": reddit_redirect_uri == "https://velocityfly.onrender.com/api/oauth/reddit/callback" if reddit_redirect_uri else False
         }
     }
 
