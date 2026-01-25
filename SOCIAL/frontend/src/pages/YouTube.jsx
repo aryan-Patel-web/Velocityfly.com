@@ -1685,6 +1685,16 @@ useEffect(() => {
   active={activeTab === 'automation'} 
   onClick={() => setActiveTab('automation')} 
 />
+
+
+<TabButton 
+  id="viral-pixel" 
+  label="Viral Pixel" 
+  emoji="🎬" 
+  active={activeTab === 'viral-pixel'} 
+  onClick={() => setActiveTab('viral-pixel')} 
+/>
+
         </div>
 
 
