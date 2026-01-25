@@ -898,7 +898,7 @@ GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY")
 
 # Memory optimization
-MAX_VIDEO_SIZE_MB = 5  # Skip videos larger than 5MB
+MAX_VIDEO_SIZE_MB = 15  # Skip videos larger than 5MB
 CLIP_DURATION = 5  # 5 seconds per clip
 MAX_SEGMENTS = 6  # Total 30 seconds
 FFMPEG_TIMEOUT = 15  # Fast timeout
