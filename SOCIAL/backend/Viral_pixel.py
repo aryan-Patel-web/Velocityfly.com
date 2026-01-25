@@ -1372,15 +1372,12 @@ def extract_clip_quick(video_path: str, duration: int = CLIP_DURATION) -> str:
 
 
 def apply_simple_effect(video_path: str, effect: str, saturation: float) -> str:
-    """Apply simple zoom and saturation"""
+    """Apply simple effects - NO ZOOMPAN to avoid timeout"""
     try:
         output_path = video_path.replace(".mp4", "_fx.mp4")
         
-        # Simple filter
-        if effect == "zoom_in":
-            vf = f"zoompan=z='min(zoom+0.0015,1.15)':d=125:s=720x1280,eq=saturation={saturation}"
-        else:  # zoom_out
-            vf = f"zoompan=z='max(zoom-0.0015,1.0)':d=125:s=720x1280,eq=saturation={saturation}"
+        # SIMPLIFIED: Only scale + saturation (no zoompan - it's too slow)
+        vf = f"scale=720:1280:force_original_aspect_ratio=increase,crop=720:1280,eq=saturation={saturation}"
         
         cmd = [
             "ffmpeg", "-i", video_path,
@@ -1392,7 +1389,7 @@ def apply_simple_effect(video_path: str, effect: str, saturation: float) -> str:
             "-y"
         ]
         
-        subprocess.run(cmd, capture_output=True, timeout=30)
+        subprocess.run(cmd, capture_output=True, timeout=20)
         
         if os.path.exists(output_path):
             cleanup_file(video_path)
@@ -1405,21 +1402,22 @@ def apply_simple_effect(video_path: str, effect: str, saturation: float) -> str:
 
 
 def add_text_simple(video_path: str, text: str, emoji: str) -> str:
-    """Add text overlay"""
+    """Add text overlay - FAST"""
     try:
         output_path = video_path.replace(".mp4", "_text.mp4")
         
+        # Simplified text (no emoji if it causes issues)
         text_escaped = text.replace("'", "'\\''").replace(":", "\\:")
-        full_text = f"{text_escaped} {emoji}"
         
+        # Simpler drawtext
         drawtext = (
-            f"drawtext=text='{full_text}':"
-            "fontsize=60:"
+            f"drawtext=text='{text_escaped}':"
+            "fontsize=50:"
             "fontcolor=white:"
-            "borderw=4:"
+            "borderw=3:"
             "bordercolor=black:"
             "x=(w-text_w)/2:"
-            "y=h-200"
+            "y=h-180"
         )
         
         cmd = [
@@ -1432,7 +1430,7 @@ def add_text_simple(video_path: str, text: str, emoji: str) -> str:
             "-y"
         ]
         
-        subprocess.run(cmd, capture_output=True, timeout=30)
+        subprocess.run(cmd, capture_output=True, timeout=20)
         
         if os.path.exists(output_path):
             cleanup_file(video_path)
@@ -1617,14 +1615,17 @@ async def upload_to_youtube(video_path: str, title: str, description: str, tags:
         
         from mainY import youtube_scheduler
         
+        # FIXED: Combine tags into description instead of separate parameter
+        full_description = f"{description}\n\n#{' #'.join(tags)}"
+        
         upload_result = await youtube_scheduler.generate_and_upload_content(
             user_id=user_id,
             credentials_data=credentials,
             content_type="shorts",
             title=f"{title} #Shorts",
-            description=description,
-            video_url=video_path,
-            tags=tags
+            description=full_description,
+            video_url=video_path
+            # Removed: tags parameter (not supported)
         )
         
         if upload_result.get("success"):
