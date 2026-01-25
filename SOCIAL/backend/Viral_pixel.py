@@ -902,7 +902,7 @@ MAX_VIDEO_SIZE_MB = 15
 CLIP_DURATION = 5
 MAX_SEGMENTS = 6
 FFMPEG_TIMEOUT = 15
-VOICE_SPEED = 1.5  # 1.5x faster
+VOICE_SPEED = 1.1  # 1.5x faster
 
 NICHES = {
     "space": {
