@@ -86,30 +86,7 @@ const [viralPixelResult, setViralPixelResult] = useState(null);
 const [viralPixelAutomationActive, setViralPixelAutomationActive] = useState(false);
 const [viralPixelLogs, setViralPixelLogs] = useState([]);
 
-// ✅ VIRAL PIXEL useEffect (Add this with your other useEffects)
-useEffect(() => {
-  // Load available niches from backend (optional - if your API supports it)
-  // You can remove this if you're using hardcoded niches
-  const loadViralPixelData = async () => {
-    try {
-      const response = await fetch(`${API_BASE}/api/viral-pixel/niches`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      const data = await response.json();
-      if (data.success) {
-        console.log('Viral Pixel niches loaded successfully');
-      }
-    } catch (error) {
-      console.error('Failed to load Viral Pixel niches:', error);
-    }
-  };
 
-  if (status?.youtube_connected) {
-    loadViralPixelData();
-  }
-}, [API_BASE, token, status]);
 
 
 // ✅ NEW: Product Automation States
@@ -1259,7 +1236,30 @@ useEffect(() => {
 }, [user, token]);
 
 
+// ✅ VIRAL PIXEL useEffect (Add this with your other useEffects)
+useEffect(() => {
+  // Load available niches from backend (optional - if your API supports it)
+  // You can remove this if you're using hardcoded niches
+  const loadViralPixelData = async () => {
+    try {
+      const response = await fetch(`${API_BASE}/api/viral-pixel/niches`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      const data = await response.json();
+      if (data.success) {
+        console.log('Viral Pixel niches loaded successfully');
+      }
+    } catch (error) {
+      console.error('Failed to load Viral Pixel niches:', error);
+    }
+  };
 
+  if (status?.youtube_connected) {
+    loadViralPixelData();
+  }
+}, [API_BASE, token, status]);
 
 // ✅ Load automation config on mount
 useEffect(() => {
