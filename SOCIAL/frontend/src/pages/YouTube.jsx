@@ -7748,11 +7748,9 @@ onClick={async () => {
 
 
 {/* --------------------------------viral pixel code tab---------------------------------------------------- */}
-
-
-// ViralPixel.jsx - COMPLETE VIRAL VIDEO GENERATOR FRONTEND
-// Paste this as a NEW TAB in your YouTube.jsx activeTab section
-
+{/* ============================================ */}
+{/* VIRAL PIXEL TAB - FIXED VERSION */}
+{/* ============================================ */}
 {activeTab === 'viral-pixel' && status?.youtube_connected && (
   <div style={{ 
     background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', 
@@ -7761,27 +7759,35 @@ onClick={async () => {
     boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
     minHeight: '600px'
   }}>
-    <h2 style={{ 
-      color: 'white', 
-      marginBottom: '10px', 
-      fontSize: '36px', 
-      fontWeight: '800',
-      textShadow: '2px 2px 4px rgba(0,0,0,0.3)'
+    <div style={{ 
+      display: 'flex', 
+      justifyContent: 'space-between', 
+      alignItems: 'center', 
+      marginBottom: '30px' 
     }}>
-      🎬 Viral Pixel Generator
-    </h2>
-    <p style={{ 
-      color: 'rgba(255,255,255,0.95)', 
-      marginBottom: '30px', 
-      fontSize: '18px',
-      fontWeight: '500'
-    }}>
-      Create viral YouTube Shorts with Pexels videos + AI scripts
-    </p>
+      <div>
+        <h2 style={{ 
+          color: 'white', 
+          marginBottom: '10px', 
+          fontSize: '36px', 
+          fontWeight: '800',
+          textShadow: '2px 2px 4px rgba(0,0,0,0.3)',
+          margin: 0
+        }}>
+          🎬 Viral Pixel Generator
+        </h2>
+        <p style={{ 
+          color: 'rgba(255,255,255,0.95)', 
+          fontSize: '18px',
+          fontWeight: '500',
+          margin: 0
+        }}>
+          Create viral YouTube Shorts with Pexels videos + AI scripts
+        </p>
+      </div>
+    </div>
 
-    {/* ========================================== */}
     {/* STEP 1: NICHE SELECTION */}
-    {/* ========================================== */}
     <div style={{
       background: 'rgba(255,255,255,0.95)',
       borderRadius: '15px',
@@ -7880,9 +7886,7 @@ onClick={async () => {
       )}
     </div>
 
-    {/* ========================================== */}
     {/* STEP 2: CONFIGURATION */}
-    {/* ========================================== */}
     <div style={{
       background: 'rgba(255,255,255,0.95)',
       borderRadius: '15px',
@@ -7996,7 +8000,7 @@ onClick={async () => {
       </div>
 
       {/* Background Music */}
-      <div style={{ marginBottom: '25px' }}>
+      <div style={{ marginBottom: '0' }}>
         <label style={{ 
           display: 'block', 
           marginBottom: '10px', 
@@ -8056,9 +8060,7 @@ onClick={async () => {
       </div>
     </div>
 
-    {/* ========================================== */}
-    {/* STEP 3: AUTOMATION SCHEDULER */}
-    {/* ========================================== */}
+    {/* STEP 3: GENERATE NOW */}
     <div style={{
       background: 'rgba(255,255,255,0.95)',
       borderRadius: '15px',
@@ -8071,294 +8073,7 @@ onClick={async () => {
         fontSize: '24px', 
         fontWeight: '700' 
       }}>
-        🕐 Step 3: Schedule Uploads
-      </h3>
-
-      {/* Automation Status */}
-      <div style={{
-        padding: '20px',
-        background: viralPixelAutomationActive 
-          ? 'linear-gradient(135deg, #11998e 0%, #38ef7d 100%)' 
-          : '#f8f9fa',
-        borderRadius: '12px',
-        marginBottom: '20px',
-        border: `3px solid ${viralPixelAutomationActive ? '#28a745' : '#ddd'}`
-      }}>
-        <div style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          flexWrap: 'wrap',
-          gap: '15px'
-        }}>
-          <div>
-            <div style={{ 
-              fontSize: '20px', 
-              fontWeight: '700',
-              color: viralPixelAutomationActive ? 'white' : '#333',
-              marginBottom: '5px'
-            }}>
-              {viralPixelAutomationActive ? '🟢 AUTOMATION ACTIVE' : '🔴 AUTOMATION INACTIVE'}
-            </div>
-            <div style={{ 
-              fontSize: '14px',
-              color: viralPixelAutomationActive ? 'rgba(255,255,255,0.95)' : '#666'
-            }}>
-              {viralPixelAutomationActive 
-                ? `Niche: ${viralPixelConfig.niche} • ${viralPixelConfig.upload_times.length} scheduled times`
-                : 'Configure settings and start automation'}
-            </div>
-          </div>
-
-          <button
-            onClick={async () => {
-              if (!viralPixelAutomationActive) {
-                // Validate
-                if (!viralPixelConfig.niche) {
-                  alert('❌ Please select a niche first!');
-                  return;
-                }
-                
-                if (viralPixelConfig.upload_times.length === 0) {
-                  alert('❌ Please add at least one upload time!');
-                  return;
-                }
-                
-                // Start automation
-                try {
-                  const response = await fetch(`${API_BASE}/api/viral-pixel/start-automation`, {
-                    method: 'POST',
-                    headers: {
-                      'Content-Type': 'application/json',
-                      'Authorization': `Bearer ${token}`
-                    },
-                    body: JSON.stringify({
-                      user_id: user.user_id,
-                      config: viralPixelConfig
-                    })
-                  });
-                  
-                  const result = await response.json();
-                  
-                  if (result.success) {
-                    setViralPixelAutomationActive(true);
-                    alert(`✅ Automation started!\n\nNiche: ${viralPixelConfig.niche}\nTimes: ${viralPixelConfig.upload_times.join(', ')}`);
-                  } else {
-                    alert('❌ Failed: ' + result.error);
-                  }
-                } catch (error) {
-                  alert('❌ Error: ' + error.message);
-                }
-              } else {
-                // Stop automation
-                if (!confirm('Stop automation?')) return;
-                
-                try {
-                  const response = await fetch(`${API_BASE}/api/viral-pixel/stop-automation`, {
-                    method: 'POST',
-                    headers: {
-                      'Content-Type': 'application/json',
-                      'Authorization': `Bearer ${token}`
-                    },
-                    body: JSON.stringify({
-                      user_id: user.user_id
-                    })
-                  });
-                  
-                  const result = await response.json();
-                  
-                  if (result.success) {
-                    setViralPixelAutomationActive(false);
-                    alert('⏹️ Automation stopped.');
-                  } else {
-                    alert('❌ Failed: ' + result.error);
-                  }
-                } catch (error) {
-                  alert('❌ Error: ' + error.message);
-                }
-              }
-            }}
-            disabled={!viralPixelAutomationActive && !viralPixelConfig.niche}
-            style={{
-              padding: '14px 32px',
-              background: viralPixelAutomationActive ? '#dc3545' : '#28a745',
-              color: 'white',
-              border: 'none',
-              borderRadius: '10px',
-              fontWeight: '700',
-              fontSize: '16px',
-              cursor: (!viralPixelAutomationActive && !viralPixelConfig.niche) ? 'not-allowed' : 'pointer',
-              opacity: (!viralPixelAutomationActive && !viralPixelConfig.niche) ? 0.5 : 1,
-              boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
-              transition: 'all 0.3s'
-            }}
-          >
-            {viralPixelAutomationActive ? '⏹️ STOP' : '▶️ START'} AUTOMATION
-          </button>
-        </div>
-      </div>
-
-      {/* Upload Times Management */}
-      {!viralPixelAutomationActive && (
-        <>
-          <div style={{ marginBottom: '15px' }}>
-            <label style={{ 
-              display: 'block', 
-              marginBottom: '10px', 
-              fontWeight: '600',
-              color: '#333',
-              fontSize: '15px'
-            }}>
-              Upload Times (IST - 24-hour format):
-            </label>
-
-            {/* Display times */}
-            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '15px' }}>
-              {viralPixelConfig.upload_times.map((time, idx) => (
-                <span key={idx} style={{
-                  padding: '10px 16px',
-                  background: 'linear-gradient(135deg, #FF0000, #CC0000)',
-                  color: 'white',
-                  borderRadius: '20px',
-                  fontSize: '14px',
-                  fontWeight: '600',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px'
-                }}>
-                  🕐 {time}
-                  <button
-                    onClick={() => {
-                      setViralPixelConfig(prev => ({
-                        ...prev,
-                        upload_times: prev.upload_times.filter((_, i) => i !== idx)
-                      }));
-                    }}
-                    style={{
-                      background: 'rgba(255,255,255,0.3)',
-                      border: 'none',
-                      color: 'white',
-                      cursor: 'pointer',
-                      fontSize: '14px',
-                      width: '18px',
-                      height: '18px',
-                      borderRadius: '50%',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      padding: 0
-                    }}
-                  >
-                    ×
-                  </button>
-                </span>
-              ))}
-            </div>
-
-            {/* Add time */}
-            <div style={{ display: 'flex', gap: '10px' }}>
-              <input
-                type="time"
-                id="viralPixelTime"
-                style={{
-                  flex: 1,
-                  padding: '12px',
-                  borderRadius: '8px',
-                  border: '2px solid #ddd',
-                  fontSize: '14px'
-                }}
-              />
-              <button
-                onClick={() => {
-                  const input = document.getElementById('viralPixelTime');
-                  if (input.value && !viralPixelConfig.upload_times.includes(input.value)) {
-                    setViralPixelConfig(prev => ({
-                      ...prev,
-                      upload_times: [...prev.upload_times, input.value].sort()
-                    }));
-                    input.value = '';
-                  } else if (viralPixelConfig.upload_times.includes(input.value)) {
-                    alert('⚠️ Time already added!');
-                  }
-                }}
-                style={{
-                  padding: '12px 24px',
-                  background: '#28a745',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '8px',
-                  fontSize: '14px',
-                  fontWeight: '600',
-                  cursor: 'pointer'
-                }}
-              >
-                ➕ Add
-              </button>
-            </div>
-          </div>
-
-          {/* Quick test */}
-          <div style={{
-            marginTop: '15px',
-            padding: '15px',
-            background: '#fff3cd',
-            border: '2px solid #ffc107',
-            borderRadius: '10px'
-          }}>
-            <strong style={{ color: '#856404', fontSize: '14px' }}>
-              🧪 Quick Test (5 min from now)
-            </strong>
-            <button
-              onClick={() => {
-                const now = new Date();
-                now.setMinutes(now.getMinutes() + 5);
-                const testTime = now.toTimeString().substring(0, 5);
-                
-                if (!viralPixelConfig.upload_times.includes(testTime)) {
-                  setViralPixelConfig(prev => ({
-                    ...prev,
-                    upload_times: [...prev.upload_times, testTime].sort()
-                  }));
-                  alert(`✅ Test time ${testTime} added!`);
-                } else {
-                  alert('⚠️ Time already exists!');
-                }
-              }}
-              style={{
-                marginLeft: '10px',
-                padding: '8px 16px',
-                background: '#ffc107',
-                color: '#000',
-                border: 'none',
-                borderRadius: '6px',
-                fontSize: '13px',
-                fontWeight: '600',
-                cursor: 'pointer'
-              }}
-            >
-              Add 5-Min Test
-            </button>
-          </div>
-        </>
-      )}
-    </div>
-
-    {/* ========================================== */}
-    {/* STEP 4: GENERATE NOW */}
-    {/* ========================================== */}
-    <div style={{
-      background: 'rgba(255,255,255,0.95)',
-      borderRadius: '15px',
-      padding: '30px',
-      marginBottom: '25px'
-    }}>
-      <h3 style={{ 
-        color: '#333', 
-        marginBottom: '20px', 
-        fontSize: '24px', 
-        fontWeight: '700' 
-      }}>
-        🎬 Step 4: Generate Video Now
+        🎬 Step 3: Generate Video Now
       </h3>
 
       <button
@@ -8388,7 +8103,6 @@ onClick={async () => {
               })
             });
 
-            // Simulate progress
             const progressInterval = setInterval(() => {
               setViralPixelProgress(prev => {
                 if (prev >= 90) {
@@ -8437,7 +8151,6 @@ onClick={async () => {
         {viralPixelGenerating ? '⏳ GENERATING...' : '🎬 GENERATE VIDEO NOW'}
       </button>
 
-      {/* Progress Bar */}
       {viralPixelGenerating && (
         <div style={{ marginTop: '20px' }}>
           <div style={{
@@ -8473,7 +8186,6 @@ onClick={async () => {
         </div>
       )}
 
-      {/* Result Display */}
       {viralPixelResult && (
         <div style={{
           marginTop: '20px',
@@ -8491,6 +8203,7 @@ onClick={async () => {
           <div style={{ fontSize: '14px', color: '#333', marginBottom: '15px' }}>
             <strong>Title:</strong> {viralPixelResult.title}
           </div>
+          
           <a
             href={viralPixelResult.video_url}
             target="_blank"
@@ -8512,98 +8225,44 @@ onClick={async () => {
       )}
     </div>
 
-    {/* ========================================== */}
-    {/* ACTIVITY LOGS */}
-    {/* ========================================== */}
+    {/* HOW IT WORKS */}
     <div style={{
-      background: 'rgba(255,255,255,0.95)',
+      padding: '25px',
+      background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
       borderRadius: '15px',
-      padding: '30px'
+      color: 'white'
     }}>
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'space-between', 
-        alignItems: 'center', 
-        marginBottom: '20px' 
-      }}>
-        <h3 style={{ 
-          color: '#333', 
-          fontSize: '24px', 
-          fontWeight: '700',
-          margin: 0 
-        }}>
-          📋 Activity Logs
-        </h3>
-        <button
-          onClick={async () => {
-            // Refresh logs logic
-          }}
-          style={{
-            padding: '8px 16px',
-            background: '#007bff',
-            color: 'white',
-            border: 'none',
-            borderRadius: '6px',
-            fontSize: '13px',
-            fontWeight: '600',
-            cursor: 'pointer'
-          }}
-        >
-          🔄 Refresh
-        </button>
+      <h3 style={{ marginBottom: '20px', fontSize: '20px', fontWeight: '700' }}>
+        📖 How It Works
+      </h3>
+      <div style={{ display: 'grid', gap: '15px' }}>
+        {[
+          { icon: '1️⃣', text: 'AI generates viral script for your niche' },
+          { icon: '2️⃣', text: 'Downloads HD videos from Pexels' },
+          { icon: '3️⃣', text: 'Creates voiceover with your chosen style' },
+          { icon: '4️⃣', text: 'Adds background music (30% volume)' },
+          { icon: '5️⃣', text: 'Applies effects (zoom, pan, saturation)' },
+          { icon: '6️⃣', text: 'Adds text overlays with emojis' },
+          { icon: '7️⃣', text: 'Uploads to YouTube Shorts automatically' }
+        ].map((step, idx) => (
+          <div key={idx} style={{
+            display: 'flex',
+            gap: '12px',
+            alignItems: 'center',
+            background: 'rgba(255,255,255,0.15)',
+            padding: '12px',
+            borderRadius: '8px',
+            backdropFilter: 'blur(10px)'
+          }}>
+            <span style={{ fontSize: '24px' }}>{step.icon}</span>
+            <span style={{ fontSize: '14px' }}>{step.text}</span>
+          </div>
+        ))}
       </div>
-
-      {viralPixelLogs.length === 0 ? (
-        <div style={{
-          padding: '40px',
-          textAlign: 'center',
-          color: '#999',
-          background: '#f8f9fa',
-          borderRadius: '10px'
-        }}>
-          <div style={{ fontSize: '48px', marginBottom: '10px' }}>📭</div>
-          <p style={{ margin: 0, fontSize: '16px' }}>
-            No activity yet. Generate videos to see logs here.
-          </p>
-        </div>
-      ) : (
-        <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
-          {viralPixelLogs.map((log, idx) => (
-            <div key={idx} style={{
-              padding: '15px',
-              background: log.success ? '#f0f9ff' : '#fff1f0',
-              borderLeft: `4px solid ${log.success ? '#0284c7' : '#ef4444'}`,
-              borderRadius: '8px',
-              marginBottom: '10px'
-            }}>
-              <div style={{ 
-                display: 'flex', 
-                justifyContent: 'space-between', 
-                marginBottom: '8px' 
-              }}>
-                <span style={{ 
-                  fontWeight: '600', 
-                  color: log.success ? '#0284c7' : '#ef4444' 
-                }}>
-                  {log.success ? '✅ Success' : '❌ Failed'}
-                </span>
-                <span style={{ fontSize: '13px', color: '#666' }}>
-                  {new Date(log.timestamp).toLocaleString('en-IN')}
-                </span>
-              </div>
-              {log.video_id && (
-                <div style={{ fontSize: '14px', color: '#333' }}>
-                  🎬 Video: {log.video_id}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
     </div>
   </div>
 )}
-{/* --------------------------------viral pixel code---------------------------------------------------- */}
+{/* --------------------------------viral pixel code end---------------------------------------------------- */}
 
 
 
