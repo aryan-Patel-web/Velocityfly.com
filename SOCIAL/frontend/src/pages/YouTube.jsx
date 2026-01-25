@@ -7746,9 +7746,6 @@ onClick={async () => {
       </div>
     </div>
 
-
-
-
     {/* Activity Logs */}
     <div style={{
       padding: '25px',
@@ -7804,6 +7801,9 @@ onClick={async () => {
 )}
 
 {/* End Automation Tab */}
+
+
+
 
 
 
@@ -8326,9 +8326,13 @@ onClick={async () => {
 
 
 
-{/* End Automation Tab */}
 
-{/* End Image Slideshow Tab */}
+
+
+
+
+
+
 
         {/* Not Connected Message */}
         {activeTab !== 'connect' && !status?.youtube_connected && (
