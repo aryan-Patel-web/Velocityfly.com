@@ -1216,17 +1216,120 @@ def add_text_overlay(video_path: str, text: str, emoji: str) -> str:
         return video_path
 
 # ============================================================================
-# VOICEOVER (GTTS)
+# VOICEOVER (MULTIPLE FREE OPTIONS)
 # ============================================================================
 
-def generate_voiceover(text: str, duration: float, language: str = "hindi") -> str:
-    """Generate voiceover using gTTS"""
+async def generate_voiceover_edge_tts(text: str, duration: float, language: str = "hindi", voice_gender: str = "male") -> str:
+    """Generate human-like voiceover using Edge TTS (FREE, Microsoft quality)"""
+    try:
+        import edge_tts
+        
+        # Voice selection based on language and gender
+        VOICES = {
+            "hindi_male": "hi-IN-MadhurNeural",
+            "hindi_female": "hi-IN-SwaraNeural",
+            "english_us_male": "en-US-GuyNeural",
+            "english_us_female": "en-US-JennyNeural",
+            "english_uk_male": "en-GB-RyanNeural",
+            "english_uk_female": "en-GB-SoniaNeural",
+            "english_in_male": "en-IN-PrabhatNeural",
+            "english_in_female": "en-IN-NeerjaNeural"
+        }
+        
+        voice_key = f"{language}_{voice_gender}"
+        voice = VOICES.get(voice_key, VOICES["hindi_male"])
+        
+        temp_file = f"/tmp/voice_{uuid.uuid4().hex[:8]}.mp3"
+        
+        # Limit text
+        text = text[:200]
+        
+        # Generate with Edge TTS
+        communicate = edge_tts.Communicate(text, voice)
+        await communicate.save(temp_file)
+        
+        # Adjust duration and normalize audio
+        output_file = temp_file.replace(".mp3", "_adj.mp3")
+        cmd = [
+            "ffmpeg", "-i", temp_file,
+            "-af", "loudnorm=I=-16:LRA=11:TP=-1.5",  # Normalize audio
+            "-t", str(duration),
+            "-b:a", "128k",
+            output_file,
+            "-y"
+        ]
+        
+        run_ffmpeg_quick(cmd, timeout=10)
+        cleanup_file(temp_file)
+        
+        if os.path.exists(output_file):
+            logger.info(f"✅ Voice (Edge TTS): {get_file_size_mb(output_file):.1f}MB")
+            return output_file
+        
+        return await generate_voiceover_pyttsx3(text, duration, language)
+    except Exception as e:
+        logger.error(f"Edge TTS error: {e}")
+        return await generate_voiceover_pyttsx3(text, duration, language)
+
+def generate_voiceover_pyttsx3(text: str, duration: float, language: str = "hindi") -> str:
+    """Fallback: pyttsx3 (offline TTS)"""
+    try:
+        import pyttsx3
+        
+        temp_file = f"/tmp/voice_{uuid.uuid4().hex[:8]}.mp3"
+        
+        engine = pyttsx3.init()
+        
+        # Set voice properties
+        voices = engine.getProperty('voices')
+        
+        # Try to find appropriate voice
+        if language.startswith("hindi"):
+            for voice in voices:
+                if "hindi" in voice.name.lower():
+                    engine.setProperty('voice', voice.id)
+                    break
+        else:
+            # Use first available English voice
+            engine.setProperty('voice', voices[0].id if voices else None)
+        
+        engine.setProperty('rate', 160)  # Speed
+        engine.setProperty('volume', 1.0)
+        
+        # Save
+        engine.save_to_file(text[:150], temp_file)
+        engine.runAndWait()
+        
+        # Adjust duration
+        output_file = temp_file.replace(".mp3", "_adj.mp3")
+        cmd = [
+            "ffmpeg", "-i", temp_file,
+            "-af", "loudnorm=I=-16",
+            "-t", str(duration),
+            "-b:a", "96k",
+            output_file,
+            "-y"
+        ]
+        
+        run_ffmpeg_quick(cmd, timeout=10)
+        cleanup_file(temp_file)
+        
+        if os.path.exists(output_file):
+            logger.info(f"✅ Voice (pyttsx3): {get_file_size_mb(output_file):.1f}MB")
+            return output_file
+        
+        return generate_voiceover_gtts(text, duration, language)
+    except Exception as e:
+        logger.error(f"pyttsx3 error: {e}")
+        return generate_voiceover_gtts(text, duration, language)
+
+def generate_voiceover_gtts(text: str, duration: float, language: str = "hindi") -> str:
+    """Final fallback: gTTS"""
     try:
         from gtts import gTTS
         
         temp_file = f"/tmp/voice_{uuid.uuid4().hex[:8]}.mp3"
         
-        # Language mapping
         lang_map = {
             "hindi": "hi",
             "english_us": "en",
@@ -1235,13 +1338,9 @@ def generate_voiceover(text: str, duration: float, language: str = "hindi") -> s
         }
         lang_code = lang_map.get(language, "hi")
         
-        # Limit text length
-        text = text[:150]
-        
-        tts = gTTS(text=text, lang=lang_code, slow=False)
+        tts = gTTS(text=text[:150], lang=lang_code, slow=False)
         tts.save(temp_file)
         
-        # Adjust duration
         output_file = temp_file.replace(".mp3", "_adj.mp3")
         cmd = [
             "ffmpeg", "-i", temp_file,
@@ -1252,15 +1351,15 @@ def generate_voiceover(text: str, duration: float, language: str = "hindi") -> s
         ]
         
         run_ffmpeg_quick(cmd, timeout=10)
-        cleanup_file(temp_file)  # Delete temp immediately
+        cleanup_file(temp_file)
         
         if os.path.exists(output_file):
-            logger.info(f"✅ Voice: {get_file_size_mb(output_file):.1f}MB")
+            logger.info(f"✅ Voice (gTTS): {get_file_size_mb(output_file):.1f}MB")
             return output_file
         
         return create_silent_audio(duration)
     except Exception as e:
-        logger.error(f"Voice error: {e}")
+        logger.error(f"gTTS error: {e}")
         return create_silent_audio(duration)
 
 def create_silent_audio(duration: float) -> str:
@@ -1414,6 +1513,7 @@ async def generate_viral_video(
     language: str,
     channel_name: str,
     show_captions: bool,
+    voice_gender: str,  # NEW parameter
     user_id: str,
     database_manager
 ) -> dict:
@@ -1471,11 +1571,12 @@ async def generate_viral_video(
                 
                 processed_clips.append(clip)
                 
-                # Generate voice
-                voice = generate_voiceover(
+                # Generate voice with Edge TTS (best quality)
+                voice = await generate_voiceover_edge_tts(
                     segment.get("narration", ""),
                     CLIP_DURATION,
-                    language
+                    language,
+                    voice_gender
                 )
                 if voice:
                     audio_files.append(voice)
@@ -1581,6 +1682,7 @@ async def generate_video_endpoint(request: Request):
         language = data.get("language", "hindi")
         channel_name = data.get("channel_name", "My Channel")
         show_captions = data.get("show_captions", True)
+        voice_gender = data.get("voice_gender", "male")  # NEW: male/female
         
         if niche not in NICHES:
             return JSONResponse(
@@ -1599,6 +1701,7 @@ async def generate_video_endpoint(request: Request):
                     language=language,
                     channel_name=channel_name,
                     show_captions=show_captions,
+                    voice_gender=voice_gender,  # Pass voice gender
                     user_id=user_id,
                     database_manager=database_manager
                 ),
