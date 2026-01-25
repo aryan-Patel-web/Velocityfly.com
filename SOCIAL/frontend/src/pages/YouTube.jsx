@@ -69,12 +69,13 @@ const YouTubeAutomation = () => {
   });
 
   // Viral Pixel States
+// At the TOP of your component (with other useState)
 const [viralPixelConfig, setViralPixelConfig] = useState({
   niche: '',
   language: 'hindi',
   hd_quality: true,
   show_captions: true,
-  channel_name: 'My Channel'
+  channel_name: 'The LLM Labs'
 });
 const [viralPixelGenerating, setViralPixelGenerating] = useState(false);
 const [viralPixelProgress, setViralPixelProgress] = useState(0);
@@ -1686,18 +1687,43 @@ useEffect(() => {
 />
 
 
-<TabButton 
+{/* <TabButton 
   id="viral-pixabay" 
   label="Viral Pixel" 
   emoji="🎬" 
   active={activeTab === 'viral-pixel'} 
   onClick={() => setActiveTab('viral-pixel')} 
-/>
+/> */}
 
-        </div>
+<button 
+  onClick={() => setActiveTab('viral-pixel')}
+  style={{
+    padding: '12px 24px',
+    background: activeTab === 'viral-pixel' 
+      ? 'linear-gradient(135deg, #667eea, #764ba2)' 
+      : 'white',
+    color: activeTab === 'viral-pixel' ? 'white' : '#333',
+    border: activeTab === 'viral-pixel' ? 'none' : '2px solid #e0e0e0',
+    borderRadius: '12px',
+    fontWeight: '600',
+    cursor: 'pointer',
+    transition: 'all 0.3s',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    boxShadow: activeTab === 'viral-pixel' 
+      ? '0 4px 15px rgba(102,126,234,0.4)' 
+      : '0 2px 8px rgba(0,0,0,0.1)'
+  }}
+>
+  <span style={{ fontSize: '20px' }}>🎬</span>
+  Viral Pixel
+</button>
 
 
-        {/* Connect YouTube Tab */}
+</div>
+
+ {/* Connect YouTube Tab */}
 
 {/* Connect YouTube Tab */}
 {activeTab === 'connect' && (
