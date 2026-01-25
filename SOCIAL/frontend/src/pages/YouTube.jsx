@@ -71,6 +71,7 @@ const [autoReplyConfig, setAutoReplyConfig] = useState({
 
 
 // ✅ NEW: Viral Pixel State Variables
+// ✅ VIRAL PIXEL STATE VARIABLES (Add these with your other state variables)
 const [viralPixelConfig, setViralPixelConfig] = useState({
   niche: '',
   duration: 40,
@@ -85,11 +86,30 @@ const [viralPixelResult, setViralPixelResult] = useState(null);
 const [viralPixelAutomationActive, setViralPixelAutomationActive] = useState(false);
 const [viralPixelLogs, setViralPixelLogs] = useState([]);
 
-const [replyText, setReplyText] = useState('');
-// Video selection states
-const [userVideos, setUserVideos] = useState([]);
-const [selectedVideos, setSelectedVideos] = useState([]);
+// ✅ VIRAL PIXEL useEffect (Add this with your other useEffects)
+useEffect(() => {
+  // Load available niches from backend (optional - if your API supports it)
+  // You can remove this if you're using hardcoded niches
+  const loadViralPixelData = async () => {
+    try {
+      const response = await fetch(`${API_BASE}/api/viral-pixel/niches`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      const data = await response.json();
+      if (data.success) {
+        console.log('Viral Pixel niches loaded successfully');
+      }
+    } catch (error) {
+      console.error('Failed to load Viral Pixel niches:', error);
+    }
+  };
 
+  if (status?.youtube_connected) {
+    loadViralPixelData();
+  }
+}, [API_BASE, token, status]);
 
 
 // ✅ NEW: Product Automation States
@@ -1688,7 +1708,7 @@ useEffect(() => {
 
 
 <TabButton 
-  id="viral-pixel" 
+  id="viral-pixabay" 
   label="Viral Pixel" 
   emoji="🎬" 
   active={activeTab === 'viral-pixel'} 
@@ -7821,6 +7841,9 @@ onClick={async () => {
 {/* ============================================ */}
 {/* VIRAL PIXEL TAB - FIXED VERSION */}
 {/* ============================================ */}
+{/* ============================================ */}
+{/* VIRAL PIXEL TAB */}
+{/* ============================================ */}
 {activeTab === 'viral-pixel' && status?.youtube_connected && (
   <div style={{ 
     background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', 
@@ -8157,6 +8180,7 @@ onClick={async () => {
           setViralPixelProgress(0);
 
           try {
+            console.log('Starting Viral Pixel video generation...');
             const response = await fetch(`${API_BASE}/api/viral-pixel/generate`, {
               method: 'POST',
               headers: {
@@ -8189,11 +8213,14 @@ onClick={async () => {
             if (result.success) {
               setViralPixelProgress(100);
               setViralPixelResult(result);
+              console.log('Video generated successfully:', result.video_id);
               alert(`✅ Video uploaded successfully!\n\nVideo ID: ${result.video_id}\nURL: ${result.video_url}`);
             } else {
+              console.error('Generation failed:', result.error);
               alert('❌ Generation failed: ' + result.error);
             }
           } catch (error) {
+            console.error('Error generating video:', error);
             alert('❌ Error: ' + error.message);
           } finally {
             setViralPixelGenerating(false);
