@@ -1,6 +1,3 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { useAuth } from '../quickpage/AuthContext';
-
 const YouTubeAutomation = () => {
   const [videoPreview, setVideoPreview] = useState(null);
   const { user, token, isAuthenticated, debugAuth } = useAuth();
@@ -21,150 +18,132 @@ const YouTubeAutomation = () => {
     videos_per_week: 2
   });
   
- // Add to state
-const [contentData, setContentData] = useState({
-  content_type: 'shorts',
-  topic: '',
-  target_audience: 'general',
-  duration_seconds: 30,
-  style: 'engaging',
-  language: 'english',  // NEW
-  title: '',
-  description: '',
-  video_url: ''
-});
+  const [contentData, setContentData] = useState({
+    content_type: 'shorts',
+    topic: '',
+    target_audience: 'general',
+    duration_seconds: 30,
+    style: 'engaging',
+    language: 'english',
+    title: '',
+    description: '',
+    video_url: ''
+  });
 
   const [generatedContent, setGeneratedContent] = useState(null);
   const [analytics, setAnalytics] = useState(null);
-  // NEW: Thumbnail states
   const [thumbnailOptions, setThumbnailOptions] = useState([]);
   const [selectedThumbnail, setSelectedThumbnail] = useState(null);
   const [generatingThumbnails, setGeneratingThumbnails] = useState(false);
-
-// const [uploadProgress, setUploadProgress] = useState(0);
-const [uploadMode, setUploadMode] = useState('new'); // 'new' or 'update'
-const [existingVideoUrl, setExistingVideoUrl] = useState('');
-const [thumbnails, setThumbnails] = useState([]);
-// const [selectedThumbnail, setSelectedThumbnail] = useState(null);
-// const [generatingThumbnails, setGeneratingThumbnails] = useState(false);
-  // ✅ NEW: Disconnect states
+  const [uploadMode, setUploadMode] = useState('new');
+  const [existingVideoUrl, setExistingVideoUrl] = useState('');
+  const [thumbnails, setThumbnails] = useState([]);
   const [showDisconnectModal, setShowDisconnectModal] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
   const [disconnectError, setDisconnectError] = useState(null);
+  const [scheduleMode, setScheduleMode] = useState(false);
+  const [scheduledPosts, setScheduledPosts] = useState([]);
+  
+  // ✅ COMMENTS & VIDEOS STATE - KEEP ONLY ONCE
+  const [comments, setComments] = useState([]);
+  const [selectedVideoId, setSelectedVideoId] = useState('');
+  const [userVideos, setUserVideos] = useState([]); // ✅ KEEP THIS ONE
+  const [selectedVideos, setSelectedVideos] = useState([]); // ✅ ADD THIS
+  const [replyText, setReplyText] = useState('');
+  const [loadingVideos, setLoadingVideos] = useState(false);
+  const [videoComments, setVideoComments] = useState({});
+  const [editingCommentId, setEditingCommentId] = useState(null);
+  const [editText, setEditText] = useState('');
+  
+  const [autoReplyEnabled, setAutoReplyEnabled] = useState(false);
+  const [autoReplyConfig, setAutoReplyConfig] = useState({
+    reply_style: 'friendly',
+    reply_delay_minutes: 5,
+    custom_prompt: '',
+    languages: ['english', 'hindi'],
+    filter_spam: true,
+    max_replies_per_hour: 10
+  });
 
-// NEW: Scheduling states
-const [scheduleMode, setScheduleMode] = useState(false);
-const [scheduledPosts, setScheduledPosts] = useState([]);
-// Comments management state
-const [comments, setComments] = useState([]);
-const [selectedVideoId, setSelectedVideoId] = useState('');
-const [autoReplyEnabled, setAutoReplyEnabled] = useState(false);
-const [autoReplyConfig, setAutoReplyConfig] = useState({
-  reply_style: 'friendly',
-  reply_delay_minutes: 5,
-  custom_prompt: '',
-  languages: ['english', 'hindi'],
-  filter_spam: true,
-  max_replies_per_hour: 10
-});
+  // Viral Pixel States
+  const [viralPixelConfig, setViralPixelConfig] = useState({
+    niche: '',
+    duration: 40,
+    voice_style: 'male',
+    bg_music: 'upbeat',
+    custom_music_url: '',
+    upload_times: []
+  });
+  const [viralPixelGenerating, setViralPixelGenerating] = useState(false);
+  const [viralPixelProgress, setViralPixelProgress] = useState(0);
+  const [viralPixelResult, setViralPixelResult] = useState(null);
+  const [viralPixelAutomationActive, setViralPixelAutomationActive] = useState(false);
+  const [viralPixelLogs, setViralPixelLogs] = useState([]);
 
+  // Automation States
+  const [automationEnabled, setAutomationEnabled] = useState(false);
+  const [automationConfig, setAutomationConfig] = useState({
+    max_posts_per_day: 200,
+    upload_times: ['07:00', '13:00', '18:00'],
+    base_url: 'https://www.flipkart.com',
+    search_query: '',
+    auto_scrape: true,
+    auto_generate_video: true,
+    auto_upload: true
+  });
+  const [testScheduleTime, setTestScheduleTime] = useState('');
+  const [showTestScheduler, setShowTestScheduler] = useState(false);
+  const [automationLogs, setAutomationLogs] = useState([]);
+  const [loadingLogs, setLoadingLogs] = useState(false);
 
+  // URL Management States
+  const [scrapeUrl, setScrapeUrl] = useState('');
+  const [savedUrl, setSavedUrl] = useState(null);
+  const [urlStats, setUrlStats] = useState({ total: 0, processed: 0 });
 
-// ✅ NEW: Viral Pixel State Variables
-// ✅ VIRAL PIXEL STATE VARIABLES (Add these with your other state variables)
-const [viralPixelConfig, setViralPixelConfig] = useState({
-  niche: '',
-  duration: 40,
-  voice_style: 'male',
-  bg_music: 'upbeat',
-  custom_music_url: '',
-  upload_times: []
-});
-const [viralPixelGenerating, setViralPixelGenerating] = useState(false);
-const [viralPixelProgress, setViralPixelProgress] = useState(0);
-const [viralPixelResult, setViralPixelResult] = useState(null);
-const [viralPixelAutomationActive, setViralPixelAutomationActive] = useState(false);
-const [viralPixelLogs, setViralPixelLogs] = useState([]);
+  // Schedule Slots
+  const [scheduleSlots, setScheduleSlots] = useState([
+    { id: 1, video_url: '', title: '', description: '', date: '', time: '' },
+    { id: 2, video_url: '', title: '', description: '', date: '', time: '' },
+    { id: 3, video_url: '', title: '', description: '', date: '', time: '' }
+  ]);
+  
+  // Slideshow States
+  const [slideshowMode, setSlideshowMode] = useState(false);
+  const [uploadedImages, setUploadedImages] = useState([]);
+  const [slideshowConfig, setSlideshowConfig] = useState({
+    duration_per_image: 2,
+    transition: 'fade',
+    music_style: 'upbeat',
+    add_text: true,
+    platforms: ['youtube_shorts']
+  });
+  const [generatedSlideshow, setGeneratedSlideshow] = useState(null);
+  const [generatingSlideshow, setGeneratingSlideshow] = useState(false);
+  const [uploadMethod, setUploadMethod] = useState('url');
+  const [imageUrls, setImageUrls] = useState('');
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [videoUploadMode, setVideoUploadMode] = useState('new');
+  const [existingVideoId, setExistingVideoId] = useState('');
+  const [slideshowTab, setSlideshowTab] = useState('manual');
+  const [productUrl, setProductUrl] = useState('');
+  const [scrapedProduct, setScrapedProduct] = useState(null);
+  const [slideshowTitle, setSlideshowTitle] = useState('');
+  const [slideshowDescription, setSlideshowDescription] = useState('');
+  const [slideshowResult, setSlideshowResult] = useState(null);
+  const [addThumbnailOverlay, setAddThumbnailOverlay] = useState(true);
+  const [customThumbnailPrompt, setCustomThumbnailPrompt] = useState('');
 
-
-
-
-// ✅ NEW: Product Automation States
-// ✅ AUTOMATION STATE
-const [automationEnabled, setAutomationEnabled] = useState(false);
-const [automationConfig, setAutomationConfig] = useState({
-  max_posts_per_day: 200,
-  upload_times: ['07:00', '13:00', '18:00'],
-  base_url: 'https://www.flipkart.com',
-  search_query: '',
-  auto_scrape: true,
-  auto_generate_video: true,
-  auto_upload: true
-});
-const [testScheduleTime, setTestScheduleTime] = useState('');
-const [showTestScheduler, setShowTestScheduler] = useState(false);
-const [automationLogs, setAutomationLogs] = useState([]);
-const [loadingLogs, setLoadingLogs] = useState(false);
-
-
-
-// ✅ NEW: URL Management States
-const [scrapeUrl, setScrapeUrl] = useState('');
-const [savedUrl, setSavedUrl] = useState(null);
-const [urlStats, setUrlStats] = useState({ total: 0, processed: 0 });
-
-
-const [loadingVideos, setLoadingVideos] = useState(false);
-const [videoComments, setVideoComments] = useState({});
-const [editingCommentId, setEditingCommentId] = useState(null);
-const [editText, setEditText] = useState('');
-const [scheduleSlots, setScheduleSlots] = useState([
-  { id: 1, video_url: '', title: '', description: '', date: '', time: '' },
-  { id: 2, video_url: '', title: '', description: '', date: '', time: '' },
-  { id: 3, video_url: '', title: '', description: '', date: '', time: '' }
-]);
-// Slideshow states
-const [slideshowMode, setSlideshowMode] = useState(false);
-const [uploadedImages, setUploadedImages] = useState([]);
-const [slideshowConfig, setSlideshowConfig] = useState({
-  duration_per_image: 2,
-  transition: 'fade',
-  music_style: 'upbeat',
-  add_text: true,
-  platforms: ['youtube_shorts']
-});
-const [generatedSlideshow, setGeneratedSlideshow] = useState(null);
-const [generatingSlideshow, setGeneratingSlideshow] = useState(false);
-const [uploadMethod, setUploadMethod] = useState('url'); // Default to URL
-const [imageUrls, setImageUrls] = useState('');
-// NEW: Upload progress and mode states
-const [uploadProgress, setUploadProgress] = useState(0);
-const [videoUploadMode, setVideoUploadMode] = useState('new'); // 'new' or 'update'
-const [existingVideoId, setExistingVideoId] = useState('');
-
-const [slideshowTab, setSlideshowTab] = useState('manual');
-const [productUrl, setProductUrl] = useState('');
-const [scrapedProduct, setScrapedProduct] = useState(null);
-const [slideshowTitle, setSlideshowTitle] = useState('');
-const [slideshowDescription, setSlideshowDescription] = useState('');
-const [slideshowResult, setSlideshowResult] = useState(null);
-
-// ===============ai thumbnail====================
-const [addThumbnailOverlay, setAddThumbnailOverlay] = useState(true);
-const [customThumbnailPrompt, setCustomThumbnailPrompt] = useState('');
-
-  // const API_BASE = process.env.NODE_ENV === 'production' 
-  //   ? (import.meta.env.VITE_API_URL || 'https://agentic-u5lx.onrender.com')
-  //   : (import.meta.env.VITE_API_URL || 'http://localhost:8000');
-
-      const API_BASE = process.env.NODE_ENV === 'production' 
+  const API_BASE = process.env.NODE_ENV === 'production' 
     ? (import.meta.env.VITE_API_URL || 'https://velocityfly.onrender.com')
     : (import.meta.env.VITE_API_URL || 'http://localhost:8000');
 
-const DEFAULT_IMAGE_URLS = `https://picsum.photos/1080/1920?random=1
+  const DEFAULT_IMAGE_URLS = `https://picsum.photos/1080/1920?random=1
 https://picsum.photos/1080/1920?random=2
 https://picsum.photos/1080/1920?random=3
 https://picsum.photos/1080/1920?random=4`;
+
+  // ... rest of your component code
 
 
 // Line 62-114: getUserData (stays here)
