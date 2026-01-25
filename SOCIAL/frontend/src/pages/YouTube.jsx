@@ -70,6 +70,20 @@ const [autoReplyConfig, setAutoReplyConfig] = useState({
 
 
 
+// ✅ NEW: Viral Pixel State Variables
+const [viralPixelConfig, setViralPixelConfig] = useState({
+  niche: '',
+  duration: 40,
+  voice_style: 'male',
+  bg_music: 'upbeat',
+  custom_music_url: '',
+  upload_times: []
+});
+const [viralPixelGenerating, setViralPixelGenerating] = useState(false);
+const [viralPixelProgress, setViralPixelProgress] = useState(0);
+const [viralPixelResult, setViralPixelResult] = useState(null);
+const [viralPixelAutomationActive, setViralPixelAutomationActive] = useState(false);
+const [viralPixelLogs, setViralPixelLogs] = useState([]);
 
 const [replyText, setReplyText] = useState('');
 // Video selection states
