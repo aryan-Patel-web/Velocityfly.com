@@ -69,19 +69,16 @@ const YouTubeAutomation = () => {
   });
 
   // Viral Pixel States
-  const [viralPixelConfig, setViralPixelConfig] = useState({
-    niche: '',
-    duration: 40,
-    voice_style: 'male',
-    bg_music: 'upbeat',
-    custom_music_url: '',
-    upload_times: []
-  });
-  const [viralPixelGenerating, setViralPixelGenerating] = useState(false);
-  const [viralPixelProgress, setViralPixelProgress] = useState(0);
-  const [viralPixelResult, setViralPixelResult] = useState(null);
-  const [viralPixelAutomationActive, setViralPixelAutomationActive] = useState(false);
-  const [viralPixelLogs, setViralPixelLogs] = useState([]);
+const [viralPixelConfig, setViralPixelConfig] = useState({
+  niche: '',
+  language: 'hindi',
+  hd_quality: true,
+  show_captions: true,
+  channel_name: 'My Channel'
+});
+const [viralPixelGenerating, setViralPixelGenerating] = useState(false);
+const [viralPixelProgress, setViralPixelProgress] = useState(0);
+const [viralPixelResult, setViralPixelResult] = useState(null);
 
   // Automation States
   const [automationEnabled, setAutomationEnabled] = useState(false);
@@ -7824,7 +7821,13 @@ onClick={async () => {
 {/* VIRAL PIXEL TAB - FIXED VERSION */}
 {/* ============================================ */}
 {/* ============================================ */}
-{/* VIRAL PIXEL TAB */}
+{/* ============================================ */}
+{/* ============================================ */}
+{/* AUTOMATION TAB - FIXED VERSION */}
+
+
+{/* ============================================ */}
+{/* VIRAL PIXEL TAB - FIXED VERSION */}
 {/* ============================================ */}
 {activeTab === 'viral-pixel' && status?.youtube_connected && (
   <div style={{ 
@@ -7857,7 +7860,7 @@ onClick={async () => {
           fontWeight: '500',
           margin: 0
         }}>
-          Create viral YouTube Shorts with Pexels videos + AI scripts
+          Pixabay HD + Hindi Voice + Creative AI Storytelling
         </p>
       </div>
     </div>
@@ -7885,14 +7888,11 @@ onClick={async () => {
         marginBottom: '20px'
       }}>
         {[
-          { id: 'space', emoji: '🌌', name: 'Space & Universe', cpm: '$4-8', viral: 'Very High' },
-          { id: 'tech_ai', emoji: '🤖', name: 'Technology & AI', cpm: '$6-12', viral: 'Very High' },
-          { id: 'ocean', emoji: '🌊', name: 'Ocean & Marine', cpm: '$3-7', viral: 'High' },
-          { id: 'nature', emoji: '🦁', name: 'Nature & Wildlife', cpm: '$3-6', viral: 'High' },
-          { id: 'success', emoji: '💪', name: 'Success & Motivation', cpm: '$4-10', viral: 'Very High' },
-          { id: 'sports', emoji: '⚽', name: 'Sports & Fitness', cpm: '$3-7', viral: 'High' },
-          { id: 'history', emoji: '🏛️', name: 'History & Mystery', cpm: '$4-8', viral: 'High' },
-          { id: 'luxury', emoji: '💎', name: 'Luxury & Lifestyle', cpm: '$5-10', viral: 'Very High' }
+          { id: 'space', emoji: '🌌', name: 'Space & Universe', viral: 'Very High' },
+          { id: 'tech_ai', emoji: '🤖', name: 'Technology & AI', viral: 'Very High' },
+          { id: 'ocean', emoji: '🌊', name: 'Ocean & Marine', viral: 'High' },
+          { id: 'nature', emoji: '🦁', name: 'Nature & Wildlife', viral: 'High' },
+          { id: 'success', emoji: '💪', name: 'Success & Motivation', viral: 'Very High' }
         ].map((niche) => (
           <div
             key={niche.id}
@@ -7904,7 +7904,7 @@ onClick={async () => {
             style={{
               padding: '20px',
               background: viralPixelConfig.niche === niche.id 
-                ? 'linear-gradient(135deg, #FF0000, #CC0000)' 
+                ? 'linear-gradient(135deg, #667eea, #764ba2)' 
                 : 'white',
               color: viralPixelConfig.niche === niche.id ? 'white' : '#333',
               border: viralPixelConfig.niche === niche.id 
@@ -7915,7 +7915,7 @@ onClick={async () => {
               transition: 'all 0.3s',
               textAlign: 'center',
               boxShadow: viralPixelConfig.niche === niche.id 
-                ? '0 8px 24px rgba(255,0,0,0.3)' 
+                ? '0 8px 24px rgba(102,126,234,0.4)' 
                 : '0 2px 8px rgba(0,0,0,0.1)',
               opacity: viralPixelGenerating ? 0.6 : 1,
               transform: viralPixelConfig.niche === niche.id ? 'scale(1.05)' : 'scale(1)'
@@ -7926,14 +7926,6 @@ onClick={async () => {
             </div>
             <div style={{ fontWeight: '700', fontSize: '16px', marginBottom: '8px' }}>
               {niche.name}
-            </div>
-            <div style={{ 
-              fontSize: '13px', 
-              opacity: 0.9, 
-              marginBottom: '5px',
-              fontWeight: '600' 
-            }}>
-              CPM: {niche.cpm}
             </div>
             <div style={{ 
               fontSize: '12px', 
@@ -7961,7 +7953,7 @@ onClick={async () => {
       )}
     </div>
 
-    {/* STEP 2: CONFIGURATION */}
+    {/* STEP 2: SETTINGS */}
     <div style={{
       background: 'rgba(255,255,255,0.95)',
       borderRadius: '15px',
@@ -7977,7 +7969,7 @@ onClick={async () => {
         ⚙️ Step 2: Configure Settings
       </h3>
 
-      {/* Duration Slider */}
+      {/* Language Selection */}
       <div style={{ marginBottom: '25px' }}>
         <label style={{ 
           display: 'block', 
@@ -7986,74 +7978,26 @@ onClick={async () => {
           color: '#333',
           fontSize: '16px'
         }}>
-          ⏱️ Video Duration: {viralPixelConfig.duration} seconds
+          🎙️ Language:
         </label>
-        <input
-          type="range"
-          min="20"
-          max="60"
-          step="5"
-          value={viralPixelConfig.duration}
-          onChange={(e) => setViralPixelConfig(prev => ({ 
-            ...prev, 
-            duration: parseInt(e.target.value) 
-          }))}
-          disabled={viralPixelGenerating}
-          style={{
-            width: '100%',
-            height: '8px',
-            borderRadius: '4px',
-            background: viralPixelGenerating ? '#ddd' : 'linear-gradient(to right, #FF0000, #FFD700)',
-            cursor: viralPixelGenerating ? 'not-allowed' : 'pointer'
-          }}
-        />
-        <div style={{ 
-          display: 'flex', 
-          justifyContent: 'space-between', 
-          fontSize: '13px', 
-          color: '#666',
-          marginTop: '5px'
-        }}>
-          <span>20s (Min)</span>
-          <span style={{ fontWeight: '700', color: '#FF0000' }}>
-            {viralPixelConfig.duration}s
-          </span>
-          <span>60s (Max)</span>
-        </div>
-      </div>
-
-      {/* Voice Style */}
-      <div style={{ marginBottom: '25px' }}>
-        <label style={{ 
-          display: 'block', 
-          marginBottom: '10px', 
-          fontWeight: '600',
-          color: '#333',
-          fontSize: '16px'
-        }}>
-          🎙️ Voice Style:
-        </label>
-        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px' }}>
           {[
-            { id: 'male', emoji: '👨', label: 'Male Voice' },
-            { id: 'female', emoji: '👩', label: 'Female Voice' },
-            { id: 'loud', emoji: '📢', label: 'Loud/Energetic' },
-            { id: 'child', emoji: '👶', label: 'Child Voice' }
-          ].map((voice) => (
+            { id: 'hindi', label: 'हिन्दी (Hindi)' },
+            { id: 'english_us', label: 'English (US)' },
+            { id: 'english_uk', label: 'English (UK)' },
+            { id: 'english_in', label: 'English (India)' }
+          ].map((lang) => (
             <button
-              key={voice.id}
-              onClick={() => setViralPixelConfig(prev => ({ 
-                ...prev, 
-                voice_style: voice.id 
-              }))}
+              key={lang.id}
+              onClick={() => setViralPixelConfig(prev => ({ ...prev, language: lang.id }))}
               disabled={viralPixelGenerating}
               style={{
-                padding: '12px 20px',
-                background: viralPixelConfig.voice_style === voice.id 
-                  ? 'linear-gradient(135deg, #FF0000, #CC0000)' 
+                padding: '12px',
+                background: viralPixelConfig.language === lang.id 
+                  ? 'linear-gradient(135deg, #667eea, #764ba2)' 
                   : 'white',
-                color: viralPixelConfig.voice_style === voice.id ? 'white' : '#333',
-                border: viralPixelConfig.voice_style === voice.id 
+                color: viralPixelConfig.language === lang.id ? 'white' : '#333',
+                border: viralPixelConfig.language === lang.id 
                   ? '2px solid #FFD700' 
                   : '2px solid #ddd',
                 borderRadius: '10px',
@@ -8061,21 +8005,85 @@ onClick={async () => {
                 fontWeight: '600',
                 fontSize: '14px',
                 opacity: viralPixelGenerating ? 0.6 : 1,
-                transition: 'all 0.3s',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px'
+                transition: 'all 0.3s'
               }}
             >
-              <span style={{ fontSize: '20px' }}>{voice.emoji}</span>
-              {voice.label}
+              {lang.label}
             </button>
           ))}
         </div>
       </div>
 
-      {/* Background Music */}
-      <div style={{ marginBottom: '0' }}>
+      {/* HD Quality Toggle */}
+      <div style={{ marginBottom: '25px' }}>
+        <label style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px',
+          padding: '16px',
+          background: '#f8f9fa',
+          borderRadius: '10px',
+          cursor: viralPixelGenerating ? 'not-allowed' : 'pointer',
+          border: '2px solid #ddd'
+        }}>
+          <input
+            type="checkbox"
+            checked={viralPixelConfig.hd_quality}
+            onChange={(e) => setViralPixelConfig(prev => ({ ...prev, hd_quality: e.target.checked }))}
+            disabled={viralPixelGenerating}
+            style={{
+              width: '20px',
+              height: '20px',
+              cursor: viralPixelGenerating ? 'not-allowed' : 'pointer'
+            }}
+          />
+          <span style={{
+            fontWeight: '600',
+            fontSize: '15px',
+            flex: 1,
+            color: '#333'
+          }}>
+            🎥 HD Quality (720p-1080p)
+          </span>
+        </label>
+      </div>
+
+      {/* Show Captions Toggle */}
+      <div style={{ marginBottom: '25px' }}>
+        <label style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px',
+          padding: '16px',
+          background: '#f8f9fa',
+          borderRadius: '10px',
+          cursor: viralPixelGenerating ? 'not-allowed' : 'pointer',
+          border: '2px solid #ddd'
+        }}>
+          <input
+            type="checkbox"
+            checked={viralPixelConfig.show_captions}
+            onChange={(e) => setViralPixelConfig(prev => ({ ...prev, show_captions: e.target.checked }))}
+            disabled={viralPixelGenerating}
+            style={{
+              width: '20px',
+              height: '20px',
+              cursor: viralPixelGenerating ? 'not-allowed' : 'pointer'
+            }}
+          />
+          <span style={{
+            fontWeight: '600',
+            fontSize: '15px',
+            flex: 1,
+            color: '#333'
+          }}>
+            💬 Show Golden Captions
+          </span>
+        </label>
+      </div>
+
+      {/* Channel Name */}
+      <div>
         <label style={{ 
           display: 'block', 
           marginBottom: '10px', 
@@ -8083,59 +8091,27 @@ onClick={async () => {
           color: '#333',
           fontSize: '16px'
         }}>
-          🎵 Background Music (30% volume):
+          📺 Channel Name:
         </label>
-        <select
-          value={viralPixelConfig.bg_music}
-          onChange={(e) => setViralPixelConfig(prev => ({ 
-            ...prev, 
-            bg_music: e.target.value 
-          }))}
+        <input
+          type="text"
+          value={viralPixelConfig.channel_name}
+          onChange={(e) => setViralPixelConfig(prev => ({ ...prev, channel_name: e.target.value }))}
           disabled={viralPixelGenerating}
+          placeholder="My Awesome Channel"
           style={{
             width: '100%',
             padding: '14px',
             borderRadius: '10px',
             border: '2px solid #ddd',
             fontSize: '15px',
-            background: viralPixelGenerating ? '#f5f5f5' : 'white',
-            cursor: viralPixelGenerating ? 'not-allowed' : 'pointer',
-            fontWeight: '500'
+            background: viralPixelGenerating ? '#f5f5f5' : 'white'
           }}
-        >
-          <option value="none">❌ No Music</option>
-          <option value="upbeat">🎸 Upbeat/Happy</option>
-          <option value="calm">🎹 Calm/Relaxing</option>
-          <option value="epic">🎺 Epic/Cinematic</option>
-          <option value="cinematic">🎻 Inspirational</option>
-          <option value="custom">🔗 Custom URL</option>
-        </select>
-
-        {viralPixelConfig.bg_music === 'custom' && (
-          <input
-            type="url"
-            value={viralPixelConfig.custom_music_url}
-            onChange={(e) => setViralPixelConfig(prev => ({ 
-              ...prev, 
-              custom_music_url: e.target.value 
-            }))}
-            placeholder="https://example.com/music.mp3"
-            disabled={viralPixelGenerating}
-            style={{
-              width: '100%',
-              padding: '14px',
-              borderRadius: '10px',
-              border: '2px solid #ddd',
-              fontSize: '15px',
-              marginTop: '10px',
-              background: viralPixelGenerating ? '#f5f5f5' : 'white'
-            }}
-          />
-        )}
+        />
       </div>
     </div>
 
-    {/* STEP 3: GENERATE NOW */}
+    {/* STEP 3: GENERATE */}
     <div style={{
       background: 'rgba(255,255,255,0.95)',
       borderRadius: '15px',
@@ -8148,7 +8124,7 @@ onClick={async () => {
         fontSize: '24px', 
         fontWeight: '700' 
       }}>
-        🎬 Step 3: Generate Video Now
+        🎬 Step 3: Generate Video
       </h3>
 
       <button
@@ -8162,7 +8138,7 @@ onClick={async () => {
           setViralPixelProgress(0);
 
           try {
-            console.log('Starting Viral Pixel video generation...');
+            console.log('Starting Viral Pixel generation...');
             const response = await fetch(`${API_BASE}/api/viral-pixel/generate`, {
               method: 'POST',
               headers: {
@@ -8172,10 +8148,10 @@ onClick={async () => {
               body: JSON.stringify({
                 user_id: user.user_id,
                 niche: viralPixelConfig.niche,
-                duration: viralPixelConfig.duration,
-                voice_style: viralPixelConfig.voice_style,
-                bg_music_option: viralPixelConfig.bg_music,
-                custom_music_url: viralPixelConfig.custom_music_url
+                language: viralPixelConfig.language,
+                hd_quality: viralPixelConfig.hd_quality,
+                show_captions: viralPixelConfig.show_captions,
+                channel_name: viralPixelConfig.channel_name
               })
             });
 
@@ -8195,14 +8171,14 @@ onClick={async () => {
             if (result.success) {
               setViralPixelProgress(100);
               setViralPixelResult(result);
-              console.log('Video generated successfully:', result.video_id);
-              alert(`✅ Video uploaded successfully!\n\nVideo ID: ${result.video_id}\nURL: ${result.video_url}`);
+              console.log('Video generated successfully');
+              alert(`✅ Video uploaded!\n\nVideo ID: ${result.video_id}\nURL: ${result.video_url}`);
             } else {
               console.error('Generation failed:', result.error);
-              alert('❌ Generation failed: ' + result.error);
+              alert('❌ Failed: ' + result.error);
             }
           } catch (error) {
-            console.error('Error generating video:', error);
+            console.error('Error:', error);
             alert('❌ Error: ' + error.message);
           } finally {
             setViralPixelGenerating(false);
@@ -8215,19 +8191,19 @@ onClick={async () => {
           padding: '20px',
           background: viralPixelGenerating 
             ? 'linear-gradient(135deg, #999, #666)' 
-            : 'linear-gradient(135deg, #FF0000, #CC0000)',
+            : 'linear-gradient(135deg, #667eea, #764ba2)',
           color: 'white',
           border: 'none',
           borderRadius: '12px',
           fontSize: '20px',
           fontWeight: '800',
           cursor: (viralPixelGenerating || !viralPixelConfig.niche) ? 'not-allowed' : 'pointer',
-          boxShadow: '0 6px 20px rgba(255,0,0,0.4)',
+          boxShadow: '0 6px 20px rgba(102,126,234,0.4)',
           opacity: (viralPixelGenerating || !viralPixelConfig.niche) ? 0.7 : 1,
           transition: 'all 0.3s'
         }}
       >
-        {viralPixelGenerating ? '⏳ GENERATING...' : '🎬 GENERATE VIDEO NOW'}
+        {viralPixelGenerating ? '⏳ GENERATING...' : '🎬 GENERATE VIDEO'}
       </button>
 
       {viralPixelGenerating && (
@@ -8242,16 +8218,19 @@ onClick={async () => {
             <div style={{
               width: `${viralPixelProgress}%`,
               height: '100%',
-              background: 'linear-gradient(90deg, #FF0000, #FFD700)',
+              background: 'linear-gradient(90deg, #667eea, #764ba2)',
               transition: 'width 0.5s',
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'center',
-              color: 'white',
-              fontWeight: '700',
-              fontSize: '14px'
+              justifyContent: 'center'
             }}>
-              {viralPixelProgress}%
+              <span style={{
+                color: 'white',
+                fontWeight: '700',
+                fontSize: '14px'
+              }}>
+                {viralPixelProgress}%
+              </span>
             </div>
           </div>
           <p style={{ 
@@ -8279,8 +8258,11 @@ onClick={async () => {
           <div style={{ fontSize: '14px', color: '#333', marginBottom: '8px' }}>
             <strong>Video ID:</strong> {viralPixelResult.video_id}
           </div>
-          <div style={{ fontSize: '14px', color: '#333', marginBottom: '15px' }}>
+          <div style={{ fontSize: '14px', color: '#333', marginBottom: '8px' }}>
             <strong>Title:</strong> {viralPixelResult.title}
+          </div>
+          <div style={{ fontSize: '14px', color: '#333', marginBottom: '15px' }}>
+            <strong>Segments:</strong> {viralPixelResult.segments}
           </div>
           
           <a
@@ -8316,12 +8298,12 @@ onClick={async () => {
       </h3>
       <div style={{ display: 'grid', gap: '15px' }}>
         {[
-          { icon: '1️⃣', text: 'AI generates viral script for your niche' },
-          { icon: '2️⃣', text: 'Downloads HD videos from Pexels' },
-          { icon: '3️⃣', text: 'Creates voiceover with your chosen style' },
-          { icon: '4️⃣', text: 'Adds background music (30% volume)' },
-          { icon: '5️⃣', text: 'Applies effects (zoom, pan, saturation)' },
-          { icon: '6️⃣', text: 'Adds text overlays with emojis' },
+          { icon: '1️⃣', text: 'AI generates creative script for your niche' },
+          { icon: '2️⃣', text: 'Downloads HD videos from Pixabay' },
+          { icon: '3️⃣', text: 'Creates Hindi/English voiceover' },
+          { icon: '4️⃣', text: 'Adds animated transitions' },
+          { icon: '5️⃣', text: 'Applies golden captions' },
+          { icon: '6️⃣', text: 'Adds custom intro/outro' },
           { icon: '7️⃣', text: 'Uploads to YouTube Shorts automatically' }
         ].map((step, idx) => (
           <div key={idx} style={{
@@ -8341,6 +8323,7 @@ onClick={async () => {
     </div>
   </div>
 )}
+
 {/* --------------------------------viral pixel code end---------------------------------------------------- */}
 
 
