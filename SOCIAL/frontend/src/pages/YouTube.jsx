@@ -7747,6 +7747,66 @@ onClick={async () => {
     </div>
 
 
+
+
+    {/* Activity Logs */}
+    <div style={{
+      padding: '25px',
+      background: 'white',
+      borderRadius: '15px',
+      maxHeight: '400px',
+      overflowY: 'auto',
+      border: '2px solid #e0e0e0'
+    }}>
+      <h3 style={{ 
+        color: '#333', 
+        marginBottom: '20px', 
+        fontSize: '20px',
+        fontWeight: '700'
+      }}>
+        📋 Activity Logs
+      </h3>
+      {automationLogs.length === 0 ? (
+        <div style={{
+          textAlign: 'center',
+          padding: '40px 20px',
+          color: '#999'
+        }}>
+          <div style={{ fontSize: '48px', marginBottom: '15px' }}>📭</div>
+          <p style={{ fontSize: '16px', fontStyle: 'italic' }}>
+            No activity yet. Start automation to see logs here.
+          </p>
+        </div>
+      ) : (
+        automationLogs.map((log, idx) => (
+          <div key={idx} style={{
+            padding: '15px',
+            background: '#f8f9fa',
+            borderRadius: '8px',
+            marginBottom: '10px',
+            borderLeft: `4px solid ${log.success ? '#28a745' : '#dc3545'}`
+          }}>
+            <div style={{ 
+              fontSize: '12px', 
+              color: '#999', 
+              marginBottom: '6px' 
+            }}>
+              {new Date(log.timestamp).toLocaleString()}
+            </div>
+            <div style={{ fontSize: '14px', color: '#333', fontWeight: '500' }}>
+              {log.message}
+            </div>
+          </div>
+        ))
+      )}
+    </div>
+  </div>
+)}
+
+{/* End Automation Tab */}
+
+
+
 {/* --------------------------------viral pixel code tab---------------------------------------------------- */}
 {/* ============================================ */}
 {/* VIRAL PIXEL TAB - FIXED VERSION */}
@@ -8263,66 +8323,6 @@ onClick={async () => {
   </div>
 )}
 {/* --------------------------------viral pixel code end---------------------------------------------------- */}
-
-
-
-
-
-    {/* Activity Logs */}
-    <div style={{
-      padding: '25px',
-      background: 'white',
-      borderRadius: '15px',
-      maxHeight: '400px',
-      overflowY: 'auto',
-      border: '2px solid #e0e0e0'
-    }}>
-      <h3 style={{ 
-        color: '#333', 
-        marginBottom: '20px', 
-        fontSize: '20px',
-        fontWeight: '700'
-      }}>
-        📋 Activity Logs
-      </h3>
-      {automationLogs.length === 0 ? (
-        <div style={{
-          textAlign: 'center',
-          padding: '40px 20px',
-          color: '#999'
-        }}>
-          <div style={{ fontSize: '48px', marginBottom: '15px' }}>📭</div>
-          <p style={{ fontSize: '16px', fontStyle: 'italic' }}>
-            No activity yet. Start automation to see logs here.
-          </p>
-        </div>
-      ) : (
-        automationLogs.map((log, idx) => (
-          <div key={idx} style={{
-            padding: '15px',
-            background: '#f8f9fa',
-            borderRadius: '8px',
-            marginBottom: '10px',
-            borderLeft: `4px solid ${log.success ? '#28a745' : '#dc3545'}`
-          }}>
-            <div style={{ 
-              fontSize: '12px', 
-              color: '#999', 
-              marginBottom: '6px' 
-            }}>
-              {new Date(log.timestamp).toLocaleString()}
-            </div>
-            <div style={{ fontSize: '14px', color: '#333', fontWeight: '500' }}>
-              {log.message}
-            </div>
-          </div>
-        ))
-      )}
-    </div>
-  </div>
-)}
-
-{/* End Automation Tab */}
 
 
 
