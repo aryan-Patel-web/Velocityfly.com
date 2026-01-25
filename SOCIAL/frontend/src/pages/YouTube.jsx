@@ -1,3 +1,6 @@
+import React, { useState, useEffect, useCallback } from 'react';
+import { useAuth } from '../quickpage/AuthContext';
+
 const YouTubeAutomation = () => {
   const [videoPreview, setVideoPreview] = useState(null);
   const { user, token, isAuthenticated, debugAuth } = useAuth();
