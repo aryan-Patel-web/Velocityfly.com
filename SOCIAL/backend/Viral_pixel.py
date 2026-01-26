@@ -858,14 +858,14 @@
 
 
 """
-Viral_pixel.py - FINAL PRODUCTION VERSION
-✅ ElevenLabs API with proper key format (sk_...)
-✅ 4 unique videos with smooth transitions
-✅ 30+ second engaging scripts (Hook → Story → Suspense → Outro)
-✅ Background music from Pixabay (downloaded properly)
+Viral_pixel.py - OPTIMIZED PRODUCTION VERSION
+✅ Fixed ElevenLabs API (proper key format)
+✅ 4 unique videos with smooth transitions  
+✅ 30+ second scripts with Hook-Story-Suspense-Outro
+✅ Background music downloaded from Pixabay API
 ✅ 1.1x voice speed (NOT video speed)
-✅ Vertical HD videos (720x1280)
-✅ Memory optimized (<512MB)
+✅ Memory optimized (<512MB) with aggressive cleanup
+✅ Max 25MB per video, efficient FFmpeg usage
 """
 
 from fastapi import APIRouter, Request
@@ -892,51 +892,36 @@ logger = logging.getLogger(__name__)
 # ============================================================================
 
 PIXABAY_API_KEY = os.getenv("PIXABAY_API_KEY", "54364709-1e6532279f08847859d5bea5e")
-GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY")
 
-# CORRECT ElevenLabs API Key format (must start with sk_)
-ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY", "sk_c698af740ba0254488c629da3e373d50e33ab0d278bac71cdaf0a517855acef6")
-
-# Voice ID for Pixalab
+# ElevenLabs API Key - your actual key
+ELEVENLABS_API_KEY = "d4b3f7d4b20eb5994410ea31fbc719244cdb7b7076744d4a20345cab167f339e"
 ELEVENLABS_VOICE_ID = "YkAJCvEzSQvG7K2YK9kx"
 
-# Memory limits
-MAX_VIDEO_SIZE_MB = 20
-CLIP_MIN = 8  # 8 seconds minimum per clip
-CLIP_MAX = 10  # 10 seconds maximum per clip
-MAX_CONTENT_VIDEOS = 4
-SUBSCRIBE_DURATION = 2
-FFMPEG_TIMEOUT = 25
-
-# Background music - will download from Pixabay API
-BG_MUSIC_SEARCH = "space atmosphere"
+# Memory optimization
+MAX_VIDEO_SIZE_MB = 25  # 25MB max per video
+TARGET_DURATION = 30  # 30 seconds minimum
+VOICE_SPEED = 1.1  # 1.1x speed for voice only
+MAX_VIDEOS = 4  # 4 unique videos
+SUBSCRIBE_DURATION = 3  # 3 second subscribe
+FFMPEG_TIMEOUT = 30
 
 NICHES = {
     "space": {
         "name": "Space & Universe 🌌",
         "searches": ["galaxy", "nebula", "planet", "stars"],
-        "subscribe_search": "subscribe"
     },
     "tech_ai": {
         "name": "Technology & AI 🤖",
-        "searches": ["robot", "ai", "technology", "digital"],
-        "subscribe_search": "subscribe"
+        "searches": ["robot", "technology", "digital", "innovation"],
     },
     "ocean": {
         "name": "Ocean & Marine 🌊",
-        "searches": ["ocean", "underwater", "coral", "whale"],
-        "subscribe_search": "subscribe"
+        "searches": ["ocean", "underwater", "coral", "waves"],
     },
     "nature": {
         "name": "Nature & Wildlife 🦁",
-        "searches": ["lion", "tiger", "forest", "eagle"],
-        "subscribe_search": "subscribe"
-    },
-    "success": {
-        "name": "Success & Motivation 💪",
-        "searches": ["success", "workout", "motivation", "gym"],
-        "subscribe_search": "subscribe"
+        "searches": ["lion", "forest", "eagle", "wildlife"],
     }
 }
 
@@ -944,8 +929,8 @@ NICHES = {
 # MEMORY MANAGEMENT
 # ============================================================================
 
-def force_cleanup(filepath: str):
-    """Aggressive cleanup"""
+def cleanup_file(filepath: str):
+    """Delete file and clear memory"""
     try:
         if filepath and os.path.exists(filepath):
             os.remove(filepath)
@@ -953,18 +938,23 @@ def force_cleanup(filepath: str):
     except:
         pass
     gc.collect()
-    gc.collect()
 
 def get_file_size_mb(filepath: str) -> float:
+    """Get file size in MB"""
     try:
         return os.path.getsize(filepath) / (1024 * 1024)
     except:
         return 0
 
 def run_ffmpeg(cmd: list, timeout: int = FFMPEG_TIMEOUT) -> bool:
-    """Run FFmpeg with timeout"""
+    """Run FFmpeg with timeout and cleanup"""
     try:
-        result = subprocess.run(cmd, capture_output=True, timeout=timeout, check=False)
+        result = subprocess.run(
+            cmd, 
+            capture_output=True, 
+            timeout=timeout, 
+            check=False
+        )
         gc.collect()
         return result.returncode == 0
     except:
@@ -972,84 +962,85 @@ def run_ffmpeg(cmd: list, timeout: int = FFMPEG_TIMEOUT) -> bool:
         return False
 
 # ============================================================================
-# AI SCRIPT - 30+ SECONDS WITH HOOKS
+# AI SCRIPT GENERATION - 120+ WORDS, 30+ SECONDS
 # ============================================================================
 
-async def generate_engaging_script(niche: str) -> dict:
-    """Generate 30+ second viral script with Hook, Story, Suspense, Outro"""
+async def generate_viral_script(niche: str) -> dict:
+    """Generate engaging 30+ second Hindi script"""
     
     niche_info = NICHES.get(niche, NICHES["space"])
     
-    prompt = f"""Create a 30-35 SECOND viral Hindi story for YouTube Shorts about {niche}.
+    prompt = f"""Create a 30-35 second viral Hindi YouTube Shorts script about {niche}.
 
-STRUCTURE (MANDATORY):
-1. HOOK (6-8 sec): "Socho agar main kahun..." - Create curiosity
-2. MAIN STORY (12-15 sec): 2-3 amazing facts with emotion
-3. SUSPENSE TWIST (6-8 sec): Mind-blowing revelation
-4. OUTRO (4-5 sec): Engaging question to audience
+MANDATORY STRUCTURE (120-150 words total):
+1. HOOK (30-35 words, 7-8 sec): Start with "Socho agar main kahun..." Create STRONG curiosity
+2. MAIN STORY (50-60 words, 14-16 sec): 2-3 amazing facts with emotion and pauses
+3. SUSPENSE TWIST (25-30 words, 6-7 sec): Mind-blowing revelation starting with "Lekin..."
+4. OUTRO (15-20 words, 4-5 sec): Engaging question to audience
 
-INDIAN MARKET STYLE:
-- Use "Socho", "Lekin", "Aur sabse badi baat"
-- Add CAPITALS for emphasis
-- Add "..." for dramatic pauses
-- Short punchy sentences (5-8 words)
-- Create mystery and curiosity
+INDIAN VIRAL STYLE:
+- Use dramatic words: "Socho", "Lekin", "Aur sabse badi baat", "Scientists kehte hain"
+- Add "..." for suspense pauses (minimum 5 times total)
+- Add "," for natural breathing (every 8-10 words)
+- Use CAPITAL words for emphasis (3-4 times)
+- Short punchy sentences (6-9 words each)
+- Create mystery and emotion
 
-EXAMPLE HOOK:
-"Socho agar main kahun… universe mein ek aisi jagah hai jahan reality toot jaati hai…"
+EXAMPLE STRUCTURE:
+Hook: "Socho agar main kahun... universe mein ek aisi jagah hai... jahan TIME hi ruk jaata hai, aur koi bhi cheez wapas nahi aa sakti..."
 
-EXAMPLE SUSPENSE:
-"Lekin sabse scary baat ye hai… Scientists maanta hain… Ki ho sakta hai hum kisi ke experiment ho…"
+Story: "Black Hole naam ki ye cosmic entity... itni POWERFUL hoti hai ki light bhi escape nahi kar sakti. Scientists ne calculate kiya hai... agar aap black hole ke paas gaye, toh ek second aapka... bahar kai saalon ke barabar hoga. Yeh space aur time ko hi tod deta hai..."
+
+Suspense: "Lekin sabse SCARY baat ye hai... Scientists maante hain ki hamare solar system ke paas bhi ek black hole ho sakta hai... jo slowly towards us aa raha hai..."
+
+Outro: "Toh batao dosto... kya tum black hole ke paas jaoge?"
 
 REQUIREMENTS:
-- Title in ENGLISH (viral + #Shorts)
-- 4 segments (each 8-10 seconds)
-- Total narration: 32-36 seconds
-- Each segment has simple 1-2 word search query
+- Title in English with emojis and #Shorts
+- 4 segments (Hook, Story, Suspense, Outro)
+- Each segment: simple 1 word search query for videos
+- Total: 120-150 words, 32-36 seconds
+- Natural Hindi with emotion
 
 Output ONLY JSON:
 {{
-  "title": "Mind-Blowing Secret #Shorts",
-  "description": "Amazing revelation! #viral #shorts",
-  "tags": ["viral", "shorts", "hindi", "{niche}"],
+  "title": "SHOCKING Space Secret #Shorts 🚀",
+  "description": "Mind-blowing space revelation! #space #viral #shorts",
+  "tags": ["space", "viral", "shorts", "hindi"],
   "segments": [
     {{
       "type": "hook",
-      "narration": "Socho agar main kahun... CAPITAL words... dramatic...",
-      "text_overlay": "Hook Text",
+      "narration": "Socho agar main kahun... (30-35 words with ... and ,)",
+      "text_overlay": "😱 सुनो",
       "video_search": "galaxy",
-      "emoji": "🔥",
       "duration": 8
     }},
     {{
       "type": "story",
-      "narration": "Main story with facts...",
-      "text_overlay": "Fact",
+      "narration": "Main story (50-60 words)",
+      "text_overlay": "🔥 अविश्वसनीय",
       "video_search": "nebula",
-      "emoji": "😨",
-      "duration": 9
+      "duration": 15
     }},
     {{
       "type": "suspense",
-      "narration": "Lekin sabse badi baat...",
-      "text_overlay": "Suspense",
+      "narration": "Lekin... (25-30 words)",
+      "text_overlay": "💡 रहस्य",
       "video_search": "planet",
-      "emoji": "💡",
-      "duration": 8
+      "duration": 7
     }},
     {{
       "type": "outro",
-      "narration": "Toh tumhe kya lagta hai...",
-      "text_overlay": "Question",
+      "narration": "Question (15-20 words)",
+      "text_overlay": "🤔 सवाल",
       "video_search": "stars",
-      "emoji": "🎯",
-      "duration": 7
+      "duration": 5
     }}
   ]
 }}"""
     
     try:
-        # Try Mistral first
+        # Try Mistral AI
         if MISTRAL_API_KEY:
             try:
                 async with httpx.AsyncClient(timeout=30) as client:
@@ -1062,110 +1053,104 @@ Output ONLY JSON:
                         json={
                             "model": "mistral-large-latest",
                             "messages": [
-                                {"role": "system", "content": "You are a viral Hindi content creator. Create emotional, suspenseful scripts. Output ONLY valid JSON."},
+                                {
+                                    "role": "system", 
+                                    "content": "You are a viral Hindi content creator. Create emotional, suspenseful 30+ second scripts. Output ONLY valid JSON."
+                                },
                                 {"role": "user", "content": prompt}
                             ],
                             "temperature": 0.9,
-                            "max_tokens": 1500
+                            "max_tokens": 2000
                         }
                     )
                     
                     if response.status_code == 200:
                         result = response.json()
-                        ai_response = result["choices"][0]["message"]["content"]
-                        ai_response = re.sub(r'```json\n?|\n?```', '', ai_response).strip()
-                        script = json.loads(ai_response)
-                        script["segments"] = script["segments"][:MAX_CONTENT_VIDEOS]
+                        content = result["choices"][0]["message"]["content"]
+                        content = re.sub(r'```json\n?|\n?```', '', content).strip()
+                        script = json.loads(content)
+                        script["segments"] = script["segments"][:MAX_VIDEOS]
                         logger.info(f"✅ Script via Mistral: {len(script['segments'])} segments")
                         return script
             except Exception as e:
                 logger.warning(f"Mistral failed: {e}")
         
         # Fallback to template
-        return generate_template_script(niche, niche_info["searches"])
+        return get_fallback_script(niche, niche_info["searches"])
         
     except Exception as e:
         logger.error(f"Script error: {e}")
-        return generate_template_script(niche, niche_info["searches"])
+        return get_fallback_script(niche, niche_info["searches"])
 
-def generate_template_script(niche: str, searches: List[str]) -> dict:
-    """Fallback script with proper structure"""
+def get_fallback_script(niche: str, searches: List[str]) -> dict:
+    """Fallback engaging script"""
     
-    templates = {
+    scripts = {
         "space": {
-            "hook": "Socho agar main kahun... UNIVERSE mein ek aisi jagah hai... jahan TIME ruk jaata hai!",
-            "story": "Black Hole naam ki ye cheez... itni powerful hoti hai... ki LIGHT bhi usse bach nahi paati!",
-            "suspense": "Lekin sabse SCARY baat ye hai... Scientists kehte hain... hum SIMULATION mein reh rahe hain!",
-            "outro": "Toh batao... kya hum kisi ke EXPERIMENT hain?"
+            "hook": "Socho agar main kahun... UNIVERSE mein ek aisi jagah hai... jahan TIME hi ruk jaata hai, aur koi bhi cheez wapas nahi aa sakti. Yeh sach hai dosto...",
+            "story": "Black Hole naam ki ye cosmic entity... itni POWERFUL hoti hai ki light bhi escape nahi kar sakti. Scientists ne calculate kiya... agar aap black hole ke paas gaye, toh ek second aapka bahar kai saalon ke barabar hoga. Yeh SPACE aur TIME ko hi tod deta hai... puri reality badal deta hai.",
+            "suspense": "Lekin sabse SCARY baat ye hai... Scientists maante hain ki hamare solar system ke paas bhi ek black hole ho sakta hai... jo slowly towards us aa raha hai...",
+            "outro": "Toh batao dosto... kya tum black hole ke paas jaoge? Comment mein batao!"
         },
         "tech_ai": {
-            "hook": "Socho agar main kahun... AI tumhare dimaag ko padh sakta hai... SACH mein!",
-            "story": "Aaj ki technology... itni ADVANCED ho gayi hai... ki robots EMOTIONS samajh rahe hain!",
-            "suspense": "Lekin sabse BADI baat... Scientists ne predict kiya... 2030 tak AI insaan se SMART hoga!",
-            "outro": "Kya tum READY ho... AI ke yug ke liye?"
+            "hook": "Socho agar main kahun... AI ab tumhare dimaag ko PADH sakta hai, tumhari soch ko samajh sakta hai... yeh science fiction nahi, REALITY hai...",
+            "story": "Aaj ki technology itni ADVANCED ho gayi hai... ki robots ab EMOTIONS samajh rahe hain. Neuralink jaise devices... seedha brain se connect ho rahe hain. AI paintings bana raha hai, music compose kar raha hai... insaan se bhi behtar.",
+            "suspense": "Lekin sabse BADI baat... Scientists ne predict kiya hai ki 2030 tak... AI insaan se zyada SMART ho jayega. Phir kya hoga...",
+            "outro": "Kya tum tayaar ho AI ke yug ke liye? Batao comments mein!"
         }
     }
     
-    template = templates.get(niche, templates["space"])
-    
-    segments = [
-        {
-            "type": "hook",
-            "narration": template["hook"],
-            "text_overlay": "सुनो",
-            "video_search": searches[0],
-            "emoji": "🔥",
-            "duration": 8
-        },
-        {
-            "type": "story",
-            "narration": template["story"],
-            "text_overlay": "अविश्वसनीय",
-            "video_search": searches[1] if len(searches) > 1 else searches[0],
-            "emoji": "😨",
-            "duration": 9
-        },
-        {
-            "type": "suspense",
-            "narration": template["suspense"],
-            "text_overlay": "रहस्य",
-            "video_search": searches[2] if len(searches) > 2 else searches[0],
-            "emoji": "💡",
-            "duration": 8
-        },
-        {
-            "type": "outro",
-            "narration": template["outro"],
-            "text_overlay": "सवाल",
-            "video_search": searches[3] if len(searches) > 3 else searches[0],
-            "emoji": "🎯",
-            "duration": 7
-        }
-    ]
+    template = scripts.get(niche, scripts["space"])
     
     return {
-        "title": f"Shocking {niche.title()} Secret #Shorts",
-        "description": f"Mind-blowing revelation! #{niche} #viral #shorts",
-        "tags": [niche, "viral", "shorts", "hindi"],
-        "segments": segments
+        "title": f"SHOCKING {niche.title()} Secret #Shorts 🔥",
+        "description": f"Mind-blowing revelation! #{niche} #viral #shorts #hindi",
+        "tags": [niche, "viral", "shorts", "hindi", "trending"],
+        "segments": [
+            {
+                "type": "hook",
+                "narration": template["hook"],
+                "text_overlay": "😱 सुनो",
+                "video_search": searches[0],
+                "duration": 8
+            },
+            {
+                "type": "story",
+                "narration": template["story"],
+                "text_overlay": "🔥 अविश्वसनीय",
+                "video_search": searches[1] if len(searches) > 1 else searches[0],
+                "duration": 15
+            },
+            {
+                "type": "suspense",
+                "narration": template["suspense"],
+                "text_overlay": "💡 रहस्य",
+                "video_search": searches[2] if len(searches) > 2 else searches[0],
+                "duration": 7
+            },
+            {
+                "type": "outro",
+                "narration": template["outro"],
+                "text_overlay": "🤔 सवाल",
+                "video_search": searches[3] if len(searches) > 3 else searches[0],
+                "duration": 5
+            }
+        ]
     }
 
 # ============================================================================
-# ELEVENLABS VOICE - 1.1x SPEED
+# ELEVENLABS VOICE - 1.1x SPEED (NOT VIDEO)
 # ============================================================================
 
-async def generate_voice_elevenlabs(text: str, duration: float) -> str:
-    """ElevenLabs with 1.1x speed"""
+async def generate_voice_elevenlabs(text: str, duration: float, temp_dir: str) -> str:
+    """Generate voice with ElevenLabs at 1.1x speed"""
     try:
-        if not ELEVENLABS_API_KEY or not ELEVENLABS_API_KEY.startswith("sk_"):
-            logger.warning("Invalid ElevenLabs key, using Edge TTS")
-            return await generate_voice_edge(text, duration)
-        
         # Clean text
-        processed_text = text.replace("...", " ").strip()[:250]
-        temp_file = f"/tmp/elv_{uuid.uuid4().hex[:8]}.mp3"
+        text_clean = text.replace("...", " ").strip()[:300]
         
-        async with httpx.AsyncClient(timeout=30) as client:
+        temp_file = os.path.join(temp_dir, f"elv_{uuid.uuid4().hex[:8]}.mp3")
+        
+        async with httpx.AsyncClient(timeout=40) as client:
             response = await client.post(
                 f"https://api.elevenlabs.io/v1/text-to-speech/{ELEVENLABS_VOICE_ID}",
                 headers={
@@ -1173,7 +1158,7 @@ async def generate_voice_elevenlabs(text: str, duration: float) -> str:
                     "Content-Type": "application/json"
                 },
                 json={
-                    "text": processed_text,
+                    "text": text_clean,
                     "model_id": "eleven_multilingual_v2",
                     "voice_settings": {
                         "stability": 0.50,
@@ -1188,60 +1173,62 @@ async def generate_voice_elevenlabs(text: str, duration: float) -> str:
                 with open(temp_file, 'wb') as f:
                     f.write(response.content)
                 
-                # Apply 1.1x speed + normalize
-                output_file = temp_file.replace(".mp3", "_fast.mp3")
+                # Apply 1.1x speed to audio ONLY
+                output_file = temp_file.replace(".mp3", "_speed.mp3")
                 cmd = [
                     "ffmpeg", "-i", temp_file,
-                    "-filter:a", "atempo=1.1,loudnorm=I=-16:LRA=11:TP=-1.5",
+                    "-filter:a", f"atempo={VOICE_SPEED},loudnorm=I=-16:LRA=11:TP=-1.5",
                     "-t", str(duration),
                     "-b:a", "128k",
-                    output_file,
-                    "-y"
+                    "-y", output_file
                 ]
                 
-                run_ffmpeg(cmd, timeout=15)
-                force_cleanup(temp_file)
-                
-                if os.path.exists(output_file):
-                    logger.info(f"✅ ElevenLabs (1.1x): {get_file_size_mb(output_file):.1f}MB")
-                    return output_file
+                if run_ffmpeg(cmd, timeout=20):
+                    cleanup_file(temp_file)
+                    if os.path.exists(output_file):
+                        logger.info(f"✅ ElevenLabs ({VOICE_SPEED}x): {get_file_size_mb(output_file):.1f}MB")
+                        return output_file
             else:
-                logger.warning(f"ElevenLabs error: {response.status_code} - {response.text[:200]}")
+                logger.warning(f"ElevenLabs {response.status_code}: {response.text[:150]}")
         
-        return await generate_voice_edge(text, duration)
+        # Fallback to Edge TTS
+        return await generate_voice_edge(text, duration, temp_dir)
         
     except Exception as e:
         logger.error(f"ElevenLabs error: {e}")
-        return await generate_voice_edge(text, duration)
+        return await generate_voice_edge(text, duration, temp_dir)
 
-async def generate_voice_edge(text: str, duration: float) -> str:
+async def generate_voice_edge(text: str, duration: float, temp_dir: str) -> str:
     """Fallback Edge TTS with 1.1x speed"""
     try:
         import edge_tts
         
-        temp_file = f"/tmp/tts_{uuid.uuid4().hex[:8]}.mp3"
-        text_clean = text.replace("...", " ").strip()[:200]
+        temp_file = os.path.join(temp_dir, f"edge_{uuid.uuid4().hex[:8]}.mp3")
+        text_clean = text.replace("...", " ").strip()[:250]
         
-        # Use rate=+15% for 1.1x speed effect
-        communicate = edge_tts.Communicate(text_clean, "hi-IN-MadhurNeural", rate="+15%")
+        # +15% rate for 1.1x effect
+        communicate = edge_tts.Communicate(
+            text_clean, 
+            "hi-IN-MadhurNeural", 
+            rate="+15%"
+        )
         await communicate.save(temp_file)
         
-        output_file = temp_file.replace(".mp3", "_adj.mp3")
+        # Normalize audio
+        output_file = temp_file.replace(".mp3", "_norm.mp3")
         cmd = [
             "ffmpeg", "-i", temp_file,
             "-af", "loudnorm=I=-16:LRA=11:TP=-1.5",
             "-t", str(duration),
             "-b:a", "128k",
-            output_file,
-            "-y"
+            "-y", output_file
         ]
         
-        run_ffmpeg(cmd, timeout=12)
-        force_cleanup(temp_file)
-        
-        if os.path.exists(output_file):
-            logger.info(f"✅ Edge TTS (1.1x): {get_file_size_mb(output_file):.1f}MB")
-            return output_file
+        if run_ffmpeg(cmd, timeout=15):
+            cleanup_file(temp_file)
+            if os.path.exists(output_file):
+                logger.info(f"✅ Edge TTS ({VOICE_SPEED}x): {get_file_size_mb(output_file):.1f}MB")
+                return output_file
         
         return None
     except Exception as e:
@@ -1249,22 +1236,22 @@ async def generate_voice_edge(text: str, duration: float) -> str:
         return None
 
 # ============================================================================
-# PIXABAY - VERTICAL VIDEOS + MUSIC
+# PIXABAY - VIDEOS + MUSIC
 # ============================================================================
 
 async def search_pixabay_videos(query: str) -> List[dict]:
-    """Search Pixabay with simple queries"""
+    """Search Pixabay with simple 1-2 word queries"""
     try:
-        # Keep it simple - 1-2 words only
-        search_query = " ".join(query.split()[:2])
+        # Keep queries simple - 1 word best
+        search_query = query.split()[0] if query else "nature"
         
-        async with httpx.AsyncClient(timeout=15) as client:
+        async with httpx.AsyncClient(timeout=20) as client:
             response = await client.get(
                 "https://pixabay.com/api/videos/",
                 params={
                     "key": PIXABAY_API_KEY,
                     "q": search_query,
-                    "per_page": 8,
+                    "per_page": 10,
                     "video_type": "film",
                     "orientation": "vertical",
                     "order": "popular"
@@ -1277,70 +1264,63 @@ async def search_pixabay_videos(query: str) -> List[dict]:
                 if videos:
                     logger.info(f"✅ Found {len(videos)} videos: '{search_query}'")
                     return videos
-                else:
-                    # Try single word
-                    first_word = search_query.split()[0]
-                    if first_word != search_query:
-                        return await search_pixabay_videos(first_word)
-            return []
+        
+        return []
     except Exception as e:
-        logger.error(f"Pixabay error: {e}")
+        logger.error(f"Pixabay search error: {e}")
         return []
 
 async def download_video(video_data: dict, output_path: str) -> bool:
-    """Download video with size fallback"""
+    """Download video with size limit (25MB max)"""
     try:
         videos = video_data.get("videos", {})
         
-        # Try medium, then small
-        video_url = videos.get("medium", {}).get("url") or videos.get("small", {}).get("url")
+        # Try small first for memory efficiency, then medium
+        video_url = videos.get("small", {}).get("url") or videos.get("medium", {}).get("url")
         
         if not video_url:
             return False
         
-        async with httpx.AsyncClient(timeout=40) as client:
+        async with httpx.AsyncClient(timeout=50) as client:
             async with client.stream('GET', video_url) as response:
                 if response.status_code != 200:
                     return False
                 
+                # Check size
                 content_length = response.headers.get('content-length')
                 if content_length:
                     size_mb = int(content_length) / (1024 * 1024)
                     if size_mb > MAX_VIDEO_SIZE_MB:
-                        small_url = videos.get("small", {}).get("url")
-                        if small_url and small_url != video_url:
-                            async with client.stream('GET', small_url) as small_resp:
-                                if small_resp.status_code == 200:
-                                    with open(output_path, 'wb') as f:
-                                        async for chunk in small_resp.aiter_bytes(chunk_size=8192):
-                                            f.write(chunk)
-                                    return True
+                        logger.warning(f"Video too large: {size_mb:.1f}MB")
                         return False
                 
+                # Download
                 with open(output_path, 'wb') as f:
                     async for chunk in response.aiter_bytes(chunk_size=8192):
                         f.write(chunk)
                 
-                logger.info(f"✅ Downloaded: {get_file_size_mb(output_path):.1f}MB")
+                size = get_file_size_mb(output_path)
+                logger.info(f"✅ Downloaded: {size:.1f}MB")
                 return True
+                
     except Exception as e:
         logger.error(f"Download error: {e}")
         return False
 
 async def download_background_music(temp_dir: str) -> str:
-    """Download music from Pixabay API (not direct URL)"""
+    """Download background music from Pixabay"""
     try:
         music_path = os.path.join(temp_dir, "bgmusic.mp3")
         
-        # Search for music via API
-        async with httpx.AsyncClient(timeout=20) as client:
+        # Search for space music
+        async with httpx.AsyncClient(timeout=25) as client:
             response = await client.get(
                 "https://pixabay.com/api/",
                 params={
                     "key": PIXABAY_API_KEY,
-                    "q": BG_MUSIC_SEARCH,
+                    "q": "space",
                     "audio_type": "music",
-                    "per_page": 3
+                    "per_page": 5
                 }
             )
             
@@ -1349,47 +1329,47 @@ async def download_background_music(temp_dir: str) -> str:
                 hits = data.get("hits", [])
                 
                 if hits:
-                    # Get first music file
+                    # Download first music
                     audio_url = hits[0].get("previewURL")
                     if audio_url:
-                        audio_resp = await client.get(audio_url)
+                        audio_resp = await client.get(audio_url, timeout=30)
                         if audio_resp.status_code == 200:
                             with open(music_path, 'wb') as f:
                                 f.write(audio_resp.content)
                             logger.info(f"✅ Music: {get_file_size_mb(music_path):.1f}MB")
                             return music_path
         
-        logger.warning("No music found, continuing without background music")
+        logger.warning("No music found")
         return None
+        
     except Exception as e:
-        logger.error(f"Music error: {e}")
+        logger.error(f"Music download error: {e}")
         return None
 
 # ============================================================================
 # VIDEO PROCESSING
 # ============================================================================
 
-def extract_clip(video_path: str, duration: float) -> str:
-    """Extract clip 720x1280 vertical"""
-    output_path = video_path.replace(".mp4", "_clip.mp4")
+def extract_clip(video_path: str, duration: float, temp_dir: str) -> str:
+    """Extract vertical clip 720x1280"""
+    output_path = os.path.join(temp_dir, f"clip_{uuid.uuid4().hex[:6]}.mp4")
     
     try:
         cmd = [
             "ffmpeg", "-i", video_path,
-            "-ss", "1",
+            "-ss", "1",  # Skip first second
             "-t", str(duration),
             "-vf", "scale=720:1280:force_original_aspect_ratio=increase,crop=720:1280",
             "-c:v", "libx264",
-            "-crf", "24",
+            "-crf", "26",  # Slightly lower quality for memory
             "-preset", "veryfast",
-            "-an",
-            output_path,
-            "-y"
+            "-an",  # No audio
+            "-y", output_path
         ]
         
-        if run_ffmpeg(cmd, timeout=25):
+        if run_ffmpeg(cmd, timeout=30):
+            cleanup_file(video_path)
             if os.path.exists(output_path):
-                force_cleanup(video_path)
                 logger.info(f"✅ Clipped: {get_file_size_mb(output_path):.1f}MB")
                 return output_path
         
@@ -1398,55 +1378,53 @@ def extract_clip(video_path: str, duration: float) -> str:
         logger.error(f"Clip error: {e}")
         return video_path
 
-def add_text(video_path: str, text: str, emoji: str) -> str:
-    """Add text overlay"""
-    output_path = video_path.replace(".mp4", "_text.mp4")
+def add_text_overlay(video_path: str, text: str, temp_dir: str) -> str:
+    """Add text overlay to video"""
+    output_path = os.path.join(temp_dir, f"text_{uuid.uuid4().hex[:6]}.mp4")
     
     try:
-        text_escaped = text.replace("'", "").replace(":", "")[:25]
-        full_text = f"{text_escaped} {emoji}"
+        # Clean text
+        text_clean = text.replace("'", "").replace(":", "")[:30]
         
         cmd = [
             "ffmpeg", "-i", video_path,
-            "-vf", f"drawtext=text='{full_text}':fontsize=60:fontcolor=white:x=(w-text_w)/2:y=h-200:borderw=5:bordercolor=black:shadowcolor=black:shadowx=3:shadowy=3",
+            "-vf", f"drawtext=text='{text_clean}':fontsize=65:fontcolor=white:x=(w-text_w)/2:y=h-250:borderw=6:bordercolor=black:shadowcolor=black@0.7:shadowx=3:shadowy=3",
             "-c:v", "libx264",
-            "-crf", "24",
+            "-crf", "26",
             "-preset", "veryfast",
-            output_path,
-            "-y"
+            "-y", output_path
         ]
         
-        if run_ffmpeg(cmd, timeout=25):
+        if run_ffmpeg(cmd, timeout=30):
+            cleanup_file(video_path)
             if os.path.exists(output_path):
-                force_cleanup(video_path)
                 return output_path
         
         return video_path
     except Exception as e:
-        logger.error(f"Text error: {e}")
+        logger.error(f"Text overlay error: {e}")
         return video_path
 
-def add_fade(video_path: str, duration: float) -> str:
-    """Add smooth fade in/out"""
-    output_path = video_path.replace(".mp4", "_fade.mp4")
+def add_fade_transition(video_path: str, duration: float, temp_dir: str) -> str:
+    """Add fade in/out"""
+    output_path = os.path.join(temp_dir, f"fade_{uuid.uuid4().hex[:6]}.mp4")
     
     try:
-        fade_duration = min(0.5, duration / 4)
-        fade_out_start = duration - fade_duration
+        fade_dur = min(0.5, duration / 5)
+        fade_out = duration - fade_dur
         
         cmd = [
             "ffmpeg", "-i", video_path,
-            "-vf", f"fade=t=in:st=0:d={fade_duration},fade=t=out:st={fade_out_start}:d={fade_duration}",
+            "-vf", f"fade=t=in:st=0:d={fade_dur},fade=t=out:st={fade_out}:d={fade_dur}",
             "-c:v", "libx264",
-            "-crf", "24",
+            "-crf", "26",
             "-preset", "veryfast",
-            output_path,
-            "-y"
+            "-y", output_path
         ]
         
         if run_ffmpeg(cmd, timeout=25):
+            cleanup_file(video_path)
             if os.path.exists(output_path):
-                force_cleanup(video_path)
                 return output_path
         
         return video_path
@@ -1459,74 +1437,83 @@ def add_fade(video_path: str, duration: float) -> str:
 # ============================================================================
 
 def compile_final_video(clips: List[str], audios: List[str], music_path: str, temp_dir: str) -> str:
-    """Compile with background music"""
+    """Compile final video with background music"""
     try:
-        # Step 1: Concat videos
-        concat_file = os.path.join(temp_dir, "concat.txt")
-        with open(concat_file, 'w') as f:
+        # Concat videos
+        concat_list = os.path.join(temp_dir, "concat.txt")
+        with open(concat_list, 'w') as f:
             for clip in clips:
                 if clip and os.path.exists(clip):
                     f.write(f"file '{clip}'\n")
         
-        video_file = os.path.join(temp_dir, "video.mp4")
-        cmd = ["ffmpeg", "-f", "concat", "-safe", "0", "-i", concat_file, "-c", "copy", video_file, "-y"]
+        video_concat = os.path.join(temp_dir, "video_all.mp4")
+        cmd = [
+            "ffmpeg", "-f", "concat", "-safe", "0",
+            "-i", concat_list,
+            "-c", "copy",
+            "-y", video_concat
+        ]
         run_ffmpeg(cmd, timeout=40)
         
-        # Step 2: Concat audios
-        audio_concat = os.path.join(temp_dir, "audio_concat.txt")
-        with open(audio_concat, 'w') as f:
+        # Concat audios
+        audio_list = os.path.join(temp_dir, "audio.txt")
+        with open(audio_list, 'w') as f:
             for audio in audios:
                 if audio and os.path.exists(audio):
                     f.write(f"file '{audio}'\n")
         
-        voice_file = os.path.join(temp_dir, "voice.mp3")
-        cmd = ["ffmpeg", "-f", "concat", "-safe", "0", "-i", audio_concat, "-c", "copy", voice_file, "-y"]
+        audio_concat = os.path.join(temp_dir, "audio_all.mp3")
+        cmd = [
+            "ffmpeg", "-f", "concat", "-safe", "0",
+            "-i", audio_list,
+            "-c", "copy",
+            "-y", audio_concat
+        ]
         run_ffmpeg(cmd, timeout=30)
         
+        # Final mix with background music
         final_output = os.path.join(temp_dir, "final.mp4")
         
-        # Step 3: Mix with background music
         if music_path and os.path.exists(music_path):
+            # Mix voice + background music
             cmd = [
                 "ffmpeg",
-                "-i", video_file,
-                "-i", voice_file,
+                "-i", video_concat,
+                "-i", audio_concat,
                 "-i", music_path,
                 "-filter_complex",
-                "[1:a]volume=1.0[voice];[2:a]volume=0.25,afade=t=in:st=0:d=2,afade=t=out:st=28:d=2[music];[voice][music]amix=inputs=2:duration=first[aout]",
+                "[1:a]volume=1.0[voice];[2:a]volume=0.20,afade=t=in:st=0:d=2,afade=t=out:st=28:d=2[music];[voice][music]amix=inputs=2:duration=first[aout]",
                 "-map", "0:v",
                 "-map", "[aout]",
                 "-c:v", "copy",
                 "-c:a", "aac",
                 "-b:a", "128k",
                 "-shortest",
-                final_output,
-                "-y"
+                "-y", final_output
             ]
         else:
+            # No background music
             cmd = [
                 "ffmpeg",
-                "-i", video_file,
-                "-i", voice_file,
+                "-i", video_concat,
+                "-i", audio_concat,
                 "-c:v", "copy",
                 "-c:a", "aac",
                 "-b:a", "128k",
                 "-shortest",
-                final_output,
-                "-y"
+                "-y", final_output
             ]
         
-        run_ffmpeg(cmd, timeout=60)
-        
-        # Cleanup
-        force_cleanup(video_file)
-        force_cleanup(voice_file)
-        
-        if os.path.exists(final_output):
-            logger.info(f"✅ Final video: {get_file_size_mb(final_output):.1f}MB")
-            return final_output
+        if run_ffmpeg(cmd, timeout=60):
+            cleanup_file(video_concat)
+            cleanup_file(audio_concat)
+            
+            if os.path.exists(final_output):
+                logger.info(f"✅ Final video: {get_file_size_mb(final_output):.1f}MB")
+                return final_output
         
         return None
+        
     except Exception as e:
         logger.error(f"Compilation error: {e}")
         return None
@@ -1536,29 +1523,32 @@ def compile_final_video(clips: List[str], audios: List[str], music_path: str, te
 # ============================================================================
 
 async def upload_to_youtube(video_path: str, title: str, description: str, 
-                           tags: List[str], user_id: str, database_manager) -> dict:
+                           tags: List[str], user_id: str) -> dict:
     """Upload to YouTube"""
     try:
         from YTdatabase import get_database_manager as get_yt_db
-        yt_db = get_yt_db()
         
+        yt_db = get_yt_db()
         if not yt_db:
-            return {"success": False, "error": "YouTube database unavailable"}
+            return {"success": False, "error": "YouTube DB unavailable"}
         
         if not yt_db.youtube.client:
             await yt_db.connect()
         
-        credentials_raw = await yt_db.youtube.youtube_credentials_collection.find_one({"user_id": user_id})
+        # Get credentials
+        creds_raw = await yt_db.youtube.youtube_credentials_collection.find_one(
+            {"user_id": user_id}
+        )
         
-        if not credentials_raw:
+        if not creds_raw:
             return {"success": False, "error": "YouTube not connected"}
         
         credentials = {
-            "access_token": credentials_raw.get("access_token"),
-            "refresh_token": credentials_raw.get("refresh_token"),
+            "access_token": creds_raw.get("access_token"),
+            "refresh_token": creds_raw.get("refresh_token"),
             "token_uri": "https://oauth2.googleapis.com/token",
-            "client_id": credentials_raw.get("client_id") or os.getenv("YOUTUBE_CLIENT_ID"),
-            "client_secret": credentials_raw.get("client_secret") or os.getenv("YOUTUBE_CLIENT_SECRET"),
+            "client_id": creds_raw.get("client_id") or os.getenv("YOUTUBE_CLIENT_ID"),
+            "client_secret": creds_raw.get("client_secret") or os.getenv("YOUTUBE_CLIENT_SECRET"),
             "scopes": [
                 "https://www.googleapis.com/auth/youtube.upload",
                 "https://www.googleapis.com/auth/youtube.force-ssl"
@@ -1567,28 +1557,29 @@ async def upload_to_youtube(video_path: str, title: str, description: str,
         
         from mainY import youtube_scheduler
         
-        full_description = f"{description}\n\n#{' #'.join(tags)}"
+        full_desc = f"{description}\n\n#{' #'.join(tags)}"
         
-        upload_result = await youtube_scheduler.generate_and_upload_content(
+        result = await youtube_scheduler.generate_and_upload_content(
             user_id=user_id,
             credentials_data=credentials,
             content_type="shorts",
             title=f"{title} #Shorts",
-            description=full_description,
+            description=full_desc,
             video_url=video_path
         )
         
-        if upload_result.get("success"):
-            video_id = upload_result.get("video_id")
+        if result.get("success"):
+            video_id = result.get("video_id")
             return {
                 "success": True,
                 "video_id": video_id,
                 "video_url": f"https://youtube.com/shorts/{video_id}"
             }
         
-        return {"success": False, "error": upload_result.get("error", "Upload failed")}
+        return {"success": False, "error": result.get("error", "Upload failed")}
+        
     except Exception as e:
-        logger.error(f"Upload error: {e}")
+        logger.error(f"YouTube upload error: {e}")
         return {"success": False, "error": str(e)}
 
 # ============================================================================
@@ -1605,40 +1596,40 @@ async def generate_viral_video(
     user_id: str,
     database_manager
 ) -> dict:
-    """Main generation pipeline"""
+    """Main video generation pipeline"""
     
     temp_dir = None
     
     try:
         temp_dir = tempfile.mkdtemp(prefix="viral_")
-        logger.info(f"🎬 Starting viral video generation")
+        logger.info(f"🎬 Generating viral video for {niche}")
         
-        # Generate script
-        logger.info("📝 Generating engaging script...")
-        script = await generate_engaging_script(niche)
+        # Step 1: Generate engaging script
+        logger.info("📝 Generating script...")
+        script = await generate_viral_script(niche)
         
         if not script or not script.get("segments"):
             return {"success": False, "error": "Script generation failed"}
         
         logger.info(f"✅ Script ready: {len(script['segments'])} segments")
-        logger.info(f"📋 Title: {script.get('title')}")
+        logger.info(f"📋 Title: {script['title']}")
         
-        # Download background music
+        # Step 2: Download background music
         logger.info("🎵 Downloading background music...")
         music_path = await download_background_music(temp_dir)
         
-        # Process 4 unique videos
-        logger.info(f"🎥 Processing {MAX_CONTENT_VIDEOS} videos...")
+        # Step 3: Process 4 unique videos
+        logger.info(f"🎥 Processing {MAX_VIDEOS} videos...")
         
         processed_clips = []
         audio_files = []
         used_video_ids = set()
         
-        for idx, segment in enumerate(script["segments"][:MAX_CONTENT_VIDEOS]):
+        for idx, segment in enumerate(script["segments"][:MAX_VIDEOS]):
             try:
-                logger.info(f"📥 Processing video {idx+1}/{MAX_CONTENT_VIDEOS}")
+                logger.info(f"📥 Processing video {idx+1}/{MAX_VIDEOS}")
                 
-                seg_duration = segment.get("duration", random.randint(CLIP_MIN, CLIP_MAX))
+                seg_duration = segment.get("duration", 8)
                 
                 # Search videos
                 videos = await search_pixabay_videos(segment["video_search"])
@@ -1660,24 +1651,27 @@ async def generate_viral_video(
                             break
                 
                 if not video_path:
+                    logger.warning(f"Could not download video {idx+1}")
                     continue
                 
                 # Process video
-                clip = extract_clip(video_path, seg_duration)
+                clip = extract_clip(video_path, seg_duration, temp_dir)
                 
                 if show_captions:
-                    clip = add_text(clip, segment.get("text_overlay", ""), segment.get("emoji", "🔥"))
+                    clip = add_text_overlay(clip, segment.get("text_overlay", ""), temp_dir)
                 
-                clip = add_fade(clip, seg_duration)
+                clip = add_fade_transition(clip, seg_duration, temp_dir)
                 
                 processed_clips.append(clip)
                 
-                # Generate voice (1.1x speed)
+                # Generate voice with 1.1x speed
                 logger.info(f"🎤 Generating voice {idx+1}...")
                 voice = await generate_voice_elevenlabs(
                     segment.get("narration", ""),
-                    seg_duration
+                    seg_duration,
+                    temp_dir
                 )
+                
                 if voice:
                     audio_files.append(voice)
                 
@@ -1689,9 +1683,9 @@ async def generate_viral_video(
                 continue
         
         if len(processed_clips) < 3:
-            return {"success": False, "error": f"Only {len(processed_clips)} videos processed, need at least 3"}
+            return {"success": False, "error": f"Only {len(processed_clips)} videos created, need at least 3"}
         
-        # Add subscribe video
+        # Step 4: Add subscribe clip
         logger.info("📌 Adding subscribe overlay...")
         subscribe_videos = await search_pixabay_videos("subscribe")
         
@@ -1700,65 +1694,71 @@ async def generate_viral_video(
             success = await download_video(subscribe_videos[0], subscribe_path)
             
             if success:
-                clip = extract_clip(subscribe_path, SUBSCRIBE_DURATION)
+                clip = extract_clip(subscribe_path, SUBSCRIBE_DURATION, temp_dir)
                 
                 # Add subscribe text
-                output_path = clip.replace(".mp4", "_sub.mp4")
+                sub_text_path = os.path.join(temp_dir, f"sub_text_{uuid.uuid4().hex[:6]}.mp4")
                 cmd = [
                     "ffmpeg", "-i", clip,
-                    "-vf", "drawtext=text='SUBSCRIBE करें 🔔':fontsize=70:fontcolor=yellow:x=(w-text_w)/2:y=(h-text_h)/2:borderw=6:bordercolor=red:shadowcolor=black:shadowx=3:shadowy=3",
+                    "-vf", "drawtext=text='SUBSCRIBE करें 🔔':fontsize=75:fontcolor=yellow:x=(w-text_w)/2:y=(h-text_h)/2:borderw=7:bordercolor=red:shadowcolor=black@0.8:shadowx=4:shadowy=4",
                     "-c:v", "libx264",
-                    "-crf", "24",
+                    "-crf", "26",
                     "-preset", "veryfast",
-                    output_path,
-                    "-y"
+                    "-y", sub_text_path
                 ]
                 
-                if run_ffmpeg(cmd, timeout=20):
-                    force_cleanup(clip)
-                    clip = output_path
+                if run_ffmpeg(cmd, timeout=25):
+                    cleanup_file(clip)
+                    clip = sub_text_path
                 
-                clip = add_fade(clip, SUBSCRIBE_DURATION)
+                clip = add_fade_transition(clip, SUBSCRIBE_DURATION, temp_dir)
                 processed_clips.append(clip)
                 
-                # Silent audio
-                silent = os.path.join(temp_dir, "silent.mp3")
+                # Add silent audio
+                silent_audio = os.path.join(temp_dir, "silent.mp3")
                 cmd = [
                     "ffmpeg", "-f", "lavfi",
                     "-i", f"anullsrc=r=44100:cl=mono:d={SUBSCRIBE_DURATION}",
                     "-b:a", "64k",
-                    silent,
-                    "-y"
+                    "-y", silent_audio
                 ]
-                run_ffmpeg(cmd, timeout=10)
-                if os.path.exists(silent):
-                    audio_files.append(silent)
                 
-                logger.info("✅ Subscribe video added")
+                if run_ffmpeg(cmd, timeout=15):
+                    audio_files.append(silent_audio)
+                
+                logger.info("✅ Subscribe clip added")
         
-        # Compile final video
+        # Step 5: Compile final video
         logger.info("🎬 Compiling final video...")
-        final_video = compile_final_video(processed_clips, audio_files, music_path, temp_dir)
+        final_video = compile_final_video(
+            processed_clips,
+            audio_files,
+            music_path,
+            temp_dir
+        )
         
         if not final_video:
             return {"success": False, "error": "Video compilation failed"}
         
-        logger.info(f"✅ Final video ready: {get_file_size_mb(final_video):.1f}MB")
+        logger.info(f"✅ Final video: {get_file_size_mb(final_video):.1f}MB")
         
-        # Upload to YouTube
+        # Step 6: Upload to YouTube
         logger.info("📤 Uploading to YouTube...")
         upload_result = await upload_to_youtube(
             final_video,
             script.get("title", "Viral Video"),
             script.get("description", ""),
             script.get("tags", []),
-            user_id,
-            database_manager
+            user_id
         )
         
-        # Cleanup
+        # Cleanup temp directory
         if temp_dir and os.path.exists(temp_dir):
-            shutil.rmtree(temp_dir, ignore_errors=True)
+            try:
+                shutil.rmtree(temp_dir, ignore_errors=True)
+                logger.info("🗑️ Cleaned temp directory")
+            except:
+                pass
         
         gc.collect()
         gc.collect()
@@ -1766,20 +1766,23 @@ async def generate_viral_video(
         if not upload_result.get("success"):
             return upload_result
         
+        total_duration = sum([s.get("duration", 8) for s in script["segments"]])
+        
         return {
             "success": True,
             "video_id": upload_result.get("video_id"),
             "video_url": upload_result.get("video_url"),
             "title": script.get("title"),
             "segments": len(processed_clips),
-            "duration": f"{sum([s.get('duration', 8) for s in script['segments']])}+ seconds",
-            "features": "✅ ElevenLabs 1.1x\n✅ 4 unique videos\n✅ Background music\n✅ Hook-Suspense-Outro"
+            "duration": f"{total_duration} seconds",
+            "features": f"✅ ElevenLabs {VOICE_SPEED}x voice\n✅ {len(processed_clips)} unique videos\n✅ Background music\n✅ Hook-Story-Suspense-Outro structure"
         }
         
     except Exception as e:
         logger.error(f"❌ Generation failed: {e}")
         logger.error(traceback.format_exc())
         
+        # Cleanup on error
         if temp_dir and os.path.exists(temp_dir):
             try:
                 shutil.rmtree(temp_dir, ignore_errors=True)
@@ -1791,7 +1794,7 @@ async def generate_viral_video(
         return {"success": False, "error": str(e)}
 
 # ============================================================================
-# ROUTER
+# API ROUTER
 # ============================================================================
 
 router = APIRouter()
@@ -1844,12 +1847,12 @@ async def generate_video_endpoint(request: Request):
                     user_id=user_id,
                     database_manager=database_manager
                 ),
-                timeout=420  # 7 minutes
+                timeout=480  # 8 minutes
             )
         except asyncio.TimeoutError:
             return JSONResponse(
                 status_code=408,
-                content={"success": False, "error": "Generation timeout"}
+                content={"success": False, "error": "Generation timeout (8 min)"}
             )
         
         return JSONResponse(content=result)
