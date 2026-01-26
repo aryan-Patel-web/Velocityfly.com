@@ -892,7 +892,8 @@ logger = logging.getLogger(__name__)
 
 PIXABAY_API_KEY = os.getenv("PIXABAY_API_KEY", "54364709-1e6532279f08847859d5bea5e")
 MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY")
-ELEVENLABS_API_KEY = "d4b3f7d4b20eb5994410ea31fbc719244cdb7b7076744d4a20345cab167f339e"
+# ELEVENLABS_API_KEY = "d4b3f7d4b20eb5994410ea31fbc719244cdb7b7076744d4a20345cab167f339e"
+ELEVENLABS_API_KEY = "sk_1ce0029a03ff38d8bf38d3e4b5550a3c9603cd3ab50d930a"
 ELEVENLABS_VOICE_ID = "YkAJCvEzSQvG7K2YK9kx"
 
 # STRICT MEMORY LIMITS
@@ -908,10 +909,10 @@ FFMPEG_TIMEOUT = 25
 BG_MUSIC_URL = "https://cdn.pixabay.com/audio/2025/01/19/audio_52f6bf8ba1.mp3"  # Space ambient music
 
 NICHES = {
-    "space": ["galaxy", "nebula", "planet", "stars"],
-    "tech_ai": ["robot", "technology", "digital", "innovation"],
-    "ocean": ["ocean", "underwater", "coral", "waves"],
-    "nature": ["lion", "forest", "eagle", "wildlife"]
+    "space": ["galaxy", "space", "stars", "universe"],
+    "tech_ai": ["technology", "digital", "computer", "science"],
+    "ocean": ["ocean", "water", "sea", "beach"],
+    "nature": ["nature", "forest", "mountain", "sky"]
 }
 
 # ============================================================================
@@ -1052,48 +1053,53 @@ def get_fallback_script(niche: str) -> dict:
 # ============================================================================
 
 async def generate_voice(text: str, duration: float, temp_dir: str) -> Optional[str]:
-    """Generate voice with immediate cleanup"""
-    try:
-        text_clean = text.replace("...", " ").strip()[:300]
-        temp_raw = os.path.join(temp_dir, f"v_{uuid.uuid4().hex[:6]}.mp3")
-        
-        async with httpx.AsyncClient(timeout=40) as client:
-            response = await client.post(
-                f"https://api.elevenlabs.io/v1/text-to-speech/{ELEVENLABS_VOICE_ID}",
-                headers={"xi-api-key": ELEVENLABS_API_KEY, "Content-Type": "application/json"},
-                json={
-                    "text": text_clean,
-                    "model_id": "eleven_multilingual_v2",
-                    "voice_settings": {"stability": 0.50, "similarity_boost": 0.75}
-                }
-            )
+    """Generate voice with immediate cleanup - Try ElevenLabs first, fallback to Edge TTS"""
+    
+    # Try ElevenLabs only if API key is set
+    if ELEVENLABS_API_KEY and len(ELEVENLABS_API_KEY) > 20:
+        try:
+            text_clean = text.replace("...", " ").strip()[:300]
+            temp_raw = os.path.join(temp_dir, f"v_{uuid.uuid4().hex[:6]}.mp3")
             
-            if response.status_code == 200:
-                with open(temp_raw, 'wb') as f:
-                    f.write(response.content)
+            async with httpx.AsyncClient(timeout=40) as client:
+                response = await client.post(
+                    f"https://api.elevenlabs.io/v1/text-to-speech/{ELEVENLABS_VOICE_ID}",
+                    headers={"xi-api-key": ELEVENLABS_API_KEY, "Content-Type": "application/json"},
+                    json={
+                        "text": text_clean,
+                        "model_id": "eleven_multilingual_v2",
+                        "voice_settings": {"stability": 0.50, "similarity_boost": 0.75}
+                    }
+                )
                 
-                # Apply 1.1x speed
-                output = temp_raw.replace(".mp3", "_s.mp3")
-                cmd = [
-                    "ffmpeg", "-i", temp_raw,
-                    "-filter:a", f"atempo={VOICE_SPEED},loudnorm=I=-16",
-                    "-t", str(duration),
-                    "-b:a", "96k",
-                    "-y", output
-                ]
-                
-                if run_ffmpeg_safe(cmd, 20):
-                    force_cleanup(temp_raw)  # Cleanup immediately
-                    size = get_file_size_mb(output)
-                    if size <= MAX_AUDIO_SIZE_MB:
-                        logger.info(f"✅ ElevenLabs: {size:.1f}MB")
-                        return output
-                    force_cleanup(output)
-        
-        return await generate_voice_edge(text, duration, temp_dir)
-    except Exception as e:
-        logger.error(f"Voice error: {e}")
-        return await generate_voice_edge(text, duration, temp_dir)
+                if response.status_code == 200:
+                    with open(temp_raw, 'wb') as f:
+                        f.write(response.content)
+                    
+                    # Apply 1.1x speed
+                    output = temp_raw.replace(".mp3", "_s.mp3")
+                    cmd = [
+                        "ffmpeg", "-i", temp_raw,
+                        "-filter:a", f"atempo={VOICE_SPEED},loudnorm=I=-16",
+                        "-t", str(duration),
+                        "-b:a", "96k",
+                        "-y", output
+                    ]
+                    
+                    if run_ffmpeg_safe(cmd, 20):
+                        force_cleanup(temp_raw)
+                        size = get_file_size_mb(output)
+                        if size <= MAX_AUDIO_SIZE_MB:
+                            logger.info(f"✅ ElevenLabs: {size:.1f}MB")
+                            return output
+                        force_cleanup(output)
+                else:
+                    logger.warning(f"ElevenLabs {response.status_code}, using Edge TTS")
+        except Exception as e:
+            logger.warning(f"ElevenLabs error: {e}, using Edge TTS")
+    
+    # Use Edge TTS (free, reliable)
+    return await generate_voice_edge(text, duration, temp_dir)
 
 async def generate_voice_edge(text: str, duration: float, temp_dir: str) -> Optional[str]:
     """Edge TTS fallback"""
@@ -1132,37 +1138,100 @@ async def generate_voice_edge(text: str, duration: float, temp_dir: str) -> Opti
 # ============================================================================
 
 async def search_vertical_videos(query: str) -> List[dict]:
-    """Search ONLY vertical videos (9:16 aspect ratio)"""
+    """Search ONLY vertical videos - try multiple fallbacks"""
     try:
         search = query.split()[0]  # Single word
         
         async with httpx.AsyncClient(timeout=20) as client:
+            # Try original search
             response = await client.get(
                 "https://pixabay.com/api/videos/",
                 params={
                     "key": PIXABAY_API_KEY,
                     "q": search,
-                    "per_page": 15,
+                    "per_page": 20,
                     "video_type": "film",
-                    "orientation": "vertical",  # ONLY VERTICAL
+                    "orientation": "vertical",
                     "order": "popular"
                 }
             )
             
             if response.status_code == 200:
                 videos = response.json().get("hits", [])
-                # Double check aspect ratio
+                
+                # Filter for truly vertical videos
                 vertical_only = []
                 for v in videos:
-                    width = v.get("videos", {}).get("small", {}).get("width", 0)
-                    height = v.get("videos", {}).get("small", {}).get("height", 0)
-                    if height > width:  # Vertical check
+                    small = v.get("videos", {}).get("small", {})
+                    width = small.get("width", 0)
+                    height = small.get("height", 0)
+                    if height > width * 1.3:  # Must be significantly taller
                         vertical_only.append(v)
                 
-                logger.info(f"✅ Found {len(vertical_only)} vertical videos: '{search}'")
-                return vertical_only
+                if vertical_only:
+                    logger.info(f"✅ Found {len(vertical_only)} vertical videos: '{search}'")
+                    return vertical_only
+            
+            # Fallback: try without orientation filter and filter manually
+            logger.info(f"Trying fallback search for '{search}'")
+            response = await client.get(
+                "https://pixabay.com/api/videos/",
+                params={
+                    "key": PIXABAY_API_KEY,
+                    "q": search,
+                    "per_page": 30,
+                    "video_type": "film",
+                    "order": "popular"
+                }
+            )
+            
+            if response.status_code == 200:
+                all_videos = response.json().get("hits", [])
+                vertical_only = []
+                
+                for v in all_videos:
+                    # Check all available sizes
+                    for size in ["tiny", "small", "medium"]:
+                        vid_data = v.get("videos", {}).get(size, {})
+                        width = vid_data.get("width", 0)
+                        height = vid_data.get("height", 0)
+                        
+                        if height > width * 1.3:  # Vertical
+                            vertical_only.append(v)
+                            break
+                
+                if vertical_only:
+                    logger.info(f"✅ Fallback found {len(vertical_only)} vertical: '{search}'")
+                    return vertical_only
+            
+            # Last resort: use common vertical keywords
+            fallback_searches = ["nature", "sky", "city", "light", "fire", "water"]
+            for fb in fallback_searches:
+                response = await client.get(
+                    "https://pixabay.com/api/videos/",
+                    params={
+                        "key": PIXABAY_API_KEY,
+                        "q": fb,
+                        "per_page": 30,
+                        "video_type": "film"
+                    }
+                )
+                
+                if response.status_code == 200:
+                    all_videos = response.json().get("hits", [])
+                    for v in all_videos:
+                        for size in ["tiny", "small"]:
+                            vid_data = v.get("videos", {}).get(size, {})
+                            width = vid_data.get("width", 0)
+                            height = vid_data.get("height", 0)
+                            
+                            if height > width * 1.3:
+                                logger.info(f"✅ Using fallback '{fb}' video")
+                                return [v]
         
+        logger.warning(f"No vertical videos found for '{search}'")
         return []
+        
     except Exception as e:
         logger.error(f"Search error: {e}")
         return []
