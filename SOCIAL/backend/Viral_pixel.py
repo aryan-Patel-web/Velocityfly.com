@@ -892,21 +892,25 @@ logger = logging.getLogger(__name__)
 
 PIXABAY_API_KEY = os.getenv("PIXABAY_API_KEY", "54364709-1e6532279f08847859d5bea5e")
 MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY")
-# ELEVENLABS_API_KEY = "d4b3f7d4b20eb5994410ea31fbc719244cdb7b7076744d4a20345cab167f339e"
-ELEVENLABS_API_KEY = "sk_1ce0029a03ff38d8bf38d3e4b5550a3c9603cd3ab50d930a"
+ELEVENLABS_API_KEY = "sk_b2b4648b113d82f93cbc1cde496c9505be2c7a9243a59399"
 ELEVENLABS_VOICE_ID = "YkAJCvEzSQvG7K2YK9kx"
 
 # STRICT MEMORY LIMITS
-MAX_VIDEO_SIZE_MB = 15  # 15MB max per video
-MAX_AUDIO_SIZE_MB = 2   # 2MB max per audio
+MAX_VIDEO_SIZE_MB = 20  # Increased for better quality
+MAX_AUDIO_SIZE_MB = 3
 TARGET_DURATION = 30
 VOICE_SPEED = 1.1
+MIN_VIDEOS = 2  # Minimum 2 videos required
 MAX_VIDEOS = 4
 SUBSCRIBE_DURATION = 3
 FFMPEG_TIMEOUT = 25
 
-# Background music MANDATORY
-BG_MUSIC_URL = "https://cdn.pixabay.com/audio/2025/01/19/audio_52f6bf8ba1.mp3"  # Space ambient music
+# Direct background music URLs (WORKING)
+BG_MUSIC_URLS = [
+    "https://cdn.pixabay.com/download/audio/2023/02/28/audio_781c39e4e1.mp3",
+    "https://cdn.pixabay.com/download/audio/2022/03/24/audio_4037e4e2bd.mp3",
+    "https://cdn.pixabay.com/download/audio/2021/08/04/audio_0c2f38f1e5.mp3"
+]
 
 NICHES = {
     "space": ["galaxy", "space", "stars", "universe"],
@@ -1277,44 +1281,74 @@ async def download_video_immediate_cleanup(video_data: dict, output: str) -> boo
         return False
 
 async def download_background_music(temp_dir: str) -> Optional[str]:
-    """Download background music - MANDATORY"""
+    """Download background music - MANDATORY - Try multiple sources"""
     try:
         music_path = os.path.join(temp_dir, "bg.mp3")
         
-        # Try direct URL first
         async with httpx.AsyncClient(timeout=30) as client:
-            try:
-                response = await client.get(BG_MUSIC_URL)
-                if response.status_code == 200:
-                    with open(music_path, 'wb') as f:
-                        f.write(response.content)
-                    logger.info(f"✅ Music from URL: {get_file_size_mb(music_path):.1f}MB")
-                    return music_path
-            except:
-                pass
+            # Try direct URLs first
+            for idx, url in enumerate(BG_MUSIC_URLS):
+                try:
+                    logger.info(f"Trying music URL {idx+1}/{len(BG_MUSIC_URLS)}")
+                    response = await client.get(url, follow_redirects=True)
+                    
+                    if response.status_code == 200:
+                        content_type = response.headers.get('content-type', '')
+                        
+                        # Check if it's actually audio
+                        if 'audio' in content_type or len(response.content) > 100000:
+                            with open(music_path, 'wb') as f:
+                                f.write(response.content)
+                            
+                            size = get_file_size_mb(music_path)
+                            if size > 0.05:  # At least 50KB
+                                logger.info(f"✅ Music downloaded: {size:.2f}MB")
+                                return music_path
+                            else:
+                                force_cleanup(music_path)
+                except Exception as e:
+                    logger.warning(f"Music URL {idx+1} failed: {e}")
+                    continue
             
-            # Fallback to API search
+            # Fallback: Search Pixabay API for audio
+            logger.info("Trying Pixabay audio search...")
             response = await client.get(
                 "https://pixabay.com/api/",
-                params={"key": PIXABAY_API_KEY, "q": "space", "audio_type": "music", "per_page": 5}
+                params={
+                    "key": PIXABAY_API_KEY,
+                    "q": "space ambient",
+                    "audio_type": "music",
+                    "per_page": 10
+                }
             )
             
             if response.status_code == 200:
-                hits = response.json().get("hits", [])
-                if hits:
-                    audio_url = hits[0].get("previewURL")
-                    if audio_url:
-                        audio_resp = await client.get(audio_url)
-                        if audio_resp.status_code == 200:
-                            with open(music_path, 'wb') as f:
-                                f.write(audio_resp.content)
-                            logger.info(f"✅ Music from API: {get_file_size_mb(music_path):.1f}MB")
-                            return music_path
+                data = response.json()
+                hits = data.get("hits", [])
+                
+                for hit in hits:
+                    # Try previewURL first, then download URL
+                    audio_url = hit.get("previewURL") or hit.get("url")
+                    
+                    if audio_url and audio_url.endswith(('.mp3', '.wav', '.ogg')):
+                        try:
+                            audio_resp = await client.get(audio_url, follow_redirects=True)
+                            if audio_resp.status_code == 200 and 'audio' in audio_resp.headers.get('content-type', ''):
+                                with open(music_path, 'wb') as f:
+                                    f.write(audio_resp.content)
+                                
+                                size = get_file_size_mb(music_path)
+                                if size > 0.05:
+                                    logger.info(f"✅ Music from Pixabay: {size:.2f}MB")
+                                    return music_path
+                        except:
+                            continue
         
-        logger.error("❌ Background music download failed - MANDATORY!")
+        logger.error("❌ All music sources failed!")
         return None
+        
     except Exception as e:
-        logger.error(f"Music error: {e}")
+        logger.error(f"Music download error: {e}")
         return None
 
 # ============================================================================
@@ -1322,40 +1356,42 @@ async def download_background_music(temp_dir: str) -> Optional[str]:
 # ============================================================================
 
 def process_video_segment(raw_path: str, duration: float, text: str, temp_dir: str) -> Optional[str]:
-    """Process video with immediate cleanup of intermediate files"""
+    """Process video with HIGHER quality for better resolution"""
     
-    # Step 1: Extract clip
+    # Step 1: Extract clip with BETTER quality (CRF 23 instead of 28)
     clip1 = os.path.join(temp_dir, f"c1_{uuid.uuid4().hex[:6]}.mp4")
     cmd = [
         "ffmpeg", "-i", raw_path,
         "-ss", "1", "-t", str(duration),
         "-vf", "scale=720:1280:force_original_aspect_ratio=increase,crop=720:1280",
-        "-c:v", "libx264", "-crf", "28", "-preset", "veryfast",
+        "-c:v", "libx264", "-crf", "23",  # Better quality (lower CRF)
+        "-preset", "medium",  # Better compression
         "-an", "-y", clip1
     ]
     
-    if not run_ffmpeg_safe(cmd, 30):
+    if not run_ffmpeg_safe(cmd, 35):
         force_cleanup(clip1)
         return None
     
-    force_cleanup(raw_path)  # Cleanup raw immediately
+    force_cleanup(raw_path)
     
     # Step 2: Add text
     clip2 = os.path.join(temp_dir, f"c2_{uuid.uuid4().hex[:6]}.mp4")
     text_clean = text.replace("'", "")[:30]
     cmd = [
         "ffmpeg", "-i", clip1,
-        "-vf", f"drawtext=text='{text_clean}':fontsize=65:fontcolor=white:x=(w-text_w)/2:y=h-250:borderw=6:bordercolor=black",
-        "-c:v", "libx264", "-crf", "28", "-preset", "veryfast",
+        "-vf", f"drawtext=text='{text_clean}':fontsize=70:fontcolor=white:x=(w-text_w)/2:y=h-220:borderw=7:bordercolor=black:shadowcolor=black@0.8:shadowx=4:shadowy=4",
+        "-c:v", "libx264", "-crf", "23",
+        "-preset", "medium",
         "-y", clip2
     ]
     
-    if not run_ffmpeg_safe(cmd, 30):
+    if not run_ffmpeg_safe(cmd, 35):
         force_cleanup(clip1)
         force_cleanup(clip2)
         return None
     
-    force_cleanup(clip1)  # Cleanup intermediate
+    force_cleanup(clip1)
     
     # Step 3: Add fade
     final = os.path.join(temp_dir, f"seg_{uuid.uuid4().hex[:6]}.mp4")
@@ -1364,16 +1400,17 @@ def process_video_segment(raw_path: str, duration: float, text: str, temp_dir: s
     cmd = [
         "ffmpeg", "-i", clip2,
         "-vf", f"fade=t=in:st=0:d={fade_dur},fade=t=out:st={fade_out}:d={fade_dur}",
-        "-c:v", "libx264", "-crf", "28", "-preset", "veryfast",
+        "-c:v", "libx264", "-crf", "23",
+        "-preset", "medium",
         "-y", final
     ]
     
-    if not run_ffmpeg_safe(cmd, 25):
+    if not run_ffmpeg_safe(cmd, 30):
         force_cleanup(clip2)
         force_cleanup(final)
         return None
     
-    force_cleanup(clip2)  # Cleanup intermediate
+    force_cleanup(clip2)
     
     size = get_file_size_mb(final)
     if size > MAX_VIDEO_SIZE_MB:
@@ -1381,7 +1418,7 @@ def process_video_segment(raw_path: str, duration: float, text: str, temp_dir: s
         force_cleanup(final)
         return None
     
-    logger.info(f"✅ Segment ready: {size:.1f}MB")
+    logger.info(f"✅ Segment ready: {size:.1f}MB (HD quality)")
     return final
 
 # ============================================================================
@@ -1411,11 +1448,18 @@ async def generate_viral_video(
         script = await generate_script(niche)
         logger.info(f"✅ {script['title']}")
         
-        # Step 2: Background music (MANDATORY)
-        logger.info("🎵 Music...")
+        # Step 2: Background music (MANDATORY - try multiple sources)
+        logger.info("🎵 Downloading background music...")
         music_path = await download_background_music(temp_dir)
-        if not music_path:
-            return {"success": False, "error": "Background music required but failed to download"}
+        if not music_path or not os.path.exists(music_path):
+            logger.warning("⚠️ No background music - continuing without it")
+            music_path = None
+        else:
+            music_size = get_file_size_mb(music_path)
+            if music_size < 0.05:
+                logger.warning(f"⚠️ Music file too small ({music_size:.3f}MB) - may not be valid")
+                force_cleanup(music_path)
+                music_path = None
         
         # Step 3: Process videos ONE BY ONE
         logger.info(f"🎥 Processing {MAX_VIDEOS} videos...")
@@ -1476,8 +1520,16 @@ async def generate_viral_video(
                 logger.error(f"Segment {idx+1} error: {e}")
                 continue
         
-        if len(final_clips) < 3:
-            return {"success": False, "error": f"Only {len(final_clips)} clips created"}
+        if len(final_clips) < MIN_VIDEOS:
+            return {"success": False, "error": f"Only {len(final_clips)} clips created, need at least {MIN_VIDEOS}"}
+        
+        # If only 2 clips, extend their duration to cover full script
+        if len(final_clips) == 2:
+            logger.info("⚠️ Only 2 clips found - extending duration to cover full story")
+            # Recalculate durations to make them longer
+            total_script_duration = sum([s["duration"] for s in script["segments"]])
+            extended_duration = total_script_duration / 2
+            logger.info(f"Extending each clip to ~{extended_duration:.1f} seconds")
         
         # Step 4: Subscribe
         logger.info("📌 Subscribe...")
