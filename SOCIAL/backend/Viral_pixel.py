@@ -858,9 +858,10 @@
 
 
 """
-Viral_pixel.py - COMPLETE PRODUCTION VERSION
+Viral_pixel.py - COMPLETE PRODUCTION VERSION WITH PEXELS FALLBACK
 ✅ ONE HD video (LOOP 30 seconds)
-✅ Freesound background music (30% volume)
+✅ Pixabay → Pexels fallback for videos
+✅ Freesound background music with fallbacks
 ✅ ElevenLabs voice (fallback: Edge TTS)
 ✅ Full engaging script with hooks
 ✅ YouTube upload (YOUR credentials method)
@@ -890,6 +891,7 @@ logger = logging.getLogger(__name__)
 # ============================================================================
 
 PIXABAY_API_KEY = os.getenv("PIXABAY_API_KEY", "54364709-1e6532279f08847859d5bea5e")
+PEXELS_API_KEY = os.getenv("PEXELS_API_KEY", "")  # Add your Pexels API key
 MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY")
 ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY", "sk_346aca9fb63af57816b2f0323b6312b75a65aa852656eeac")
 
@@ -908,12 +910,20 @@ NICHE_KEYWORDS = {
 
 VERTICAL_FALLBACKS = ["tower", "skyscraper", "tree", "lighthouse"]
 
-# FREESOUND MUSIC URLs (Cinematic/Dark/Ambient)
+# FREESOUND MUSIC URLs (Cinematic/Dark/Ambient) - PRIMARY
 FREESOUND_MUSIC_URLS = [
     "https://freesound.org/data/previews/614/614090_11931419-lq.mp3",
     "https://freesound.org/data/previews/543/543995_11587873-lq.mp3",
     "https://freesound.org/data/previews/506/506052_9961799-lq.mp3",
     "https://freesound.org/data/previews/477/477718_9497060-lq.mp3"
+]
+
+# FALLBACK MUSIC URLs (Additional free sources)
+FALLBACK_MUSIC_URLS = [
+    "https://freesound.org/data/previews/632/632351_10755880-lq.mp3",
+    "https://freesound.org/data/previews/558/558262_11587873-lq.mp3",
+    "https://freesound.org/data/previews/521/521495_9961799-lq.mp3",
+    "https://freesound.org/data/previews/498/498976_9497060-lq.mp3"
 ]
 
 # ============================================================================
@@ -1122,7 +1132,7 @@ async def generate_voice(text: str, duration: float, temp_dir: str) -> Optional[
     return await generate_voice_edge(text, duration, temp_dir)
 
 # ============================================================================
-# VIDEO SEARCH & DOWNLOAD
+# VIDEO SEARCH & DOWNLOAD - PIXABAY + PEXELS FALLBACK
 # ============================================================================
 
 def is_vertical(vdata: dict) -> bool:
@@ -1137,8 +1147,19 @@ def is_vertical(vdata: dict) -> bool:
     except:
         return False
 
-async def search_hd_video(query: str) -> Optional[dict]:
-    """Search ONE HD vertical video"""
+def is_vertical_pexels(vdata: dict) -> bool:
+    """Check if Pexels video is vertical (9:16)"""
+    try:
+        w = vdata.get("width", 0)
+        h = vdata.get("height", 0)
+        if w > 0 and h > 0 and (h / w) >= 1.5:
+            return True
+        return False
+    except:
+        return False
+
+async def search_pixabay_video(query: str) -> Optional[dict]:
+    """Search Pixabay for vertical video"""
     try:
         word = query.split()[0].lower()
         if not word.isascii():
@@ -1154,10 +1175,10 @@ async def search_hd_video(query: str) -> Optional[dict]:
                 videos = resp.json().get("hits", [])
                 vertical = [v for v in videos if is_vertical(v)]
                 if vertical:
-                    logger.info(f"✅ Found {len(vertical)} vertical for '{word}'")
-                    return vertical[0]
+                    logger.info(f"✅ Pixabay: Found {len(vertical)} vertical for '{word}'")
+                    return {"source": "pixabay", "data": vertical[0]}
             
-            # Fallback
+            # Try fallbacks
             for fb in VERTICAL_FALLBACKS:
                 resp = await client.get(
                     "https://pixabay.com/api/videos/",
@@ -1167,16 +1188,82 @@ async def search_hd_video(query: str) -> Optional[dict]:
                     videos = resp.json().get("hits", [])
                     vertical = [v for v in videos if is_vertical(v)]
                     if vertical:
-                        logger.info(f"✅ Fallback '{fb}'")
-                        return vertical[0]
+                        logger.info(f"✅ Pixabay fallback: '{fb}'")
+                        return {"source": "pixabay", "data": vertical[0]}
         
         return None
     except Exception as e:
-        logger.error(f"Search error: {e}")
+        logger.error(f"Pixabay search error: {e}")
         return None
 
-async def download_hd_video(vdata: dict, output: str) -> bool:
-    """Download HD video"""
+async def search_pexels_video(query: str) -> Optional[dict]:
+    """Search Pexels for vertical video (FALLBACK)"""
+    try:
+        if not PEXELS_API_KEY:
+            logger.warning("⚠️ PEXELS_API_KEY not configured")
+            return None
+        
+        word = query.split()[0].lower()
+        if not word.isascii():
+            word = random.choice(VERTICAL_FALLBACKS)
+        
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.get(
+                "https://api.pexels.com/videos/search",
+                headers={"Authorization": PEXELS_API_KEY},
+                params={
+                    "query": word,
+                    "orientation": "portrait",
+                    "size": "medium",
+                    "per_page": 30
+                }
+            )
+            
+            if resp.status_code == 200:
+                videos = resp.json().get("videos", [])
+                vertical = [v for v in videos if is_vertical_pexels(v)]
+                if vertical:
+                    logger.info(f"✅ Pexels: Found {len(vertical)} vertical for '{word}'")
+                    return {"source": "pexels", "data": vertical[0]}
+            
+            # Try fallbacks
+            for fb in VERTICAL_FALLBACKS:
+                resp = await client.get(
+                    "https://api.pexels.com/videos/search",
+                    headers={"Authorization": PEXELS_API_KEY},
+                    params={"query": fb, "orientation": "portrait", "per_page": 20}
+                )
+                if resp.status_code == 200:
+                    videos = resp.json().get("videos", [])
+                    vertical = [v for v in videos if is_vertical_pexels(v)]
+                    if vertical:
+                        logger.info(f"✅ Pexels fallback: '{fb}'")
+                        return {"source": "pexels", "data": vertical[0]}
+        
+        return None
+    except Exception as e:
+        logger.error(f"Pexels search error: {e}")
+        return None
+
+async def search_hd_video(query: str) -> Optional[dict]:
+    """Search HD vertical video: Pixabay → Pexels fallback"""
+    logger.info("🔍 Searching Pixabay...")
+    result = await search_pixabay_video(query)
+    
+    if result:
+        return result
+    
+    logger.info("🔍 Pixabay failed, trying Pexels...")
+    result = await search_pexels_video(query)
+    
+    if result:
+        return result
+    
+    logger.error("❌ No video found in Pixabay or Pexels")
+    return None
+
+async def download_pixabay_video(vdata: dict, output: str) -> bool:
+    """Download Pixabay video"""
     try:
         videos = vdata.get("videos", {})
         # Get best quality: large > medium > small
@@ -1207,38 +1294,116 @@ async def download_hd_video(vdata: dict, output: str) -> bool:
                     force_cleanup(output)
                     return False
                 
-                logger.info(f"✅ HD video: {size:.1f}MB")
+                logger.info(f"✅ Pixabay video: {size:.1f}MB")
                 return True
     except Exception as e:
-        logger.error(f"Download error: {e}")
+        logger.error(f"Pixabay download error: {e}")
         force_cleanup(output)
         return False
 
+async def download_pexels_video(vdata: dict, output: str) -> bool:
+    """Download Pexels video"""
+    try:
+        # Get best quality video file
+        video_files = vdata.get("video_files", [])
+        
+        # Sort by quality (height), prefer HD
+        vertical_files = [f for f in video_files if f.get("height", 0) >= 1280]
+        
+        if not vertical_files:
+            vertical_files = video_files
+        
+        if not vertical_files:
+            return False
+        
+        # Get highest quality
+        best = max(vertical_files, key=lambda x: x.get("height", 0))
+        url = best.get("link")
+        
+        if not url:
+            return False
+        
+        async with httpx.AsyncClient(timeout=120) as client:
+            async with client.stream('GET', url) as resp:
+                if resp.status_code != 200:
+                    return False
+                
+                with open(output, 'wb') as f:
+                    downloaded = 0
+                    async for chunk in resp.aiter_bytes(65536):
+                        f.write(chunk)
+                        downloaded += len(chunk)
+                        if downloaded > MAX_VIDEO_SIZE_MB * 1024 * 1024:
+                            return False
+                
+                size = get_size_mb(output)
+                if size < 0.5:
+                    force_cleanup(output)
+                    return False
+                
+                logger.info(f"✅ Pexels video: {size:.1f}MB")
+                return True
+    except Exception as e:
+        logger.error(f"Pexels download error: {e}")
+        force_cleanup(output)
+        return False
+
+async def download_hd_video(video_result: dict, output: str) -> bool:
+    """Download HD video from Pixabay or Pexels"""
+    source = video_result.get("source")
+    vdata = video_result.get("data")
+    
+    if source == "pixabay":
+        return await download_pixabay_video(vdata, output)
+    elif source == "pexels":
+        return await download_pexels_video(vdata, output)
+    
+    return False
+
 # ============================================================================
-# BACKGROUND MUSIC FROM FREESOUND
+# BACKGROUND MUSIC - PRIMARY + FALLBACK
 # ============================================================================
 
-async def download_freesound_music(temp_dir: str) -> Optional[str]:
-    """Download background music from Freesound"""
+async def download_music_from_url(url: str, output: str) -> bool:
+    """Download music from URL"""
     try:
-        music_url = random.choice(FREESOUND_MUSIC_URLS)
-        music_path = os.path.join(temp_dir, "bg_music.mp3")
-        
         async with httpx.AsyncClient(timeout=40) as client:
-            resp = await client.get(music_url, follow_redirects=True)
+            resp = await client.get(url, follow_redirects=True)
             
             if resp.status_code == 200:
-                with open(music_path, 'wb') as f:
+                with open(output, 'wb') as f:
                     f.write(resp.content)
                 
-                if get_size_mb(music_path) > 0.1:
-                    logger.info(f"✅ Freesound music: {get_size_mb(music_path):.2f}MB")
-                    return music_path
+                if get_size_mb(output) > 0.1:
+                    return True
         
-        return None
+        return False
     except Exception as e:
-        logger.error(f"Music error: {e}")
-        return None
+        logger.error(f"Music download error: {e}")
+        return False
+
+async def download_freesound_music(temp_dir: str) -> Optional[str]:
+    """Download background music: Primary + Fallback sources"""
+    music_path = os.path.join(temp_dir, "bg_music.mp3")
+    
+    # Try primary sources
+    logger.info("🎵 Trying primary music sources...")
+    for url in FREESOUND_MUSIC_URLS:
+        if await download_music_from_url(url, music_path):
+            logger.info(f"✅ Primary music: {get_size_mb(music_path):.2f}MB")
+            return music_path
+        force_cleanup(music_path)
+    
+    # Try fallback sources
+    logger.info("🎵 Trying fallback music sources...")
+    for url in FALLBACK_MUSIC_URLS:
+        if await download_music_from_url(url, music_path):
+            logger.info(f"✅ Fallback music: {get_size_mb(music_path):.2f}MB")
+            return music_path
+        force_cleanup(music_path)
+    
+    logger.warning("⚠️ All music sources failed")
+    return None
 
 # ============================================================================
 # VIDEO LOOP FOR 30 SECONDS
@@ -1480,21 +1645,21 @@ async def generate_viral_video(
         script = await generate_script(niche)
         logger.info(f"✅ Title: {script['title']}")
         
-        # Step 2: Download Freesound music
+        # Step 2: Download music (with fallbacks)
         logger.info("🎵 Downloading music...")
         music = await download_freesound_music(temp_dir)
         
-        # Step 3: Search & download ONE HD video
+        # Step 3: Search & download ONE HD video (Pixabay → Pexels)
         logger.info("📥 Searching HD video...")
-        vdata = await search_hd_video(niche)
+        video_result = await search_hd_video(niche)
         
-        if not vdata:
-            return {"success": False, "error": "No HD video found"}
+        if not video_result:
+            return {"success": False, "error": "No HD video found in Pixabay or Pexels"}
         
         source = os.path.join(temp_dir, "source.mp4")
         
-        if not await download_hd_video(vdata, source):
-            return {"success": False, "error": "Download failed"}
+        if not await download_hd_video(video_result, source):
+            return {"success": False, "error": "Video download failed"}
         
         # Step 4: Loop video to 30 seconds
         looped = loop_video_30sec(source, temp_dir)
@@ -1564,7 +1729,8 @@ async def generate_viral_video(
             "video_url": upload_result.get("video_url"),
             "title": script["title"],
             "description": script["description"],
-            "size_mb": f"{get_size_mb(final):.1f}MB"
+            "size_mb": f"{get_size_mb(final):.1f}MB",
+            "video_source": video_result.get("source")  # Shows if Pixabay or Pexels was used
         }
         
     except Exception as e:
