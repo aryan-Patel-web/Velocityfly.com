@@ -858,13 +858,13 @@
 
 
 """
-Viral_pixel.py - ULTRA MEMORY OPTIMIZED (512MB RAM)
-✅ Max 30MB downloads (720p medium quality)
-✅ Immediate cleanup after each step
-✅ Aggressive memory management
-✅ English titles (suspenseful)
+Viral_pixel.py - FINAL OPTIMIZED VERSION
+✅ Pexels PRIORITY → Pixabay FALLBACK
+✅ 720p vertical videos (max 50MB)
+✅ ElevenLabs voice → Edge TTS fallback
+✅ English suspenseful titles
 ✅ Hindi narration only
-✅ Pixabay → Pexels fallback
+✅ Direct upload to YouTube
 """
 
 from fastapi import APIRouter, Request
@@ -887,7 +887,7 @@ import gc
 logger = logging.getLogger(__name__)
 
 # ============================================================================
-# STRICT MEMORY LIMITS FOR 512MB RAM
+# CONFIGURATION
 # ============================================================================
 
 PIXABAY_API_KEY = os.getenv("PIXABAY_API_KEY", "54364709-1e6532279f08847859d5bea5e")
@@ -895,35 +895,27 @@ PEXELS_API_KEY = os.getenv("PEXELS_API_KEY", "")
 MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY")
 ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY", "sk_346aca9fb63af57816b2f0323b6312b75a65aa852656eeac")
 
-# ULTRA STRICT LIMITS
-MAX_VIDEO_DOWNLOAD_MB = 30  # Stop if exceeds 30MB
-MAX_FINAL_SIZE_MB = 25      # Final video max 25MB
-FFMPEG_TIMEOUT = 60
+# LIMITS
+MAX_VIDEO_SIZE_MB = 50
+FFMPEG_TIMEOUT = 90
 TARGET_DURATION = 30
-CHUNK_SIZE = 16384          # Small chunks
+CHUNK_SIZE = 32768
 
 # KEYWORDS
 NICHE_KEYWORDS = {
     "space": ["galaxy", "nebula", "planet", "cosmos", "stars"],
-    "tech_ai": ["technology", "digital", "cyber", "robot"],
-    "ocean": ["ocean", "wave", "underwater", "reef"],
+    "tech_ai": ["technology", "digital", "cyber", "robot", "ai"],
+    "ocean": ["ocean", "wave", "underwater", "reef", "sea"],
     "nature": ["mountain", "forest", "waterfall", "sunset", "river"]
 }
 
-VERTICAL_FALLBACKS = ["tower", "building", "waterfall"]
-
-# MINIMAL MUSIC URLS
-MUSIC_URLS = [
-    "https://freesound.org/data/previews/614/614090_11931419-lq.mp3",
-    "https://freesound.org/data/previews/543/543995_11587873-lq.mp3"
-]
+VERTICAL_FALLBACKS = ["tower", "building", "waterfall", "city"]
 
 # ============================================================================
-# AGGRESSIVE CLEANUP
+# UTILITIES
 # ============================================================================
 
 def force_cleanup(*filepaths):
-    """Immediate file cleanup with memory release"""
     for fp in filepaths:
         try:
             if fp and os.path.exists(fp):
@@ -942,8 +934,14 @@ def get_size_mb(fp: str) -> float:
 def run_ffmpeg(cmd: list, timeout: int = FFMPEG_TIMEOUT) -> bool:
     try:
         result = subprocess.run(cmd, capture_output=True, timeout=timeout, check=False, text=True)
+        if result.returncode != 0:
+            logger.error(f"FFmpeg error: {result.stderr[:300]}")
         return result.returncode == 0
-    except:
+    except subprocess.TimeoutExpired:
+        logger.error(f"FFmpeg timeout: {timeout}s")
+        return False
+    except Exception as e:
+        logger.error(f"FFmpeg exception: {e}")
         return False
 
 # ============================================================================
@@ -951,48 +949,48 @@ def run_ffmpeg(cmd: list, timeout: int = FFMPEG_TIMEOUT) -> bool:
 # ============================================================================
 
 async def generate_script(niche: str) -> dict:
-    """Generate script with ENGLISH title + Hindi narration"""
+    """Generate suspenseful English title + Hindi narration"""
     
     # Suspenseful English titles
     title_templates = [
-        "What Scientists Don't Tell You About {topic}",
-        "The Dark Secret Behind {topic}",
+        "What Scientists Hide About {topic}",
+        "The Dark Truth Behind {topic}",
         "This Will Change How You See {topic}",
-        "The Truth About {topic} Will Shock You",
-        "{topic}: What They're Hiding From Us"
+        "The {topic} Secret They Don't Want You To Know",
+        "{topic}: The Shocking Reality"
     ]
     
     topic = niche.replace("_", " ").title()
     english_title = random.choice(title_templates).format(topic=topic)
     
-    prompt = f"""Create 30-second Hindi narration for {niche}.
+    prompt = f"""Create 30-second VIRAL Hindi narration for {niche} YouTube Shorts.
 
-STRUCTURE (Hindi only):
-1. HOOK (8s): "Kya aap jaante hain..."
-2. STORY (12s): Facts with suspense
+STRUCTURE:
+1. HOOK (8s): "Kya aap jaante hain..." - mysterious, shocking
+2. STORY (12s): Amazing facts, "Scientists ne discover kiya..."
 3. CLIMAX (7s): "Lekin sabse badi baat..."
-4. OUTRO (3s): "Comment mein batao"
+4. OUTRO (3s): "Comment mein batao!"
 
-OUTPUT JSON:
+OUTPUT ONLY JSON:
 {{
   "segments": [
-    {{"narration": "Kya aap jaante hain...", "text_overlay": "😱", "duration": 8}},
-    {{"narration": "Scientists kehte hain...", "text_overlay": "🔥", "duration": 12}},
-    {{"narration": "Lekin sabse badi baat...", "text_overlay": "💡", "duration": 7}},
-    {{"narration": "Comment mein batao!", "text_overlay": "🤔", "duration": 3}}
+    {{"narration": "Hindi hook text", "text_overlay": "😱", "duration": 8}},
+    {{"narration": "Hindi story text", "text_overlay": "🔥", "duration": 12}},
+    {{"narration": "Hindi climax text", "text_overlay": "💡", "duration": 7}},
+    {{"narration": "Hindi outro text", "text_overlay": "🤔", "duration": 3}}
   ]
 }}"""
     
     try:
         if MISTRAL_API_KEY:
-            async with httpx.AsyncClient(timeout=30) as client:
+            async with httpx.AsyncClient(timeout=35) as client:
                 resp = await client.post(
                     "https://api.mistral.ai/v1/chat/completions",
                     headers={"Authorization": f"Bearer {MISTRAL_API_KEY}", "Content-Type": "application/json"},
                     json={
                         "model": "mistral-large-latest",
                         "messages": [
-                            {"role": "system", "content": "Create Hindi narration. Output ONLY JSON."},
+                            {"role": "system", "content": "Create viral Hindi scripts. Output ONLY JSON, no markdown."},
                             {"role": "user", "content": prompt}
                         ],
                         "temperature": 0.9,
@@ -1005,48 +1003,59 @@ OUTPUT JSON:
                     content = re.sub(r'```json\n?|\n?```', '', content).strip()
                     script = json.loads(content)
                     
+                    logger.info(f"✅ Script generated: {len(script.get('segments', []))} segments")
+                    
                     return {
                         "title": english_title + " #Shorts",
-                        "description": f"#{niche} #viral #shorts",
-                        "tags": [niche, "viral", "shorts", "mystery"],
+                        "description": f"#{niche} #viral #shorts #mystery",
+                        "tags": [niche, "viral", "shorts", "mystery", "facts"],
                         "segments": script["segments"]
                     }
     except Exception as e:
-        logger.warning(f"Mistral failed: {e}")
+        logger.warning(f"Mistral API failed: {e}")
     
-    # Fallback
+    # Fallback script
     return {
         "title": english_title + " #Shorts",
         "description": f"#{niche} #viral #shorts",
         "tags": [niche, "viral", "shorts"],
         "segments": [
-            {"narration": "Kya aap jaante hain yeh shocking rahasya?", "text_overlay": "😱", "duration": 8},
-            {"narration": "Scientists kehte hain yeh impossible hai lekin sach kuch aur hai!", "text_overlay": "🔥", "duration": 12},
-            {"narration": "Lekin sabse badi baat jo kisi ko nahi pata...", "text_overlay": "💡", "duration": 7},
-            {"narration": "Kya aap vishwas karte hain? Comment mein batao!", "text_overlay": "🤔", "duration": 3}
+            {"narration": "Kya aap jaante hain yeh shocking rahasya jo duniya se chhupa hai?", "text_overlay": "😱", "duration": 8},
+            {"narration": "Scientists ne discover kiya hai yeh impossible hai lekin sach kuch aur hai!", "text_overlay": "🔥", "duration": 12},
+            {"narration": "Lekin sabse badi baat jo aapko hairan kar degi...", "text_overlay": "💡", "duration": 7},
+            {"narration": "Kya aap vishwas karte hain? Neeche comment mein batao!", "text_overlay": "🤔", "duration": 3}
         ]
     }
 
 # ============================================================================
-# VOICE GENERATION
+# VOICE GENERATION - ELEVENLABS → EDGE TTS FALLBACK
 # ============================================================================
 
 async def generate_voice_elevenlabs(text: str, duration: float, temp_dir: str) -> Optional[str]:
+    """ElevenLabs API with Hindi support"""
     try:
         if not ELEVENLABS_API_KEY or len(ELEVENLABS_API_KEY) < 20:
             return None
         
-        text_clean = text.replace("...", " ").strip()[:400]
-        temp_raw = os.path.join(temp_dir, f"v_{uuid.uuid4().hex[:4]}.mp3")
+        text_clean = text.replace("...", " ").strip()[:500]
+        temp_raw = os.path.join(temp_dir, f"eleven_{uuid.uuid4().hex[:6]}.mp3")
         
-        async with httpx.AsyncClient(timeout=35) as client:
+        # Use multilingual voice
+        voice_id = "pNInz6obpgDQGcFmaJgB"  # Adam
+        
+        async with httpx.AsyncClient(timeout=40) as client:
             response = await client.post(
-                f"https://api.elevenlabs.io/v1/text-to-speech/pNInz6obpgDQGcFmaJgB",
+                f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}",
                 headers={"xi-api-key": ELEVENLABS_API_KEY, "Content-Type": "application/json"},
                 json={
                     "text": text_clean,
                     "model_id": "eleven_multilingual_v2",
-                    "voice_settings": {"stability": 0.5, "similarity_boost": 0.75}
+                    "voice_settings": {
+                        "stability": 0.5,
+                        "similarity_boost": 0.75,
+                        "style": 0.0,
+                        "use_speaker_boost": True
+                    }
                 }
             )
             
@@ -1055,58 +1064,76 @@ async def generate_voice_elevenlabs(text: str, duration: float, temp_dir: str) -
                     f.write(response.content)
                 
                 if get_size_mb(temp_raw) > 0.01:
+                    # Adjust duration and quality
                     output = temp_raw.replace(".mp3", "_adj.mp3")
                     cmd = [
                         "ffmpeg", "-i", temp_raw,
-                        "-filter:a", "atempo=1.15",
-                        "-t", str(duration + 0.3),
-                        "-b:a", "96k",  # Lower bitrate
+                        "-filter:a", "atempo=1.1,loudnorm=I=-16",
+                        "-t", str(duration + 0.5),
+                        "-b:a", "128k",
                         "-y", output
                     ]
                     
-                    if run_ffmpeg(cmd, 20):
+                    if run_ffmpeg(cmd, 25):
                         force_cleanup(temp_raw)
+                        logger.info(f"✅ ElevenLabs voice: {get_size_mb(output):.2f}MB")
                         return output
                 
                 force_cleanup(temp_raw)
     except Exception as e:
-        logger.error(f"ElevenLabs error: {e}")
+        logger.error(f"ElevenLabs failed: {e}")
     
     return None
 
 async def generate_voice_edge(text: str, duration: float, temp_dir: str) -> Optional[str]:
+    """Edge TTS fallback"""
     try:
         import edge_tts
         
-        temp = os.path.join(temp_dir, f"e_{uuid.uuid4().hex[:4]}.mp3")
-        text_clean = text.replace("...", " ").strip()[:350]
+        temp = os.path.join(temp_dir, f"edge_{uuid.uuid4().hex[:6]}.mp3")
+        text_clean = text.replace("...", " ").strip()[:400]
         
+        # Use Hindi voice
         communicate = edge_tts.Communicate(text_clean, "hi-IN-MadhurNeural", rate="+15%")
         await communicate.save(temp)
         
         if get_size_mb(temp) > 0.01:
+            logger.info(f"✅ Edge TTS voice: {get_size_mb(temp):.2f}MB")
             return temp
         
         force_cleanup(temp)
-    except:
-        pass
+    except Exception as e:
+        logger.error(f"Edge TTS failed: {e}")
     
     return None
 
 async def generate_voice(text: str, duration: float, temp_dir: str) -> Optional[str]:
+    """Try ElevenLabs first, fallback to Edge TTS"""
     voice = await generate_voice_elevenlabs(text, duration, temp_dir)
     if voice:
         return voice
+    
+    logger.info("⚠️ ElevenLabs failed, using Edge TTS")
     return await generate_voice_edge(text, duration, temp_dir)
 
 # ============================================================================
-# VIDEO SEARCH - PREFER SMALL MEDIUM QUALITY
+# VIDEO SEARCH - PEXELS PRIORITY → PIXABAY FALLBACK
 # ============================================================================
 
+def is_vertical_pexels(vdata: dict) -> bool:
+    """Check if Pexels video is vertical (9:16 or similar)"""
+    try:
+        w = vdata.get("width", 0)
+        h = vdata.get("height", 0)
+        return w > 0 and h > 0 and (h / w) >= 1.5
+    except:
+        return False
+
 def is_vertical_pixabay(vdata: dict) -> bool:
+    """Check if Pixabay video is vertical"""
     try:
         videos = vdata.get("videos", {})
-        for size in ["small", "medium"]:  # Prefer smaller sizes
+        for size in ["medium", "small", "large"]:
             sd = videos.get(size, {})
             w, h = sd.get("width", 0), sd.get("height", 0)
             if w > 0 and h > 0 and (h / w) >= 1.5:
@@ -1115,155 +1142,151 @@ def is_vertical_pixabay(vdata: dict) -> bool:
     except:
         return False
 
-def is_vertical_pexels(vdata: dict) -> bool:
-    try:
-        w = vdata.get("width", 0)
-        h = vdata.get("height", 0)
-        return w > 0 and h > 0 and (h / w) >= 1.5
-    except:
-        return False
-
-async def search_pixabay_video(query: str) -> Optional[dict]:
-    try:
-        word = query.split()[0].lower()
-        if not word.isascii():
-            word = random.choice(VERTICAL_FALLBACKS)
-        
-        async with httpx.AsyncClient(timeout=25) as client:
-            resp = await client.get(
-                "https://pixabay.com/api/videos/",
-                params={"key": PIXABAY_API_KEY, "q": word, "per_page": 40}
-            )
-            
-            if resp.status_code == 200:
-                videos = resp.json().get("hits", [])
-                vertical = [v for v in videos if is_vertical_pixabay(v)]
-                if vertical:
-                    logger.info(f"✅ Pixabay: {len(vertical)} vertical")
-                    return {"source": "pixabay", "data": vertical[0]}
-            
-            # Fallback
-            for fb in VERTICAL_FALLBACKS:
-                resp = await client.get(
-                    "https://pixabay.com/api/videos/",
-                    params={"key": PIXABAY_API_KEY, "q": fb, "per_page": 20}
-                )
-                if resp.status_code == 200:
-                    videos = resp.json().get("hits", [])
-                    vertical = [v for v in videos if is_vertical_pixabay(v)]
-                    if vertical:
-                        logger.info(f"✅ Pixabay fallback: {fb}")
-                        return {"source": "pixabay", "data": vertical[0]}
-        
-        return None
-    except Exception as e:
-        logger.error(f"Pixabay error: {e}")
-        return None
-
 async def search_pexels_video(query: str) -> Optional[dict]:
+    """Search Pexels for vertical video (PRIORITY)"""
     try:
         if not PEXELS_API_KEY:
+            logger.warning("⚠️ PEXELS_API_KEY not set")
             return None
         
         word = query.split()[0].lower()
         if not word.isascii():
             word = random.choice(VERTICAL_FALLBACKS)
         
-        async with httpx.AsyncClient(timeout=25) as client:
+        async with httpx.AsyncClient(timeout=30) as client:
+            # Search with portrait orientation
             resp = await client.get(
                 "https://api.pexels.com/videos/search",
                 headers={"Authorization": PEXELS_API_KEY},
-                params={"query": word, "orientation": "portrait", "size": "medium", "per_page": 20}
+                params={
+                    "query": word,
+                    "orientation": "portrait",
+                    "size": "medium",
+                    "per_page": 30
+                }
             )
             
             if resp.status_code == 200:
                 videos = resp.json().get("videos", [])
                 vertical = [v for v in videos if is_vertical_pexels(v)]
+                
                 if vertical:
-                    logger.info(f"✅ Pexels: {len(vertical)} vertical")
+                    logger.info(f"✅ Pexels: Found {len(vertical)} vertical videos for '{word}'")
                     return {"source": "pexels", "data": vertical[0]}
+            
+            # Try fallback keywords
+            for fb in VERTICAL_FALLBACKS:
+                resp = await client.get(
+                    "https://api.pexels.com/videos/search",
+                    headers={"Authorization": PEXELS_API_KEY},
+                    params={"query": fb, "orientation": "portrait", "size": "medium", "per_page": 20}
+                )
+                
+                if resp.status_code == 200:
+                    videos = resp.json().get("videos", [])
+                    vertical = [v for v in videos if is_vertical_pexels(v)]
+                    
+                    if vertical:
+                        logger.info(f"✅ Pexels fallback: '{fb}'")
+                        return {"source": "pexels", "data": vertical[0]}
         
         return None
     except Exception as e:
-        logger.error(f"Pexels error: {e}")
+        logger.error(f"Pexels search error: {e}")
         return None
 
-async def search_hd_video(query: str) -> Optional[dict]:
-    result = await search_pixabay_video(query)
+async def search_pixabay_video(query: str) -> Optional[dict]:
+    """Search Pixabay for vertical video (FALLBACK)"""
+    try:
+        word = query.split()[0].lower()
+        if not word.isascii():
+            word = random.choice(VERTICAL_FALLBACKS)
+        
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.get(
+                "https://pixabay.com/api/videos/",
+                params={"key": PIXABAY_API_KEY, "q": word, "per_page": 50, "order": "popular"}
+            )
+            
+            if resp.status_code == 200:
+                videos = resp.json().get("hits", [])
+                vertical = [v for v in videos if is_vertical_pixabay(v)]
+                
+                if vertical:
+                    logger.info(f"✅ Pixabay: Found {len(vertical)} vertical videos for '{word}'")
+                    return {"source": "pixabay", "data": vertical[0]}
+            
+            # Try fallback keywords
+            for fb in VERTICAL_FALLBACKS:
+                resp = await client.get(
+                    "https://pixabay.com/api/videos/",
+                    params={"key": PIXABAY_API_KEY, "q": fb, "per_page": 30}
+                )
+                
+                if resp.status_code == 200:
+                    videos = resp.json().get("hits", [])
+                    vertical = [v for v in videos if is_vertical_pixabay(v)]
+                    
+                    if vertical:
+                        logger.info(f"✅ Pixabay fallback: '{fb}'")
+                        return {"source": "pixabay", "data": vertical[0]}
+        
+        return None
+    except Exception as e:
+        logger.error(f"Pixabay search error: {e}")
+        return None
+
+async def search_video(query: str) -> Optional[dict]:
+    """Search video: Pexels FIRST → Pixabay FALLBACK"""
+    logger.info("🔍 Searching Pexels (priority)...")
+    result = await search_pexels_video(query)
+    
     if result:
         return result
     
-    logger.info("🔄 Trying Pexels...")
-    return await search_pexels_video(query)
+    logger.info("🔍 Pexels not available, trying Pixabay...")
+    result = await search_pixabay_video(query)
+    
+    if result:
+        return result
+    
+    logger.error("❌ No vertical video found in Pexels or Pixabay")
+    return None
 
 # ============================================================================
-# DOWNLOAD WITH STRICT SIZE LIMIT
+# VIDEO DOWNLOAD
 # ============================================================================
-
-async def download_pixabay_video(vdata: dict, output: str) -> bool:
-    try:
-        videos = vdata.get("videos", {})
-        # Prefer medium > small (720p max)
-        url = None
-        for size in ["medium", "small"]:
-            if videos.get(size, {}).get("url"):
-                url = videos[size]["url"]
-                break
-        
-        if not url:
-            return False
-        
-        async with httpx.AsyncClient(timeout=90) as client:
-            async with client.stream('GET', url) as resp:
-                if resp.status_code != 200:
-                    return False
-                
-                with open(output, 'wb') as f:
-                    downloaded = 0
-                    async for chunk in resp.aiter_bytes(CHUNK_SIZE):
-                        f.write(chunk)
-                        downloaded += len(chunk)
-                        
-                        # STRICT: Stop if exceeds 30MB
-                        if downloaded > MAX_VIDEO_DOWNLOAD_MB * 1024 * 1024:
-                            logger.warning(f"⚠️ Download stopped at {downloaded/(1024*1024):.1f}MB")
-                            return False
-                
-                size = get_size_mb(output)
-                if size < 0.5 or size > MAX_VIDEO_DOWNLOAD_MB:
-                    force_cleanup(output)
-                    return False
-                
-                logger.info(f"✅ Pixabay: {size:.1f}MB")
-                return True
-    except Exception as e:
-        logger.error(f"Download error: {e}")
-        force_cleanup(output)
-        return False
 
 async def download_pexels_video(vdata: dict, output: str) -> bool:
+    """Download Pexels video (720p HD)"""
     try:
         video_files = vdata.get("video_files", [])
         
-        # Get medium quality (720p max)
-        medium_files = [f for f in video_files if 720 <= f.get("height", 0) <= 1280]
+        # Filter for HD vertical videos (720p-1080p height)
+        hd_files = [f for f in video_files if 720 <= f.get("height", 0) <= 1920]
         
-        if not medium_files:
-            medium_files = video_files
+        if not hd_files:
+            hd_files = video_files
         
-        if not medium_files:
+        if not hd_files:
+            logger.error("No video files available")
             return False
         
-        # Get smallest suitable file
-        best = min(medium_files, key=lambda x: x.get("height", 9999))
+        # Get best quality that's not too large
+        hd_files.sort(key=lambda x: x.get("height", 0), reverse=True)
+        best = hd_files[0]
         url = best.get("link")
         
         if not url:
+            logger.error("No video URL found")
             return False
         
-        async with httpx.AsyncClient(timeout=90) as client:
+        logger.info(f"📥 Downloading Pexels video: {best.get('height', 0)}p")
+        
+        async with httpx.AsyncClient(timeout=120) as client:
             async with client.stream('GET', url) as resp:
                 if resp.status_code != 200:
+                    logger.error(f"HTTP {resp.status_code}")
                     return False
                 
                 with open(output, 'wb') as f:
@@ -1272,123 +1295,133 @@ async def download_pexels_video(vdata: dict, output: str) -> bool:
                         f.write(chunk)
                         downloaded += len(chunk)
                         
-                        # STRICT: Stop at 30MB
-                        if downloaded > MAX_VIDEO_DOWNLOAD_MB * 1024 * 1024:
-                            logger.warning(f"⚠️ Pexels stopped at {downloaded/(1024*1024):.1f}MB")
+                        # Stop if exceeds limit
+                        if downloaded > MAX_VIDEO_SIZE_MB * 1024 * 1024:
+                            logger.warning(f"⚠️ Download stopped: {downloaded/(1024*1024):.1f}MB > {MAX_VIDEO_SIZE_MB}MB")
+                            force_cleanup(output)
                             return False
                 
                 size = get_size_mb(output)
-                if size < 0.5 or size > MAX_VIDEO_DOWNLOAD_MB:
+                
+                if size < 0.5:
+                    logger.error(f"Video too small: {size:.2f}MB")
                     force_cleanup(output)
                     return False
                 
-                logger.info(f"✅ Pexels: {size:.1f}MB")
+                logger.info(f"✅ Pexels video downloaded: {size:.1f}MB")
                 return True
+                
     except Exception as e:
         logger.error(f"Pexels download error: {e}")
         force_cleanup(output)
         return False
 
-async def download_hd_video(video_result: dict, output: str) -> bool:
+async def download_pixabay_video(vdata: dict, output: str) -> bool:
+    """Download Pixabay video (720p HD)"""
+    try:
+        videos = vdata.get("videos", {})
+        
+        # Priority: medium (720p) > large > small
+        url = None
+        quality = None
+        
+        for size in ["medium", "large", "small"]:
+            if videos.get(size, {}).get("url"):
+                url = videos[size]["url"]
+                quality = size
+                break
+        
+        if not url:
+            logger.error("No video URL found")
+            return False
+        
+        logger.info(f"📥 Downloading Pixabay video: {quality}")
+        
+        async with httpx.AsyncClient(timeout=120) as client:
+            async with client.stream('GET', url) as resp:
+                if resp.status_code != 200:
+                    logger.error(f"HTTP {resp.status_code}")
+                    return False
+                
+                with open(output, 'wb') as f:
+                    downloaded = 0
+                    async for chunk in resp.aiter_bytes(CHUNK_SIZE):
+                        f.write(chunk)
+                        downloaded += len(chunk)
+                        
+                        # Stop if exceeds limit
+                        if downloaded > MAX_VIDEO_SIZE_MB * 1024 * 1024:
+                            logger.warning(f"⚠️ Download stopped: {downloaded/(1024*1024):.1f}MB > {MAX_VIDEO_SIZE_MB}MB")
+                            force_cleanup(output)
+                            return False
+                
+                size = get_size_mb(output)
+                
+                if size < 0.5:
+                    logger.error(f"Video too small: {size:.2f}MB")
+                    force_cleanup(output)
+                    return False
+                
+                logger.info(f"✅ Pixabay video downloaded: {size:.1f}MB")
+                return True
+                
+    except Exception as e:
+        logger.error(f"Pixabay download error: {e}")
+        force_cleanup(output)
+        return False
+
+async def download_video(video_result: dict, output: str) -> bool:
+    """Download video from Pexels or Pixabay"""
     source = video_result.get("source")
     vdata = video_result.get("data")
     
-    if source == "pixabay":
-        return await download_pixabay_video(vdata, output)
-    elif source == "pexels":
+    if source == "pexels":
         return await download_pexels_video(vdata, output)
+    elif source == "pixabay":
+        return await download_pixabay_video(vdata, output)
     
     return False
 
 # ============================================================================
-# MUSIC DOWNLOAD
+# VIDEO PROCESSING
 # ============================================================================
 
-async def download_music(temp_dir: str) -> Optional[str]:
-    music_path = os.path.join(temp_dir, "music.mp3")
-    
-    for url in MUSIC_URLS:
-        try:
-            async with httpx.AsyncClient(timeout=30) as client:
-                resp = await client.get(url, follow_redirects=True)
-                
-                if resp.status_code == 200:
-                    with open(music_path, 'wb') as f:
-                        f.write(resp.content)
-                    
-                    if get_size_mb(music_path) > 0.05:
-                        logger.info(f"✅ Music: {get_size_mb(music_path):.2f}MB")
-                        return music_path
-            
-            force_cleanup(music_path)
-        except:
-            force_cleanup(music_path)
-            continue
-    
-    return None
-
-# ============================================================================
-# COMPRESS AND LOOP VIDEO
-# ============================================================================
-
-def compress_and_loop(source: str, temp_dir: str) -> Optional[str]:
-    """Compress to 720p and loop to 30s"""
+def process_video_720p(source: str, temp_dir: str) -> Optional[str]:
+    """Process video: Loop to 30s, scale to 720p vertical"""
     try:
-        output = os.path.join(temp_dir, "final_video.mp4")
+        output = os.path.join(temp_dir, "processed.mp4")
         
-        # Aggressive compression: 720p, CRF 28, fast preset
+        # Loop video to exactly 30 seconds with 720p vertical
         cmd = [
-            "ffmpeg", "-stream_loop", "-1", "-i", source,
+            "ffmpeg",
+            "-stream_loop", "-1",
+            "-i", source,
             "-t", "30",
             "-vf", "scale=720:1280:force_original_aspect_ratio=increase,crop=720:1280",
             "-c:v", "libx264",
-            "-crf", "28",  # Higher CRF = smaller size
-            "-preset", "veryfast",
+            "-crf", "24",
+            "-preset", "fast",
             "-movflags", "+faststart",
             "-an",
             "-y", output
         ]
         
-        logger.info("⚙️ Compressing to 720p...")
+        logger.info("⚙️ Processing: Loop + 720p + crop...")
         
-        if run_ffmpeg(cmd, 50):
+        if run_ffmpeg(cmd, 60):
             size = get_size_mb(output)
-            logger.info(f"✅ Compressed: {size:.1f}MB")
-            
-            # If still too large, compress more
-            if size > MAX_FINAL_SIZE_MB:
-                logger.info("⚙️ Further compression...")
-                output2 = os.path.join(temp_dir, "final_video2.mp4")
-                
-                cmd2 = [
-                    "ffmpeg", "-i", output,
-                    "-vf", "scale=720:1280",
-                    "-c:v", "libx264",
-                    "-crf", "30",
-                    "-preset", "veryfast",
-                    "-b:v", "800k",  # Limit bitrate
-                    "-movflags", "+faststart",
-                    "-an",
-                    "-y", output2
-                ]
-                
-                if run_ffmpeg(cmd2, 40):
-                    force_cleanup(output)
-                    logger.info(f"✅ Re-compressed: {get_size_mb(output2):.1f}MB")
-                    return output2
-            
+            logger.info(f"✅ Processed video: {size:.1f}MB")
             return output
         
+        logger.error("Processing failed")
         return None
+        
     except Exception as e:
-        logger.error(f"Compress error: {e}")
+        logger.error(f"Processing error: {e}")
         return None
-
-# ============================================================================
-# ADD TEXT OVERLAYS
-# ============================================================================
 
 def add_text_overlays(video: str, segments: list, temp_dir: str) -> Optional[str]:
+    """Add text overlays"""
     try:
         output = os.path.join(temp_dir, "with_text.mp4")
         
@@ -1396,11 +1429,11 @@ def add_text_overlays(video: str, segments: list, temp_dir: str) -> Optional[str
         current_time = 0
         
         for seg in segments:
-            text = seg.get("text_overlay", "")[:20]
+            text = seg.get("text_overlay", "").replace("'", "").replace('"', '')[:30]
             if text:
                 filters.append(
-                    f"drawtext=text='{text}':fontsize=55:fontcolor=white:"
-                    f"x=(w-text_w)/2:y=h-150:borderw=4:bordercolor=black:"
+                    f"drawtext=text='{text}':fontsize=60:fontcolor=white:"
+                    f"x=(w-text_w)/2:y=h-160:borderw=5:bordercolor=black:"
                     f"enable='between(t,{current_time},{current_time + seg['duration']})'"
                 )
             current_time += seg["duration"]
@@ -1414,76 +1447,68 @@ def add_text_overlays(video: str, segments: list, temp_dir: str) -> Optional[str
             "ffmpeg", "-i", video,
             "-vf", vf,
             "-c:v", "libx264",
-            "-crf", "28",
-            "-preset", "veryfast",
+            "-crf", "24",
+            "-preset", "fast",
             "-y", output
         ]
         
+        logger.info("⚙️ Adding text overlays...")
+        
         if run_ffmpeg(cmd, 60):
             force_cleanup(video)
+            logger.info(f"✅ With text: {get_size_mb(output):.1f}MB")
             return output
         
         return video
-    except:
+        
+    except Exception as e:
+        logger.error(f"Text overlay error: {e}")
         return video
 
-# ============================================================================
-# FINAL MIX
-# ============================================================================
-
-async def mix_final(video: str, voices: List[str], music: Optional[str], temp_dir: str) -> Optional[str]:
+async def mix_audio_final(video: str, voices: List[str], temp_dir: str) -> Optional[str]:
+    """Mix voices with video"""
     try:
-        # Concat voices
-        vlist = os.path.join(temp_dir, "vlist.txt")
+        # Concatenate all voices
+        vlist = os.path.join(temp_dir, "voices.txt")
         with open(vlist, 'w') as f:
             for v in voices:
                 f.write(f"file '{v}'\n")
         
-        voice_all = os.path.join(temp_dir, "voice.mp3")
-        cmd = ["ffmpeg", "-f", "concat", "-safe", "0", "-i", vlist, "-c", "copy", "-y", voice_all]
+        voice_combined = os.path.join(temp_dir, "voice_all.mp3")
+        cmd = ["ffmpeg", "-f", "concat", "-safe", "0", "-i", vlist, "-c", "copy", "-y", voice_combined]
         
         if not run_ffmpeg(cmd, 30):
+            logger.error("Voice concatenation failed")
             return None
         
-        final = os.path.join(temp_dir, "output.mp4")
+        # Mix with video
+        final = os.path.join(temp_dir, "final.mp4")
         
-        if music and os.path.exists(music):
-            cmd = [
-                "ffmpeg",
-                "-i", video,
-                "-i", voice_all,
-                "-i", music,
-                "-filter_complex",
-                "[1:a]volume=1.0[v];[2:a]volume=0.25[m];[v][m]amix=inputs=2:duration=first[a]",
-                "-map", "0:v",
-                "-map", "[a]",
-                "-c:v", "copy",
-                "-c:a", "aac",
-                "-b:a", "128k",
-                "-shortest",
-                "-y", final
-            ]
-        else:
-            cmd = [
-                "ffmpeg",
-                "-i", video,
-                "-i", voice_all,
-                "-map", "0:v",
-                "-map", "1:a",
-                "-c:v", "copy",
-                "-c:a", "aac",
-                "-b:a", "96k",
-                "-shortest",
-                "-y", final
-            ]
+        cmd = [
+            "ffmpeg",
+            "-i", video,
+            "-i", voice_combined,
+            "-map", "0:v",
+            "-map", "1:a",
+            "-c:v", "copy",
+            "-c:a", "aac",
+            "-b:a", "128k",
+            "-shortest",
+            "-y", final
+        ]
+        
+        logger.info("⚙️ Mixing audio with video...")
         
         if run_ffmpeg(cmd, 60):
-            logger.info(f"✅ Final: {get_size_mb(final):.1f}MB")
+            size = get_size_mb(final)
+            logger.info(f"✅ Final video: {size:.1f}MB")
             return final
         
+        logger.error("Audio mixing failed")
         return None
+        
     except Exception as e:
-        logger.error(f"Mix error: {e}")
+        logger.error(f"Audio mix error: {e}")
         return None
 
 # ============================================================================
@@ -1492,6 +1517,7 @@ async def mix_final(video: str, voices: List[str], music: Optional[str], temp_di
 
 async def upload_to_youtube(video_path: str, title: str, description: str, tags: List[str], 
                            user_id: str, database_manager) -> dict:
+    """Upload to YouTube"""
     try:
         from YTdatabase import get_database_manager as get_yt_db
         yt_db = get_yt_db()
@@ -1507,7 +1533,7 @@ async def upload_to_youtube(video_path: str, title: str, description: str, tags:
         })
         
         if not credentials_raw:
-            return {"success": False, "error": "YouTube not connected"}
+            return {"success": False, "error": "YouTube credentials not found"}
         
         credentials = {
             "access_token": credentials_raw.get("access_token"),
@@ -1545,11 +1571,11 @@ async def upload_to_youtube(video_path: str, title: str, description: str, tags:
         return {"success": False, "error": upload_result.get("error", "Upload failed")}
             
     except Exception as e:
-        logger.error(f"Upload error: {e}")
+        logger.error(f"YouTube upload error: {e}")
         return {"success": False, "error": str(e)}
 
 # ============================================================================
-# MAIN GENERATION
+# MAIN GENERATION PIPELINE
 # ============================================================================
 
 async def generate_viral_video(
@@ -1562,73 +1588,82 @@ async def generate_viral_video(
     user_id: str,
     database_manager
 ) -> dict:
-    """ULTRA OPTIMIZED for 512MB RAM"""
+    """Complete viral video generation pipeline"""
     
     temp_dir = None
     
     try:
-        temp_dir = tempfile.mkdtemp(prefix="vp_")
-        logger.info(f"🎬 {niche}")
+        temp_dir = tempfile.mkdtemp(prefix="viral_")
+        logger.info(f"🎬 Starting generation for: {niche}")
         
-        # Step 1: Script (English title + Hindi narration)
+        # Step 1: Generate script
+        logger.info("📝 Generating script...")
         script = await generate_script(niche)
-        logger.info(f"✅ {script['title']}")
+        logger.info(f"✅ Title: {script['title']}")
         
-        # Step 2: Music
-        music = await download_music(temp_dir)
-        
-        # Step 3: Download video (max 30MB)
-        logger.info("📥 Downloading video...")
-        video_result = await search_hd_video(niche)
+        # Step 2: Search and download video (Pexels → Pixabay)
+        logger.info("🔍 Searching for video...")
+        video_result = await search_video(niche)
         
         if not video_result:
-            return {"success": False, "error": "No video found"}
+            return {"success": False, "error": "No suitable video found"}
         
-        source = os.path.join(temp_dir, "src.mp4")
+        video_source = video_result.get("source")
+        logger.info(f"📥 Downloading from {video_source.upper()}...")
         
-        if not await download_hd_video(video_result, source):
-            return {"success": False, "error": "Download failed"}
+        source_video = os.path.join(temp_dir, "source.mp4")
         
-        # Step 4: Compress and loop
-        compressed = compress_and_loop(source, temp_dir)
-        force_cleanup(source)  # Immediate cleanup
+        if not await download_video(video_result, source_video):
+            return {"success": False, "error": "Video download failed"}
+        
+        # Step 3: Process video (loop + 720p + crop)
+        processed_video = process_video_720p(source_video, temp_dir)
+        force_cleanup(source_video)  # Clean source immediately
         gc.collect()
         
-        if not compressed:
-            return {"success": False, "error": "Compression failed"}
+        if not processed_video:
+            return {"success": False, "error": "Video processing failed"}
         
-        # Step 5: Add text
+        # Step 4: Add text overlays
         if show_captions:
-            with_text = add_text_overlays(compressed, script["segments"], temp_dir)
-            if with_text:
-                compressed = with_text
+            processed_video = add_text_overlays(processed_video, script["segments"], temp_dir)
         
-        # Step 6: Generate voices
-        logger.info("🎤 Voices...")
+        # Step 5: Generate voiceovers
+        logger.info("🎤 Generating voiceovers...")
         voices = []
         
         for idx, seg in enumerate(script["segments"]):
+            logger.info(f"   Voice {idx+1}/{len(script['segments'])}...")
             voice = await generate_voice(seg["narration"], seg["duration"], temp_dir)
+            
             if voice:
                 voices.append(voice)
+            else:
+                logger.warning(f"   Voice {idx+1} failed, creating silence")
+                # Create silent audio as fallback
+                silent = os.path.join(temp_dir, f"silent{idx}.mp3")
+                cmd = ["ffmpeg", "-f", "lavfi", "-i", f"anullsrc=d={seg['duration']}", "-y", silent]
+                if run_ffmpeg(cmd, 15):
+                    voices.append(silent)
         
         if len(voices) < 3:
-            return {"success": False, "error": "Voice failed"}
+            return {"success": False, "error": "Voice generation failed"}
         
-        # Step 7: Final mix
-        logger.info("🎬 Mixing...")
-        final = await mix_final(compressed, voices, music, temp_dir)
+        logger.info(f"✅ Generated {len(voices)} voice segments")
         
-        if not final:
-            return {"success": False, "error": "Mix failed"}
+        # Step 6: Mix audio with video
+        final_video = await mix_audio_final(processed_video, voices, temp_dir)
         
-        final_size = get_size_mb(final)
-        logger.info(f"🎉 Done! {final_size:.1f}MB")
+        if not final_video:
+            return {"success": False, "error": "Audio mixing failed"}
         
-        # Step 8: Upload
-        logger.info("📤 Uploading...")
+        final_size = get_size_mb(final_video)
+        logger.info(f"🎉 Video created successfully! Size: {final_size:.1f}MB")
+        
+        # Step 7: Upload to YouTube
+        logger.info("📤 Uploading to YouTube...")
         upload_result = await upload_to_youtube(
-            final,
+            final_video,
             script["title"],
             script["description"],
             script["tags"],
@@ -1649,15 +1684,19 @@ async def generate_viral_video(
             "video_id": upload_result.get("video_id"),
             "video_url": upload_result.get("video_url"),
             "title": script["title"],
+            "description": script["description"],
             "size_mb": f"{final_size:.1f}MB",
-            "source": video_result.get("source")
+            "video_source": video_source
         }
         
     except Exception as e:
-        logger.error(f"❌ {e}\n{traceback.format_exc()}")
+        logger.error(f"❌ Generation failed: {e}")
+        logger.error(traceback.format_exc())
+        
         if temp_dir:
             shutil.rmtree(temp_dir, ignore_errors=True)
         gc.collect()
+        
         return {"success": False, "error": str(e)}
 
 # ============================================================================
@@ -1668,6 +1707,7 @@ router = APIRouter()
 
 @router.get("/api/viral-pixel/niches")
 async def get_niches():
+    """Get available niches"""
     return {
         "success": True,
         "niches": {k: {"name": k.replace("_", " ").title()} for k in NICHE_KEYWORDS.keys()}
@@ -1675,16 +1715,23 @@ async def get_niches():
 
 @router.post("/api/viral-pixel/generate")
 async def generate_endpoint(request: Request):
+    """Generate viral video endpoint"""
     try:
         data = await request.json()
         user_id = data.get("user_id")
         
         if not user_id:
-            return JSONResponse(status_code=401, content={"success": False, "error": "Auth required"})
+            return JSONResponse(
+                status_code=401,
+                content={"success": False, "error": "Authentication required"}
+            )
         
         niche = data.get("niche", "space")
         if niche not in NICHE_KEYWORDS:
-            return JSONResponse(status_code=400, content={"success": False, "error": "Invalid niche"})
+            return JSONResponse(
+                status_code=400,
+                content={"success": False, "error": f"Invalid niche. Choose from: {list(NICHE_KEYWORDS.keys())}"}
+            )
         
         from Supermain import database_manager
         
@@ -1700,16 +1747,24 @@ async def generate_endpoint(request: Request):
                     user_id=user_id,
                     database_manager=database_manager
                 ),
-                timeout=480
+                timeout=600  # 10 minute timeout
             )
             
             return JSONResponse(content=result)
             
         except asyncio.TimeoutError:
-            return JSONResponse(status_code=408, content={"success": False, "error": "Timeout"})
+            logger.error("Generation timeout")
+            return JSONResponse(
+                status_code=408,
+                content={"success": False, "error": "Video generation timeout (10 minutes)"}
+            )
         
     except Exception as e:
-        logger.error(f"❌ {e}")
-        return JSONResponse(status_code=500, content={"success": False, "error": str(e)})
+        logger.error(f"❌ Endpoint error: {e}")
+        logger.error(traceback.format_exc())
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "error": str(e)}
+        )
 
 __all__ = ['router']
