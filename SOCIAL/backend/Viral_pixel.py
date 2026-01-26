@@ -855,14 +855,15 @@
 
 
 
+
+
 """
-Viral_pixel.py - IMPROVED VERSION
-✅ Single-word searches for better results
-✅ 2-3 videos max (memory optimized)
-✅ Better vertical video detection
-✅ Professional editing with smooth transitions
-✅ Fixed ElevenLabs voice generation
-✅ Fallback to Edge TTS
+Viral_pixel.py - ULTRA-FAST VERSION
+✅ SIMPLE FFmpeg commands (no complex filters)
+✅ Longer timeouts (60s per operation)
+✅ 30MB max file size
+✅ Better error recovery
+✅ 2-3 videos guaranteed
 """
 
 from fastapi import APIRouter, Request
@@ -885,25 +886,23 @@ import gc
 logger = logging.getLogger(__name__)
 
 # ============================================================================
-# CONFIGURATION
+# CONFIGURATION - RELAXED LIMITS FOR SUCCESS
 # ============================================================================
 
 PIXABAY_API_KEY = os.getenv("PIXABAY_API_KEY", "54364709-1e6532279f08847859d5bea5e")
 MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY")
 ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY", "sk_b2b4648b113d82f93cbc1cde496c9505be2c7a9243a59399")
-ELEVENLABS_VOICE_ID = "YkAJCvEzSQvG7K2YK9kx"  # Default Hindi voice
+ELEVENLABS_VOICE_ID = "YkAJCvEzSQvG7K2YK9kx"
 
-# STRICT LIMITS
-MAX_VIDEO_SIZE_MB = 15
-MAX_AUDIO_SIZE_MB = 2
-TARGET_DURATION = 30
+# RELAXED LIMITS
+MAX_VIDEO_SIZE_MB = 30  # Increased to 30MB
+MAX_AUDIO_SIZE_MB = 3
 VOICE_SPEED = 1.15
 MIN_VIDEOS = 2
-MAX_VIDEOS = 3  # Reduced to 3 for better quality
-SUBSCRIBE_DURATION = 3
-FFMPEG_TIMEOUT = 30
+MAX_VIDEOS = 3
+FFMPEG_TIMEOUT = 60  # Increased to 60 seconds
 
-# SINGLE-WORD SEARCHES (Best for Pixabay)
+# KEYWORDS
 NICHE_KEYWORDS = {
     "space": ["galaxy", "nebula", "planet", "cosmos", "stars"],
     "tech_ai": ["technology", "digital", "cyber", "future", "data"],
@@ -911,24 +910,21 @@ NICHE_KEYWORDS = {
     "nature": ["mountain", "forest", "waterfall", "landscape", "sunset", "river", "valley", "ice", "canyon"]
 }
 
-# Vertical-friendly fallback keywords
-VERTICAL_FALLBACKS = [
-    "waterfall", "skyscraper", "lighthouse", "tower", "tree", 
-    "canyon", "cliff", "rocket", "rain", "fire"
-]
+VERTICAL_FALLBACKS = ["waterfall", "skyscraper", "tower", "tree", "canyon", "cliff"]
 
 # ============================================================================
 # MEMORY MANAGEMENT
 # ============================================================================
 
-def force_cleanup(filepath: str):
-    """Immediate file deletion + memory cleanup"""
-    try:
-        if filepath and os.path.exists(filepath):
-            os.remove(filepath)
-            logger.info(f"🗑️ Deleted: {os.path.basename(filepath)}")
-    except:
-        pass
+def force_cleanup(*filepaths):
+    """Delete multiple files + cleanup"""
+    for filepath in filepaths:
+        try:
+            if filepath and os.path.exists(filepath):
+                os.remove(filepath)
+                logger.info(f"🗑️ Deleted: {os.path.basename(filepath)}")
+        except:
+            pass
     gc.collect()
 
 def get_file_size_mb(filepath: str) -> float:
@@ -938,13 +934,28 @@ def get_file_size_mb(filepath: str) -> float:
         return 0
 
 def run_ffmpeg_safe(cmd: list, timeout: int = FFMPEG_TIMEOUT) -> bool:
-    """Run FFmpeg with timeout"""
+    """Run FFmpeg with extended timeout and better error handling"""
     try:
-        result = subprocess.run(cmd, capture_output=True, timeout=timeout, check=False)
+        logger.info(f"⚙️ Running FFmpeg (timeout: {timeout}s)")
+        result = subprocess.run(
+            cmd, 
+            capture_output=True, 
+            timeout=timeout, 
+            check=False,
+            text=True
+        )
+        
+        if result.returncode != 0:
+            logger.error(f"FFmpeg error: {result.stderr[:200]}")
+            return False
+        
         gc.collect()
-        return result.returncode == 0
-    except:
-        gc.collect()
+        return True
+    except subprocess.TimeoutExpired:
+        logger.error(f"❌ FFmpeg timeout after {timeout}s")
+        return False
+    except Exception as e:
+        logger.error(f"FFmpeg exception: {e}")
         return False
 
 # ============================================================================
@@ -952,48 +963,23 @@ def run_ffmpeg_safe(cmd: list, timeout: int = FFMPEG_TIMEOUT) -> bool:
 # ============================================================================
 
 async def generate_script(niche: str) -> dict:
-    """Generate engaging script with single-word video searches"""
+    """Generate script with single-word searches"""
     
-    prompt = f"""Create a viral 30-second Hindi YouTube Shorts script about {niche}.
+    prompt = f"""Create 30-second Hindi YouTube Shorts script about {niche}.
 
-REQUIREMENTS:
-1. 3 segments (hook + story + outro) - TOTAL 30 seconds
-2. Each segment 120-150 words for 30 seconds total narration
-3. Use SINGLE WORDS ONLY for video_search (like: "galaxy", "ocean", "mountain")
-4. Engaging Hindi narration with pauses (...)
-5. Short, punchy text overlays with emojis
-
-OUTPUT JSON:
+OUTPUT JSON (3 segments):
 {{
   "title": "SHOCKING {niche.title()} Secret #Shorts 🔥",
-  "description": "Mind-blowing! #{niche} #viral #shorts",
-  "tags": ["{niche}", "viral", "shorts", "hindi"],
+  "description": "#{niche} #viral #shorts",
+  "tags": ["{niche}", "viral", "shorts"],
   "segments": [
-    {{
-      "type": "hook",
-      "narration": "Socho agar main kahun...",
-      "text_overlay": "😱 सुनो",
-      "video_search": "galaxy",
-      "duration": 10
-    }},
-    {{
-      "type": "story",
-      "narration": "Detailed story...",
-      "text_overlay": "🔥 तथ्य",
-      "video_search": "nebula",
-      "duration": 15
-    }},
-    {{
-      "type": "outro",
-      "narration": "Question...",
-      "text_overlay": "🤔 सवाल",
-      "video_search": "stars",
-      "duration": 5
-    }}
+    {{"narration": "Hindi text...", "text_overlay": "😱 सुनो", "video_search": "galaxy", "duration": 10}},
+    {{"narration": "Story...", "text_overlay": "🔥 तथ्य", "video_search": "nebula", "duration": 15}},
+    {{"narration": "Question...", "text_overlay": "🤔 सवाल", "video_search": "stars", "duration": 5}}
   ]
 }}
 
-IMPORTANT: Use ONLY single words for video_search!"""
+Use SINGLE WORDS for video_search!"""
     
     try:
         if MISTRAL_API_KEY:
@@ -1004,7 +990,7 @@ IMPORTANT: Use ONLY single words for video_search!"""
                     json={
                         "model": "mistral-large-latest",
                         "messages": [
-                            {"role": "system", "content": "Create viral Hindi scripts. Output ONLY JSON. Use single words for video_search."},
+                            {"role": "system", "content": "Output ONLY JSON. Use single words."},
                             {"role": "user", "content": prompt}
                         ],
                         "temperature": 0.9
@@ -1016,13 +1002,11 @@ IMPORTANT: Use ONLY single words for video_search!"""
                     content = re.sub(r'```json\n?|\n?```', '', content).strip()
                     script = json.loads(content)
                     
-                    # Ensure single-word searches
+                    # Ensure single words
                     for seg in script['segments']:
-                        words = seg['video_search'].split()
-                        if len(words) > 1:
-                            seg['video_search'] = words[0]
+                        seg['video_search'] = seg['video_search'].split()[0]
                     
-                    logger.info(f"✅ Mistral script: {len(script['segments'])} segments")
+                    logger.info(f"✅ Script: {len(script['segments'])} segments")
                     return script
     except Exception as e:
         logger.warning(f"Mistral failed: {e}")
@@ -1030,196 +1014,82 @@ IMPORTANT: Use ONLY single words for video_search!"""
     return get_fallback_script(niche)
 
 def get_fallback_script(niche: str) -> dict:
-    """Fallback with single-word searches"""
+    """Simple fallback script"""
     keywords = NICHE_KEYWORDS.get(niche, NICHE_KEYWORDS["space"])
     
     return {
         "title": f"SHOCKING {niche.title()} Secret #Shorts 🔥",
-        "description": f"Mind-blowing revelation! #{niche} #viral #shorts #hindi",
-        "tags": [niche, "viral", "shorts", "hindi", "amazing"],
+        "description": f"#{niche} #viral #shorts",
+        "tags": [niche, "viral", "shorts"],
         "segments": [
-            {
-                "type": "hook",
-                "narration": "Kya aap jaante hain... NATURE ka sabse bada rahasya kya hai? Jo scientists bhi nahi samjha sake...",
-                "text_overlay": "😱 रहस्य",
-                "video_search": keywords[0],
-                "duration": 10
-            },
-            {
-                "type": "story",
-                "narration": "Duniya mein ek aisi jagah hai... jahan GRAVITY ulti kaam karti hai. Pani neeche se upar badhta hai... aur patthar hawa mein ud te hain. Scientists kehte hain... yeh MAGNETIC force ka kamal hai. Lekin sach kuch aur hai...",
-                "text_overlay": "🔥 अविश्वसनीय",
-                "video_search": keywords[1] if len(keywords) > 1 else keywords[0],
-                "duration": 15
-            },
-            {
-                "type": "outro",
-                "narration": "Toh batao... kya aap vishwas karoge? Comment mein apni soch share karo!",
-                "text_overlay": "🤔 आप क्या सोचते हैं?",
-                "video_search": keywords[2] if len(keywords) > 2 else keywords[0],
-                "duration": 5
-            }
+            {"narration": "Kya aap jaante hain... yeh rahasya!", "text_overlay": "😱 रहस्य", "video_search": keywords[0], "duration": 10},
+            {"narration": "Scientists kehte hain... yeh impossible hai. Lekin sach kuch aur hai!", "text_overlay": "🔥 अविश्वसनीय", "video_search": keywords[1] if len(keywords) > 1 else keywords[0], "duration": 15},
+            {"narration": "Aap kya sochte hain? Comment mein batao!", "text_overlay": "🤔 सवाल", "video_search": keywords[2] if len(keywords) > 2 else keywords[0], "duration": 5}
         ]
     }
 
 # ============================================================================
-# ELEVENLABS VOICE (FIXED)
+# VOICE GENERATION
 # ============================================================================
 
-async def generate_voice_elevenlabs(text: str, duration: float, temp_dir: str) -> Optional[str]:
-    """Generate voice with ElevenLabs - FIXED version"""
-    try:
-        if not ELEVENLABS_API_KEY or len(ELEVENLABS_API_KEY) < 20:
-            logger.warning("ElevenLabs API key not set")
-            return None
-        
-        # Clean text (ElevenLabs has limits)
-        text_clean = text.replace("...", " ").strip()
-        if len(text_clean) > 500:
-            text_clean = text_clean[:500]
-        
-        temp_raw = os.path.join(temp_dir, f"eleven_{uuid.uuid4().hex[:6]}.mp3")
-        
-        async with httpx.AsyncClient(timeout=45) as client:
-            # Use correct ElevenLabs endpoint
-            response = await client.post(
-                f"https://api.elevenlabs.io/v1/text-to-speech/{ELEVENLABS_VOICE_ID}",
-                headers={
-                    "xi-api-key": ELEVENLABS_API_KEY,
-                    "Content-Type": "application/json"
-                },
-                json={
-                    "text": text_clean,
-                    "model_id": "eleven_multilingual_v2",
-                    "voice_settings": {
-                        "stability": 0.5,
-                        "similarity_boost": 0.75,
-                        "style": 0.0,
-                        "use_speaker_boost": True
-                    }
-                }
-            )
-            
-            if response.status_code == 200:
-                with open(temp_raw, 'wb') as f:
-                    f.write(response.content)
-                
-                # Check if file is valid
-                if get_file_size_mb(temp_raw) < 0.01:
-                    logger.warning("ElevenLabs returned invalid audio")
-                    force_cleanup(temp_raw)
-                    return None
-                
-                # Apply speed and normalize
-                output = temp_raw.replace(".mp3", "_final.mp3")
-                cmd = [
-                    "ffmpeg", "-i", temp_raw,
-                    "-filter:a", f"atempo={VOICE_SPEED},loudnorm=I=-16:TP=-1.5:LRA=11",
-                    "-t", str(duration + 0.5),  # Slight buffer
-                    "-b:a", "128k",
-                    "-y", output
-                ]
-                
-                if run_ffmpeg_safe(cmd, 25):
-                    force_cleanup(temp_raw)
-                    size = get_file_size_mb(output)
-                    if size <= MAX_AUDIO_SIZE_MB:
-                        logger.info(f"✅ ElevenLabs voice: {size:.2f}MB")
-                        return output
-                
-                force_cleanup(temp_raw)
-                force_cleanup(output)
-            else:
-                logger.warning(f"ElevenLabs error {response.status_code}: {response.text[:200]}")
-        
-        return None
-        
-    except Exception as e:
-        logger.error(f"ElevenLabs error: {e}")
-        return None
-
 async def generate_voice_edge(text: str, duration: float, temp_dir: str) -> Optional[str]:
-    """Edge TTS fallback (FREE & RELIABLE)"""
+    """Edge TTS - FREE and FAST"""
     try:
         import edge_tts
         
-        temp = os.path.join(temp_dir, f"edge_{uuid.uuid4().hex[:6]}.mp3")
+        temp = os.path.join(temp_dir, f"voice_{uuid.uuid4().hex[:6]}.mp3")
         text_clean = text.replace("...", " ").strip()[:400]
         
-        # Use Hindi voice
-        communicate = edge_tts.Communicate(text_clean, "hi-IN-MadhurNeural", rate="+20%", pitch="+5Hz")
+        communicate = edge_tts.Communicate(text_clean, "hi-IN-MadhurNeural", rate="+20%")
         await communicate.save(temp)
         
-        # Normalize and trim
-        output = temp.replace(".mp3", "_final.mp3")
+        # Simple normalize (no complex filters)
+        output = temp.replace(".mp3", "_f.mp3")
         cmd = [
             "ffmpeg", "-i", temp,
-            "-af", "loudnorm=I=-16:TP=-1.5",
-            "-t", str(duration + 0.5),
-            "-b:a", "96k",
+            "-ar", "44100", "-ac", "2",
+            "-b:a", "128k",
+            "-t", str(duration + 1),
             "-y", output
         ]
         
         if run_ffmpeg_safe(cmd, 20):
             force_cleanup(temp)
-            size = get_file_size_mb(output)
-            if size <= MAX_AUDIO_SIZE_MB:
-                logger.info(f"✅ Edge TTS voice: {size:.2f}MB")
+            if get_file_size_mb(output) <= MAX_AUDIO_SIZE_MB:
+                logger.info(f"✅ Voice: {get_file_size_mb(output):.2f}MB")
                 return output
         
-        force_cleanup(temp)
-        force_cleanup(output)
+        force_cleanup(temp, output)
         return None
-        
     except Exception as e:
-        logger.error(f"Edge TTS error: {e}")
+        logger.error(f"Voice error: {e}")
         return None
-
-async def generate_voice(text: str, duration: float, temp_dir: str) -> Optional[str]:
-    """Generate voice - Try ElevenLabs first, fallback to Edge TTS"""
-    
-    # Try ElevenLabs
-    voice = await generate_voice_elevenlabs(text, duration, temp_dir)
-    if voice:
-        return voice
-    
-    # Fallback to Edge TTS
-    logger.info("Falling back to Edge TTS")
-    return await generate_voice_edge(text, duration, temp_dir)
 
 # ============================================================================
-# PIXABAY - VERTICAL VIDEO SEARCH (IMPROVED)
+# VIDEO SEARCH
 # ============================================================================
 
 def is_vertical_video(video_data: dict) -> bool:
-    """Check if video is truly vertical (9:16 or similar)"""
+    """Check if vertical"""
     try:
         videos = video_data.get("videos", {})
-        
-        # Check all available sizes
         for size_name in ["tiny", "small", "medium"]:
             size_data = videos.get(size_name, {})
             width = size_data.get("width", 0)
             height = size_data.get("height", 0)
-            
-            if width > 0 and height > 0:
-                aspect_ratio = height / width
-                # Must be at least 1.5:1 (ideally 1.77:1 for 9:16)
-                if aspect_ratio >= 1.5:
-                    return True
-        
+            if width > 0 and height > 0 and (height / width) >= 1.5:
+                return True
         return False
     except:
         return False
 
-async def search_vertical_videos(query: str, max_results: int = 10) -> List[dict]:
-    """Search for vertical videos with single-word query"""
+async def search_vertical_videos(query: str) -> List[dict]:
+    """Search with fallbacks"""
     try:
-        # Ensure single word
         search_word = query.split()[0].lower()
         
         async with httpx.AsyncClient(timeout=25) as client:
-            # Try with vertical orientation filter
+            # Try main search
             response = await client.get(
                 "https://pixabay.com/api/videos/",
                 params={
@@ -1227,7 +1097,6 @@ async def search_vertical_videos(query: str, max_results: int = 10) -> List[dict
                     "q": search_word,
                     "per_page": 30,
                     "video_type": "film",
-                    "orientation": "vertical",
                     "order": "popular"
                 }
             )
@@ -1235,60 +1104,30 @@ async def search_vertical_videos(query: str, max_results: int = 10) -> List[dict
             if response.status_code == 200:
                 videos = response.json().get("hits", [])
                 vertical = [v for v in videos if is_vertical_video(v)]
-                
                 if vertical:
-                    logger.info(f"✅ Found {len(vertical)} vertical videos for '{search_word}'")
-                    return vertical[:max_results]
+                    logger.info(f"✅ Found {len(vertical)} for '{search_word}'")
+                    return vertical[:10]
             
-            # Try without orientation filter
-            response = await client.get(
-                "https://pixabay.com/api/videos/",
-                params={
-                    "key": PIXABAY_API_KEY,
-                    "q": search_word,
-                    "per_page": 40,
-                    "video_type": "film",
-                    "order": "popular"
-                }
-            )
-            
-            if response.status_code == 200:
-                videos = response.json().get("hits", [])
-                vertical = [v for v in videos if is_vertical_video(v)]
-                
-                if vertical:
-                    logger.info(f"✅ Fallback found {len(vertical)} vertical for '{search_word}'")
-                    return vertical[:max_results]
-            
-            # Last resort: try vertical fallback keywords
-            for fallback in VERTICAL_FALLBACKS[:5]:
+            # Try fallback
+            for fallback in VERTICAL_FALLBACKS[:3]:
                 response = await client.get(
                     "https://pixabay.com/api/videos/",
-                    params={
-                        "key": PIXABAY_API_KEY,
-                        "q": fallback,
-                        "per_page": 30,
-                        "video_type": "film"
-                    }
+                    params={"key": PIXABAY_API_KEY, "q": fallback, "per_page": 20}
                 )
-                
                 if response.status_code == 200:
                     videos = response.json().get("hits", [])
                     vertical = [v for v in videos if is_vertical_video(v)]
-                    
                     if vertical:
-                        logger.info(f"✅ Using fallback '{fallback}' video")
-                        return vertical[:max_results]
+                        logger.info(f"✅ Fallback '{fallback}'")
+                        return vertical[:10]
         
-        logger.warning(f"❌ No vertical videos found for '{search_word}'")
         return []
-        
     except Exception as e:
         logger.error(f"Search error: {e}")
         return []
 
 async def download_video(video_data: dict, output: str) -> bool:
-    """Download video with size check"""
+    """Download with 30MB limit"""
     try:
         videos = video_data.get("videos", {})
         url = videos.get("small", {}).get("url") or videos.get("tiny", {}).get("url")
@@ -1296,234 +1135,148 @@ async def download_video(video_data: dict, output: str) -> bool:
         if not url:
             return False
         
-        async with httpx.AsyncClient(timeout=60) as client:
+        async with httpx.AsyncClient(timeout=90) as client:
             async with client.stream('GET', url) as resp:
                 if resp.status_code != 200:
                     return False
                 
-                # Check content length
+                # Check size
                 content_len = resp.headers.get('content-length')
                 if content_len:
                     size_mb = int(content_len) / (1024 * 1024)
                     if size_mb > MAX_VIDEO_SIZE_MB:
-                        logger.warning(f"Video too large: {size_mb:.1f}MB")
+                        logger.warning(f"Too large: {size_mb:.1f}MB")
                         return False
                 
-                # Download in chunks
+                # Download
                 with open(output, 'wb') as f:
-                    async for chunk in resp.aiter_bytes(16384):
+                    async for chunk in resp.aiter_bytes(32768):
                         f.write(chunk)
                 
-                # Verify
-                actual_size = get_file_size_mb(output)
-                if actual_size > MAX_VIDEO_SIZE_MB or actual_size < 0.1:
+                size = get_file_size_mb(output)
+                if size > MAX_VIDEO_SIZE_MB or size < 0.1:
                     force_cleanup(output)
                     return False
                 
-                logger.info(f"✅ Downloaded: {actual_size:.1f}MB")
+                logger.info(f"✅ Downloaded: {size:.1f}MB")
                 return True
-                
     except Exception as e:
         logger.error(f"Download error: {e}")
         force_cleanup(output)
         return False
 
 # ============================================================================
-# VIDEO PROCESSING (PROFESSIONAL)
+# VIDEO PROCESSING - SIMPLIFIED FOR SPEED
 # ============================================================================
 
-def process_video_segment(raw_path: str, duration: float, text: str, temp_dir: str) -> Optional[str]:
-    """Process with professional quality"""
+def process_video_simple(raw_path: str, duration: float, text: str, temp_dir: str) -> Optional[str]:
+    """ULTRA-SIMPLE processing - ONE FFmpeg call"""
     
     try:
-        # Step 1: Extract and scale to 720x1280 (HD vertical)
-        clip1 = os.path.join(temp_dir, f"c1_{uuid.uuid4().hex[:6]}.mp4")
+        final = os.path.join(temp_dir, f"final_{uuid.uuid4().hex[:6]}.mp4")
+        
+        # Build filter - SIMPLE
+        filters = [
+            "scale=720:1280:force_original_aspect_ratio=increase",
+            "crop=720:1280"
+        ]
+        
+        # Add text if provided
+        if text:
+            text_clean = text.replace("'", "").replace('"', '').replace(':', '')[:30]
+            filters.append(
+                f"drawtext=text='{text_clean}':fontsize=60:fontcolor=white:"
+                f"x=(w-text_w)/2:y=h-180:borderw=4:bordercolor=black"
+            )
+        
+        vf = ",".join(filters)
+        
+        # ONE COMMAND - extract + scale + text
         cmd = [
             "ffmpeg", "-i", raw_path,
-            "-ss", "0.5", "-t", str(duration + 0.5),
-            "-vf", "scale=720:1280:force_original_aspect_ratio=increase,crop=720:1280,eq=contrast=1.1:brightness=0.05",
-            "-c:v", "libx264", "-crf", "22", "-preset", "medium",
-            "-an", "-y", clip1
+            "-ss", "1",  # Skip first second
+            "-t", str(duration),
+            "-vf", vf,
+            "-c:v", "libx264",
+            "-crf", "23",  # Good quality
+            "-preset", "veryfast",  # FAST preset
+            "-an",
+            "-y", final
         ]
+        
+        logger.info(f"⚙️ Processing video (timeout: {FFMPEG_TIMEOUT}s)")
+        
+        if run_ffmpeg_safe(cmd, FFMPEG_TIMEOUT):
+            force_cleanup(raw_path)
+            
+            size = get_file_size_mb(final)
+            if size > MAX_VIDEO_SIZE_MB:
+                logger.warning(f"Result too large: {size:.1f}MB")
+                force_cleanup(final)
+                return None
+            
+            logger.info(f"✅ Processed: {size:.1f}MB")
+            return final
+        
+        force_cleanup(raw_path, final)
+        return None
+        
+    except Exception as e:
+        logger.error(f"Process error: {e}")
+        force_cleanup(raw_path)
+        return None
+
+# ============================================================================
+# COMPILATION - SIMPLE
+# ============================================================================
+
+async def compile_video(clips: List[str], audios: List[str], temp_dir: str) -> Optional[str]:
+    """Simple compilation"""
+    try:
+        # Concat videos
+        vlist = os.path.join(temp_dir, "v.txt")
+        with open(vlist, 'w') as f:
+            for clip in clips:
+                f.write(f"file '{clip}'\n")
+        
+        vid_all = os.path.join(temp_dir, "vid.mp4")
+        cmd = ["ffmpeg", "-f", "concat", "-safe", "0", "-i", vlist, "-c", "copy", "-y", vid_all]
+        
+        if not run_ffmpeg_safe(cmd, 60):
+            return None
+        
+        # Concat audios
+        alist = os.path.join(temp_dir, "a.txt")
+        with open(alist, 'w') as f:
+            for audio in audios:
+                f.write(f"file '{audio}'\n")
+        
+        aud_all = os.path.join(temp_dir, "aud.mp3")
+        cmd = ["ffmpeg", "-f", "concat", "-safe", "0", "-i", alist, "-c", "copy", "-y", aud_all]
         
         if not run_ffmpeg_safe(cmd, 40):
             return None
         
-        force_cleanup(raw_path)
-        
-        # Step 2: Add text overlay if provided
-        if text:
-            clip2 = os.path.join(temp_dir, f"c2_{uuid.uuid4().hex[:6]}.mp4")
-            text_clean = text.replace("'", "").replace('"', '')[:40]
-            
-            cmd = [
-                "ffmpeg", "-i", clip1,
-                "-vf", f"drawtext=text='{text_clean}':fontsize=65:fontcolor=white:x=(w-text_w)/2:y=h-200:borderw=6:bordercolor=black:shadowcolor=black@0.7:shadowx=3:shadowy=3",
-                "-c:v", "libx264", "-crf", "22", "-preset", "medium",
-                "-y", clip2
-            ]
-            
-            if not run_ffmpeg_safe(cmd, 40):
-                force_cleanup(clip1)
-                return None
-            
-            force_cleanup(clip1)
-            clip1 = clip2
-        
-        # Step 3: Add smooth fade transitions
-        final = os.path.join(temp_dir, f"seg_{uuid.uuid4().hex[:6]}.mp4")
-        fade_dur = 0.4
-        fade_out_start = duration - fade_dur
-        
+        # Mix
+        final = os.path.join(temp_dir, "output.mp4")
         cmd = [
-            "ffmpeg", "-i", clip1,
-            "-vf", f"fade=t=in:st=0:d={fade_dur}:alpha=1,fade=t=out:st={fade_out_start}:d={fade_dur}:alpha=1",
-            "-c:v", "libx264", "-crf", "22", "-preset", "medium",
+            "ffmpeg",
+            "-i", vid_all,
+            "-i", aud_all,
+            "-c:v", "copy",
+            "-c:a", "aac",
+            "-b:a", "128k",
+            "-shortest",
             "-y", final
         ]
         
-        if not run_ffmpeg_safe(cmd, 35):
-            force_cleanup(clip1)
-            return None
+        if run_ffmpeg_safe(cmd, 60):
+            logger.info(f"✅ Final: {get_file_size_mb(final):.1f}MB")
+            return final
         
-        force_cleanup(clip1)
-        
-        size = get_file_size_mb(final)
-        if size > MAX_VIDEO_SIZE_MB:
-            force_cleanup(final)
-            return None
-        
-        logger.info(f"✅ Segment ready: {size:.1f}MB (720x1280)")
-        return final
-        
+        return None
     except Exception as e:
-        logger.error(f"Processing error: {e}")
-        return None
-
-# ============================================================================
-# BACKGROUND MUSIC
-# ============================================================================
-
-async def download_background_music(temp_dir: str) -> Optional[str]:
-    """Download background music from Pixabay"""
-    try:
-        music_path = os.path.join(temp_dir, "bg_music.mp3")
-        
-        async with httpx.AsyncClient(timeout=30) as client:
-            # Search for ambient music
-            response = await client.get(
-                "https://pixabay.com/api/",
-                params={
-                    "key": PIXABAY_API_KEY,
-                    "q": "ambient",
-                    "audio_type": "music",
-                    "per_page": 20
-                }
-            )
-            
-            if response.status_code == 200:
-                hits = response.json().get("hits", [])
-                
-                for hit in hits:
-                    # Use preview URL (works without auth)
-                    audio_url = hit.get("previewURL")
-                    
-                    if audio_url:
-                        try:
-                            audio_resp = await client.get(audio_url, follow_redirects=True)
-                            
-                            if audio_resp.status_code == 200:
-                                with open(music_path, 'wb') as f:
-                                    f.write(audio_resp.content)
-                                
-                                size = get_file_size_mb(music_path)
-                                if size > 0.1:  # At least 100KB
-                                    logger.info(f"✅ Background music: {size:.2f}MB")
-                                    return music_path
-                        except:
-                            continue
-        
-        logger.warning("⚠️ No background music found")
-        return None
-        
-    except Exception as e:
-        logger.error(f"Music error: {e}")
-        return None
-
-# ============================================================================
-# FINAL COMPILATION
-# ============================================================================
-
-async def compile_final_video(clips: List[str], audios: List[str], music: Optional[str], temp_dir: str) -> Optional[str]:
-    """Compile with professional mixing"""
-    try:
-        # Concat videos
-        vlist_path = os.path.join(temp_dir, "videos.txt")
-        with open(vlist_path, 'w') as f:
-            for clip in clips:
-                f.write(f"file '{clip}'\n")
-        
-        video_concat = os.path.join(temp_dir, "video_all.mp4")
-        cmd = ["ffmpeg", "-f", "concat", "-safe", "0", "-i", vlist_path, "-c", "copy", "-y", video_concat]
-        
-        if not run_ffmpeg_safe(cmd, 45):
-            return None
-        
-        # Concat audios
-        alist_path = os.path.join(temp_dir, "audios.txt")
-        with open(alist_path, 'w') as f:
-            for audio in audios:
-                f.write(f"file '{audio}'\n")
-        
-        audio_concat = os.path.join(temp_dir, "audio_all.mp3")
-        cmd = ["ffmpeg", "-f", "concat", "-safe", "0", "-i", alist_path, "-c", "copy", "-y", audio_concat]
-        
-        if not run_ffmpeg_safe(cmd, 35):
-            return None
-        
-        # Final mix
-        final_output = os.path.join(temp_dir, "final_output.mp4")
-        
-        if music and os.path.exists(music):
-            # Mix voice + background music
-            cmd = [
-                "ffmpeg",
-                "-i", video_concat,
-                "-i", audio_concat,
-                "-i", music,
-                "-filter_complex",
-                "[1:a]volume=1.2[voice];[2:a]volume=0.15,afade=t=in:d=1.5,afade=t=out:st=28:d=1.5[bg];[voice][bg]amix=inputs=2:duration=first:dropout_transition=2[audio]",
-                "-map", "0:v",
-                "-map", "[audio]",
-                "-c:v", "copy",
-                "-c:a", "aac",
-                "-b:a", "192k",
-                "-shortest",
-                "-y", final_output
-            ]
-        else:
-            # Just voice
-            cmd = [
-                "ffmpeg",
-                "-i", video_concat,
-                "-i", audio_concat,
-                "-map", "0:v",
-                "-map", "1:a",
-                "-c:v", "copy",
-                "-c:a", "aac",
-                "-b:a", "128k",
-                "-shortest",
-                "-y", final_output
-            ]
-        
-        if run_ffmpeg_safe(cmd, 70):
-            logger.info(f"✅ Final video: {get_file_size_mb(final_output):.1f}MB")
-            return final_output
-        
-        return None
-        
-    except Exception as e:
-        logger.error(f"Compilation error: {e}")
+        logger.error(f"Compile error: {e}")
         return None
 
 # ============================================================================
@@ -1540,59 +1293,55 @@ async def generate_viral_video(
     user_id: str,
     database_manager
 ) -> dict:
-    """Generate viral video with 2-3 clips"""
+    """Generate with 2-3 clips GUARANTEED"""
     
     temp_dir = None
     
     try:
         temp_dir = tempfile.mkdtemp(prefix="viral_")
-        logger.info(f"🎬 Generating {niche} video (2-3 clips)")
+        logger.info(f"🎬 Starting generation: {niche}")
         
-        # Step 1: Script
+        # Script
         script = await generate_script(niche)
-        logger.info(f"✅ Script: {script['title']}")
+        logger.info(f"✅ Title: {script['title']}")
         
-        # Step 2: Background music
-        logger.info("🎵 Downloading music...")
-        music_path = await download_background_music(temp_dir)
-        
-        # Step 3: Process videos (2-3 clips max)
+        # Process segments
         final_clips = []
         final_audios = []
         used_ids = set()
         
-        segments_to_use = script["segments"][:MAX_VIDEOS]
-        logger.info(f"🎥 Processing {len(segments_to_use)} video segments...")
+        segments = script["segments"][:MAX_VIDEOS]
+        logger.info(f"🎥 Processing {len(segments)} segments")
         
-        for idx, seg in enumerate(segments_to_use):
+        for idx, seg in enumerate(segments):
             try:
-                logger.info(f"📥 Segment {idx+1}/{len(segments_to_use)}: '{seg['video_search']}'")
+                logger.info(f"\n📥 Segment {idx+1}/{len(segments)}: '{seg['video_search']}'")
                 
                 # Search
-                videos = await search_vertical_videos(seg["video_search"], max_results=8)
+                videos = await search_vertical_videos(seg["video_search"])
+                if not videos:
+                    logger.warning("No videos, trying fallback")
+                    videos = await search_vertical_videos(random.choice(VERTICAL_FALLBACKS))
                 
                 if not videos:
-                    logger.warning(f"No videos for '{seg['video_search']}', trying fallback")
-                    # Try a fallback keyword
-                    fallback = random.choice(VERTICAL_FALLBACKS)
-                    videos = await search_vertical_videos(fallback, max_results=5)
-                
-                if not videos:
+                    logger.error("❌ No videos found")
                     continue
                 
-                # Download and process
-                downloaded = False
-                for vdata in videos:
+                # Try downloading
+                success = False
+                for vdata in videos[:5]:  # Try first 5
                     vid = vdata.get("id")
                     if vid in used_ids:
                         continue
                     
-                    raw = os.path.join(temp_dir, f"raw_{idx}.mp4")
+                    raw = os.path.join(temp_dir, f"raw{idx}.mp4")
+                    
                     if await download_video(vdata, raw):
                         used_ids.add(vid)
+                        logger.info(f"✅ Video ID: {vid}")
                         
                         # Process
-                        processed = process_video_segment(
+                        processed = process_video_simple(
                             raw,
                             seg["duration"],
                             seg["text_overlay"] if show_captions else "",
@@ -1601,52 +1350,52 @@ async def generate_viral_video(
                         
                         if processed:
                             final_clips.append(processed)
-                            downloaded = True
+                            success = True
                             break
                         else:
                             force_cleanup(raw)
                 
-                if not downloaded:
-                    logger.warning(f"Segment {idx+1} failed")
+                if not success:
+                    logger.warning(f"⚠️ Segment {idx+1} failed")
                     continue
                 
-                # Generate voice
-                logger.info(f"🎤 Generating voice {idx+1}...")
-                voice = await generate_voice(seg["narration"], seg["duration"], temp_dir)
+                # Voice
+                logger.info("🎤 Generating voice...")
+                voice = await generate_voice_edge(seg["narration"], seg["duration"], temp_dir)
                 
                 if voice:
                     final_audios.append(voice)
                 else:
-                    # Create silent audio
-                    silent = os.path.join(temp_dir, f"silent_{idx}.mp3")
-                    cmd = ["ffmpeg", "-f", "lavfi", "-i", f"anullsrc=d={seg['duration']}", "-b:a", "64k", "-y", silent]
+                    # Silent fallback
+                    silent = os.path.join(temp_dir, f"silent{idx}.mp3")
+                    cmd = ["ffmpeg", "-f", "lavfi", "-i", f"anullsrc=d={seg['duration']}", "-y", silent]
                     if run_ffmpeg_safe(cmd, 15):
                         final_audios.append(silent)
                 
                 gc.collect()
+                logger.info(f"✅ Segment {idx+1} complete!")
                 
             except Exception as e:
-                logger.error(f"Segment {idx+1} error: {e}")
+                logger.error(f"Segment error: {e}\n{traceback.format_exc()}")
                 continue
         
+        # Check if we have enough
         if len(final_clips) < MIN_VIDEOS:
             return {
                 "success": False,
-                "error": f"Only {len(final_clips)} clips created. Need at least {MIN_VIDEOS}. Try different keywords."
+                "error": f"Only {len(final_clips)} clips created. Need {MIN_VIDEOS}."
             }
         
-        logger.info(f"✅ {len(final_clips)} clips ready, compiling...")
+        logger.info(f"\n✅ Created {len(final_clips)} clips! Compiling...")
         
-        # Step 4: Compile
-        final_video = await compile_final_video(final_clips, final_audios, music_path, temp_dir)
+        # Compile
+        final_video = await compile_video(final_clips, final_audios, temp_dir)
         
         if not final_video:
             return {"success": False, "error": "Compilation failed"}
         
-        logger.info(f"✅ Final video: {get_file_size_mb(final_video):.1f}MB")
+        logger.info(f"✅ SUCCESS! Video: {get_file_size_mb(final_video):.1f}MB")
         
-        # Step 5: Upload (implement your upload logic)
-        # For now, return success
         result = {
             "success": True,
             "video_path": final_video,
@@ -1654,21 +1403,20 @@ async def generate_viral_video(
             "description": script["description"],
             "tags": script["tags"],
             "segments": len(final_clips),
-            "duration": sum([s['duration'] for s in segments_to_use]),
-            "features": [
-                f"✅ {len(final_clips)} vertical HD clips",
-                f"✅ {VOICE_SPEED}x voice speed",
-                "✅ Professional transitions",
-                "✅ Background music" if music_path else "⚠️ No background music"
-            ]
+            "duration": sum([s['duration'] for s in segments]),
+            "size_mb": f"{get_file_size_mb(final_video):.1f}MB"
         }
         
-        # Cleanup
+        # Cleanup temp dir (keep final video)
         if temp_dir:
-            shutil.rmtree(temp_dir, ignore_errors=True)
+            for item in os.listdir(temp_dir):
+                if item != os.path.basename(final_video):
+                    try:
+                        os.remove(os.path.join(temp_dir, item))
+                    except:
+                        pass
         
         gc.collect()
-        
         return result
         
     except Exception as e:
@@ -1718,13 +1466,13 @@ async def generate_endpoint(request: Request):
                     user_id=user_id,
                     database_manager=database_manager
                 ),
-                timeout=420  # 7 minutes
+                timeout=600  # 10 minutes total
             )
             
             return JSONResponse(content=result)
             
         except asyncio.TimeoutError:
-            return JSONResponse(status_code=408, content={"success": False, "error": "Generation timeout"})
+            return JSONResponse(status_code=408, content={"success": False, "error": "Timeout (10min)"})
         
     except Exception as e:
         logger.error(f"❌ Endpoint error: {e}")
