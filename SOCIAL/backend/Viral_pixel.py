@@ -858,12 +858,12 @@
 
 
 """
-Viral_pixel.py - BULLETPROOF VERSION
-✅ ENGLISH-ONLY searches (no Hindi keywords)
-✅ Skip videos >25MB immediately
-✅ Ultra-fast FFmpeg (ultrafast preset)
-✅ Better fallback system
-✅ 90-second timeout per operation
+Viral_pixel.py - ONE VIDEO STRATEGY
+✅ Download ONE video (up to 100MB)
+✅ Reuse for ALL segments (different timestamps)
+✅ FULL engaging script: Hook → Story → Suspense → Outro
+✅ 120-150 words per segment for natural pacing
+✅ Ultra-fast processing (no re-downloads)
 """
 
 from fastapi import APIRouter, Request
@@ -892,31 +892,29 @@ logger = logging.getLogger(__name__)
 PIXABAY_API_KEY = os.getenv("PIXABAY_API_KEY", "54364709-1e6532279f08847859d5bea5e")
 MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY")
 
-# RELAXED LIMITS
-MAX_VIDEO_SIZE_MB = 25  # Skip larger videos immediately
+# RELAXED LIMITS - ONE VIDEO STRATEGY
+MAX_VIDEO_SIZE_MB = 100  # Allow larger video (used for all segments)
 MAX_AUDIO_SIZE_MB = 3
 VOICE_SPEED = 1.15
-MIN_VIDEOS = 2
-MAX_VIDEOS = 3
-FFMPEG_TIMEOUT = 90  # Increased to 90 seconds
+MIN_VIDEOS = 1  # Only need 1 video!
+MAX_VIDEOS = 1  # Only download 1 video
+FFMPEG_TIMEOUT = 90
 
-# ENGLISH-ONLY KEYWORDS (no Hindi!)
+# ENGLISH KEYWORDS
 NICHE_KEYWORDS = {
-    "space": ["galaxy", "nebula", "planet", "cosmos", "stars", "moon", "asteroid"],
-    "tech_ai": ["technology", "digital", "cyber", "future", "data", "robot"],
-    "ocean": ["ocean", "wave", "underwater", "reef", "beach", "dolphin"],
-    "nature": ["mountain", "forest", "lake", "sunrise", "sunset", "river", "valley", "desert"]
+    "space": ["galaxy", "nebula", "planet", "cosmos", "stars", "universe", "astronomy"],
+    "tech_ai": ["technology", "digital", "cyber", "future", "data", "robot", "ai"],
+    "ocean": ["ocean", "wave", "underwater", "reef", "beach", "dolphin", "sea"],
+    "nature": ["mountain", "forest", "lake", "sunrise", "sunset", "river", "canyon", "desert"]
 }
 
-# DIVERSE FALLBACKS (avoid waterfall - it's too large!)
-VERTICAL_FALLBACKS = ["tower", "tree", "skyscraper", "lighthouse", "canyon", "cliff", "rocket", "building"]
+VERTICAL_FALLBACKS = ["tower", "skyscraper", "building", "tree", "lighthouse", "rocket"]
 
 # ============================================================================
 # UTILITIES
 # ============================================================================
 
 def force_cleanup(*filepaths):
-    """Cleanup files"""
     for filepath in filepaths:
         try:
             if filepath and os.path.exists(filepath):
@@ -933,66 +931,279 @@ def get_file_size_mb(filepath: str) -> float:
         return 0
 
 def run_ffmpeg_safe(cmd: list, timeout: int = FFMPEG_TIMEOUT) -> bool:
-    """Run FFmpeg with logging"""
     try:
-        result = subprocess.run(
-            cmd, 
-            capture_output=True, 
-            timeout=timeout, 
-            check=False,
-            text=True
-        )
-        
+        result = subprocess.run(cmd, capture_output=True, timeout=timeout, check=False, text=True)
         if result.returncode != 0:
-            logger.error(f"FFmpeg failed: {result.stderr[:300]}")
+            logger.error(f"FFmpeg: {result.stderr[:200]}")
             return False
-        
         return True
     except subprocess.TimeoutExpired:
-        logger.error(f"❌ Timeout after {timeout}s")
+        logger.error(f"❌ Timeout {timeout}s")
         return False
     except Exception as e:
         logger.error(f"FFmpeg error: {e}")
         return False
 
 # ============================================================================
-# SCRIPT - FORCE ENGLISH KEYWORDS
+# FULL ENGAGING SCRIPT WITH HOOKS & SUSPENSE
 # ============================================================================
 
-async def generate_script(niche: str) -> dict:
-    """Generate script - ENGLISH keywords only"""
+async def generate_full_script(niche: str) -> dict:
+    """Generate FULL engaging script with proper structure"""
     
-    keywords = NICHE_KEYWORDS.get(niche, NICHE_KEYWORDS["space"])
+    niche_info = NICHE_KEYWORDS.get(niche, NICHE_KEYWORDS["space"])
     
-    # Force fallback (no Mistral - causes Hindi keywords)
-    logger.info("Using fallback script (English keywords)")
-    return get_fallback_script(niche, keywords)
+    prompt = f"""Create a VIRAL 30-second Hindi YouTube Shorts script about {niche}.
 
-def get_fallback_script(niche: str, keywords: list) -> dict:
-    """Simple English script"""
+STRUCTURE (MUST FOLLOW):
+1. HOOK (8 seconds, 120-130 words):
+   - Start with curiosity: "Kya aap jaante hain..."
+   - Create mystery or shock
+   - Use "CAPITAL" words for emphasis
+   - End with cliffhanger
+
+2. MAIN STORY (12 seconds, 180-200 words):
+   - Tell 2-3 amazing facts
+   - Use emotional language
+   - Build tension with "lekin...", "par..."
+   - Scientific backing: "Scientists kehte hain..."
+
+3. SUSPENSE/TWIST (7 seconds, 120-130 words):
+   - Reveal shocking truth: "Lekin sabse badi baat..."
+   - Challenge common belief
+   - Create urgency
+
+4. OUTRO (3 seconds, 50-60 words):
+   - Engaging question
+   - Call to action: "Comment mein batao"
+
+REQUIREMENTS:
+- Use "..." for dramatic pauses
+- CAPITALS for 3-4 key words per segment
+- Single ENGLISH word for video_search (like: "galaxy", "ocean", "mountain")
+- Emojis in text_overlay
+
+OUTPUT JSON:
+{{
+  "title": "Mind-Blowing {niche.title()} Secret #Shorts 🔥",
+  "description": "This will shock you! #{niche} #viral #shorts #hindi #facts",
+  "tags": ["{niche}", "viral", "shorts", "hindi", "facts", "amazing"],
+  "segments": [
+    {{
+      "type": "hook",
+      "narration": "Kya aap jaante hain... UNIVERSE mein ek aisi jagah hai... jahan TIME bilkul ruk jaata hai... aur koi bhi wapas nahi aa sakta. Scientists isko BLACK HOLE kehte hain... lekin yeh sirf space mein nahi... yeh humare paas bhi ho sakta hai...",
+      "text_overlay": "😱 क्या आप जानते हैं?",
+      "video_search": "galaxy",
+      "duration": 8
+    }},
+    {{
+      "type": "story",
+      "narration": "Jab koi STAR marta hai... toh woh itna compress ho jaata hai ki uski gravity INFINITE ho jaati hai. Light bhi escape nahi kar sakti... time slow ho jaata hai... aur agar aap 1 second black hole ke paas bitaao... toh Earth par 100 SAAL beet jaate hain. Scientists kehte hain... agar aap isme gire... toh aapka body spaghetti jaise stretch ho jaayega...",
+      "text_overlay": "🔥 सच्चाई",
+      "video_search": "nebula",
+      "duration": 12
+    }},
+    {{
+      "type": "suspense",
+      "narration": "Lekin sabse SCARY baat... hamare Milky Way ke center mein... ek SUPERMASSIVE black hole hai... jiska naam Sagittarius A* hai. Yeh 4 million suns se zyada bhaari hai... aur ek din... yeh humein nigal sakta hai...",
+      "text_overlay": "💡 खतरा",
+      "video_search": "cosmos",
+      "duration": 7
+    }},
+    {{
+      "type": "outro",
+      "narration": "Toh batao... kya aap black hole mein jaana chahoge? Comment mein apni soch share karo!",
+      "text_overlay": "🤔 आपकी राय?",
+      "video_search": "stars",
+      "duration": 3
+    }}
+  ]
+}}
+
+IMPORTANT: Use ONLY single ENGLISH words for video_search!"""
     
+    try:
+        if MISTRAL_API_KEY:
+            async with httpx.AsyncClient(timeout=40) as client:
+                response = await client.post(
+                    "https://api.mistral.ai/v1/chat/completions",
+                    headers={"Authorization": f"Bearer {MISTRAL_API_KEY}", "Content-Type": "application/json"},
+                    json={
+                        "model": "mistral-large-latest",
+                        "messages": [
+                            {"role": "system", "content": "You are a viral YouTube Shorts scriptwriter. Create engaging Hindi scripts with proper hooks, suspense, and emotional storytelling. Output ONLY valid JSON. Use single ENGLISH words for video_search."},
+                            {"role": "user", "content": prompt}
+                        ],
+                        "temperature": 0.95,
+                        "max_tokens": 2000
+                    }
+                )
+                
+                if response.status_code == 200:
+                    content = response.json()["choices"][0]["message"]["content"]
+                    content = re.sub(r'```json\n?|\n?```', '', content).strip()
+                    script = json.loads(content)
+                    
+                    # Ensure English keywords
+                    for seg in script['segments']:
+                        words = seg['video_search'].split()
+                        seg['video_search'] = words[0] if words[0].isascii() else random.choice(niche_info)
+                    
+                    logger.info(f"✅ Full script: {len(script['segments'])} segments")
+                    return script
+    except Exception as e:
+        logger.warning(f"Mistral failed: {e}")
+    
+    return get_fallback_full_script(niche, niche_info)
+
+def get_fallback_full_script(niche: str, keywords: list) -> dict:
+    """Detailed fallback script with full structure"""
+    
+    # Niche-specific scripts
+    if niche == "space":
+        return {
+            "title": "Black Hole का रहस्य जो आपको हिला देगा! 🌌 #Shorts",
+            "description": "Mind-blowing space facts! #space #blackhole #universe #viral #shorts #hindi #science",
+            "tags": ["space", "blackhole", "universe", "viral", "shorts", "hindi"],
+            "segments": [
+                {
+                    "type": "hook",
+                    "narration": "Kya aap jaante hain... UNIVERSE mein ek aisi jagah hai... jahan TIME bilkul ruk jaata hai... aur koi bhi cheez wapas nahi aa sakti. Scientists isko BLACK HOLE kehte hain... lekin yeh sirf space mein nahi... yeh humare galaxy ke center mein bhi hai...",
+                    "text_overlay": "😱 ब्लैक होल",
+                    "video_search": keywords[0],
+                    "duration": 8
+                },
+                {
+                    "type": "story",
+                    "narration": "Jab ek MASSIVE star marta hai... toh woh itna collapse ho jaata hai ki uski gravity INFINITE ho jaati hai. Light bhi escape nahi kar sakti isme se... time slow motion mein chalta hai... aur agar aap paas jaao... toh ek second aapka... Earth par 100 SAAL ke barabar ho jaata hai. Scientists kehte hain... agar aap isme gire... toh aapka body spaghetti jaise STRETCH ho jaayega... isko spaghettification kehte hain...",
+                    "text_overlay": "🔥 समय रुक जाता है",
+                    "video_search": keywords[1] if len(keywords) > 1 else keywords[0],
+                    "duration": 12
+                },
+                {
+                    "type": "suspense",
+                    "narration": "Lekin sabse SCARY baat yeh hai... hamare Milky Way galaxy ke bilkul center mein... ek SUPERMASSIVE black hole hai... jiska naam Sagittarius A Star hai. Yeh 4 MILLION suns se bhi zyada bhaari hai... aur yeh constantly hamari taraf aa raha hai...",
+                    "text_overlay": "💡 खतरे की घंटी",
+                    "video_search": keywords[2] if len(keywords) > 2 else keywords[0],
+                    "duration": 7
+                },
+                {
+                    "type": "outro",
+                    "narration": "Toh batao... kya tum black hole mein jaane ki himmat karoge? Comment mein apni soch batao!",
+                    "text_overlay": "🤔 आप क्या सोचते हैं?",
+                    "video_search": keywords[0],
+                    "duration": 3
+                }
+            ]
+        }
+    
+    elif niche == "nature":
+        return {
+            "title": "प्रकृति का सबसे बड़ा रहस्य! 🌿 #Shorts",
+            "description": "Nature's biggest secret revealed! #nature #mystery #viral #shorts #hindi #amazing",
+            "tags": ["nature", "mystery", "viral", "shorts", "hindi", "amazing"],
+            "segments": [
+                {
+                    "type": "hook",
+                    "narration": "Kya aap jaante hain... duniya mein ek aisi JAGAH hai... jahan gravity ULTI kaam karti hai... pani neeche se UPAR badhta hai... aur patthar hawa mein FLOAT karte hain. Scientists isko magnetic hill kehte hain... lekin sach kuch aur hai...",
+                    "text_overlay": "😱 गुरुत्वाकर्षण उल्टा",
+                    "video_search": keywords[0],
+                    "duration": 8
+                },
+                {
+                    "type": "story",
+                    "narration": "India ke Ladakh mein... ek aisi road hai jahan car apne aap UPHILL chali jaati hai... bina accelerator dabaye. Local log kehte hain yeh MAGIC hai... lekin scientists ka kehna hai... yeh optical illusion hai jahan road downhill lag rahi hoti hai... par actually UPHILL hoti hai. Lekin phir bhi... pani bhi ulta behta hai... trees bhi tilted hain... aur compass bhi GHOOM jaata hai...",
+                    "text_overlay": "🔥 कार अपने आप चलती है",
+                    "video_search": keywords[1] if len(keywords) > 1 else keywords[0],
+                    "duration": 12
+                },
+                {
+                    "type": "suspense",
+                    "narration": "Lekin sabse BADI baat... NASA ke scientists ne pata lagaya... ki yeh jagah electromagnetic radiation se bhara hua hai... aur underground ek MASSIVE magnetic deposit hai... jo gravity ko affect kar raha hai. Kuch kehte hain... yahan aliens ka connection hai...",
+                    "text_overlay": "💡 नासा का खुलासा",
+                    "video_search": keywords[2] if len(keywords) > 2 else keywords[0],
+                    "duration": 7
+                },
+                {
+                    "type": "outro",
+                    "narration": "Toh batao... kya tum yahan jaana chahoge? Comment mein batao!",
+                    "text_overlay": "🤔 आपकी राय?",
+                    "video_search": keywords[0],
+                    "duration": 3
+                }
+            ]
+        }
+    
+    elif niche == "ocean":
+        return {
+            "title": "समुद्र की सबसे खतरनाक जगह! 🌊 #Shorts",
+            "description": "Ocean's deadliest secret! #ocean #mystery #viral #shorts #hindi #scary",
+            "tags": ["ocean", "mystery", "viral", "shorts", "hindi", "scary"],
+            "segments": [
+                {
+                    "type": "hook",
+                    "narration": "Kya aap jaante hain... ocean ki depth mein... ek aisi DARK jagah hai... jahan koi light nahi pahunchti... temperature FREEZING hai... aur pressure itna hai ki aapka body instantly CRUSH ho jaayega. Scientists isko Mariana Trench kehte hain... lekin yahan kuch aur bhi hai...",
+                    "text_overlay": "😱 सबसे गहरी जगह",
+                    "video_search": keywords[0],
+                    "duration": 8
+                },
+                {
+                    "type": "story",
+                    "narration": "Yeh jagah Mount Everest se bhi ZYADA deep hai... 11 KILOMETER neeche... jahan sunlight kabhi nahi pahunchti. James Cameron yahan gaye the submarine mein... aur unhone bataya... yahan bilkul ALIEN world jaisa hai. Strange creatures hain... jo khud GLOW karte hain... kuch ke 100 teeth hain... aur kuch itne bade hain ki unka sirf head aapke room se bhi BADA hai...",
+                    "text_overlay": "🔥 11 किमी गहरा",
+                    "video_search": keywords[1] if len(keywords) > 1 else keywords[0],
+                    "duration": 12
+                },
+                {
+                    "type": "suspense",
+                    "narration": "Lekin sabse SCARY baat... scientists ne yahan... microphones lagaye... aur unhone suni... ek ajeeb si AWAAZ... jisko Bloop kehte hain. Yeh kisi bhi known creature se nahi match karti... matlab yahan kuch UNKNOWN hai... jo hum abhi tak nahi jaante...",
+                    "text_overlay": "💡 अनजान जीव",
+                    "video_search": keywords[2] if len(keywords) > 2 else keywords[0],
+                    "duration": 7
+                },
+                {
+                    "type": "outro",
+                    "narration": "Toh batao... kya tum yahan jaane ki himmat karoge? Comment mein batao!",
+                    "text_overlay": "🤔 हिम्मत है?",
+                    "video_search": keywords[0],
+                    "duration": 3
+                }
+            ]
+        }
+    
+    # Default fallback
     return {
-        "title": f"SHOCKING {niche.title()} Facts #Shorts 🔥",
-        "description": f"#{niche} #viral #shorts",
-        "tags": [niche, "viral", "shorts"],
+        "title": f"SHOCKING {niche.title()} Secret #Shorts 🔥",
+        "description": f"Mind-blowing {niche} facts! #{niche} #viral #shorts #hindi",
+        "tags": [niche, "viral", "shorts", "hindi", "facts"],
         "segments": [
             {
-                "narration": "Kya aap jaante hain yeh rahasya?",
+                "type": "hook",
+                "narration": f"Kya aap jaante hain... {niche} ke baare mein yeh SHOCKING fact... jo aapko hila dega!",
                 "text_overlay": "😱 सुनो",
-                "video_search": keywords[0],  # ENGLISH word
-                "duration": 10
+                "video_search": keywords[0],
+                "duration": 8
             },
             {
-                "narration": "Scientists kehte hain yeh impossible hai. Lekin sach kuch aur hai!",
+                "type": "story",
+                "narration": f"Scientists kehte hain... yeh bilkul IMPOSSIBLE hai... lekin sach yeh hai ki... nature ke paas apne SECRET hain!",
                 "text_overlay": "🔥 तथ्य",
                 "video_search": keywords[1] if len(keywords) > 1 else keywords[0],
-                "duration": 15
+                "duration": 12
             },
             {
-                "narration": "Aap kya sochte hain? Comment mein batao!",
-                "text_overlay": "🤔 सवाल",
+                "type": "suspense",
+                "narration": "Lekin sabse BADI baat... jo aap nahi jaante... woh yeh hai ki...",
+                "text_overlay": "💡 रहस्य",
                 "video_search": keywords[2] if len(keywords) > 2 else keywords[0],
-                "duration": 5
+                "duration": 7
+            },
+            {
+                "type": "outro",
+                "narration": "Toh batao... kya aap vishwas karte hain? Comment mein batao!",
+                "text_overlay": "🤔 सवाल",
+                "video_search": keywords[0],
+                "duration": 3
             }
         ]
     }
@@ -1002,17 +1213,20 @@ def get_fallback_script(niche: str, keywords: list) -> dict:
 # ============================================================================
 
 async def generate_voice_edge(text: str, duration: float, temp_dir: str) -> Optional[str]:
-    """Edge TTS - simple and fast"""
+    """Edge TTS"""
     try:
         import edge_tts
         
         temp = os.path.join(temp_dir, f"v{uuid.uuid4().hex[:4]}.mp3")
-        text_clean = text.replace("...", " ").strip()[:350]
+        text_clean = text.replace("...", " ").strip()
+        
+        # Don't truncate - use full narration
+        if len(text_clean) > 500:
+            text_clean = text_clean[:500]
         
         communicate = edge_tts.Communicate(text_clean, "hi-IN-MadhurNeural", rate="+20%")
         await communicate.save(temp)
         
-        # Simple normalization
         output = temp.replace(".mp3", "_f.mp3")
         cmd = [
             "ffmpeg", "-i", temp,
@@ -1022,7 +1236,7 @@ async def generate_voice_edge(text: str, duration: float, temp_dir: str) -> Opti
             "-y", output
         ]
         
-        if run_ffmpeg_safe(cmd, 20):
+        if run_ffmpeg_safe(cmd, 25):
             force_cleanup(temp)
             if get_file_size_mb(output) <= MAX_AUDIO_SIZE_MB:
                 logger.info(f"✅ Voice: {get_file_size_mb(output):.2f}MB")
@@ -1035,14 +1249,13 @@ async def generate_voice_edge(text: str, duration: float, temp_dir: str) -> Opti
     return None
 
 # ============================================================================
-# VIDEO SEARCH & DOWNLOAD
+# VIDEO - ONE VIDEO STRATEGY
 # ============================================================================
 
 def is_vertical_video(video_data: dict) -> bool:
-    """Check vertical"""
     try:
         videos = video_data.get("videos", {})
-        for size_name in ["tiny", "small", "medium"]:
+        for size_name in ["tiny", "small", "medium", "large"]:
             size_data = videos.get(size_name, {})
             width = size_data.get("width", 0)
             height = size_data.get("height", 0)
@@ -1052,24 +1265,20 @@ def is_vertical_video(video_data: dict) -> bool:
     except:
         return False
 
-async def search_vertical_videos(query: str, used_fallbacks: set) -> List[dict]:
-    """Search with better fallback rotation"""
+async def search_one_good_video(query: str) -> Optional[dict]:
+    """Search for ONE good vertical video"""
     try:
-        # ENGLISH word only
         search_word = query.split()[0].lower()
-        
-        # Skip if not English
         if not search_word.isascii():
-            logger.warning(f"Non-English keyword: {search_word}, using fallback")
-            search_word = random.choice([f for f in VERTICAL_FALLBACKS if f not in used_fallbacks])
+            search_word = random.choice(VERTICAL_FALLBACKS)
         
-        async with httpx.AsyncClient(timeout=25) as client:
+        async with httpx.AsyncClient(timeout=30) as client:
             response = await client.get(
                 "https://pixabay.com/api/videos/",
                 params={
                     "key": PIXABAY_API_KEY,
                     "q": search_word,
-                    "per_page": 40,
+                    "per_page": 50,
                     "video_type": "film",
                     "order": "popular"
                 }
@@ -1078,15 +1287,13 @@ async def search_vertical_videos(query: str, used_fallbacks: set) -> List[dict]:
             if response.status_code == 200:
                 videos = response.json().get("hits", [])
                 vertical = [v for v in videos if is_vertical_video(v)]
+                
                 if vertical:
-                    logger.info(f"✅ Found {len(vertical)} for '{search_word}'")
-                    return vertical
+                    logger.info(f"✅ Found {len(vertical)} vertical videos for '{search_word}'")
+                    return vertical[0]  # Return FIRST good video
             
-            # Try different fallback
+            # Try fallbacks
             for fallback in VERTICAL_FALLBACKS:
-                if fallback in used_fallbacks:
-                    continue
-                    
                 response = await client.get(
                     "https://pixabay.com/api/videos/",
                     params={
@@ -1099,24 +1306,24 @@ async def search_vertical_videos(query: str, used_fallbacks: set) -> List[dict]:
                 if response.status_code == 200:
                     videos = response.json().get("hits", [])
                     vertical = [v for v in videos if is_vertical_video(v)]
+                    
                     if vertical:
-                        used_fallbacks.add(fallback)
                         logger.info(f"✅ Fallback '{fallback}'")
-                        return vertical
+                        return vertical[0]
         
-        return []
+        return None
     except Exception as e:
         logger.error(f"Search error: {e}")
-        return []
+        return None
 
-async def download_video(video_data: dict, output: str) -> bool:
-    """Download with size pre-check"""
+async def download_one_video(video_data: dict, output: str) -> bool:
+    """Download ONE video (up to 100MB)"""
     try:
         videos = video_data.get("videos", {})
         
-        # Try to find smallest URL
+        # Try to get best quality vertical video
         url = None
-        for size in ["tiny", "small", "medium"]:
+        for size in ["medium", "small", "large", "tiny"]:
             if videos.get(size, {}).get("url"):
                 url = videos[size]["url"]
                 break
@@ -1124,35 +1331,28 @@ async def download_video(video_data: dict, output: str) -> bool:
         if not url:
             return False
         
-        async with httpx.AsyncClient(timeout=90) as client:
-            # HEAD request to check size first
-            try:
-                head_resp = await client.head(url, follow_redirects=True)
-                content_len = head_resp.headers.get('content-length')
-                if content_len:
-                    size_mb = int(content_len) / (1024 * 1024)
-                    if size_mb > MAX_VIDEO_SIZE_MB:
-                        logger.warning(f"Skipping: {size_mb:.1f}MB (too large)")
-                        return False
-            except:
-                pass  # Continue if HEAD fails
-            
-            # Download
+        async with httpx.AsyncClient(timeout=120) as client:
             async with client.stream('GET', url) as resp:
                 if resp.status_code != 200:
                     return False
                 
                 with open(output, 'wb') as f:
+                    downloaded = 0
                     async for chunk in resp.aiter_bytes(65536):
                         f.write(chunk)
+                        downloaded += len(chunk)
+                        
+                        # Check if exceeding 100MB
+                        if downloaded > MAX_VIDEO_SIZE_MB * 1024 * 1024:
+                            logger.warning(f"Video exceeding {MAX_VIDEO_SIZE_MB}MB, stopping")
+                            return False
                 
                 size = get_file_size_mb(output)
-                if size > MAX_VIDEO_SIZE_MB or size < 0.1:
+                if size < 0.5:  # Too small
                     force_cleanup(output)
-                    logger.warning(f"Bad size: {size:.1f}MB")
                     return False
                 
-                logger.info(f"✅ Downloaded: {size:.1f}MB")
+                logger.info(f"✅ Downloaded ONE video: {size:.1f}MB")
                 return True
     except Exception as e:
         logger.error(f"Download error: {e}")
@@ -1160,60 +1360,58 @@ async def download_video(video_data: dict, output: str) -> bool:
         return False
 
 # ============================================================================
-# VIDEO PROCESSING - ULTRA FAST
+# PROCESS SEGMENTS FROM ONE VIDEO
 # ============================================================================
 
-def process_video_ultrafast(raw_path: str, duration: float, text: str, temp_dir: str) -> Optional[str]:
-    """ULTRA-FAST processing with ultrafast preset"""
+def extract_segment_from_video(
+    source_video: str,
+    start_time: float,
+    duration: float,
+    text: str,
+    temp_dir: str
+) -> Optional[str]:
+    """Extract segment from ONE source video at different timestamps"""
     
     try:
-        final = os.path.join(temp_dir, f"seg_{uuid.uuid4().hex[:4]}.mp4")
+        output = os.path.join(temp_dir, f"seg_{uuid.uuid4().hex[:4]}.mp4")
         
-        # Build simple filter
+        # Build filter
         filters = ["scale=720:1280:force_original_aspect_ratio=increase", "crop=720:1280"]
         
         if text:
-            text_clean = text.replace("'", "").replace('"', '').replace(':', '')[:25]
+            text_clean = text.replace("'", "").replace('"', '').replace(':', '')[:30]
             filters.append(
-                f"drawtext=text='{text_clean}':fontsize=55:fontcolor=white:"
-                f"x=(w-text_w)/2:y=h-150:borderw=3:bordercolor=black"
+                f"drawtext=text='{text_clean}':fontsize=60:fontcolor=white:"
+                f"x=(w-text_w)/2:y=h-160:borderw=4:bordercolor=black"
             )
         
         vf = ",".join(filters)
         
-        # ONE COMMAND - ultrafast preset
+        # Extract from specific timestamp
         cmd = [
-            "ffmpeg", "-i", raw_path,
-            "-ss", "1",
+            "ffmpeg", "-i", source_video,
+            "-ss", str(start_time),
             "-t", str(duration),
             "-vf", vf,
             "-c:v", "libx264",
-            "-crf", "24",  # Slightly lower quality for speed
-            "-preset", "ultrafast",  # FASTEST preset
+            "-crf", "23",
+            "-preset", "ultrafast",
             "-an",
-            "-y", final
+            "-y", output
         ]
         
-        logger.info(f"⚙️ FFmpeg ultrafast (timeout: {FFMPEG_TIMEOUT}s)")
+        logger.info(f"⚙️ Extracting from {start_time}s (duration: {duration}s)")
         
         if run_ffmpeg_safe(cmd, FFMPEG_TIMEOUT):
-            force_cleanup(raw_path)
-            
-            size = get_file_size_mb(final)
-            if size <= MAX_VIDEO_SIZE_MB:
-                logger.info(f"✅ Processed: {size:.1f}MB")
-                return final
-            
-            logger.warning(f"Output too large: {size:.1f}MB")
-            force_cleanup(final)
-        else:
-            force_cleanup(raw_path, final)
+            size = get_file_size_mb(output)
+            logger.info(f"✅ Segment: {size:.1f}MB")
+            return output
         
+        force_cleanup(output)
         return None
         
     except Exception as e:
-        logger.error(f"Process error: {e}")
-        force_cleanup(raw_path)
+        logger.error(f"Extract error: {e}")
         return None
 
 # ============================================================================
@@ -1221,7 +1419,6 @@ def process_video_ultrafast(raw_path: str, duration: float, text: str, temp_dir:
 # ============================================================================
 
 async def compile_video(clips: List[str], audios: List[str], temp_dir: str) -> Optional[str]:
-    """Simple compilation"""
     try:
         # Concat videos
         vlist = os.path.join(temp_dir, "v.txt")
@@ -1270,7 +1467,7 @@ async def compile_video(clips: List[str], audios: List[str], temp_dir: str) -> O
         return None
 
 # ============================================================================
-# MAIN GENERATION
+# MAIN - ONE VIDEO STRATEGY
 # ============================================================================
 
 async def generate_viral_video(
@@ -1283,74 +1480,66 @@ async def generate_viral_video(
     user_id: str,
     database_manager
 ) -> dict:
-    """Generate with English keywords only"""
+    """ONE VIDEO STRATEGY - Download once, reuse for all segments"""
     
     temp_dir = None
     
     try:
         temp_dir = tempfile.mkdtemp(prefix="viral_")
-        logger.info(f"🎬 Starting: {niche}")
+        logger.info(f"🎬 ONE VIDEO Strategy: {niche}")
         
-        # Script (English keywords)
-        script = await generate_script(niche)
+        # Step 1: Full engaging script
+        script = await generate_full_script(niche)
         logger.info(f"✅ Title: {script['title']}")
+        logger.info(f"📝 Segments: {len(script['segments'])}")
         
-        # Process segments
+        # Step 2: Download ONE good video
+        logger.info("📥 Searching for ONE perfect video...")
+        
+        video_data = await search_one_good_video(script["segments"][0]["video_search"])
+        
+        if not video_data:
+            return {"success": False, "error": "No vertical video found"}
+        
+        source_video = os.path.join(temp_dir, "source.mp4")
+        
+        if not await download_one_video(video_data, source_video):
+            return {"success": False, "error": "Download failed"}
+        
+        logger.info(f"🎥 ONE video downloaded: {get_file_size_mb(source_video):.1f}MB")
+        
+        # Step 3: Extract segments from different timestamps
         final_clips = []
         final_audios = []
-        used_ids = set()
-        used_fallbacks = set()
         
-        segments = script["segments"][:MAX_VIDEOS]
-        logger.info(f"🎥 Processing {len(segments)} segments")
+        start_time = 2.0  # Start at 2 seconds
         
-        for idx, seg in enumerate(segments):
+        for idx, seg in enumerate(script["segments"]):
             try:
-                logger.info(f"\n📥 Segment {idx+1}/{len(segments)}: '{seg['video_search']}'")
+                logger.info(f"\n📹 Processing segment {idx+1}/4: {seg['type']}")
                 
-                # Search (English only)
-                videos = await search_vertical_videos(seg["video_search"], used_fallbacks)
+                # Extract from source at different timestamp
+                segment_clip = extract_segment_from_video(
+                    source_video,
+                    start_time,
+                    seg["duration"],
+                    seg["text_overlay"] if show_captions else "",
+                    temp_dir
+                )
                 
-                if not videos:
-                    logger.error("❌ No videos found")
+                if not segment_clip:
+                    logger.warning(f"⚠️ Segment {idx+1} extraction failed")
+                    # Try next timestamp
+                    start_time += 5
                     continue
                 
-                # Try downloading (skip large files)
-                success = False
-                for vdata in videos[:8]:  # Try first 8
-                    vid = vdata.get("id")
-                    if vid in used_ids:
-                        continue
-                    
-                    raw = os.path.join(temp_dir, f"raw{idx}.mp4")
-                    
-                    if await download_video(vdata, raw):
-                        used_ids.add(vid)
-                        logger.info(f"✅ ID: {vid}")
-                        
-                        # Process with ultrafast
-                        processed = process_video_ultrafast(
-                            raw,
-                            seg["duration"],
-                            seg["text_overlay"] if show_captions else "",
-                            temp_dir
-                        )
-                        
-                        if processed:
-                            final_clips.append(processed)
-                            success = True
-                            break
-                        else:
-                            force_cleanup(raw)
-                    else:
-                        force_cleanup(raw)
+                final_clips.append(segment_clip)
                 
-                if not success:
-                    logger.warning(f"⚠️ Segment {idx+1} failed")
-                    continue
+                # Move to next timestamp
+                start_time += seg["duration"] + 2
                 
-                # Voice
-                logger.info("🎤 Voice...")
+                # Generate voice
+                logger.info("🎤 Generating voice...")
                 voice = await generate_voice_edge(seg["narration"], seg["duration"], temp_dir)
                 
                 if voice:
@@ -1362,23 +1551,26 @@ async def generate_viral_video(
                     if run_ffmpeg_safe(cmd, 15):
                         final_audios.append(silent)
                 
-                gc.collect()
                 logger.info(f"✅ Segment {idx+1} done!")
+                gc.collect()
                 
             except Exception as e:
-                logger.error(f"Segment error: {e}\n{traceback.format_exc()}")
+                logger.error(f"Segment {idx+1} error: {e}")
                 continue
         
+        # Cleanup source video
+        force_cleanup(source_video)
+        
         # Check success
-        if len(final_clips) < MIN_VIDEOS:
+        if len(final_clips) < 3:
             return {
                 "success": False,
-                "error": f"Only {len(final_clips)} clips. Need {MIN_VIDEOS}."
+                "error": f"Only {len(final_clips)} segments created. Need at least 3."
             }
         
-        logger.info(f"\n✅ {len(final_clips)} clips! Compiling...")
+        logger.info(f"\n✅ {len(final_clips)} segments ready! Compiling...")
         
-        # Compile
+        # Step 4: Compile
         final_video = await compile_video(final_clips, final_audios, temp_dir)
         
         if not final_video:
@@ -1393,8 +1585,9 @@ async def generate_viral_video(
             "description": script["description"],
             "tags": script["tags"],
             "segments": len(final_clips),
-            "duration": sum([s['duration'] for s in segments]),
-            "size_mb": f"{get_file_size_mb(final_video):.1f}MB"
+            "total_duration": sum([s['duration'] for s in script["segments"]]),
+            "size_mb": f"{get_file_size_mb(final_video):.1f}MB",
+            "strategy": "ONE_VIDEO_REUSED"
         }
         
         gc.collect()
@@ -1429,7 +1622,7 @@ async def generate_endpoint(request: Request):
         if not user_id:
             return JSONResponse(status_code=401, content={"success": False, "error": "Auth required"})
         
-        niche = data.get("niche", "nature")
+        niche = data.get("niche", "space")
         if niche not in NICHE_KEYWORDS:
             return JSONResponse(status_code=400, content={"success": False, "error": "Invalid niche"})
         
@@ -1447,7 +1640,7 @@ async def generate_endpoint(request: Request):
                     user_id=user_id,
                     database_manager=database_manager
                 ),
-                timeout=600  # 10 minutes
+                timeout=600
             )
             
             return JSONResponse(content=result)
