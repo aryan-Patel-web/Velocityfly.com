@@ -68,6 +68,22 @@ const YouTubeAutomation = () => {
     max_replies_per_hour: 10
   });
 
+
+
+// MrBeast Viral Shorts Generator State
+const [mrBeastConfig, setMrBeastConfig] = useState({
+  youtube_url: '',
+  target_duration: 30,
+  voice_type: 'male_energetic',
+  num_videos: 3
+});
+const [mrBeastGenerating, setMrBeastGenerating] = useState(false);
+const [mrBeastProgress, setMrBeastProgress] = useState(0);
+const [mrBeastResult, setMrBeastResult] = useState(null);
+
+
+
+
   // Viral Pixel States
 // At the TOP of your component (with other useState)
 const [viralPixelConfig, setViralPixelConfig] = useState({
@@ -1718,6 +1734,31 @@ useEffect(() => {
 >
   <span style={{ fontSize: '20px' }}>🎬</span>
   Viral Pixel
+</button>
+
+<button 
+  onClick={() => setActiveTab('mrbeast-shorts')}
+  style={{
+    padding: '12px 24px',
+    background: activeTab === 'mrbeast-shorts' 
+      ? 'linear-gradient(135deg, #f093fb, #f5576c)' 
+      : 'white',
+    color: activeTab === 'mrbeast-shorts' ? 'white' : '#333',
+    border: activeTab === 'mrbeast-shorts' ? 'none' : '2px solid #e0e0e0',
+    borderRadius: '12px',
+    fontWeight: '600',
+    cursor: 'pointer',
+    transition: 'all 0.3s',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    boxShadow: activeTab === 'mrbeast-shorts' 
+      ? '0 4px 15px rgba(240,147,251,0.4)' 
+      : '0 2px 8px rgba(0,0,0,0.1)'
+  }}
+>
+  <span style={{ fontSize: '20px' }}>🔥</span>
+  MrBeast Shorts
 </button>
 
 
@@ -8354,7 +8395,501 @@ onClick={async () => {
 
 
 
+{/* ============================================ */}
+{/* MRBEAST VIRAL SHORTS GENERATOR TAB */}
+{/* ============================================ */}
+{activeTab === 'mrbeast-shorts' && status?.youtube_connected && (
+  <div style={{ 
+    background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)', 
+    borderRadius: '20px', 
+    padding: '40px', 
+    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
+    minHeight: '600px'
+  }}>
+    <div style={{ 
+      display: 'flex', 
+      justifyContent: 'space-between', 
+      alignItems: 'center', 
+      marginBottom: '30px' 
+    }}>
+      <div>
+        <h2 style={{ 
+          color: 'white', 
+          marginBottom: '10px', 
+          fontSize: '36px', 
+          fontWeight: '800',
+          textShadow: '2px 2px 4px rgba(0,0,0,0.3)',
+          margin: 0
+        }}>
+          🔥 MrBeast Viral Shorts Generator
+        </h2>
+        <p style={{ 
+          color: 'rgba(255,255,255,0.95)', 
+          fontSize: '18px',
+          fontWeight: '500',
+          margin: 0
+        }}>
+          Convert ANY YouTube video into viral Hindi Shorts
+        </p>
+      </div>
+    </div>
 
+    {/* STEP 1: YOUTUBE URL */}
+    <div style={{
+      background: 'rgba(255,255,255,0.95)',
+      borderRadius: '15px',
+      padding: '30px',
+      marginBottom: '25px'
+    }}>
+      <h3 style={{ 
+        color: '#333', 
+        marginBottom: '20px', 
+        fontSize: '24px', 
+        fontWeight: '700' 
+      }}>
+        🎯 Step 1: Paste MrBeast Video URL
+      </h3>
+
+      <input
+        type="text"
+        value={mrBeastConfig.youtube_url}
+        onChange={(e) => setMrBeastConfig(prev => ({ ...prev, youtube_url: e.target.value }))}
+        disabled={mrBeastGenerating}
+        placeholder="https://www.youtube.com/watch?v=..."
+        style={{
+          width: '100%',
+          padding: '16px',
+          borderRadius: '10px',
+          border: '2px solid #ddd',
+          fontSize: '16px',
+          background: mrBeastGenerating ? '#f5f5f5' : 'white',
+          marginBottom: '15px'
+        }}
+      />
+
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+        gap: '15px',
+        marginTop: '20px'
+      }}>
+        {[
+          "https://www.youtube.com/watch?v=0e3GPea1Tyg",
+          "https://www.youtube.com/watch?v=fKopy74weus",
+          "https://www.youtube.com/watch?v=phz_yvI1-c4"
+        ].map((url, idx) => (
+          <button
+            key={idx}
+            onClick={() => {
+              if (!mrBeastGenerating) {
+                setMrBeastConfig(prev => ({ ...prev, youtube_url: url }));
+              }
+            }}
+            disabled={mrBeastGenerating}
+            style={{
+              padding: '12px',
+              background: mrBeastConfig.youtube_url === url 
+                ? 'linear-gradient(135deg, #f093fb, #f5576c)' 
+                : 'white',
+              color: mrBeastConfig.youtube_url === url ? 'white' : '#333',
+              border: mrBeastConfig.youtube_url === url 
+                ? 'none' 
+                : '2px solid #ddd',
+              borderRadius: '10px',
+              cursor: mrBeastGenerating ? 'not-allowed' : 'pointer',
+              fontWeight: '600',
+              fontSize: '13px',
+              opacity: mrBeastGenerating ? 0.6 : 1,
+              transition: 'all 0.3s',
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis'
+            }}
+          >
+            Example {idx + 1}
+          </button>
+        ))}
+      </div>
+    </div>
+
+    {/* STEP 2: SETTINGS */}
+    <div style={{
+      background: 'rgba(255,255,255,0.95)',
+      borderRadius: '15px',
+      padding: '30px',
+      marginBottom: '25px'
+    }}>
+      <h3 style={{ 
+        color: '#333', 
+        marginBottom: '20px', 
+        fontSize: '24px', 
+        fontWeight: '700' 
+      }}>
+        ⚙️ Step 2: Configure Settings
+      </h3>
+
+      {/* Duration Slider */}
+      <div style={{ marginBottom: '25px' }}>
+        <label style={{ 
+          display: 'block', 
+          marginBottom: '10px', 
+          fontWeight: '600',
+          color: '#333',
+          fontSize: '16px'
+        }}>
+          🕐 Shorts Duration: {mrBeastConfig.target_duration} seconds
+        </label>
+        <input
+          type="range"
+          min="20"
+          max="55"
+          step="5"
+          value={mrBeastConfig.target_duration}
+          onChange={(e) => setMrBeastConfig(prev => ({ ...prev, target_duration: parseInt(e.target.value) }))}
+          disabled={mrBeastGenerating}
+          style={{
+            width: '100%',
+            height: '8px',
+            borderRadius: '5px',
+            outline: 'none',
+            opacity: mrBeastGenerating ? 0.6 : 1
+          }}
+        />
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          fontSize: '12px',
+          color: '#666',
+          marginTop: '5px'
+        }}>
+          <span>20s (Quick)</span>
+          <span>35s (Balanced)</span>
+          <span>55s (Max)</span>
+        </div>
+      </div>
+
+      {/* Number of Videos */}
+      <div style={{ marginBottom: '25px' }}>
+        <label style={{ 
+          display: 'block', 
+          marginBottom: '10px', 
+          fontWeight: '600',
+          color: '#333',
+          fontSize: '16px'
+        }}>
+          🎬 How many viral shorts to generate:
+        </label>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '10px' }}>
+          {[1, 2, 3, 4, 5].map((num) => (
+            <button
+              key={num}
+              onClick={() => setMrBeastConfig(prev => ({ ...prev, num_videos: num }))}
+              disabled={mrBeastGenerating}
+              style={{
+                padding: '12px',
+                background: mrBeastConfig.num_videos === num 
+                  ? 'linear-gradient(135deg, #f093fb, #f5576c)' 
+                  : 'white',
+                color: mrBeastConfig.num_videos === num ? 'white' : '#333',
+                border: mrBeastConfig.num_videos === num 
+                  ? 'none' 
+                  : '2px solid #ddd',
+                borderRadius: '10px',
+                cursor: mrBeastGenerating ? 'not-allowed' : 'pointer',
+                fontWeight: '700',
+                fontSize: '18px',
+                opacity: mrBeastGenerating ? 0.6 : 1,
+                transition: 'all 0.3s'
+              }}
+            >
+              {num}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Voice Selection */}
+      <div style={{ marginBottom: '25px' }}>
+        <label style={{ 
+          display: 'block', 
+          marginBottom: '10px', 
+          fontWeight: '600',
+          color: '#333',
+          fontSize: '16px'
+        }}>
+          🎙️ Hindi Voice Style:
+        </label>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px' }}>
+          {[
+            { id: 'male_energetic', label: '👨 Male Energetic', premium: true },
+            { id: 'female_warm', label: '👩 Female Warm', premium: true },
+            { id: 'male_deep', label: '👨 Male Deep', premium: true },
+            { id: 'female_cheerful', label: '👩 Female Cheerful', premium: true },
+            { id: 'edge_free', label: '🆓 Free Hindi Voice', premium: false }
+          ].map((voice) => (
+            <button
+              key={voice.id}
+              onClick={() => setMrBeastConfig(prev => ({ ...prev, voice_type: voice.id }))}
+              disabled={mrBeastGenerating}
+              style={{
+                padding: '14px',
+                background: mrBeastConfig.voice_type === voice.id 
+                  ? 'linear-gradient(135deg, #f093fb, #f5576c)' 
+                  : 'white',
+                color: mrBeastConfig.voice_type === voice.id ? 'white' : '#333',
+                border: mrBeastConfig.voice_type === voice.id 
+                  ? 'none' 
+                  : '2px solid #ddd',
+                borderRadius: '10px',
+                cursor: mrBeastGenerating ? 'not-allowed' : 'pointer',
+                fontWeight: '600',
+                fontSize: '14px',
+                opacity: mrBeastGenerating ? 0.6 : 1,
+                transition: 'all 0.3s',
+                position: 'relative'
+              }}
+            >
+              {voice.label}
+              {voice.premium && (
+                <span style={{
+                  position: 'absolute',
+                  top: '5px',
+                  right: '5px',
+                  background: '#FFD700',
+                  color: '#333',
+                  fontSize: '10px',
+                  padding: '2px 6px',
+                  borderRadius: '4px',
+                  fontWeight: '700'
+                }}>
+                  PRO
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+
+    {/* STEP 3: GENERATE */}
+    <div style={{
+      background: 'rgba(255,255,255,0.95)',
+      borderRadius: '15px',
+      padding: '30px',
+      marginBottom: '25px'
+    }}>
+      <h3 style={{ 
+        color: '#333', 
+        marginBottom: '20px', 
+        fontSize: '24px', 
+        fontWeight: '700' 
+      }}>
+        🚀 Step 3: Generate Viral Shorts
+      </h3>
+
+      <button
+        onClick={async () => {
+          if (!mrBeastConfig.youtube_url) {
+            alert('❌ Please paste a YouTube URL!');
+            return;
+          }
+
+          if (!mrBeastConfig.youtube_url.includes('youtube.com') && !mrBeastConfig.youtube_url.includes('youtu.be')) {
+            alert('❌ Invalid YouTube URL!');
+            return;
+          }
+
+          setMrBeastGenerating(true);
+          setMrBeastProgress(0);
+
+          try {
+            console.log('Starting MrBeast generation...');
+            const response = await fetch(`${API_BASE}/api/mrbeast/generate`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+              },
+              body: JSON.stringify({
+                user_id: user.user_id,
+                youtube_url: mrBeastConfig.youtube_url,
+                target_duration: mrBeastConfig.target_duration,
+                voice_type: mrBeastConfig.voice_type,
+                num_videos: mrBeastConfig.num_videos
+              })
+            });
+
+            const progressInterval = setInterval(() => {
+              setMrBeastProgress(prev => {
+                if (prev >= 90) {
+                  clearInterval(progressInterval);
+                  return 90;
+                }
+                return prev + 5;
+              });
+            }, 3000);
+
+            const result = await response.json();
+            clearInterval(progressInterval);
+
+            if (result.success) {
+              setMrBeastProgress(100);
+              setMrBeastResult(result);
+              console.log('Videos generated successfully');
+              alert(`✅ Generated ${result.count} viral shorts successfully!`);
+            } else {
+              console.error('Generation failed:', result.error);
+              alert('❌ Failed: ' + result.error);
+            }
+          } catch (error) {
+            console.error('Error:', error);
+            alert('❌ Error: ' + error.message);
+          } finally {
+            setMrBeastGenerating(false);
+            setMrBeastProgress(0);
+          }
+        }}
+        disabled={mrBeastGenerating || !mrBeastConfig.youtube_url}
+        style={{
+          width: '100%',
+          padding: '20px',
+          background: mrBeastGenerating 
+            ? 'linear-gradient(135deg, #999, #666)' 
+            : 'linear-gradient(135deg, #f093fb, #f5576c)',
+          color: 'white',
+          border: 'none',
+          borderRadius: '12px',
+          fontSize: '20px',
+          fontWeight: '800',
+          cursor: (mrBeastGenerating || !mrBeastConfig.youtube_url) ? 'not-allowed' : 'pointer',
+          boxShadow: '0 6px 20px rgba(240,147,251,0.4)',
+          opacity: (mrBeastGenerating || !mrBeastConfig.youtube_url) ? 0.7 : 1,
+          transition: 'all 0.3s'
+        }}
+      >
+        {mrBeastGenerating ? '⏳ GENERATING VIRAL SHORTS...' : '🔥 GENERATE VIRAL SHORTS'}
+      </button>
+
+      {mrBeastGenerating && (
+        <div style={{ marginTop: '20px' }}>
+          <div style={{
+            width: '100%',
+            height: '30px',
+            background: '#e0e0e0',
+            borderRadius: '15px',
+            overflow: 'hidden'
+          }}>
+            <div style={{
+              width: `${mrBeastProgress}%`,
+              height: '100%',
+              background: 'linear-gradient(90deg, #f093fb, #f5576c)',
+              transition: 'width 0.5s',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}>
+              <span style={{
+                color: 'white',
+                fontWeight: '700',
+                fontSize: '14px'
+              }}>
+                {mrBeastProgress}%
+              </span>
+            </div>
+          </div>
+          <p style={{ 
+            textAlign: 'center', 
+            marginTop: '10px', 
+            color: '#666',
+            fontSize: '14px' 
+          }}>
+            Processing: Download → Transcribe → Translate → Voice → Cut → Upload...
+          </p>
+        </div>
+      )}
+
+      {mrBeastResult && (
+        <div style={{
+          marginTop: '20px',
+          padding: '20px',
+          background: '#e8f5e9',
+          borderRadius: '12px',
+          border: '2px solid #4caf50'
+        }}>
+          <h4 style={{ color: '#2e7d32', marginBottom: '15px', fontSize: '18px', fontWeight: '700' }}>
+            ✅ {mrBeastResult.count} Viral Shorts Generated!
+          </h4>
+          
+          <div style={{ display: 'grid', gap: '15px' }}>
+            {mrBeastResult.videos?.map((video, idx) => (
+              <div key={idx} style={{
+                padding: '15px',
+                background: 'white',
+                borderRadius: '8px',
+                border: '1px solid #ddd'
+              }}>
+                <div style={{ fontSize: '14px', color: '#333', marginBottom: '8px' }}>
+                  <strong>Video {idx + 1}:</strong> {video.duration.toFixed(1)}s | Score: {video.viral_score}/10
+                </div>
+                <div style={{ fontSize: '12px', color: '#666', marginBottom: '8px' }}>
+                  <strong>Hindi:</strong> {video.hindi_text.substring(0, 100)}...
+                </div>
+                <div style={{ fontSize: '11px', color: '#999' }}>
+                  <strong>English:</strong> {video.english_text.substring(0, 80)}...
+                </div>
+              </div>
+            ))}
+          </div>
+          
+          <div style={{ marginTop: '15px', textAlign: 'center' }}>
+            <p style={{ fontSize: '13px', color: '#666' }}>
+              Videos will be uploaded to your connected YouTube channel
+            </p>
+          </div>
+        </div>
+      )}
+    </div>
+
+    {/* HOW IT WORKS */}
+    <div style={{
+      padding: '25px',
+      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+      borderRadius: '15px',
+      color: 'white'
+    }}>
+      <h3 style={{ marginBottom: '20px', fontSize: '20px', fontWeight: '700' }}>
+        📖 How It Works
+      </h3>
+      <div style={{ display: 'grid', gap: '15px' }}>
+        {[
+          { icon: '1️⃣', text: 'Downloads original MrBeast video' },
+          { icon: '2️⃣', text: 'Extracts transcript using AI (Whisper)' },
+          { icon: '3️⃣', text: 'Identifies 3-5 most viral moments' },
+          { icon: '4️⃣', text: 'Translates to creative Hindi script' },
+          { icon: '5️⃣', text: 'Generates energetic Hindi voice-over' },
+          { icon: '6️⃣', text: 'Cuts video into perfect 20-55s segments' },
+          { icon: '7️⃣', text: 'Adds captions and combines audio' },
+          { icon: '8️⃣', text: 'Uploads to YouTube Shorts automatically' }
+        ].map((step, idx) => (
+          <div key={idx} style={{
+            display: 'flex',
+            gap: '12px',
+            alignItems: 'center',
+            background: 'rgba(255,255,255,0.15)',
+            padding: '12px',
+            borderRadius: '8px',
+            backdropFilter: 'blur(10px)'
+          }}>
+            <span style={{ fontSize: '24px' }}>{step.icon}</span>
+            <span style={{ fontSize: '14px' }}>{step.text}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  </div>
+)}
+
+{/* -------------------------------- MrBeast code end ---------------------------------------------------- */}
 
 
 

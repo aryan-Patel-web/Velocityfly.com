@@ -88,6 +88,16 @@ except ImportError as e:
     viral_pixel_router = None
 
 
+
+
+# ✅ ADD THIS LINE (around line 50-60, near other imports)
+try:
+    from MrBeast import router as mrbeast_router
+    logger.info("✅ MrBeast module imported successfully")
+except ImportError as e:
+    logger.error(f"❌ Failed to import MrBeast: {e}")
+    mrbeast_router = None
+    
 # ============================================================================
 # UNIFIED DATABASE MANAGER - MULTI-USER OPTIMIZED
 # ============================================================================
@@ -1818,12 +1828,37 @@ except Exception as e:
     logger.error(f"❌ Viral Pixel routes registration failed: {e}")
     logger.error(traceback.format_exc())
 
+
+
+
+# ===========================================================================
+# MRBEAST VIRAL SHORTS ROUTES
+# ============================================================================
+try:
+    if mrbeast_router is not None:
+        app.include_router(mrbeast_router, tags=["mrbeast"])
+        
+        logger.info("✅ MrBeast Shorts routes registered successfully!")
+        logger.info("   📍 Available endpoints:")
+        logger.info("      - POST /api/mrbeast/generate")
+        logger.info("      - GET  /api/mrbeast/voices")
+    else:
+        logger.warning("⚠️ MrBeast router not available - routes not registered")
+        
+except Exception as e:
+    logger.error(f"❌ MrBeast routes registration failed: {e}")
+    logger.error(traceback.format_exc())
+
+
 # ============================================================================
 # PLATFORM STATUS ENDPOINT - MULTI-USER
 # ============================================================================
+# ============================================================================
+# PLATFORM STATUS ENDPOINT - MULTI-USER (WITH MRBEAST)
+# ============================================================================
 @app.get("/api/platforms/status")
 async def get_platform_status(current_user: dict = Depends(get_current_user)):
-    """Get connection status - ALWAYS FRESH FROM DATABASE with Viral Pixel"""
+    """Get connection status - ALWAYS FRESH FROM DATABASE with Viral Pixel & MrBeast"""
     try:
         user_id = current_user["id"]
         user_email = current_user.get("email", "Unknown")
@@ -1866,7 +1901,7 @@ async def get_platform_status(current_user: dict = Depends(get_current_user)):
                 logger.warning(f"⚠️ No Reddit connection found for {user_email}")
         
         # ============================================================
-        # ✅ NEW: CHECK VIRAL PIXEL AVAILABILITY & CONFIGURATION
+        # ✅ CHECK VIRAL PIXEL AVAILABILITY & CONFIGURATION
         # ============================================================
         viral_pixel_available = viral_pixel_router is not None
         viral_pixel_config = None
@@ -1981,6 +2016,143 @@ async def get_platform_status(current_user: dict = Depends(get_current_user)):
             logger.warning("⚠️ Viral Pixel module not available")
         
         # ============================================================
+        # ✅ NEW: CHECK MRBEAST SHORTS AVAILABILITY & CONFIGURATION
+        # ============================================================
+        mrbeast_available = mrbeast_router is not None
+        mrbeast_config = None
+        mrbeast_ready = False
+        
+        if mrbeast_available:
+            # Check if user has required API keys for MrBeast
+            has_groq_transcription = bool(os.getenv("GROQ_API_KEY"))
+            has_mistral_translation = bool(os.getenv("MISTRAL_API_KEY"))
+            has_elevenlabs = bool(os.getenv("ELEVENLABS_API_KEY"))
+            
+            # MrBeast is ready if:
+            # 1. Module is loaded
+            # 2. Groq API available (for Whisper transcription)
+            # 3. YouTube is connected (for auto-upload)
+            # Note: ElevenLabs is optional (falls back to free Edge TTS)
+            mrbeast_ready = (
+                mrbeast_available and 
+                has_groq_transcription and
+                youtube_connected
+            )
+            
+            mrbeast_config = {
+                "module_loaded": True,
+                "transcription_available": has_groq_transcription,
+                "translation_ai": has_mistral_translation or has_groq_transcription,
+                "premium_voices": has_elevenlabs,
+                "youtube_required": youtube_connected,
+                "ready_to_use": mrbeast_ready,
+                "available_features": [
+                    "Download any YouTube video (MrBeast, etc.)",
+                    "AI transcription using Whisper (Groq)",
+                    "Automatic viral moment detection (AI)",
+                    "Creative Hindi translation with hooks",
+                    "Hindi voice-over (5 voice options)",
+                    "Smart video cutting (20-55 seconds)",
+                    "Professional video editing",
+                    "Auto-upload to YouTube Shorts"
+                ],
+                "voice_options": [
+                    {
+                        "id": "male_energetic",
+                        "name": "👨 Male Energetic",
+                        "premium": True,
+                        "description": "High energy, perfect for action content",
+                        "available": has_elevenlabs
+                    },
+                    {
+                        "id": "female_warm",
+                        "name": "👩 Female Warm",
+                        "premium": True,
+                        "description": "Friendly tone, great for tutorials",
+                        "available": has_elevenlabs
+                    },
+                    {
+                        "id": "male_deep",
+                        "name": "👨 Male Deep",
+                        "premium": True,
+                        "description": "Authoritative voice for serious content",
+                        "available": has_elevenlabs
+                    },
+                    {
+                        "id": "female_cheerful",
+                        "name": "👩 Female Cheerful",
+                        "premium": True,
+                        "description": "Upbeat and fun for entertainment",
+                        "available": has_elevenlabs
+                    },
+                    {
+                        "id": "edge_free",
+                        "name": "🆓 Free Hindi Voice",
+                        "premium": False,
+                        "description": "Free Edge TTS - good quality, always available",
+                        "available": True
+                    }
+                ],
+                "duration_options": {
+                    "min": 20,
+                    "max": 55,
+                    "recommended": 30,
+                    "sweet_spot": 35,
+                    "description": "20-30s for quick clips, 35-45s for storytelling, 45-55s for max watch time"
+                },
+                "video_limit": {
+                    "min": 1,
+                    "max": 5,
+                    "recommended": 3,
+                    "description": "Generate 1-5 viral shorts from a single video"
+                },
+                "requirements": {
+                    "youtube_connected": youtube_connected,
+                    "groq_api": has_groq_transcription,
+                    "elevenlabs_api": has_elevenlabs,
+                    "ffmpeg_installed": True,  # Always required
+                    "yt_dlp_installed": True   # Always required
+                },
+                "status_message": (
+                    "✅ Ready to generate viral shorts!" if mrbeast_ready else
+                    "⚠️ Connect YouTube to enable auto-upload" if not youtube_connected else
+                    "❌ Add GROQ_API_KEY for video transcription"
+                ),
+                "example_videos": [
+                    {
+                        "url": "https://www.youtube.com/watch?v=0e3GPea1Tyg",
+                        "title": "$1 vs $500,000 Experiences!",
+                        "creator": "MrBeast"
+                    },
+                    {
+                        "url": "https://www.youtube.com/watch?v=fKopy74weus",
+                        "title": "I Survived 50 Hours In Antarctica",
+                        "creator": "MrBeast"
+                    },
+                    {
+                        "url": "https://www.youtube.com/watch?v=phz_yvI1-c4",
+                        "title": "7 Days Stranded At Sea",
+                        "creator": "MrBeast"
+                    }
+                ],
+                "tips": [
+                    "Use 30-35 second duration for best engagement",
+                    "Male energetic voice works best for action content",
+                    "Generate 3 videos to test different moments",
+                    "Premium voices give better results but free works too"
+                ]
+            }
+            
+            logger.info(f"🔥 MrBeast Shorts status: {'Ready' if mrbeast_ready else 'Not Ready'}")
+        else:
+            mrbeast_config = {
+                "module_loaded": False,
+                "ready_to_use": False,
+                "status_message": "❌ MrBeast module not loaded - check server logs"
+            }
+            logger.warning("⚠️ MrBeast module not available")
+        
+        # ============================================================
         # RETURN COMPREHENSIVE PLATFORM STATUS
         # ============================================================
         return {
@@ -1996,7 +2168,8 @@ async def get_platform_status(current_user: dict = Depends(get_current_user)):
                         "shorts_upload",
                         "slideshow_generation",
                         "product_video_automation",
-                        "viral_pixel_upload" if viral_pixel_ready else None
+                        "viral_pixel_upload" if viral_pixel_ready else None,
+                        "mrbeast_shorts_upload" if mrbeast_ready else None
                     ]
                 },
                 "reddit": {
@@ -2011,8 +2184,10 @@ async def get_platform_status(current_user: dict = Depends(get_current_user)):
                         "ai_content_generation"
                     ] if reddit_connected else []
                 },
-                # ✅ NEW: VIRAL PIXEL PLATFORM
-                "viral_pixel": viral_pixel_config
+                # ✅ VIRAL PIXEL PLATFORM
+                "viral_pixel": viral_pixel_config,
+                # ✅ NEW: MRBEAST SHORTS PLATFORM
+                "mrbeast_shorts": mrbeast_config
             },
             "user_info": {
                 "user_id": user_id,
@@ -2026,7 +2201,8 @@ async def get_platform_status(current_user: dict = Depends(get_current_user)):
                 ]),
                 "total_platforms": 2,
                 "viral_pixel_ready": viral_pixel_ready,
-                "all_features_available": youtube_connected and reddit_connected and viral_pixel_ready
+                "mrbeast_ready": mrbeast_ready,
+                "all_features_available": youtube_connected and reddit_connected and viral_pixel_ready and mrbeast_ready
             },
             # ✅ Add timestamp to prevent caching
             "fetched_at": datetime.now().isoformat(),
@@ -2042,7 +2218,8 @@ async def get_platform_status(current_user: dict = Depends(get_current_user)):
             "platforms": {
                 "youtube": {"connected": False, "available": False},
                 "reddit": {"connected": False, "available": False},
-                "viral_pixel": {"module_loaded": False, "ready_to_use": False}
+                "viral_pixel": {"module_loaded": False, "ready_to_use": False},
+                "mrbeast_shorts": {"module_loaded": False, "ready_to_use": False}
             },
             "fetched_at": datetime.now().isoformat()
         }
