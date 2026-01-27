@@ -1672,6 +1672,7 @@ useEffect(() => {
         )}
 
         {/* Navigation Tabs */}
+{/* Navigation Tabs */}
         <div style={{ 
           display: 'flex', 
           justifyContent: 'center', 
@@ -1679,155 +1680,281 @@ useEffect(() => {
           marginBottom: '40px', 
           flexWrap: 'wrap' 
         }}>
-          <TabButton 
-            id="connect" 
-            label="Connect YouTube" 
-            emoji="🔗" 
-            active={activeTab === 'connect'} 
-            onClick={() => setActiveTab('connect')} 
-          />
-          <TabButton 
-            id="setup" 
-            label="Setup Automation" 
-            emoji="⚙️" 
-            active={activeTab === 'setup'} 
-            onClick={() => setActiveTab('setup')} 
-          />
-          <TabButton 
-            id="content" 
-            label="Create Content" 
-            emoji="🎬" 
-            active={activeTab === 'content'} 
-            onClick={() => setActiveTab('content')} 
-          />
-          <TabButton 
-            id="dashboard" 
-            label="Dashboard" 
-            emoji="📊" 
-            active={activeTab === 'dashboard'} 
-            onClick={() => setActiveTab('dashboard')} 
-          />
-          <TabButton 
-            id="analytics" 
-            label="Analytics" 
-            emoji="📈" 
-            active={activeTab === 'analytics'} 
-            onClick={() => setActiveTab('analytics')} 
-          />
+          <button 
+            onClick={() => setActiveTab('connect')}
+            style={{
+              padding: '12px 24px',
+              background: activeTab === 'connect' 
+                ? 'linear-gradient(135deg, #667eea, #764ba2)' 
+                : 'white',
+              color: activeTab === 'connect' ? 'white' : '#333',
+              border: activeTab === 'connect' ? 'none' : '2px solid #e0e0e0',
+              borderRadius: '12px',
+              fontWeight: '600',
+              cursor: 'pointer',
+              transition: 'all 0.3s',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              boxShadow: activeTab === 'connect' 
+                ? '0 4px 15px rgba(102,126,234,0.4)' 
+                : '0 2px 8px rgba(0,0,0,0.1)'
+            }}
+          >
+            <span style={{ fontSize: '20px' }}>🔗</span>
+            Connect YouTube
+          </button>
 
-          <TabButton 
-  id="comments" 
-  label="Comments" 
-  emoji="💬" 
-  active={activeTab === 'comments'} 
-  onClick={() => setActiveTab('comments')} 
-/>
-<TabButton 
-  id="slideshow" 
-  label="Image Slideshow" 
-  emoji="🎬" 
-  active={activeTab === 'slideshow'} 
-  onClick={() => setActiveTab('slideshow')} 
-/>
+          <button 
+            onClick={() => setActiveTab('setup')}
+            style={{
+              padding: '12px 24px',
+              background: activeTab === 'setup' 
+                ? 'linear-gradient(135deg, #f093fb, #f5576c)' 
+                : 'white',
+              color: activeTab === 'setup' ? 'white' : '#333',
+              border: activeTab === 'setup' ? 'none' : '2px solid #e0e0e0',
+              borderRadius: '12px',
+              fontWeight: '600',
+              cursor: 'pointer',
+              transition: 'all 0.3s',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              boxShadow: activeTab === 'setup' 
+                ? '0 4px 15px rgba(240,147,251,0.4)' 
+                : '0 2px 8px rgba(0,0,0,0.1)'
+            }}
+          >
+            <span style={{ fontSize: '20px' }}>⚙️</span>
+            Setup Automation
+          </button>
 
-<TabButton 
-  id="automation" 
-  label="Automation" 
-  emoji="🤖" 
-  active={activeTab === 'automation'} 
-  onClick={() => setActiveTab('automation')} 
-/>
+          <button 
+            onClick={() => setActiveTab('content')}
+            style={{
+              padding: '12px 24px',
+              background: activeTab === 'content' 
+                ? 'linear-gradient(135deg, #4facfe, #00f2fe)' 
+                : 'white',
+              color: activeTab === 'content' ? 'white' : '#333',
+              border: activeTab === 'content' ? 'none' : '2px solid #e0e0e0',
+              borderRadius: '12px',
+              fontWeight: '600',
+              cursor: 'pointer',
+              transition: 'all 0.3s',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              boxShadow: activeTab === 'content' 
+                ? '0 4px 15px rgba(79,172,254,0.4)' 
+                : '0 2px 8px rgba(0,0,0,0.1)'
+            }}
+          >
+            <span style={{ fontSize: '20px' }}>🎬</span>
+            Create Content
+          </button>
 
+          <button 
+            onClick={() => setActiveTab('dashboard')}
+            style={{
+              padding: '12px 24px',
+              background: activeTab === 'dashboard' 
+                ? 'linear-gradient(135deg, #43e97b, #38f9d7)' 
+                : 'white',
+              color: activeTab === 'dashboard' ? 'white' : '#333',
+              border: activeTab === 'dashboard' ? 'none' : '2px solid #e0e0e0',
+              borderRadius: '12px',
+              fontWeight: '600',
+              cursor: 'pointer',
+              transition: 'all 0.3s',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              boxShadow: activeTab === 'dashboard' 
+                ? '0 4px 15px rgba(67,233,123,0.4)' 
+                : '0 2px 8px rgba(0,0,0,0.1)'
+            }}
+          >
+            <span style={{ fontSize: '20px' }}>📊</span>
+            Dashboard
+          </button>
 
-{/* <TabButton 
-  id="viral-pixabay" 
-  label="Viral Pixel" 
-  emoji="🎬" 
-  active={activeTab === 'viral-pixel'} 
-  onClick={() => setActiveTab('viral-pixel')} 
-/> */}
+          <button 
+            onClick={() => setActiveTab('analytics')}
+            style={{
+              padding: '12px 24px',
+              background: activeTab === 'analytics' 
+                ? 'linear-gradient(135deg, #fa709a, #fee140)' 
+                : 'white',
+              color: activeTab === 'analytics' ? 'white' : '#333',
+              border: activeTab === 'analytics' ? 'none' : '2px solid #e0e0e0',
+              borderRadius: '12px',
+              fontWeight: '600',
+              cursor: 'pointer',
+              transition: 'all 0.3s',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              boxShadow: activeTab === 'analytics' 
+                ? '0 4px 15px rgba(250,112,154,0.4)' 
+                : '0 2px 8px rgba(0,0,0,0.1)'
+            }}
+          >
+            <span style={{ fontSize: '20px' }}>📈</span>
+            Analytics
+          </button>
 
-<button 
-  onClick={() => setActiveTab('viral-pixel')}
-  style={{
-    padding: '12px 24px',
-    background: activeTab === 'viral-pixel' 
-      ? 'linear-gradient(135deg, #667eea, #764ba2)' 
-      : 'white',
-    color: activeTab === 'viral-pixel' ? 'white' : '#333',
-    border: activeTab === 'viral-pixel' ? 'none' : '2px solid #e0e0e0',
-    borderRadius: '12px',
-    fontWeight: '600',
-    cursor: 'pointer',
-    transition: 'all 0.3s',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-    boxShadow: activeTab === 'viral-pixel' 
-      ? '0 4px 15px rgba(102,126,234,0.4)' 
-      : '0 2px 8px rgba(0,0,0,0.1)'
-  }}
->
-  <span style={{ fontSize: '20px' }}>🎬</span>
-  Viral Pixel
-</button>
+          <button 
+            onClick={() => setActiveTab('comments')}
+            style={{
+              padding: '12px 24px',
+              background: activeTab === 'comments' 
+                ? 'linear-gradient(135deg, #30cfd0, #330867)' 
+                : 'white',
+              color: activeTab === 'comments' ? 'white' : '#333',
+              border: activeTab === 'comments' ? 'none' : '2px solid #e0e0e0',
+              borderRadius: '12px',
+              fontWeight: '600',
+              cursor: 'pointer',
+              transition: 'all 0.3s',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              boxShadow: activeTab === 'comments' 
+                ? '0 4px 15px rgba(48,207,208,0.4)' 
+                : '0 2px 8px rgba(0,0,0,0.1)'
+            }}
+          >
+            <span style={{ fontSize: '20px' }}>💬</span>
+            Comments
+          </button>
 
-<button 
-  onClick={() => setActiveTab('mrbeast-shorts')}
-  style={{
-    padding: '12px 24px',
-    background: activeTab === 'mrbeast-shorts' 
-      ? 'linear-gradient(135deg, #f093fb, #f5576c)' 
-      : 'white',
-    color: activeTab === 'mrbeast-shorts' ? 'white' : '#333',
-    border: activeTab === 'mrbeast-shorts' ? 'none' : '2px solid #e0e0e0',
-    borderRadius: '12px',
-    fontWeight: '600',
-    cursor: 'pointer',
-    transition: 'all 0.3s',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-    boxShadow: activeTab === 'mrbeast-shorts' 
-      ? '0 4px 15px rgba(240,147,251,0.4)' 
-      : '0 2px 8px rgba(0,0,0,0.1)'
-  }}
->
-  <span style={{ fontSize: '20px' }}>🔥</span>
-  MrBeast Shorts
-</button>
+          <button 
+            onClick={() => setActiveTab('slideshow')}
+            style={{
+              padding: '12px 24px',
+              background: activeTab === 'slideshow' 
+                ? 'linear-gradient(135deg, #a8edea, #fed6e3)' 
+                : 'white',
+              color: activeTab === 'slideshow' ? '#333' : '#333',
+              border: activeTab === 'slideshow' ? 'none' : '2px solid #e0e0e0',
+              borderRadius: '12px',
+              fontWeight: '600',
+              cursor: 'pointer',
+              transition: 'all 0.3s',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              boxShadow: activeTab === 'slideshow' 
+                ? '0 4px 15px rgba(168,237,234,0.4)' 
+                : '0 2px 8px rgba(0,0,0,0.1)'
+            }}
+          >
+            <span style={{ fontSize: '20px' }}>🎬</span>
+            Image Slideshow
+          </button>
 
+          <button 
+            onClick={() => setActiveTab('automation')}
+            style={{
+              padding: '12px 24px',
+              background: activeTab === 'automation' 
+                ? 'linear-gradient(135deg, #ff9a9e, #fecfef)' 
+                : 'white',
+              color: activeTab === 'automation' ? '#333' : '#333',
+              border: activeTab === 'automation' ? 'none' : '2px solid #e0e0e0',
+              borderRadius: '12px',
+              fontWeight: '600',
+              cursor: 'pointer',
+              transition: 'all 0.3s',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              boxShadow: activeTab === 'automation' 
+                ? '0 4px 15px rgba(255,154,158,0.4)' 
+                : '0 2px 8px rgba(0,0,0,0.1)'
+            }}
+          >
+            <span style={{ fontSize: '20px' }}>🤖</span>
+            Automation
+          </button>
 
+          <button 
+            onClick={() => setActiveTab('viral-pixel')}
+            style={{
+              padding: '12px 24px',
+              background: activeTab === 'viral-pixel' 
+                ? 'linear-gradient(135deg, #667eea, #764ba2)' 
+                : 'white',
+              color: activeTab === 'viral-pixel' ? 'white' : '#333',
+              border: activeTab === 'viral-pixel' ? 'none' : '2px solid #e0e0e0',
+              borderRadius: '12px',
+              fontWeight: '600',
+              cursor: 'pointer',
+              transition: 'all 0.3s',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              boxShadow: activeTab === 'viral-pixel' 
+                ? '0 4px 15px rgba(102,126,234,0.4)' 
+                : '0 2px 8px rgba(0,0,0,0.1)'
+            }}
+          >
+            <span style={{ fontSize: '20px' }}>🎬</span>
+            Viral Pixel
+          </button>
 
+          <button 
+            onClick={() => setActiveTab('mrbeast-shorts')}
+            style={{
+              padding: '12px 24px',
+              background: activeTab === 'mrbeast-shorts' 
+                ? 'linear-gradient(135deg, #f093fb, #f5576c)' 
+                : 'white',
+              color: activeTab === 'mrbeast-shorts' ? 'white' : '#333',
+              border: activeTab === 'mrbeast-shorts' ? 'none' : '2px solid #e0e0e0',
+              borderRadius: '12px',
+              fontWeight: '600',
+              cursor: 'pointer',
+              transition: 'all 0.3s',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              boxShadow: activeTab === 'mrbeast-shorts' 
+                ? '0 4px 15px rgba(240,147,251,0.4)' 
+                : '0 2px 8px rgba(0,0,0,0.1)'
+            }}
+          >
+            <span style={{ fontSize: '20px' }}>🔥</span>
+            MrBeast Shorts
+          </button>
 
-<button 
-  onClick={() => setActiveTab('china-automation')}
-  style={{
-    padding: '12px 24px',
-    background: activeTab === 'china-automation' 
-      ? 'linear-gradient(135deg, #FF6B6B, #FF8E53)' 
-      : 'white',
-    color: activeTab === 'china-automation' ? 'white' : '#333',
-    border: activeTab === 'china-automation' ? 'none' : '2px solid #e0e0e0',
-    borderRadius: '12px',
-    fontWeight: '600',
-    cursor: 'pointer',
-    transition: 'all 0.3s',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-    boxShadow: activeTab === 'china-automation' 
-      ? '0 4px 15px rgba(255,107,107,0.4)' 
-      : '0 2px 8px rgba(0,0,0,0.1)'
-  }}
->
-  <span style={{ fontSize: '20px' }}>🇨🇳</span>
-  China Videos
-</button>
-
-
-
-</div>
+          <button 
+            onClick={() => setActiveTab('china-automation')}
+            style={{
+              padding: '12px 24px',
+              background: activeTab === 'china-automation' 
+                ? 'linear-gradient(135deg, #FF6B6B, #FF8E53)' 
+                : 'white',
+              color: activeTab === 'china-automation' ? 'white' : '#333',
+              border: activeTab === 'china-automation' ? 'none' : '2px solid #e0e0e0',
+              borderRadius: '12px',
+              fontWeight: '600',
+              cursor: 'pointer',
+              transition: 'all 0.3s',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              boxShadow: activeTab === 'china-automation' 
+                ? '0 4px 15px rgba(255,107,107,0.4)' 
+                : '0 2px 8px rgba(0,0,0,0.1)'
+            }}
+          >
+            <span style={{ fontSize: '20px' }}>🇨🇳</span>
+            China Videos
+          </button>
+        </div>
 
  {/* Connect YouTube Tab */}
 
