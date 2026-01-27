@@ -372,3 +372,6 @@ googlesearch-python==1.2.3
 # RENDER DEPLOYMENT SPECIFIC
 # ============================================================================
 gunicorn==21.2.0
+
+
+openai-whisper
