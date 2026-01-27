@@ -87,7 +87,15 @@ except ImportError as e:
     logger.error(f"❌ Failed to import Viral_pixel: {e}")
     viral_pixel_router = None
 
-
+# ===========================================================================
+# PIXABAY ENHANCED MODULE IMPORT
+# ===========================================================================
+try:
+    from Pixabay import router as pixabay_enhanced_router
+    logger.info("✅ pixabay_enhanced module imported successfully")
+except ImportError as e:
+    logger.error(f"❌ Failed to import pixabay_enhanced: {e}")
+    pixabay_enhanced_router = None
 
 
 # ✅ ADD THIS LINE (around line 50-60, near other imports)
@@ -1840,7 +1848,23 @@ except Exception as e:
     logger.error(traceback.format_exc())
 
 
-
+# ===========================================================================
+# ✅ PIXABAY ENHANCED ROUTES (AI-POWERED IMAGE SLIDESHOW GENERATOR)
+# ===========================================================================
+try:
+    if pixabay_enhanced_router is not None:
+        app.include_router(pixabay_enhanced_router, tags=["pixabay-enhanced"])
+        
+        logger.info("✅ Pixabay Enhanced routes registered successfully!")
+        logger.info("   📍 Available endpoints:")
+        logger.info("      - GET  /api/pixabay/niches")
+        logger.info("      - POST /api/pixabay/generate")
+    else:
+        logger.warning("⚠️ Pixabay Enhanced router not available - routes not registered")
+        
+except Exception as e:
+    logger.error(f"❌ Pixabay Enhanced routes registration failed: {e}")
+    logger.error(traceback.format_exc())
 
 # ===========================================================================
 # MRBEAST VIRAL SHORTS ROUTES
