@@ -35,7 +35,7 @@ from fastapi import Form
 
 from PIL import Image, ImageDraw, ImageFont
 import io
-import cv2
+# import cv2
 import numpy as np
 import subprocess
 import re
