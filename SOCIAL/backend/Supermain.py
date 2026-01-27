@@ -1885,9 +1885,12 @@ except Exception as e:
 # ============================================================================
 # PLATFORM STATUS ENDPOINT - MULTI-USER (WITH MRBEAST)
 # ============================================================================
+# ============================================================================
+# PLATFORM STATUS ENDPOINT - MULTI-USER (WITH VIRAL PIXEL, MRBEAST, CHINA)
+# ============================================================================
 @app.get("/api/platforms/status")
 async def get_platform_status(current_user: dict = Depends(get_current_user)):
-    """Get connection status - ALWAYS FRESH FROM DATABASE with Viral Pixel & MrBeast"""
+    """Get connection status - ALWAYS FRESH FROM DATABASE with Viral Pixel, MrBeast & China"""
     try:
         user_id = current_user["id"]
         user_email = current_user.get("email", "Unknown")
@@ -2045,7 +2048,7 @@ async def get_platform_status(current_user: dict = Depends(get_current_user)):
             logger.warning("⚠️ Viral Pixel module not available")
         
         # ============================================================
-        # ✅ NEW: CHECK MRBEAST SHORTS AVAILABILITY & CONFIGURATION
+        # ✅ CHECK MRBEAST SHORTS AVAILABILITY & CONFIGURATION
         # ============================================================
         mrbeast_available = mrbeast_router is not None
         mrbeast_config = None
@@ -2139,8 +2142,8 @@ async def get_platform_status(current_user: dict = Depends(get_current_user)):
                     "youtube_connected": youtube_connected,
                     "groq_api": has_groq_transcription,
                     "elevenlabs_api": has_elevenlabs,
-                    "ffmpeg_installed": True,  # Always required
-                    "yt_dlp_installed": True   # Always required
+                    "ffmpeg_installed": True,
+                    "yt_dlp_installed": True
                 },
                 "status_message": (
                     "✅ Ready to generate viral shorts!" if mrbeast_ready else
@@ -2182,6 +2185,158 @@ async def get_platform_status(current_user: dict = Depends(get_current_user)):
             logger.warning("⚠️ MrBeast module not available")
         
         # ============================================================
+        # ✅ CHECK CHINA AUTOMATION AVAILABILITY & CONFIGURATION
+        # ============================================================
+        china_available = china_router is not None
+        china_config = None
+        china_ready = False
+        
+        if china_available:
+            # Check if user has required API keys for China automation
+            has_groq_whisper = bool(os.getenv("GROQ_API_KEY"))
+            has_mistral_ai = bool(os.getenv("MISTRAL_API_KEY"))
+            has_elevenlabs_voice = bool(os.getenv("ELEVENLABS_API_KEY"))
+            has_deepl = bool(os.getenv("DEEPL_API_KEY"))
+            
+            # China automation is ready if:
+            # 1. Module is loaded
+            # 2. At least one AI service (Groq or Mistral) is available
+            # 3. ElevenLabs available for Hindi voice-over
+            # 4. YouTube is connected (for auto-upload)
+            china_ready = (
+                china_available and 
+                (has_groq_whisper or has_mistral_ai) and
+                has_elevenlabs_voice and
+                youtube_connected
+            )
+            
+            china_config = {
+                "module_loaded": True,
+                "transcription_available": has_groq_whisper,
+                "translation_ai": has_mistral_ai or has_groq_whisper,
+                "translation_deepl": has_deepl,
+                "voice_service": has_elevenlabs_voice,
+                "youtube_required": youtube_connected,
+                "ready_to_use": china_ready,
+                "available_niches": [
+                    {
+                        "id": "funny",
+                        "name": "Funny / Comedy / Memes 😂",
+                        "icon": "😂",
+                        "english_keywords": ["funny", "comedy", "meme", "prank", "fail", "joke", "hilarious"],
+                        "chinese_keywords": ["搞笑", "幽默", "段子", "娱乐", "爆笑", "喜剧", "笑话"],
+                        "style": "Super funny and comedic with Indian humor",
+                        "emoji": "😂🤣💀",
+                        "cpm": "$3-7",
+                        "viral_potential": "Very High"
+                    },
+                    {
+                        "id": "animals",
+                        "name": "Cute Animals / Pets 🐶",
+                        "icon": "🐶",
+                        "english_keywords": ["cute animals", "pets", "dogs", "cats", "puppies", "kittens", "funny animals"],
+                        "chinese_keywords": ["萌宠", "宠物", "狗狗", "猫咪", "可爱动物", "小猫", "小狗"],
+                        "style": "Cute and heartwarming with emotional appeal",
+                        "emoji": "🐶🐱❤️",
+                        "cpm": "$2-5",
+                        "viral_potential": "Very High"
+                    },
+                    {
+                        "id": "kids",
+                        "name": "Kids / Cartoon / Children 👶",
+                        "icon": "👶",
+                        "english_keywords": ["kids", "children", "cartoon", "baby", "funny kids", "cute baby", "toddler"],
+                        "chinese_keywords": ["儿童", "宝宝", "小孩", "可爱宝宝", "萌娃", "动画", "幼儿"],
+                        "style": "Family-friendly and wholesome with positive energy",
+                        "emoji": "👶😊🌟",
+                        "cpm": "$2-4",
+                        "viral_potential": "High"
+                    },
+                    {
+                        "id": "stories",
+                        "name": "Story / Motivation / Facts 📖",
+                        "icon": "📖",
+                        "english_keywords": ["story", "motivation", "inspiration", "facts", "amazing story", "life lesson", "wisdom"],
+                        "chinese_keywords": ["故事", "励志", "感人", "真实故事", "人生", "智慧", "道理"],
+                        "style": "Engaging and thought-provoking with storytelling flow",
+                        "emoji": "📖💡✨",
+                        "cpm": "$4-8",
+                        "viral_potential": "High"
+                    },
+                    {
+                        "id": "satisfying",
+                        "name": "Satisfying / ASMR / Oddly Satisfying ✨",
+                        "icon": "✨",
+                        "english_keywords": ["satisfying", "oddly satisfying", "asmr", "relaxing", "soap cutting", "slime", "perfect"],
+                        "chinese_keywords": ["解压", "治愈", "舒适", "完美", "切割", "史莱姆", "放松"],
+                        "style": "Calming and descriptive with sensory details",
+                        "emoji": "✨😌🎯",
+                        "cpm": "$3-6",
+                        "viral_potential": "Very High"
+                    }
+                ],
+                "available_features": [
+                    "Multi-niche Chinese video search",
+                    "Smart keyword search (English + Chinese)",
+                    "AI transcription (Groq Whisper)",
+                    "Creative Hindi translation (Mistral/DeepL)",
+                    "ElevenLabs Hindi voice-over",
+                    "Background music by niche",
+                    "Text overlays with emojis",
+                    "Video processing (9:16 format)",
+                    "Auto-upload to YouTube Shorts"
+                ],
+                "search_strategies": [
+                    "English keywords first",
+                    "Chinese keywords fallback",
+                    "Universal trending keywords",
+                    "Smart niche matching"
+                ],
+                "requirements": {
+                    "youtube_connected": youtube_connected,
+                    "groq_api": has_groq_whisper,
+                    "mistral_api": has_mistral_ai,
+                    "elevenlabs_api": has_elevenlabs_voice,
+                    "deepl_api": has_deepl,
+                    "ffmpeg_installed": True,
+                    "yt_dlp_installed": True
+                },
+                "status_message": (
+                    "✅ Ready to generate Chinese viral videos!" if china_ready else
+                    "⚠️ Connect YouTube to enable auto-upload" if not youtube_connected else
+                    "❌ Add ELEVENLABS_API_KEY for Hindi voice-over" if not has_elevenlabs_voice else
+                    "❌ Add GROQ_API_KEY for video transcription"
+                ),
+                "process_flow": [
+                    "1. Search Chinese videos by niche",
+                    "2. Download video (yt-dlp)",
+                    "3. Extract & transcribe audio (Whisper)",
+                    "4. Translate to Hindi (Mistral/DeepL)",
+                    "5. Generate creative script (AI)",
+                    "6. Generate Hindi voice-over (ElevenLabs)",
+                    "7. Process video (9:16 Shorts format)",
+                    "8. Add text overlays + music",
+                    "9. Upload to YouTube Shorts"
+                ],
+                "tips": [
+                    "Funny niche has highest viral potential",
+                    "Each niche has custom music and style",
+                    "Hindi voice-over increases Indian engagement",
+                    "30-second duration is optimal",
+                    "Smart fallback ensures success even if search fails"
+                ]
+            }
+            
+            logger.info(f"🇨🇳 China automation status: {'Ready' if china_ready else 'Not Ready'}")
+        else:
+            china_config = {
+                "module_loaded": False,
+                "ready_to_use": False,
+                "status_message": "❌ China automation module not loaded - check server logs"
+            }
+            logger.warning("⚠️ China automation module not available")
+        
+        # ============================================================
         # RETURN COMPREHENSIVE PLATFORM STATUS
         # ============================================================
         return {
@@ -2198,7 +2353,8 @@ async def get_platform_status(current_user: dict = Depends(get_current_user)):
                         "slideshow_generation",
                         "product_video_automation",
                         "viral_pixel_upload" if viral_pixel_ready else None,
-                        "mrbeast_shorts_upload" if mrbeast_ready else None
+                        "mrbeast_shorts_upload" if mrbeast_ready else None,
+                        "china_shorts_upload" if china_ready else None
                     ]
                 },
                 "reddit": {
@@ -2215,8 +2371,10 @@ async def get_platform_status(current_user: dict = Depends(get_current_user)):
                 },
                 # ✅ VIRAL PIXEL PLATFORM
                 "viral_pixel": viral_pixel_config,
-                # ✅ NEW: MRBEAST SHORTS PLATFORM
-                "mrbeast_shorts": mrbeast_config
+                # ✅ MRBEAST SHORTS PLATFORM
+                "mrbeast_shorts": mrbeast_config,
+                # ✅ CHINA AUTOMATION PLATFORM
+                "china_automation": china_config
             },
             "user_info": {
                 "user_id": user_id,
@@ -2231,7 +2389,8 @@ async def get_platform_status(current_user: dict = Depends(get_current_user)):
                 "total_platforms": 2,
                 "viral_pixel_ready": viral_pixel_ready,
                 "mrbeast_ready": mrbeast_ready,
-                "all_features_available": youtube_connected and reddit_connected and viral_pixel_ready and mrbeast_ready
+                "china_ready": china_ready,
+                "all_features_available": youtube_connected and reddit_connected and viral_pixel_ready and mrbeast_ready and china_ready
             },
             # ✅ Add timestamp to prevent caching
             "fetched_at": datetime.now().isoformat(),
@@ -2248,7 +2407,8 @@ async def get_platform_status(current_user: dict = Depends(get_current_user)):
                 "youtube": {"connected": False, "available": False},
                 "reddit": {"connected": False, "available": False},
                 "viral_pixel": {"module_loaded": False, "ready_to_use": False},
-                "mrbeast_shorts": {"module_loaded": False, "ready_to_use": False}
+                "mrbeast_shorts": {"module_loaded": False, "ready_to_use": False},
+                "china_automation": {"module_loaded": False, "ready_to_use": False}
             },
             "fetched_at": datetime.now().isoformat()
         }
