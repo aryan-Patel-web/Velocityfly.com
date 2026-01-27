@@ -98,6 +98,17 @@ except ImportError as e:
     logger.error(f"❌ Failed to import MrBeast: {e}")
     mrbeast_router = None
     
+
+
+
+# ✅ NEW: CHINA AUTOMATION
+try:
+    from china import router as china_router
+    logger.info("✅ China automation module imported successfully")
+except ImportError as e:
+    logger.error(f"❌ Failed to import china_enhanced: {e}")
+    logger.error(traceback.format_exc())
+    china_router = None
 # ============================================================================
 # UNIFIED DATABASE MANAGER - MULTI-USER OPTIMIZED
 # ============================================================================
@@ -1850,6 +1861,24 @@ except Exception as e:
     logger.error(traceback.format_exc())
 
 
+
+# ✅ NEW: CHINA AUTOMATION ROUTES (MULTI-NICHE CHINESE VIDEOS)
+# ============================================================================
+try:
+    if china_router is not None:
+        app.include_router(china_router, tags=["china-automation"])
+        
+        logger.info("✅ China automation routes registered successfully!")
+        logger.info("   📍 Available endpoints:")
+        logger.info("      - GET  /api/china/niches")
+        logger.info("      - POST /api/china/generate")
+        logger.info("      - GET  /api/china/test")
+    else:
+        logger.warning("⚠️ China router not available - routes not registered")
+        
+except Exception as e:
+    logger.error(f"❌ China automation routes registration failed: {e}")
+    logger.error(traceback.format_exc())
 # ============================================================================
 # PLATFORM STATUS ENDPOINT - MULTI-USER
 # ============================================================================
