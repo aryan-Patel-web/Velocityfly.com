@@ -1799,12 +1799,6 @@ useEffect(() => {
 
 
 
-// PART 3: ADD THIS BUTTON TO YOUR TAB NAVIGATION
-// ============================================================================
-
-/*
-Add this button alongside your other tab buttons (e.g., next to MrBeast button):
-*/
 
 <button 
   onClick={() => setActiveTab('china-automation')}
