@@ -245,6 +245,8 @@
 
 
 edge-tts
+
+
 pyttsx3
 
 # ============================================================================
@@ -304,7 +306,7 @@ imageio-ffmpeg==0.4.9
 # IMAGE PROCESSING (Server-safe headless versions)
 # ============================================================================
 Pillow==10.4.0
-# opencv-python-headless==4.8.1.78
+opencv-python-headless==4.8.1.78
 
 # ============================================================================
 # AUDIO PROCESSING (for Viral Pixel voiceovers)
@@ -373,4 +375,4 @@ googlesearch-python==1.2.3
 # ============================================================================
 gunicorn==21.2.0
 
-elevenlabs
+elevenlabs==2.32.0
