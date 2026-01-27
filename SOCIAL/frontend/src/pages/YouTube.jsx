@@ -81,7 +81,13 @@ const [chinaProgress, setChinaProgress] = useState(0);
 const [chinaResult, setChinaResult] = useState(null);
 const [chinaNiches, setChinaNiches] = useState({});
 
-
+const [pixabayConfig, setPixabayConfig] = useState({
+  niche: 'space',
+  language: 'hindi'
+});
+const [pixabayGenerating, setPixabayGenerating] = useState(false);
+const [pixabayProgress, setPixabayProgress] = useState(0);
+const [pixabayResult, setPixabayResult] = useState(null);
 
 // MrBeast Viral Shorts Generator State
 const [mrBeastConfig, setMrBeastConfig] = useState({
@@ -1930,6 +1936,31 @@ useEffect(() => {
             MrBeast Shorts
           </button>
 
+<button 
+  onClick={() => setActiveTab('pixabay')}
+  style={{
+    padding: '12px 24px',
+    background: activeTab === 'pixabay' 
+      ? 'linear-gradient(135deg, #f093fb, #f5576c)' 
+      : 'white',
+    color: activeTab === 'pixabay' ? 'white' : '#333',
+    border: activeTab === 'pixabay' ? 'none' : '2px solid #e0e0e0',
+    borderRadius: '12px',
+    fontWeight: '600',
+    cursor: 'pointer',
+    transition: 'all 0.3s',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    boxShadow: activeTab === 'pixabay' 
+      ? '0 4px 15px rgba(240,147,251,0.4)' 
+      : '0 2px 8px rgba(0,0,0,0.1)'
+  }}
+>
+  <span style={{ fontSize: '20px' }}>🖼️</span>
+  Pixabay Slideshow
+</button>
+
           <button 
             onClick={() => setActiveTab('china-automation')}
             style={{
@@ -1954,6 +1985,8 @@ useEffect(() => {
             <span style={{ fontSize: '20px' }}>🇨🇳</span>
             China Videos
           </button>
+
+
         </div>
 
  {/* Connect YouTube Tab */}
@@ -8584,6 +8617,483 @@ onClick={async () => {
 )}
 
 {/* --------------------------------viral pixel code end---------------------------------------------------- */}
+
+
+
+
+
+/* ============================================ */
+/* ✅ ADD THIS TAB CONTENT (after other tabs) */
+/* ============================================ */
+
+{activeTab === 'pixabay' && status?.youtube_connected && (
+  <div style={{ 
+    background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)', 
+    borderRadius: '20px', 
+    padding: '40px', 
+    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
+    minHeight: '600px'
+  }}>
+    <div style={{ 
+      display: 'flex', 
+      justifyContent: 'space-between', 
+      alignItems: 'center', 
+      marginBottom: '30px' 
+    }}>
+      <div>
+        <h2 style={{ 
+          color: 'white', 
+          marginBottom: '10px', 
+          fontSize: '36px', 
+          fontWeight: '800',
+          textShadow: '2px 2px 4px rgba(0,0,0,0.3)',
+          margin: 0
+        }}>
+          🖼️ Pixabay Slideshow Generator
+        </h2>
+        <p style={{ 
+          color: 'rgba(255,255,255,0.95)', 
+          fontSize: '18px',
+          fontWeight: '500',
+          margin: 0
+        }}>
+          Smart Multi-Keyword Image Search + Emotional AI Storytelling
+        </p>
+      </div>
+    </div>
+
+    {/* STEP 1: NICHE SELECTION */}
+    <div style={{
+      background: 'rgba(255,255,255,0.95)',
+      borderRadius: '15px',
+      padding: '30px',
+      marginBottom: '25px'
+    }}>
+      <h3 style={{ 
+        color: '#333', 
+        marginBottom: '20px', 
+        fontSize: '24px', 
+        fontWeight: '700' 
+      }}>
+        🎯 Step 1: Choose Your Niche
+      </h3>
+
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+        gap: '15px',
+        marginBottom: '20px'
+      }}>
+        {[
+          { 
+            id: 'space', 
+            emoji: '🌌', 
+            name: 'Space & Universe', 
+            emotion: 'Wonder',
+            music: 'Epic',
+            keywords: 'galaxy, nebula, planet, black hole'
+          },
+          { 
+            id: 'funny', 
+            emoji: '😂', 
+            name: 'Funny & Comedy', 
+            emotion: 'Joy',
+            music: 'Upbeat',
+            keywords: 'funny animals, memes, pranks'
+          },
+          { 
+            id: 'nature', 
+            emoji: '🦁', 
+            name: 'Nature & Wildlife', 
+            emotion: 'Peace',
+            music: 'Calm',
+            keywords: 'mountains, forests, waterfalls'
+          },
+          { 
+            id: 'motivation', 
+            emoji: '💪', 
+            name: 'Motivation & Success', 
+            emotion: 'Inspiration',
+            music: 'Energetic',
+            keywords: 'success, victory, growth'
+          },
+          { 
+            id: 'storytelling', 
+            emoji: '📖', 
+            name: 'Storytelling & Mystery', 
+            emotion: 'Curiosity',
+            music: 'Cinematic',
+            keywords: 'ancient, mystery, temples'
+          }
+        ].map((niche) => (
+          <div
+            key={niche.id}
+            onClick={() => {
+              if (!pixabayGenerating) {
+                setPixabayConfig(prev => ({ ...prev, niche: niche.id }));
+              }
+            }}
+            style={{
+              padding: '20px',
+              background: pixabayConfig.niche === niche.id 
+                ? 'linear-gradient(135deg, #f093fb, #f5576c)' 
+                : 'white',
+              color: pixabayConfig.niche === niche.id ? 'white' : '#333',
+              border: pixabayConfig.niche === niche.id 
+                ? '3px solid #FFD700' 
+                : '2px solid #e0e0e0',
+              borderRadius: '12px',
+              cursor: pixabayGenerating ? 'not-allowed' : 'pointer',
+              transition: 'all 0.3s',
+              textAlign: 'center',
+              boxShadow: pixabayConfig.niche === niche.id 
+                ? '0 8px 24px rgba(240,147,251,0.4)' 
+                : '0 2px 8px rgba(0,0,0,0.1)',
+              opacity: pixabayGenerating ? 0.6 : 1,
+              transform: pixabayConfig.niche === niche.id ? 'scale(1.05)' : 'scale(1)'
+            }}
+          >
+            <div style={{ fontSize: '48px', marginBottom: '10px' }}>
+              {niche.emoji}
+            </div>
+            <div style={{ fontWeight: '700', fontSize: '16px', marginBottom: '8px' }}>
+              {niche.name}
+            </div>
+            <div style={{ 
+              fontSize: '12px', 
+              opacity: 0.9,
+              fontWeight: '500',
+              marginBottom: '6px'
+            }}>
+              {niche.emotion} • {niche.music}
+            </div>
+            <div style={{ 
+              fontSize: '11px', 
+              opacity: 0.8,
+              fontStyle: 'italic'
+            }}>
+              {niche.keywords}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {pixabayConfig.niche && (
+        <div style={{
+          padding: '15px',
+          background: '#e8f5e9',
+          borderLeft: '4px solid #4caf50',
+          borderRadius: '8px',
+          marginTop: '15px'
+        }}>
+          <strong style={{ color: '#2e7d32' }}>
+            ✅ Selected: {pixabayConfig.niche.toUpperCase()}
+          </strong>
+          <div style={{ fontSize: '13px', color: '#555', marginTop: '6px' }}>
+            Images will be sourced from multiple keywords to avoid repetition
+          </div>
+        </div>
+      )}
+    </div>
+
+    {/* STEP 2: LANGUAGE SELECTION */}
+    <div style={{
+      background: 'rgba(255,255,255,0.95)',
+      borderRadius: '15px',
+      padding: '30px',
+      marginBottom: '25px'
+    }}>
+      <h3 style={{ 
+        color: '#333', 
+        marginBottom: '20px', 
+        fontSize: '24px', 
+        fontWeight: '700' 
+      }}>
+        🎙️ Step 2: Choose Language
+      </h3>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '15px' }}>
+        {[
+          { id: 'hindi', label: 'हिन्दी (Hindi)', icon: '🇮🇳' },
+          { id: 'english', label: 'English', icon: '🇬🇧' }
+        ].map((lang) => (
+          <button
+            key={lang.id}
+            onClick={() => setPixabayConfig(prev => ({ ...prev, language: lang.id }))}
+            disabled={pixabayGenerating}
+            style={{
+              padding: '16px',
+              background: pixabayConfig.language === lang.id 
+                ? 'linear-gradient(135deg, #f093fb, #f5576c)' 
+                : 'white',
+              color: pixabayConfig.language === lang.id ? 'white' : '#333',
+              border: pixabayConfig.language === lang.id 
+                ? '2px solid #FFD700' 
+                : '2px solid #ddd',
+              borderRadius: '10px',
+              cursor: pixabayGenerating ? 'not-allowed' : 'pointer',
+              fontWeight: '600',
+              fontSize: '16px',
+              opacity: pixabayGenerating ? 0.6 : 1,
+              transition: 'all 0.3s',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '10px'
+            }}
+          >
+            <span style={{ fontSize: '24px' }}>{lang.icon}</span>
+            {lang.label}
+          </button>
+        ))}
+      </div>
+
+      <div style={{
+        marginTop: '15px',
+        padding: '12px',
+        background: '#fff3cd',
+        borderLeft: '4px solid #ffc107',
+        borderRadius: '8px',
+        fontSize: '13px',
+        color: '#856404'
+      }}>
+        <strong>Voice:</strong> ElevenLabs Premium (if API key configured) → Edge TTS Free (fallback)
+      </div>
+    </div>
+
+    {/* STEP 3: GENERATE */}
+    <div style={{
+      background: 'rgba(255,255,255,0.95)',
+      borderRadius: '15px',
+      padding: '30px',
+      marginBottom: '25px'
+    }}>
+      <h3 style={{ 
+        color: '#333', 
+        marginBottom: '20px', 
+        fontSize: '24px', 
+        fontWeight: '700' 
+      }}>
+        🎬 Step 3: Generate Slideshow
+      </h3>
+
+      <button
+        onClick={async () => {
+          if (!pixabayConfig.niche) {
+            alert('❌ Please select a niche!');
+            return;
+          }
+
+          setPixabayGenerating(true);
+          setPixabayProgress(0);
+
+          try {
+            console.log('Starting Pixabay generation...');
+            const response = await fetch(`${API_BASE}/api/pixabay/generate`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+              },
+              body: JSON.stringify({
+                user_id: user.user_id,
+                niche: pixabayConfig.niche,
+                language: pixabayConfig.language
+              })
+            });
+
+            const progressInterval = setInterval(() => {
+              setPixabayProgress(prev => {
+                if (prev >= 90) {
+                  clearInterval(progressInterval);
+                  return 90;
+                }
+                return prev + 10;
+              });
+            }, 2500);
+
+            const result = await response.json();
+            clearInterval(progressInterval);
+
+            if (result.success) {
+              setPixabayProgress(100);
+              setPixabayResult(result);
+              console.log('Slideshow generated successfully');
+              alert(`✅ Video uploaded!\n\nVideo ID: ${result.video_id}\nURL: ${result.video_url}`);
+            } else {
+              console.error('Generation failed:', result.error);
+              alert('❌ Failed: ' + result.error);
+            }
+          } catch (error) {
+            console.error('Error:', error);
+            alert('❌ Error: ' + error.message);
+          } finally {
+            setPixabayGenerating(false);
+            setPixabayProgress(0);
+          }
+        }}
+        disabled={pixabayGenerating || !pixabayConfig.niche}
+        style={{
+          width: '100%',
+          padding: '20px',
+          background: pixabayGenerating 
+            ? 'linear-gradient(135deg, #999, #666)' 
+            : 'linear-gradient(135deg, #f093fb, #f5576c)',
+          color: 'white',
+          border: 'none',
+          borderRadius: '12px',
+          fontSize: '20px',
+          fontWeight: '800',
+          cursor: (pixabayGenerating || !pixabayConfig.niche) ? 'not-allowed' : 'pointer',
+          boxShadow: '0 6px 20px rgba(240,147,251,0.4)',
+          opacity: (pixabayGenerating || !pixabayConfig.niche) ? 0.7 : 1,
+          transition: 'all 0.3s'
+        }}
+      >
+        {pixabayGenerating ? '⏳ GENERATING SLIDESHOW...' : '🖼️ GENERATE SLIDESHOW'}
+      </button>
+
+      {pixabayGenerating && (
+        <div style={{ marginTop: '20px' }}>
+          <div style={{
+            width: '100%',
+            height: '30px',
+            background: '#e0e0e0',
+            borderRadius: '15px',
+            overflow: 'hidden'
+          }}>
+            <div style={{
+              width: `${pixabayProgress}%`,
+              height: '100%',
+              background: 'linear-gradient(90deg, #f093fb, #f5576c)',
+              transition: 'width 0.5s',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}>
+              <span style={{
+                color: 'white',
+                fontWeight: '700',
+                fontSize: '14px'
+              }}>
+                {pixabayProgress}%
+              </span>
+            </div>
+          </div>
+          <p style={{ 
+            textAlign: 'center', 
+            marginTop: '10px', 
+            color: '#666',
+            fontSize: '14px' 
+          }}>
+            Processing: Search → Images → Script → Overlays → Voice → Effects → Upload...
+          </p>
+        </div>
+      )}
+
+      {pixabayResult && (
+        <div style={{
+          marginTop: '20px',
+          padding: '20px',
+          background: '#e8f5e9',
+          borderRadius: '12px',
+          border: '2px solid #4caf50'
+        }}>
+          <h4 style={{ color: '#2e7d32', marginBottom: '15px', fontSize: '18px', fontWeight: '700' }}>
+            ✅ Slideshow Uploaded Successfully!
+          </h4>
+          <div style={{ fontSize: '14px', color: '#333', marginBottom: '8px' }}>
+            <strong>Video ID:</strong> {pixabayResult.video_id}
+          </div>
+          <div style={{ fontSize: '14px', color: '#333', marginBottom: '8px' }}>
+            <strong>Title:</strong> {pixabayResult.title}
+          </div>
+          <div style={{ fontSize: '14px', color: '#333', marginBottom: '8px' }}>
+            <strong>Images:</strong> {pixabayResult.image_count}
+          </div>
+          <div style={{ fontSize: '14px', color: '#333', marginBottom: '15px' }}>
+            <strong>Duration:</strong> {pixabayResult.duration}s
+          </div>
+          
+          <a
+            href={pixabayResult.video_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              display: 'inline-block',
+              padding: '12px 24px',
+              background: '#FF0000',
+              color: 'white',
+              textDecoration: 'none',
+              borderRadius: '8px',
+              fontWeight: '600',
+              fontSize: '14px'
+            }}
+          >
+            🎬 View on YouTube
+          </a>
+        </div>
+      )}
+    </div>
+
+    {/* HOW IT WORKS */}
+    <div style={{
+      padding: '25px',
+      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+      borderRadius: '15px',
+      color: 'white'
+    }}>
+      <h3 style={{ marginBottom: '20px', fontSize: '20px', fontWeight: '700' }}>
+        📖 How It Works
+      </h3>
+      <div style={{ display: 'grid', gap: '15px' }}>
+        {[
+          { icon: '1️⃣', text: 'Smart multi-keyword search (no repetition)' },
+          { icon: '2️⃣', text: 'Downloads 6-8 HD vertical images' },
+          { icon: '3️⃣', text: 'AI generates emotional 4-segment script' },
+          { icon: '4️⃣', text: 'Adds 1-2 word overlays to each image' },
+          { icon: '5️⃣', text: 'Creates slideshow with zoom/pan effects' },
+          { icon: '6️⃣', text: 'Generates Hindi/English voiceover (ElevenLabs)' },
+          { icon: '7️⃣', text: 'Adds niche-based background music' },
+          { icon: '8️⃣', text: 'Uploads to YouTube Shorts automatically' }
+        ].map((step, idx) => (
+          <div key={idx} style={{
+            display: 'flex',
+            gap: '12px',
+            alignItems: 'center',
+            background: 'rgba(255,255,255,0.15)',
+            padding: '12px',
+            borderRadius: '8px',
+            backdropFilter: 'blur(10px)'
+          }}>
+            <span style={{ fontSize: '24px' }}>{step.icon}</span>
+            <span style={{ fontSize: '14px' }}>{step.text}</span>
+          </div>
+        ))}
+      </div>
+
+      <div style={{
+        marginTop: '20px',
+        padding: '15px',
+        background: 'rgba(255,255,255,0.2)',
+        borderRadius: '10px'
+      }}>
+        <h4 style={{ marginBottom: '10px', fontSize: '16px', fontWeight: '700' }}>
+          🎯 Example: Space Niche
+        </h4>
+        <ul style={{ paddingLeft: '20px', fontSize: '13px', lineHeight: '1.8' }}>
+          <li>Keywords: galaxy (2), nebula (2), planet (1), black hole (2), milky way (1)</li>
+          <li>Script: Hook → Story → Climax → Outro (emotional arc)</li>
+          <li>Duration: ~28 seconds (8 images × 3.5s each)</li>
+          <li>Music: Epic/Cinematic background</li>
+          <li>Voice: Hindi Male (ElevenLabs Premium)</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+)}
+
+
 
 
 
