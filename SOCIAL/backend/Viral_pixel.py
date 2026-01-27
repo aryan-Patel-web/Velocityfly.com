@@ -1395,7 +1395,7 @@ PEXELS_API_KEY = os.getenv("PEXELS_API_KEY", "")
 MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY")
 
 # GOOGLE VERTEX AI CONFIGURATION
-GOOGLE_API_KEY = os.getenv("GOOGLE_VERTEX_API_KEY", "")  # Your Vertex AI API key
+GOOGLE_API_KEY = os.getenv("VERTEX_API_KEY", "")  # Your Vertex AI API key
 GOOGLE_PROJECT_ID = os.getenv("GOOGLE_PROJECT_ID", "socialauto-472509")
 GOOGLE_LOCATION = os.getenv("GOOGLE_LOCATION", "us-central1")
 
