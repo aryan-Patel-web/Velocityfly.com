@@ -2764,15 +2764,16 @@
 
 
 """
-Viral_pixel.py - PRODUCTION VERSION WITH IMAGE SLIDESHOW
+Viral_pixel.py - COMPLETE FIXED VERSION
 ==================================================
-✅ Google Vertex AI Text-to-Speech (Chirp 3 HD)
-✅ Voice: Orus (Male, Hindi) with 1.1x speed
+✅ ELEVENLABS VOICE (PRIORITY) → Vertex AI → Edge TTS
+✅ Deep Horror Voice with Bass Boost + 1.1x Speed
+✅ DIVERSE IMAGE VARIETY (2 per sub-niche)
+✅ Enhanced Image Processing (Contrast + Saturation)
+✅ Image Retry Logic
+✅ BROADER VIDEO SEARCH (removes 9:16 restriction, uses top 2)
 ✅ Horror/Dark/Space Background Music
-✅ VIDEO PRIORITY: Pexels → Pixabay
-✅ IMAGE FALLBACK: Download 6-8 HD vertical images (9:16)
-✅ PROFESSIONAL TRANSITIONS: Fade, Zoom, Slide, Crossfade
-✅ CANVA-STYLE SLIDESHOW: Smooth, attractive, monetizable
+✅ Professional Transitions
 ✅ Direct YouTube Upload
 ==================================================
 """
@@ -2806,15 +2807,19 @@ PIXABAY_API_KEY = os.getenv("PIXABAY_API_KEY", "54364709-1e6532279f08847859d5bea
 PEXELS_API_KEY = os.getenv("PEXELS_API_KEY", "")
 MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY")
 
-# GOOGLE VERTEX AI CONFIGURATION
+# ELEVENLABS CONFIGURATION (PRIORITY)
+ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY", "")
+
+# GOOGLE VERTEX AI CONFIGURATION (FALLBACK)
 GOOGLE_API_KEY = os.getenv("GOOGLE_VERTEX_API_KEY", "")
 GOOGLE_PROJECT_ID = os.getenv("GOOGLE_PROJECT_ID", "socialauto-472509")
 GOOGLE_LOCATION = os.getenv("GOOGLE_LOCATION", "us-central1")
 
 # VOICE CONFIGURATION
 VOICE_SPEED = 1.1
-VOICE_NAME = "Orus"
+VOICE_NAME = "Orus"  # For Vertex AI
 VOICE_LANGUAGE = "hi-IN"
+ELEVENLABS_VOICE_ID = "pNInz6obpgDQGcFmaJgB"  # Adam - Deep voice
 
 # PROCESSING LIMITS
 MAX_VIDEO_SIZE_MB = 40
@@ -2829,18 +2834,50 @@ IMAGE_DURATION = 3.75  # 30 seconds / 8 images
 IMAGE_TARGET_WIDTH = 720
 IMAGE_TARGET_HEIGHT = 1280
 
-# NICHE KEYWORDS
+# ✅ ENHANCED: DIVERSE IMAGE KEYWORDS (2 images per sub-category)
 NICHE_KEYWORDS = {
-    "space": ["galaxy", "nebula", "planet", "cosmos", "stars", "universe", "astronomy", "milky way"],
-    "tech_ai": ["technology", "digital", "cyber", "robot", "ai", "future", "artificial intelligence", "circuit"],
-    "ocean": ["ocean", "wave", "underwater", "reef", "sea", "marine", "coral", "beach"],
-    "nature": ["mountain", "forest", "waterfall", "sunset", "river", "landscape", "trees", "canyon"]
+    "space": {
+        "main": "space",
+        "subcategories": [
+            "galaxy",      # 2 images
+            "black hole",  # 2 images
+            "planet",      # 2 images
+            "stars"        # 2 images
+        ]
+    },
+    "tech_ai": {
+        "main": "technology",
+        "subcategories": [
+            "artificial intelligence",
+            "robot",
+            "circuit board",
+            "futuristic technology"
+        ]
+    },
+    "ocean": {
+        "main": "ocean",
+        "subcategories": [
+            "deep sea",
+            "coral reef",
+            "whale",
+            "underwater"
+        ]
+    },
+    "nature": {
+        "main": "nature",
+        "subcategories": [
+            "mountain",
+            "waterfall",
+            "forest",
+            "sunset"
+        ]
+    }
 }
 
 # FALLBACK KEYWORDS
-VERTICAL_FALLBACKS = ["waterfall"]
+VERTICAL_FALLBACKS = ["waterfall", "portrait", "vertical"]
 
-# PROFESSIONAL TRANSITIONS (Like Canva)
+# PROFESSIONAL TRANSITIONS
 TRANSITIONS = [
     {
         "name": "fade",
@@ -2906,7 +2943,6 @@ def get_size_mb(fp: str) -> float:
 def run_ffmpeg(cmd: list, timeout: int = FFMPEG_TIMEOUT) -> bool:
     """Run FFmpeg command with timeout"""
     try:
-        logger.info(f"Running FFmpeg with {timeout}s timeout...")
         result = subprocess.run(
             cmd, 
             capture_output=True, 
@@ -2938,7 +2974,6 @@ async def download_background_music(temp_dir: str) -> Optional[str]:
     music_path = os.path.join(temp_dir, "bg_music.mp3")
     
     logger.info("🎵 Downloading background music...")
-    logger.info(f"   Total attempts: {len(BACKGROUND_MUSIC_URLS)}")
     
     for attempt, url in enumerate(BACKGROUND_MUSIC_URLS, 1):
         try:
@@ -2966,7 +3001,7 @@ async def download_background_music(temp_dir: str) -> Optional[str]:
             force_cleanup(music_path)
             continue
     
-    logger.warning("⚠️ All music download attempts failed")
+    logger.warning("⚠️ All music downloads failed")
     return None
 
 # ============================================================================
@@ -2994,12 +3029,12 @@ REQUIREMENTS:
 - Total duration: 30 seconds
 - 4 segments with specific timing
 - Hindi language only for narration
-- Engaging, mysterious, shocking tone
+- Engaging, mysterious, HORROR-STYLE shocking tone
 
 STRUCTURE:
-1. HOOK (8 seconds): "Kya aap jaante hain..." - create mystery and shock
-2. STORY (12 seconds): Present amazing facts, "Scientists ne discover kiya..."
-3. CLIMAX (7 seconds): "Lekin sabse badi baat..." - build to revelation
+1. HOOK (8 seconds): "Kya aap jaante hain..." - create DEEP mystery and shock
+2. STORY (12 seconds): Present CHILLING facts, "Scientists ne discover kiya..."
+3. CLIMAX (7 seconds): "Lekin sabse badi baat..." - build to DARK revelation
 4. OUTRO (3 seconds): "Comment mein batao!" - call to action
 
 OUTPUT ONLY THIS JSON:
@@ -3012,7 +3047,7 @@ OUTPUT ONLY THIS JSON:
   ]
 }}
 
-Make it VIRAL and ENGAGING!"""
+Make it VIRAL, MYSTERIOUS and slightly HORROR-THEMED!"""
     
     try:
         if MISTRAL_API_KEY:
@@ -3030,7 +3065,7 @@ Make it VIRAL and ENGAGING!"""
                         "messages": [
                             {
                                 "role": "system",
-                                "content": "You are a viral content creator. Output ONLY valid JSON, no markdown, no explanations."
+                                "content": "You are a viral horror content creator. Output ONLY valid JSON, no markdown, no explanations."
                             },
                             {
                                 "role": "user",
@@ -3055,8 +3090,8 @@ Make it VIRAL and ENGAGING!"""
                     
                     return {
                         "title": english_title + " #Shorts",
-                        "description": f"#{niche} #viral #shorts #mystery",
-                        "tags": [niche, "viral", "shorts", "mystery", "facts"],
+                        "description": f"#{niche} #viral #shorts #mystery #horror",
+                        "tags": [niche, "viral", "shorts", "mystery", "facts", "horror"],
                         "segments": script["segments"]
                     }
                     
@@ -3068,26 +3103,26 @@ Make it VIRAL and ENGAGING!"""
     
     return {
         "title": english_title + " #Shorts",
-        "description": f"#{niche} #viral #shorts #mystery",
-        "tags": [niche, "viral", "shorts", "mystery"],
+        "description": f"#{niche} #viral #shorts #mystery #horror",
+        "tags": [niche, "viral", "shorts", "mystery", "horror"],
         "segments": [
             {
-                "narration": "Kya aap jaante hain yeh shocking rahasya jo duniya se chhupa hai?",
+                "narration": "Kya aap jaante hain yeh darawna rahasya jo duniya se chhupa hai? Yeh sunke aapki ruh kaanp jayegi!",
                 "text_overlay": "😱",
                 "duration": 8
             },
             {
-                "narration": "Scientists ne discover kiya hai yeh impossible lagta hai lekin sach kuch aur hai! Yeh jaankar aap hairan reh jayenge!",
+                "narration": "Scientists ne discover kiya hai yeh impossible lagta hai lekin sach bahut hi khatarnak hai! Is rahasya ko jaankar aap hairan aur dar jayenge!",
                 "text_overlay": "🔥",
                 "duration": 12
             },
             {
-                "narration": "Lekin sabse badi baat jo aapko pata honi chahiye... yeh duniya badal degi!",
+                "narration": "Lekin sabse badi baat jo aapko pata honi chahiye... yeh sach duniya ko hila degi!",
                 "text_overlay": "💡",
                 "duration": 7
             },
             {
-                "narration": "Toh kya aap vishwas karte hain? Neeche comment mein zaroor batao!",
+                "narration": "Toh kya aap vishwas karte hain? Comment mein zaroor batao!",
                 "text_overlay": "🤔",
                 "duration": 3
             }
@@ -3095,21 +3130,94 @@ Make it VIRAL and ENGAGING!"""
     }
 
 # ============================================================================
-# VOICE GENERATION - GOOGLE VERTEX AI
+# ✅ VOICE GENERATION - ELEVENLABS (PRIORITY) WITH DEEP HORROR VOICE
+# ============================================================================
+
+async def generate_voice_elevenlabs(text: str, duration: float, temp_dir: str) -> Optional[str]:
+    """Generate voice using ElevenLabs (PRIORITY) - Deep Horror Voice"""
+    try:
+        if not ELEVENLABS_API_KEY or len(ELEVENLABS_API_KEY) < 20:
+            logger.warning("   ⚠️ ElevenLabs API key not configured")
+            return None
+        
+        text_clean = text.strip()[:500]
+        temp_raw = os.path.join(temp_dir, f"elevenlabs_{uuid.uuid4().hex[:4]}.mp3")
+        
+        logger.info(f"   🎙️ ELEVENLABS (PRIORITY): Deep Horror Voice @ {VOICE_SPEED}x")
+        
+        async with httpx.AsyncClient(timeout=40) as client:
+            response = await client.post(
+                f"https://api.elevenlabs.io/v1/text-to-speech/{ELEVENLABS_VOICE_ID}",
+                headers={
+                    "xi-api-key": ELEVENLABS_API_KEY,
+                    "Content-Type": "application/json"
+                },
+                json={
+                    "text": text_clean,
+                    "model_id": "eleven_multilingual_v2",
+                    "voice_settings": {
+                        "stability": 0.5,
+                        "similarity_boost": 0.75,
+                        "style": 0.8,
+                        "use_speaker_boost": True
+                    }
+                }
+            )
+            
+            if response.status_code == 200:
+                with open(temp_raw, 'wb') as f:
+                    f.write(response.content)
+                
+                size = get_size_mb(temp_raw)
+                
+                if size > 0.01:
+                    logger.info(f"   ✅ ElevenLabs: {size:.2f}MB")
+                    
+                    # ✅ ENHANCE: Bass Boost + Speed Adjustment + Loudness Normalization
+                    output = temp_raw.replace(".mp3", "_enhanced.mp3")
+                    
+                    cmd = [
+                        "ffmpeg",
+                        "-i", temp_raw,
+                        "-filter:a",
+                        # Bass boost + Speed + Loudness
+                        f"bass=g=8,atempo={VOICE_SPEED},loudnorm=I=-16:TP=-1.5:LRA=11",
+                        "-t", str(duration + 0.5),
+                        "-b:a", "128k",
+                        "-y", output
+                    ]
+                    
+                    if run_ffmpeg(cmd, 20):
+                        force_cleanup(temp_raw)
+                        logger.info(f"   ✅ Voice enhanced (Bass + Speed): {get_size_mb(output):.2f}MB")
+                        return output
+                    else:
+                        force_cleanup(temp_raw, output)
+                else:
+                    force_cleanup(temp_raw)
+            else:
+                logger.error(f"   ❌ ElevenLabs: HTTP {response.status_code}")
+                
+    except Exception as e:
+        logger.error(f"   ❌ ElevenLabs error: {e}")
+    
+    return None
+
+# ============================================================================
+# VOICE GENERATION - VERTEX AI (FALLBACK #1)
 # ============================================================================
 
 async def generate_voice_vertex_ai(text: str, duration: float, temp_dir: str) -> Optional[str]:
-    """Generate voice using Google Vertex AI"""
+    """Generate voice using Google Vertex AI (Fallback #1)"""
     try:
         if not GOOGLE_API_KEY or len(GOOGLE_API_KEY) < 20:
-            logger.warning("   ⚠️ Google Vertex AI API key not configured")
+            logger.warning("   ⚠️ Vertex AI key not configured")
             return None
         
         text_clean = text.strip()[:500]
         temp_raw = os.path.join(temp_dir, f"vertex_{uuid.uuid4().hex[:4]}.mp3")
         
-        logger.info(f"   📞 Calling Google Vertex AI...")
-        logger.info(f"   Voice: {VOICE_NAME}, Speed: {VOICE_SPEED}x")
+        logger.info(f"   📞 Vertex AI (Fallback): {VOICE_NAME} @ {VOICE_SPEED}x")
         
         url = f"https://{GOOGLE_LOCATION}-aiplatform.googleapis.com/v1/projects/{GOOGLE_PROJECT_ID}/locations/{GOOGLE_LOCATION}/publishers/google/models/chirp-3-hd-voices:generateContent"
         
@@ -3158,14 +3266,13 @@ async def generate_voice_vertex_ai(text: str, duration: float, temp_dir: str) ->
                                 size = get_size_mb(temp_raw)
                                 
                                 if size > 0.01:
-                                    logger.info(f"   ✅ Vertex AI: {size:.2f}MB")
+                                    output = temp_raw.replace(".mp3", "_adj.mp3")
                                     
-                                    output = temp_raw.replace(".mp3", "_adjusted.mp3")
-                                    
+                                    # Add bass boost
                                     cmd = [
                                         "ffmpeg",
                                         "-i", temp_raw,
-                                        "-filter:a", "loudnorm=I=-16",
+                                        "-filter:a", "bass=g=6,loudnorm=I=-16",
                                         "-t", str(duration + 0.5),
                                         "-b:a", "128k",
                                         "-y", output
@@ -3173,7 +3280,7 @@ async def generate_voice_vertex_ai(text: str, duration: float, temp_dir: str) ->
                                     
                                     if run_ffmpeg(cmd, 20):
                                         force_cleanup(temp_raw)
-                                        logger.info(f"   ✅ Voice processed: {get_size_mb(output):.2f}MB")
+                                        logger.info(f"   ✅ Vertex AI: {get_size_mb(output):.2f}MB")
                                         return output
                                     else:
                                         force_cleanup(temp_raw, output)
@@ -3189,15 +3296,19 @@ async def generate_voice_vertex_ai(text: str, duration: float, temp_dir: str) ->
     
     return None
 
+# ============================================================================
+# VOICE GENERATION - EDGE TTS (FALLBACK #2)
+# ============================================================================
+
 async def generate_voice_edge(text: str, duration: float, temp_dir: str) -> Optional[str]:
-    """Generate voice using Edge TTS (fallback)"""
+    """Generate voice using Edge TTS (Fallback #2)"""
     try:
         import edge_tts
         
         temp = os.path.join(temp_dir, f"edge_{uuid.uuid4().hex[:4]}.mp3")
         text_clean = text.strip()[:350]
         
-        logger.info(f"   📞 Using Edge TTS (fallback)...")
+        logger.info(f"   📞 Edge TTS (Final Fallback)...")
         
         rate_percent = int((VOICE_SPEED - 1.0) * 100)
         rate_str = f"+{rate_percent}%" if rate_percent >= 0 else f"{rate_percent}%"
@@ -3212,27 +3323,56 @@ async def generate_voice_edge(text: str, duration: float, temp_dir: str) -> Opti
         size = get_size_mb(temp)
         
         if size > 0.01:
-            logger.info(f"   ✅ Edge TTS: {size:.2f}MB")
-            return temp
+            # Add bass boost to Edge TTS too
+            output = temp.replace(".mp3", "_bass.mp3")
+            cmd = [
+                "ffmpeg",
+                "-i", temp,
+                "-filter:a", "bass=g=4",
+                "-y", output
+            ]
+            
+            if run_ffmpeg(cmd, 15):
+                force_cleanup(temp)
+                logger.info(f"   ✅ Edge TTS: {get_size_mb(output):.2f}MB")
+                return output
+            else:
+                logger.info(f"   ✅ Edge TTS (no bass): {size:.2f}MB")
+                return temp
         
         force_cleanup(temp)
         
     except Exception as e:
-        logger.error(f"   ❌ Edge TTS error: {e}")
+        logger.error(f"   ❌ Edge TTS: {e}")
     
     return None
 
+# ============================================================================
+# ✅ VOICE GENERATION WITH PRIORITY: ELEVENLABS → VERTEX AI → EDGE TTS
+# ============================================================================
+
 async def generate_voice(text: str, duration: float, temp_dir: str) -> Optional[str]:
-    """Generate voice with automatic fallback"""
+    """Generate voice with priority fallback chain"""
+    
+    # Priority 1: ElevenLabs (Deep Horror Voice)
+    voice = await generate_voice_elevenlabs(text, duration, temp_dir)
+    if voice:
+        return voice
+    
+    logger.warning("   ⚠️ ElevenLabs failed, trying Vertex AI...")
+    
+    # Priority 2: Vertex AI
     voice = await generate_voice_vertex_ai(text, duration, temp_dir)
     if voice:
         return voice
     
-    logger.warning("   ⚠️ Vertex AI failed, falling back to Edge TTS...")
+    logger.warning("   ⚠️ Vertex AI failed, using Edge TTS...")
+    
+    # Priority 3: Edge TTS (Final fallback)
     return await generate_voice_edge(text, duration, temp_dir)
 
 # ============================================================================
-# IMAGE SEARCH & DOWNLOAD
+# ✅ IMAGE SEARCH WITH DIVERSE VARIETY (2 images per subcategory)
 # ============================================================================
 
 def is_vertical_image(width: int, height: int) -> bool:
@@ -3242,7 +3382,7 @@ def is_vertical_image(width: int, height: int) -> bool:
     aspect_ratio = height / width
     return aspect_ratio >= 1.5
 
-async def search_pexels_images(query: str, count: int = MAX_IMAGES) -> List[dict]:
+async def search_pexels_images(query: str, count: int = 2) -> List[dict]:
     """Search Pexels for HD vertical images"""
     images = []
     
@@ -3251,21 +3391,17 @@ async def search_pexels_images(query: str, count: int = MAX_IMAGES) -> List[dict
             logger.warning("⚠️ PEXELS_API_KEY not configured")
             return images
         
-        word = query.split()[0].lower()
-        if not word.isascii():
-            word = random.choice(VERTICAL_FALLBACKS)
-        
-        logger.info(f"   Searching Pexels images: '{word}'")
+        logger.info(f"   Searching Pexels: '{query}'")
         
         async with httpx.AsyncClient(timeout=25) as client:
             resp = await client.get(
                 "https://api.pexels.com/v1/search",
                 headers={"Authorization": PEXELS_API_KEY},
                 params={
-                    "query": word,
+                    "query": query,
                     "orientation": "portrait",
                     "size": "large",
-                    "per_page": count * 2
+                    "per_page": count * 3
                 }
             )
             
@@ -3280,7 +3416,6 @@ async def search_pexels_images(query: str, count: int = MAX_IMAGES) -> List[dict
                     height = photo.get("height", 0)
                     
                     if is_vertical_image(width, height):
-                        # Get large or original size
                         src = photo.get("src", {})
                         url = src.get("large2x") or src.get("large") or src.get("original")
                         
@@ -3289,38 +3424,35 @@ async def search_pexels_images(query: str, count: int = MAX_IMAGES) -> List[dict
                                 "source": "pexels",
                                 "url": url,
                                 "width": width,
-                                "height": height
+                                "height": height,
+                                "query": query
                             })
                 
-                logger.info(f"   ✅ Pexels: Found {len(images)} vertical images")
+                logger.info(f"   ✅ Pexels: {len(images)} images for '{query}'")
             else:
-                logger.warning(f"   ⚠️ Pexels API: HTTP {resp.status_code}")
+                logger.warning(f"   ⚠️ Pexels: HTTP {resp.status_code}")
         
     except Exception as e:
-        logger.error(f"Pexels image search error: {e}")
+        logger.error(f"Pexels error: {e}")
     
     return images
 
-async def search_pixabay_images(query: str, count: int = MAX_IMAGES) -> List[dict]:
+async def search_pixabay_images(query: str, count: int = 2) -> List[dict]:
     """Search Pixabay for HD vertical images"""
     images = []
     
     try:
-        word = query.split()[0].lower()
-        if not word.isascii():
-            word = random.choice(VERTICAL_FALLBACKS)
-        
-        logger.info(f"   Searching Pixabay images: '{word}'")
+        logger.info(f"   Searching Pixabay: '{query}'")
         
         async with httpx.AsyncClient(timeout=25) as client:
             resp = await client.get(
                 "https://pixabay.com/api/",
                 params={
                     "key": PIXABAY_API_KEY,
-                    "q": word,
+                    "q": query,
                     "image_type": "photo",
                     "orientation": "vertical",
-                    "per_page": count * 2,
+                    "per_page": count * 3,
                     "order": "popular"
                 }
             )
@@ -3336,7 +3468,6 @@ async def search_pixabay_images(query: str, count: int = MAX_IMAGES) -> List[dic
                     height = hit.get("imageHeight", 0)
                     
                     if is_vertical_image(width, height):
-                        # Get large or webformat URL
                         url = hit.get("largeImageURL") or hit.get("webformatURL")
                         
                         if url:
@@ -3344,83 +3475,110 @@ async def search_pixabay_images(query: str, count: int = MAX_IMAGES) -> List[dic
                                 "source": "pixabay",
                                 "url": url,
                                 "width": width,
-                                "height": height
+                                "height": height,
+                                "query": query
                             })
                 
-                logger.info(f"   ✅ Pixabay: Found {len(images)} vertical images")
+                logger.info(f"   ✅ Pixabay: {len(images)} images for '{query}'")
             else:
-                logger.warning(f"   ⚠️ Pixabay API: HTTP {resp.status_code}")
+                logger.warning(f"   ⚠️ Pixabay: HTTP {resp.status_code}")
         
     except Exception as e:
-        logger.error(f"Pixabay image search error: {e}")
+        logger.error(f"Pixabay error: {e}")
     
     return images
 
-async def search_images(niche: str, count: int = MAX_IMAGES) -> List[dict]:
-    """Search for vertical images with priority: Pexels → Pixabay"""
-    logger.info(f"🖼️ Searching for {count} HD vertical images...")
-    logger.info("   Priority: Pexels (1st) → Pixabay (2nd)")
+async def search_images_diverse(niche: str, total_needed: int = MAX_IMAGES) -> List[dict]:
+    """✅ Search for DIVERSE images (2 per subcategory)"""
+    logger.info(f"🖼️ Searching for {total_needed} DIVERSE HD vertical images...")
+    logger.info("   Strategy: 2 images per subcategory for variety")
     
     all_images = []
     
-    # Get keywords for niche
-    keywords = NICHE_KEYWORDS.get(niche, [niche])
+    # Get niche configuration
+    niche_config = NICHE_KEYWORDS.get(niche)
+    if not niche_config:
+        logger.error(f"Unknown niche: {niche}")
+        return []
     
-    # Try Pexels first
-    logger.info("   Step 1: Trying Pexels...")
-    for keyword in keywords[:3]:  # Try first 3 keywords
-        images = await search_pexels_images(keyword, count)
+    subcategories = niche_config["subcategories"]
+    images_per_category = 2  # ✅ 2 images per subcategory
+    
+    # Search each subcategory
+    for subcategory in subcategories:
+        logger.info(f"   📍 Subcategory: '{subcategory}' (need {images_per_category} images)")
+        
+        # Try Pexels first
+        images = await search_pexels_images(subcategory, images_per_category)
+        
+        # If not enough, try Pixabay
+        if len(images) < images_per_category:
+            needed = images_per_category - len(images)
+            logger.info(f"   Need {needed} more, trying Pixabay...")
+            pixabay_images = await search_pixabay_images(subcategory, needed)
+            images.extend(pixabay_images)
+        
         all_images.extend(images)
-        if len(all_images) >= count:
+        
+        logger.info(f"   ✅ Got {len(images)} images for '{subcategory}'")
+        
+        # Stop if we have enough
+        if len(all_images) >= total_needed:
             break
     
-    # If not enough, try Pixabay
-    if len(all_images) < count:
-        logger.info(f"   Step 2: Need more images, trying Pixabay...")
-        for keyword in keywords[:3]:
-            images = await search_pixabay_images(keyword, count - len(all_images))
-            all_images.extend(images)
-            if len(all_images) >= count:
-                break
+    # Shuffle for variety
+    random.shuffle(all_images)
     
     # Limit to requested count
-    all_images = all_images[:count]
+    all_images = all_images[:total_needed]
     
-    logger.info(f"✅ Total images found: {len(all_images)}")
+    logger.info(f"✅ Total diverse images found: {len(all_images)}")
+    logger.info(f"   Variety: {len(set([img.get('query') for img in all_images]))} different subcategories")
     
     return all_images
 
-async def download_image(image_data: dict, output_path: str) -> bool:
-    """Download single image"""
-    try:
-        url = image_data.get("url")
-        
-        if not url:
-            return False
-        
-        async with httpx.AsyncClient(timeout=30) as client:
-            resp = await client.get(url, follow_redirects=True)
+async def download_image_with_retry(image_data: dict, output_path: str, max_retries: int = 3) -> bool:
+    """✅ Download image with retry logic"""
+    url = image_data.get("url")
+    
+    if not url:
+        return False
+    
+    for attempt in range(1, max_retries + 1):
+        try:
+            logger.info(f"      Attempt {attempt}/{max_retries}...")
             
-            if resp.status_code == 200:
-                with open(output_path, 'wb') as f:
-                    f.write(resp.content)
+            async with httpx.AsyncClient(timeout=30) as client:
+                resp = await client.get(url, follow_redirects=True)
                 
-                size = get_size_mb(output_path)
+                if resp.status_code == 200:
+                    with open(output_path, 'wb') as f:
+                        f.write(resp.content)
+                    
+                    size = get_size_mb(output_path)
+                    
+                    if size > 0.1:  # At least 100KB
+                        return True
+                    else:
+                        force_cleanup(output_path)
+                        logger.warning(f"      Image too small: {size:.2f}MB")
+            
+            # Wait before retry
+            if attempt < max_retries:
+                await asyncio.sleep(1)
                 
-                if size > 0.1:  # At least 100KB
-                    return True
-                else:
-                    force_cleanup(output_path)
-        
-        return False
-        
-    except Exception as e:
-        logger.error(f"Image download error: {e}")
-        force_cleanup(output_path)
-        return False
+        except Exception as e:
+            logger.error(f"      Download error (attempt {attempt}): {e}")
+            force_cleanup(output_path)
+            
+            if attempt < max_retries:
+                await asyncio.sleep(1)
+            continue
+    
+    return False
 
 async def download_images(images: List[dict], temp_dir: str) -> List[str]:
-    """Download all images"""
+    """Download all images with retry logic"""
     logger.info(f"📥 Downloading {len(images)} images...")
     
     downloaded = []
@@ -3428,30 +3586,25 @@ async def download_images(images: List[dict], temp_dir: str) -> List[str]:
     for idx, img_data in enumerate(images):
         output = os.path.join(temp_dir, f"img_{idx:02d}.jpg")
         
-        logger.info(f"   Downloading image {idx+1}/{len(images)}...")
+        query = img_data.get("query", "unknown")
+        logger.info(f"   Image {idx+1}/{len(images)} ({query})...")
         
-        if await download_image(img_data, output):
+        if await download_image_with_retry(img_data, output, max_retries=3):
             downloaded.append(output)
             logger.info(f"   ✅ Image {idx+1}: {get_size_mb(output):.2f}MB")
         else:
-            logger.warning(f"   ⚠️ Image {idx+1} failed")
+            logger.warning(f"   ⚠️ Image {idx+1} failed after retries")
     
     logger.info(f"✅ Downloaded {len(downloaded)}/{len(images)} images")
     
     return downloaded
 
 # ============================================================================
-# IMAGE SLIDESHOW CREATION (CANVA-STYLE)
+# ✅ ENHANCED IMAGE PROCESSING (Contrast + Saturation)
 # ============================================================================
 
-def create_slideshow_with_transitions(images: List[str], temp_dir: str) -> Optional[str]:
-    """
-    Create professional slideshow with Canva-style transitions
-    - Multiple transitions: fade, zoom, slide, pan
-    - Smooth crossfades between images
-    - Ken Burns effect (zoom & pan)
-    - Professional look for YouTube monetization
-    """
+def create_slideshow_with_transitions_enhanced(images: List[str], temp_dir: str) -> Optional[str]:
+    """Create professional slideshow with ENHANCED image processing"""
     try:
         if len(images) < MIN_IMAGES:
             logger.error(f"Not enough images: {len(images)} < {MIN_IMAGES}")
@@ -3459,29 +3612,28 @@ def create_slideshow_with_transitions(images: List[str], temp_dir: str) -> Optio
         
         output = os.path.join(temp_dir, "slideshow.mp4")
         
-        logger.info("🎬 Creating professional slideshow...")
+        logger.info("🎬 Creating professional slideshow (ENHANCED)...")
         logger.info(f"   Images: {len(images)}")
-        logger.info(f"   Duration per image: {IMAGE_DURATION:.2f}s")
-        logger.info(f"   Total duration: ~{len(images) * IMAGE_DURATION:.1f}s")
-        logger.info(f"   Transitions: Fade, Zoom, Pan, Slide")
+        logger.info(f"   Enhancements: Contrast + Saturation + Bass Voice")
         
-        # Calculate frames for smooth video
         fps = 25
         frames_per_image = int(IMAGE_DURATION * fps)
-        
-        # Prepare images with transitions
         processed_images = []
         
         for idx, img_path in enumerate(images):
             logger.info(f"   Processing image {idx+1}/{len(images)}...")
             
-            # Resize and crop to 9:16 (720x1280)
+            # ✅ ENHANCED: Resize + Contrast + Saturation
             resized = os.path.join(temp_dir, f"resized_{idx:02d}.jpg")
             
             cmd_resize = [
                 "ffmpeg",
                 "-i", img_path,
-                "-vf", f"scale={IMAGE_TARGET_WIDTH}:{IMAGE_TARGET_HEIGHT}:force_original_aspect_ratio=increase,crop={IMAGE_TARGET_WIDTH}:{IMAGE_TARGET_HEIGHT}",
+                "-vf",
+                # Scale + Crop + Enhance (Contrast +20%, Saturation +15%)
+                f"scale={IMAGE_TARGET_WIDTH}:{IMAGE_TARGET_HEIGHT}:force_original_aspect_ratio=increase,"
+                f"crop={IMAGE_TARGET_WIDTH}:{IMAGE_TARGET_HEIGHT},"
+                f"eq=contrast=1.2:saturation=1.15",
                 "-q:v", "2",
                 "-y", resized
             ]
@@ -3490,25 +3642,21 @@ def create_slideshow_with_transitions(images: List[str], temp_dir: str) -> Optio
                 logger.warning(f"   ⚠️ Failed to resize image {idx+1}")
                 continue
             
-            # Select random transition for variety
+            # Select random transition
             transition = random.choice(TRANSITIONS)
             transition_name = transition["name"]
             
-            logger.info(f"   Applying '{transition_name}' transition...")
+            logger.info(f"   Transition: '{transition_name}'")
             
-            # Create video clip with transition
+            # Create video clip
             clip_output = os.path.join(temp_dir, f"clip_{idx:02d}.mp4")
             
-            # Get transition filter
             trans_filter = transition["filter"]
-            
-            # Replace placeholders
-            duration_frames = frames_per_image
             trans_filter = trans_filter.replace("{duration}", str(frames_per_image))
             trans_filter = trans_filter.replace("{start}", "0")
             trans_filter = trans_filter.replace("{end}", str(IMAGE_DURATION - 0.5))
             
-            # Add fade for smooth transitions
+            # Add fade
             if "fade" not in transition_name:
                 trans_filter += f",fade=t=in:st=0:d=0.5,fade=t=out:st={IMAGE_DURATION-0.5}:d=0.5"
             
@@ -3520,26 +3668,25 @@ def create_slideshow_with_transitions(images: List[str], temp_dir: str) -> Optio
                 "-t", str(IMAGE_DURATION),
                 "-r", str(fps),
                 "-c:v", "libx264",
-                "-crf", "23",
+                "-crf", "20",  # Higher quality
                 "-preset", "medium",
                 "-pix_fmt", "yuv420p",
                 "-y", clip_output
             ]
             
-            if run_ffmpeg(cmd_clip, 30):
+            if run_ffmpeg(cmd_clip, 45):  # Increased timeout
                 processed_images.append(clip_output)
-                logger.info(f"   ✅ Clip {idx+1} created with '{transition_name}'")
+                logger.info(f"   ✅ Clip {idx+1} created")
             else:
-                logger.warning(f"   ⚠️ Failed to create clip {idx+1}")
+                logger.warning(f"   ⚠️ Clip {idx+1} failed")
             
-            # Cleanup resized image
             force_cleanup(resized)
         
         if len(processed_images) < MIN_IMAGES:
-            logger.error(f"Not enough processed clips: {len(processed_images)}")
+            logger.error(f"Not enough clips: {len(processed_images)}")
             return None
         
-        # Concatenate all clips
+        # Concatenate
         logger.info("🎞️ Concatenating clips...")
         
         concat_file = os.path.join(temp_dir, "concat.txt")
@@ -3558,19 +3705,18 @@ def create_slideshow_with_transitions(images: List[str], temp_dir: str) -> Optio
         
         if run_ffmpeg(cmd_concat, 60):
             size = get_size_mb(output)
-            logger.info(f"✅ Slideshow created: {size:.1f}MB")
+            logger.info(f"✅ Enhanced slideshow: {size:.1f}MB")
             
-            # Cleanup individual clips
             for clip in processed_images:
                 force_cleanup(clip)
             
             return output
         
-        logger.error("Failed to concatenate clips")
+        logger.error("Concatenation failed")
         return None
         
     except Exception as e:
-        logger.error(f"Slideshow creation error: {e}")
+        logger.error(f"Slideshow error: {e}")
         logger.error(traceback.format_exc())
         return None
 
@@ -3579,7 +3725,7 @@ def add_text_overlays_to_slideshow(video: str, segments: list, temp_dir: str) ->
     try:
         output = os.path.join(temp_dir, "slideshow_with_text.mp4")
         
-        logger.info("📝 Adding text overlays to slideshow...")
+        logger.info("📝 Adding text overlays...")
         
         filters = []
         current_time = 0
@@ -3587,8 +3733,6 @@ def add_text_overlays_to_slideshow(video: str, segments: list, temp_dir: str) ->
         for idx, seg in enumerate(segments):
             text = seg.get("text_overlay", "").replace("'", "").replace('"', '')[:30]
             if text:
-                logger.info(f"   Text {idx+1}: '{text}' at {current_time}s")
-                
                 filters.append(
                     f"drawtext=text='{text}':"
                     f"fontsize=60:"
@@ -3603,7 +3747,6 @@ def add_text_overlays_to_slideshow(video: str, segments: list, temp_dir: str) ->
             current_time += seg["duration"]
         
         if not filters:
-            logger.info("   No text overlays to add")
             return video
         
         vf = ",".join(filters)
@@ -3613,17 +3756,17 @@ def add_text_overlays_to_slideshow(video: str, segments: list, temp_dir: str) ->
             "-i", video,
             "-vf", vf,
             "-c:v", "libx264",
-            "-crf", "23",
+            "-crf", "20",
             "-preset", "medium",
             "-y", output
         ]
         
-        if run_ffmpeg(cmd, 90):
+        if run_ffmpeg(cmd, 120):  # Increased timeout
             force_cleanup(video)
-            logger.info(f"✅ Text overlays added: {get_size_mb(output):.1f}MB")
+            logger.info(f"✅ Text added: {get_size_mb(output):.1f}MB")
             return output
         
-        logger.warning("Text overlay failed, using video without text")
+        logger.warning("Text overlay timeout, using video without text")
         return video
         
     except Exception as e:
@@ -3631,172 +3774,129 @@ def add_text_overlays_to_slideshow(video: str, segments: list, temp_dir: str) ->
         return video
 
 # ============================================================================
-# VIDEO SEARCH & DOWNLOAD (ORIGINAL FUNCTIONS - KEPT FOR PRIORITY)
+# ✅ BROADER VIDEO SEARCH (Removes 9:16 restriction, uses top 2)
 # ============================================================================
 
-def is_vertical_pexels(vdata: dict) -> bool:
-    """Check if Pexels video is vertical"""
+def is_any_video(vdata: dict, source: str) -> bool:
+    """Accept ANY video format (not just 9:16)"""
     try:
-        w = vdata.get("width", 0)
-        h = vdata.get("height", 0)
-        return w > 0 and h > 0 and (h / w) >= 1.5
-    except:
-        return False
-
-def is_vertical_pixabay(vdata: dict) -> bool:
-    """Check if Pixabay video is vertical"""
-    try:
-        videos = vdata.get("videos", {})
-        for size in ["medium", "small", "large"]:
-            sd = videos.get(size, {})
-            w, h = sd.get("width", 0), sd.get("height", 0)
-            if w > 0 and h > 0 and (h / w) >= 1.5:
-                return True
+        if source == "pexels":
+            return bool(vdata.get("video_files"))
+        elif source == "pixabay":
+            return bool(vdata.get("videos"))
         return False
     except:
         return False
 
-async def search_pexels_video(query: str) -> Optional[dict]:
-    """Search Pexels for vertical videos"""
+async def search_pexels_videos_broad(query: str, count: int = 2) -> List[dict]:
+    """✅ Search Pexels for ANY videos (not just vertical)"""
+    videos = []
+    
     try:
         if not PEXELS_API_KEY:
             logger.warning("⚠️ PEXELS_API_KEY not configured")
-            return None
+            return videos
         
-        word = query.split()[0].lower()
-        if not word.isascii():
-            word = random.choice(VERTICAL_FALLBACKS)
-        
-        logger.info(f"   Searching Pexels video: '{word}'")
+        logger.info(f"   Searching Pexels videos: '{query}' (ANY format)")
         
         async with httpx.AsyncClient(timeout=25) as client:
             resp = await client.get(
                 "https://api.pexels.com/videos/search",
                 headers={"Authorization": PEXELS_API_KEY},
                 params={
-                    "query": word,
-                    "orientation": "portrait",
-                    "size": "medium",
-                    "per_page": 25
+                    "query": query,
+                    "per_page": count * 5
                 }
             )
             
             if resp.status_code == 200:
-                videos = resp.json().get("videos", [])
-                vertical = [v for v in videos if is_vertical_pexels(v)]
+                video_list = resp.json().get("videos", [])
                 
-                if vertical:
-                    logger.info(f"   ✅ Pexels video: Found {len(vertical)} vertical videos")
-                    return {"source": "pexels", "data": vertical[0]}
+                for v in video_list[:count]:
+                    if is_any_video(v, "pexels"):
+                        videos.append({
+                            "source": "pexels",
+                            "data": v
+                        })
+                
+                logger.info(f"   ✅ Pexels: Found {len(videos)} videos")
             else:
-                logger.warning(f"   ⚠️ Pexels API: HTTP {resp.status_code}")
-            
-            # Try fallback keywords
-            for fb in VERTICAL_FALLBACKS:
-                resp = await client.get(
-                    "https://api.pexels.com/videos/search",
-                    headers={"Authorization": PEXELS_API_KEY},
-                    params={
-                        "query": fb,
-                        "orientation": "portrait",
-                        "size": "medium",
-                        "per_page": 15
-                    }
-                )
-                
-                if resp.status_code == 200:
-                    videos = resp.json().get("videos", [])
-                    vertical = [v for v in videos if is_vertical_pexels(v)]
-                    
-                    if vertical:
-                        logger.info(f"   ✅ Pexels fallback: Found videos for '{fb}'")
-                        return {"source": "pexels", "data": vertical[0]}
-        
-        logger.info("   ⚠️ Pexels: No vertical videos found")
-        return None
+                logger.warning(f"   ⚠️ Pexels: HTTP {resp.status_code}")
         
     except Exception as e:
-        logger.error(f"Pexels video search error: {e}")
-        return None
+        logger.error(f"Pexels video error: {e}")
+    
+    return videos
 
-async def search_pixabay_video(query: str) -> Optional[dict]:
-    """Search Pixabay for vertical videos"""
+async def search_pixabay_videos_broad(query: str, count: int = 2) -> List[dict]:
+    """✅ Search Pixabay for ANY videos (not just vertical)"""
+    videos = []
+    
     try:
-        word = query.split()[0].lower()
-        if not word.isascii():
-            word = random.choice(VERTICAL_FALLBACKS)
-        
-        logger.info(f"   Searching Pixabay video: '{word}'")
+        logger.info(f"   Searching Pixabay videos: '{query}' (ANY format)")
         
         async with httpx.AsyncClient(timeout=25) as client:
             resp = await client.get(
                 "https://pixabay.com/api/videos/",
                 params={
                     "key": PIXABAY_API_KEY,
-                    "q": word,
-                    "per_page": 40,
-                    "order": "popular"
+                    "q": query,
+                    "per_page": count * 5
                 }
             )
             
             if resp.status_code == 200:
-                videos = resp.json().get("hits", [])
-                vertical = [v for v in videos if is_vertical_pixabay(v)]
+                video_list = resp.json().get("hits", [])
                 
-                if vertical:
-                    logger.info(f"   ✅ Pixabay video: Found {len(vertical)} vertical videos")
-                    return {"source": "pixabay", "data": vertical[0]}
+                for v in video_list[:count]:
+                    if is_any_video(v, "pixabay"):
+                        videos.append({
+                            "source": "pixabay",
+                            "data": v
+                        })
+                
+                logger.info(f"   ✅ Pixabay: Found {len(videos)} videos")
             else:
-                logger.warning(f"   ⚠️ Pixabay API: HTTP {resp.status_code}")
-            
-            # Try fallback keywords
-            for fb in VERTICAL_FALLBACKS:
-                resp = await client.get(
-                    "https://pixabay.com/api/videos/",
-                    params={
-                        "key": PIXABAY_API_KEY,
-                        "q": fb,
-                        "per_page": 25
-                    }
-                )
-                
-                if resp.status_code == 200:
-                    videos = resp.json().get("hits", [])
-                    vertical = [v for v in videos if is_vertical_pixabay(v)]
-                    
-                    if vertical:
-                        logger.info(f"   ✅ Pixabay fallback: Found videos for '{fb}'")
-                        return {"source": "pixabay", "data": vertical[0]}
-        
-        logger.info("   ⚠️ Pixabay: No vertical videos found")
-        return None
+                logger.warning(f"   ⚠️ Pixabay: HTTP {resp.status_code}")
         
     except Exception as e:
-        logger.error(f"Pixabay video search error: {e}")
-        return None
+        logger.error(f"Pixabay video error: {e}")
+    
+    return videos
 
-async def search_video(query: str) -> Optional[dict]:
-    """Search for vertical video: Pexels → Pixabay"""
-    logger.info("🔍 Searching for vertical video...")
+async def search_videos_broad(niche: str, count: int = 2) -> List[dict]:
+    """✅ Search for top 2 videos (ANY format) from both sources"""
+    logger.info(f"🎥 Searching for top {count} videos (ANY format)...")
     
-    # Try Pexels first
-    result = await search_pexels_video(query)
-    if result:
-        return result
+    niche_config = NICHE_KEYWORDS.get(niche)
+    if not niche_config:
+        main_query = niche
+    else:
+        main_query = niche_config["main"]
     
-    # Fallback to Pixabay
-    result = await search_pixabay_video(query)
-    if result:
-        return result
+    all_videos = []
     
-    logger.warning("❌ No vertical video found")
-    return None
+    # Try Pexels
+    pexels_videos = await search_pexels_videos_broad(main_query, count)
+    all_videos.extend(pexels_videos)
+    
+    # Try Pixabay if needed
+    if len(all_videos) < count:
+        needed = count - len(all_videos)
+        pixabay_videos = await search_pixabay_videos_broad(main_query, needed)
+        all_videos.extend(pixabay_videos)
+    
+    logger.info(f"✅ Found {len(all_videos)} videos total")
+    
+    return all_videos[:count]
 
 async def download_pexels_video(vdata: dict, output: str) -> bool:
     """Download video from Pexels"""
     try:
         video_files = vdata.get("video_files", [])
-        hd_files = [f for f in video_files if 720 <= f.get("height", 0) <= 1920]
+        
+        # Get best quality
+        hd_files = [f for f in video_files if f.get("height", 0) >= 720]
         
         if not hd_files:
             hd_files = video_files
@@ -3811,7 +3911,7 @@ async def download_pexels_video(vdata: dict, output: str) -> bool:
         if not url:
             return False
         
-        logger.info(f"   📥 Downloading Pexels video: {best.get('height', 0)}p")
+        logger.info(f"   📥 Downloading Pexels video...")
         
         async with httpx.AsyncClient(timeout=100) as client:
             async with client.stream('GET', url) as resp:
@@ -3847,19 +3947,17 @@ async def download_pixabay_video(vdata: dict, output: str) -> bool:
     try:
         videos = vdata.get("videos", {})
         
+        # Try medium or small
         url = None
-        quality = None
-        
-        for size in ["medium", "small"]:
+        for size in ["medium", "small", "large"]:
             if videos.get(size, {}).get("url"):
                 url = videos[size]["url"]
-                quality = size
                 break
         
         if not url:
             return False
         
-        logger.info(f"   📥 Downloading Pixabay video: {quality}")
+        logger.info(f"   📥 Downloading Pixabay video...")
         
         async with httpx.AsyncClient(timeout=100) as client:
             async with client.stream('GET', url) as resp:
@@ -3903,22 +4001,21 @@ async def download_video(video_result: dict, output: str) -> bool:
     return False
 
 def process_video_fast(source: str, temp_dir: str) -> Optional[str]:
-    """Process video: Loop to 30s, scale to 720p vertical"""
+    """Process video to 9:16 format for Shorts"""
     try:
         output = os.path.join(temp_dir, "processed.mp4")
         
-        logger.info("⚙️ Processing video...")
+        logger.info("⚙️ Processing video to 9:16 Shorts format...")
         
         cmd = [
             "ffmpeg",
             "-stream_loop", "-1",
             "-i", source,
             "-t", "30",
-            "-vf", "scale=720:1280:force_original_aspect_ratio=increase,crop=720:1280",
+            "-vf", "scale=720:1280:force_original_aspect_ratio=increase,crop=720:1280,eq=contrast=1.15:saturation=1.1",
             "-c:v", "libx264",
-            "-crf", "26",
-            "-preset", "ultrafast",
-            "-tune", "fastdecode",
+            "-crf", "23",
+            "-preset", "medium",
             "-movflags", "+faststart",
             "-an",
             "-y", output
@@ -3971,14 +4068,14 @@ def add_text_overlays(video: str, segments: list, temp_dir: str) -> Optional[str
             "-i", video,
             "-vf", vf,
             "-c:v", "libx264",
-            "-crf", "26",
-            "-preset", "ultrafast",
+            "-crf", "23",
+            "-preset", "medium",
             "-y", output
         ]
         
         if run_ffmpeg(cmd, 90):
             force_cleanup(video)
-            logger.info(f"✅ Text overlays added: {get_size_mb(output):.1f}MB")
+            logger.info(f"✅ Text added: {get_size_mb(output):.1f}MB")
             return output
         
         return video
@@ -4015,7 +4112,7 @@ async def mix_audio_with_music(video: str, voices: List[str], music: Optional[st
         if not run_ffmpeg(cmd, 30):
             return None
         
-        logger.info(f"   ✅ Voices concatenated: {get_size_mb(voice_combined):.2f}MB")
+        logger.info(f"   ✅ Voices: {get_size_mb(voice_combined):.2f}MB")
         
         # Mix with video
         final = os.path.join(temp_dir, "final.mp4")
@@ -4030,7 +4127,7 @@ async def mix_audio_with_music(video: str, voices: List[str], music: Optional[st
                 "-i", music,
                 "-filter_complex",
                 "[1:a]volume=1.0[voice];"
-                "[2:a]volume=0.30,afade=t=in:d=1,afade=t=out:st=28:d=2[music];"
+                "[2:a]volume=0.25,afade=t=in:d=1,afade=t=out:st=28:d=2[music];"
                 "[voice][music]amix=inputs=2:duration=first[audio]",
                 "-map", "0:v",
                 "-map", "[audio]",
@@ -4058,13 +4155,13 @@ async def mix_audio_with_music(video: str, voices: List[str], music: Optional[st
         
         if run_ffmpeg(cmd, 60):
             size = get_size_mb(final)
-            logger.info(f"✅ Final video with audio: {size:.1f}MB")
+            logger.info(f"✅ Final: {size:.1f}MB")
             return final
         
         return None
         
     except Exception as e:
-        logger.error(f"Audio mixing error: {e}")
+        logger.error(f"Audio mix error: {e}")
         return None
 
 # ============================================================================
@@ -4085,8 +4182,6 @@ async def upload_to_youtube(video_path: str, title: str, description: str, tags:
         
         if not yt_db.youtube.client:
             await yt_db.connect()
-        
-        logger.info(f"Fetching YouTube credentials for user: {user_id}")
         
         credentials_raw = await yt_db.youtube.youtube_credentials_collection.find_one({
             "user_id": user_id
@@ -4124,15 +4219,13 @@ async def upload_to_youtube(video_path: str, title: str, description: str, tags:
         
         if upload_result.get("success"):
             video_id = upload_result.get("video_id")
-            video_url = f"https://youtube.com/shorts/{video_id}"
             
-            logger.info(f"✅ Video uploaded!")
-            logger.info(f"   URL: {video_url}")
+            logger.info(f"✅ Uploaded: {video_id}")
             
             return {
                 "success": True,
                 "video_id": video_id,
-                "video_url": video_url
+                "video_url": f"https://youtube.com/shorts/{video_id}"
             }
         
         return {
@@ -4141,7 +4234,7 @@ async def upload_to_youtube(video_path: str, title: str, description: str, tags:
         }
             
     except Exception as e:
-        logger.error(f"YouTube upload error: {e}")
+        logger.error(f"Upload error: {e}")
         return {"success": False, "error": str(e)}
 
 # ============================================================================
@@ -4158,82 +4251,76 @@ async def generate_viral_video(
     user_id: str,
     database_manager
 ) -> dict:
-    """Complete viral video generation with image fallback"""
+    """✅ COMPLETE FIXED: Video generation with all improvements"""
     
     temp_dir = None
     
     try:
         temp_dir = tempfile.mkdtemp(prefix="viral_pixel_")
-        logger.info(f"🎬 Starting generation for niche: {niche}")
+        logger.info(f"🎬 STARTING: {niche}")
+        logger.info("   ✅ ElevenLabs Priority Voice")
+        logger.info("   ✅ Diverse Images (2 per category)")
+        logger.info("   ✅ Broader Video Search (top 2)")
+        logger.info("   ✅ Enhanced Processing")
         
-        # ========================================
         # STEP 1: Generate Script
-        # ========================================
-        logger.info("📝 STEP 1: Generating script...")
+        logger.info("📝 STEP 1: Script...")
         script = await generate_script(niche)
-        logger.info(f"✅ Script: {script['title']}")
+        logger.info(f"✅ Title: {script['title']}")
         
-        # ========================================
-        # STEP 2: Download Background Music
-        # ========================================
-        logger.info("🎵 STEP 2: Downloading background music...")
+        # STEP 2: Music
+        logger.info("🎵 STEP 2: Music...")
         music = await download_background_music(temp_dir)
         
-        # ========================================
-        # STEP 3: Try VIDEO First (Priority)
-        # ========================================
-        logger.info("📹 STEP 3: Searching for vertical video...")
-        video_result = await search_video(niche)
+        # STEP 3: Try VIDEOS (top 2, any format)
+        logger.info("🎥 STEP 3: Searching videos (top 2, any format)...")
+        video_results = await search_videos_broad(niche, count=2)
         
         processed_video = None
         content_type = None
         
-        if video_result:
-            # VIDEO FOUND - Use video workflow
-            logger.info(f"   ✅ Video found: {video_result.get('source').upper()}")
-            content_type = "video"
+        if len(video_results) > 0:
+            logger.info(f"   ✅ Found {len(video_results)} videos, using first one")
             
-            source_video = os.path.join(temp_dir, "source.mp4")
-            
-            if await download_video(video_result, source_video):
-                logger.info("⚙️ STEP 4: Processing video...")
-                processed_video = process_video_fast(source_video, temp_dir)
-                force_cleanup(source_video)
-                gc.collect()
+            for vid_result in video_results:
+                source_video = os.path.join(temp_dir, "source.mp4")
+                
+                if await download_video(vid_result, source_video):
+                    logger.info("⚙️ STEP 4: Processing video...")
+                    processed_video = process_video_fast(source_video, temp_dir)
+                    force_cleanup(source_video)
+                    gc.collect()
+                    
+                    if processed_video:
+                        content_type = "video"
+                        break
         
-        # ========================================
-        # STEP 4: FALLBACK TO IMAGES if no video
-        # ========================================
+        # STEP 4: FALLBACK to DIVERSE IMAGES
         if not processed_video:
-            logger.info("📸 STEP 4: No video found, creating IMAGE SLIDESHOW...")
-            logger.info("   This creates a professional Canva-style slideshow")
+            logger.info("📸 STEP 4: Creating DIVERSE IMAGE SLIDESHOW...")
             content_type = "slideshow"
             
-            # Search for HD vertical images
-            images_data = await search_images(niche, MAX_IMAGES)
+            images_data = await search_images_diverse(niche, MAX_IMAGES)
             
             if len(images_data) < MIN_IMAGES:
                 return {
                     "success": False,
-                    "error": f"Not enough images found: {len(images_data)} < {MIN_IMAGES}"
+                    "error": f"Not enough images: {len(images_data)} < {MIN_IMAGES}"
                 }
             
-            # Download images
             image_files = await download_images(images_data, temp_dir)
             
             if len(image_files) < MIN_IMAGES:
                 return {
                     "success": False,
-                    "error": f"Not enough images downloaded: {len(image_files)} < {MIN_IMAGES}"
+                    "error": f"Download failed: {len(image_files)} < {MIN_IMAGES}"
                 }
             
-            # Create professional slideshow
-            processed_video = create_slideshow_with_transitions(image_files, temp_dir)
+            processed_video = create_slideshow_with_transitions_enhanced(image_files, temp_dir)
             
             if not processed_video:
-                return {"success": False, "error": "Slideshow creation failed"}
+                return {"success": False, "error": "Slideshow failed"}
             
-            # Cleanup downloaded images
             for img in image_files:
                 force_cleanup(img)
             gc.collect()
@@ -4241,50 +4328,42 @@ async def generate_viral_video(
         if not processed_video:
             return {"success": False, "error": "Content creation failed"}
         
-        # ========================================
-        # STEP 5: Add Text Overlays
-        # ========================================
+        # STEP 5: Text Overlays
         if show_captions:
-            logger.info("📝 STEP 5: Adding text overlays...")
+            logger.info("📝 STEP 5: Text...")
             if content_type == "slideshow":
                 processed_video = add_text_overlays_to_slideshow(processed_video, script["segments"], temp_dir)
             else:
                 processed_video = add_text_overlays(processed_video, script["segments"], temp_dir)
         
-        # ========================================
-        # STEP 6: Generate Voiceovers
-        # ========================================
-        logger.info("🎤 STEP 6: Generating voiceovers...")
+        # STEP 6: Voices (ElevenLabs → Vertex AI → Edge TTS)
+        logger.info("🎤 STEP 6: Voiceovers (ElevenLabs Priority)...")
         voices = []
         
         for idx, seg in enumerate(script["segments"]):
-            logger.info(f"   Voice {idx+1}/{len(script['segments'])}...")
+            logger.info(f"   Voice {idx+1}/4...")
             
             voice = await generate_voice(seg["narration"], seg["duration"], temp_dir)
             
             if voice:
                 voices.append(voice)
-                logger.info(f"   ✅ Voice {idx+1} generated")
+                logger.info(f"   ✅ Voice {idx+1}")
         
         if len(voices) < 3:
-            return {"success": False, "error": f"Voice generation failed ({len(voices)}/4)"}
+            return {"success": False, "error": f"Voice failed ({len(voices)}/4)"}
         
-        # ========================================
         # STEP 7: Mix Audio
-        # ========================================
-        logger.info("🎬 STEP 7: Mixing audio...")
+        logger.info("🎬 STEP 7: Mixing...")
         final_video = await mix_audio_with_music(processed_video, voices, music, temp_dir)
         
         if not final_video:
-            return {"success": False, "error": "Audio mixing failed"}
+            return {"success": False, "error": "Audio mix failed"}
         
         final_size = get_size_mb(final_video)
-        logger.info(f"✅ Final video: {final_size:.1f}MB")
+        logger.info(f"✅ Final: {final_size:.1f}MB")
         
-        # ========================================
-        # STEP 8: Upload to YouTube
-        # ========================================
-        logger.info("📤 STEP 8: Uploading to YouTube...")
+        # STEP 8: Upload
+        logger.info("📤 STEP 8: Uploading...")
         upload_result = await upload_to_youtube(
             final_video,
             script["title"],
@@ -4294,21 +4373,15 @@ async def generate_viral_video(
             database_manager
         )
         
-        # ========================================
         # Cleanup
-        # ========================================
-        logger.info("🧹 Cleaning up...")
         if temp_dir:
             shutil.rmtree(temp_dir, ignore_errors=True)
         gc.collect()
         
-        # ========================================
-        # Return Result
-        # ========================================
         if not upload_result.get("success"):
             return upload_result
         
-        logger.info("🎉 GENERATION COMPLETE!")
+        logger.info("🎉 COMPLETE!")
         
         return {
             "success": True,
@@ -4319,11 +4392,12 @@ async def generate_viral_video(
             "size_mb": f"{final_size:.1f}MB",
             "content_type": content_type,
             "has_music": music is not None,
-            "voice_segments": len(voices)
+            "voice_segments": len(voices),
+            "enhancements": "ElevenLabs + Bass + Contrast + Saturation + Diverse Images"
         }
         
     except Exception as e:
-        logger.error(f"❌ Generation failed: {e}")
+        logger.error(f"❌ FAILED: {e}")
         logger.error(traceback.format_exc())
         
         if temp_dir:
@@ -4344,8 +4418,11 @@ async def get_niches():
     return {
         "success": True,
         "niches": {
-            k: {"name": k.replace("_", " ").title()} 
-            for k in NICHE_KEYWORDS.keys()
+            k: {
+                "name": k.replace("_", " ").title(),
+                "subcategories": v["subcategories"]
+            } 
+            for k, v in NICHE_KEYWORDS.items()
         }
     }
 
@@ -4388,7 +4465,7 @@ async def generate_endpoint(request: Request):
                     user_id=user_id,
                     database_manager=database_manager
                 ),
-                timeout=600
+                timeout=900  # 15 minutes
             )
             
             return JSONResponse(content=result)
@@ -4396,7 +4473,7 @@ async def generate_endpoint(request: Request):
         except asyncio.TimeoutError:
             return JSONResponse(
                 status_code=408,
-                content={"success": False, "error": "Timeout (10 minutes)"}
+                content={"success": False, "error": "Timeout (15 minutes)"}
             )
         
     except Exception as e:
