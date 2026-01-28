@@ -60,11 +60,17 @@ NICHE_KEYWORDS = {
         "english": ["funny", "comedy", "meme", "prank", "fail", "joke", "hilarious", "laugh"],
         "chinese": ["搞笑", "幽默", "段子", "娱乐", "爆笑", "喜剧", "笑话", "有趣", "搞笑视频"],
         "emoji": "😂🤣💀",
-        # Default profile URLs for funny/comedy content
+        # Douyin search URLs (works in India, no copyright issues)
         "profile_urls": [
-            "https://www.tiktok.com/@zachking",
-            "https://www.tiktok.com/@khaby.lame",
-            "https://www.tiktok.com/@spencerx"
+            "https://www.douyin.com/search/搞笑",
+            "https://www.douyin.com/search/幽默",
+            "https://www.douyin.com/search/comedy"
+        ],
+        # Fallback: Instagram Reels (works worldwide)
+        "fallback_urls": [
+            "https://www.instagram.com/explore/tags/funny/",
+            "https://www.instagram.com/explore/tags/comedy/",
+            "https://www.instagram.com/explore/tags/memes/"
         ]
     },
     "animals": {
@@ -73,11 +79,17 @@ NICHE_KEYWORDS = {
         "english": ["cute animals", "pets", "dogs", "cats", "puppies", "kittens", "funny animals", "animal"],
         "chinese": ["萌宠", "宠物", "狗狗", "猫咪", "可爱动物", "小猫", "小狗", "动物", "宠物视频"],
         "emoji": "🐶🐱❤️",
-        # Default profile URLs for cute animals/pets
+        # Douyin search URLs
         "profile_urls": [
-            "https://www.tiktok.com/@jiffpom",
-            "https://www.tiktok.com/@mayapolarbear",
-            "https://www.tiktok.com/@tuckerbudzyn"
+            "https://www.douyin.com/search/萌宠",
+            "https://www.douyin.com/search/宠物",
+            "https://www.douyin.com/search/cute%20animals"
+        ],
+        # Fallback: Instagram Reels
+        "fallback_urls": [
+            "https://www.instagram.com/explore/tags/animals/",
+            "https://www.instagram.com/explore/tags/pets/",
+            "https://www.instagram.com/explore/tags/cutepets/"
         ]
     },
     "kids": {
@@ -86,11 +98,17 @@ NICHE_KEYWORDS = {
         "english": ["kids", "children", "cartoon", "baby", "funny kids", "cute baby", "toddler", "child"],
         "chinese": ["儿童", "宝宝", "小孩", "可爱宝宝", "萌娃", "动画", "幼儿", "孩子", "宝宝视频"],
         "emoji": "👶😊🌟",
-        # Default profile URLs for kids/family content
+        # Douyin search URLs
         "profile_urls": [
-            "https://www.tiktok.com/@likenastya",
-            "https://www.tiktok.com/@vlad.super.vlad",
-            "https://www.tiktok.com/@txunamy"
+            "https://www.douyin.com/search/萌娃",
+            "https://www.douyin.com/search/宝宝",
+            "https://www.douyin.com/search/kids"
+        ],
+        # Fallback: Instagram Reels
+        "fallback_urls": [
+            "https://www.instagram.com/explore/tags/kids/",
+            "https://www.instagram.com/explore/tags/baby/",
+            "https://www.instagram.com/explore/tags/children/"
         ]
     },
     "stories": {
@@ -99,11 +117,17 @@ NICHE_KEYWORDS = {
         "english": ["story", "motivation", "inspiration", "facts", "amazing story", "life lesson", "wisdom"],
         "chinese": ["故事", "励志", "感人", "真实故事", "人生", "智慧", "道理", "鼓舞", "励志视频"],
         "emoji": "📖💡✨",
-        # Default profile URLs for stories/motivation
+        # Douyin search URLs
         "profile_urls": [
-            "https://www.tiktok.com/@storytime",
-            "https://www.tiktok.com/@thefactsite",
-            "https://www.tiktok.com/@motivationmafia"
+            "https://www.douyin.com/search/励志",
+            "https://www.douyin.com/search/故事",
+            "https://www.douyin.com/search/motivation"
+        ],
+        # Fallback: Instagram Reels
+        "fallback_urls": [
+            "https://www.instagram.com/explore/tags/motivation/",
+            "https://www.instagram.com/explore/tags/inspiration/",
+            "https://www.instagram.com/explore/tags/story/"
         ]
     },
     "satisfying": {
@@ -112,11 +136,17 @@ NICHE_KEYWORDS = {
         "english": ["satisfying", "oddly satisfying", "asmr", "relaxing", "soap cutting", "slime", "perfect"],
         "chinese": ["解压", "治愈", "舒适", "完美", "切割", "史莱姆", "放松", "减压", "解压视频"],
         "emoji": "✨😌🎯",
-        # Default profile URLs for satisfying/ASMR content
+        # Douyin search URLs
         "profile_urls": [
-            "https://www.tiktok.com/@satisfying",
-            "https://www.tiktok.com/@oddlysatisfying",
-            "https://www.tiktok.com/@asmr"
+            "https://www.douyin.com/search/解压",
+            "https://www.douyin.com/search/治愈",
+            "https://www.douyin.com/search/satisfying"
+        ],
+        # Fallback: Instagram Reels
+        "fallback_urls": [
+            "https://www.instagram.com/explore/tags/satisfying/",
+            "https://www.instagram.com/explore/tags/asmr/",
+            "https://www.instagram.com/explore/tags/oddlysatisfying/"
         ]
     }
 }
@@ -237,7 +267,7 @@ class ProfileScraper:
     
     def scrape_profile_videos(self, profile_url: str, max_videos: int = 10) -> List[str]:
         """
-        Scrape video URLs from a TikTok/Douyin profile
+        Scrape video URLs from Douyin search or Instagram
         Returns list of video URLs
         """
         try:
@@ -245,56 +275,87 @@ class ProfileScraper:
                 if not self.init_driver():
                     return []
             
-            logger.info(f"📱 Scraping profile: {profile_url}")
+            logger.info(f"📱 Scraping: {profile_url}")
             
-            # Load profile page
+            # Detect platform
+            is_douyin = 'douyin.com' in profile_url
+            is_instagram = 'instagram.com' in profile_url
+            
+            # Load page
             self.driver.get(profile_url)
             
-            # Wait for captcha if needed (give 30 seconds)
-            logger.info("⏳ Waiting for page load (handle captcha if appears)...")
-            time.sleep(5)  # Initial wait
+            # Wait for page load
+            logger.info("⏳ Waiting for page load...")
+            time.sleep(8)  # Longer wait for Douyin
             
             # Scroll to load more videos
             logger.info("📜 Scrolling to load videos...")
-            scroll_pause_time = 1.5
+            scroll_pause_time = 2
             screen_height = self.driver.execute_script("return window.screen.height;")
-            i = 1
             
-            # Scroll down page to load videos
-            for _ in range(5):  # Scroll 5 times
+            # Scroll multiple times
+            for i in range(1, 6):  # Scroll 5 times
                 self.driver.execute_script(f"window.scrollTo(0, {screen_height}*{i});")
-                i += 1
                 time.sleep(scroll_pause_time)
             
-            # Extract video URLs
+            # Extract video URLs based on platform
             logger.info("🔍 Extracting video URLs...")
-            
-            # Multiple selectors to try (TikTok changes these frequently)
-            video_selectors = [
-                "div[data-e2e='user-post-item'] a",
-                "div.tiktok-x6y88p-DivItemContainerV2 a",
-                "div[class*='DivItemContainer'] a",
-                "a[href*='/video/']"
-            ]
-            
             video_urls = []
             
-            for selector in video_selectors:
-                try:
-                    elements = self.driver.find_elements(By.CSS_SELECTOR, selector)
-                    for element in elements:
-                        href = element.get_attribute('href')
-                        if href and '/video/' in href and href not in video_urls:
-                            video_urls.append(href)
-                            if len(video_urls) >= max_videos:
-                                break
-                    
-                    if video_urls:
-                        break
+            if is_douyin:
+                # Douyin-specific selectors
+                video_selectors = [
+                    "a[href*='/video/']",
+                    "div[class*='video'] a",
+                    "div[class*='item'] a[href*='video']",
+                    "a[class*='card'] [href*='video']"
+                ]
+                
+                for selector in video_selectors:
+                    try:
+                        elements = self.driver.find_elements(By.CSS_SELECTOR, selector)
+                        for element in elements:
+                            href = element.get_attribute('href')
+                            if href and '/video/' in href and href not in video_urls:
+                                video_urls.append(href)
+                                logger.info(f"   Found: {href[:60]}...")
+                                if len(video_urls) >= max_videos:
+                                    break
                         
-                except Exception as e:
-                    logger.debug(f"Selector {selector} failed: {e}")
-                    continue
+                        if video_urls:
+                            break
+                            
+                    except Exception as e:
+                        logger.debug(f"Selector {selector} failed: {e}")
+                        continue
+            
+            elif is_instagram:
+                # Instagram-specific selectors
+                video_selectors = [
+                    "a[href*='/reel/']",
+                    "a[href*='/p/']"
+                ]
+                
+                for selector in video_selectors:
+                    try:
+                        elements = self.driver.find_elements(By.CSS_SELECTOR, selector)
+                        for element in elements:
+                            href = element.get_attribute('href')
+                            if href and ('/reel/' in href or '/p/' in href) and href not in video_urls:
+                                # Convert to full URL if needed
+                                if not href.startswith('http'):
+                                    href = 'https://www.instagram.com' + href
+                                video_urls.append(href)
+                                logger.info(f"   Found: {href[:60]}...")
+                                if len(video_urls) >= max_videos:
+                                    break
+                        
+                        if video_urls:
+                            break
+                            
+                    except Exception as e:
+                        logger.debug(f"Selector {selector} failed: {e}")
+                        continue
             
             logger.info(f"✅ Found {len(video_urls)} video URLs")
             return video_urls[:max_videos]
@@ -319,79 +380,141 @@ class ProfileScraper:
 
 async def download_video_from_url(video_url: str, video_id: str, temp_dir: str) -> Optional[str]:
     """
-    Download video from TikTok/Douyin URL using ssstik.io API
+    Download video from Douyin or Instagram URL
+    Tries multiple download methods
     """
     try:
         logger.info(f"📥 Downloading video {video_id}...")
         logger.info(f"   URL: {video_url}")
         
-        # Use ssstik.io API to get download link
+        # Detect platform
+        is_douyin = 'douyin.com' in video_url
+        is_instagram = 'instagram.com' in video_url
+        
         async with httpx.AsyncClient(timeout=60) as client:
             
-            # Step 1: Get the download link from ssstik.io
-            response = await client.post(
-                'https://ssstik.io/abc',
-                params={'url': 'dl'},
-                headers={
-                    'User-Agent': get_random_user_agent(),
-                    'Accept': '*/*',
-                    'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-                    'Origin': 'https://ssstik.io',
-                    'Referer': 'https://ssstik.io/en',
-                },
-                data={
-                    'id': video_url,
-                    'locale': 'en',
-                    'tt': 'NE9MVmM4'  # This token may need updating
-                }
-            )
+            if is_douyin:
+                # Method 1: Try direct Douyin video extraction
+                try:
+                    response = await client.get(video_url, follow_redirects=True, headers={
+                        'User-Agent': get_random_user_agent(),
+                        'Referer': 'https://www.douyin.com/',
+                    })
+                    
+                    if response.status_code == 200:
+                        html = response.text
+                        
+                        # Extract video URL from page
+                        video_patterns = [
+                            r'"playAddr":\[?"(https://[^"]+?\.mp4[^"]*)"',
+                            r'"play_addr":\{"uri":"([^"]+)"',
+                            r'playUrl":"(https://[^"]+\.mp4[^"]*)"',
+                        ]
+                        
+                        for pattern in video_patterns:
+                            matches = re.findall(pattern, html)
+                            if matches:
+                                video_download_url = matches[0].replace('\\u002F', '/').replace('\\/', '/')
+                                
+                                # Download the video
+                                video_response = await client.get(
+                                    video_download_url,
+                                    headers={'User-Agent': get_random_user_agent(), 'Referer': 'https://www.douyin.com/'},
+                                    follow_redirects=True
+                                )
+                                
+                                if video_response.status_code == 200:
+                                    content = video_response.content
+                                    size_mb = len(content) / (1024 * 1024)
+                                    
+                                    if 0.1 < size_mb < MAX_VIDEO_SIZE_MB:
+                                        video_path = os.path.join(temp_dir, f"video_{video_id}.mp4")
+                                        with open(video_path, 'wb') as f:
+                                            f.write(content)
+                                        logger.info(f"   ✅ Downloaded: {size_mb:.1f}MB")
+                                        return video_path
+                except Exception as e:
+                    logger.debug(f"Douyin direct download failed: {e}")
             
-            if response.status_code != 200:
-                logger.warning(f"   ssstik.io returned {response.status_code}")
-                return None
+            elif is_instagram:
+                # Method: Use instagram downloader API
+                try:
+                    # Try instaloader-style download
+                    post_code = video_url.split('/reel/')[-1].split('/')[0] if '/reel/' in video_url else video_url.split('/p/')[-1].split('/')[0]
+                    
+                    # Use a public Instagram downloader API
+                    api_url = f"https://api.instaloader.com/post/{post_code}"
+                    
+                    response = await client.get(api_url, headers={'User-Agent': get_random_user_agent()})
+                    
+                    if response.status_code == 200:
+                        data = response.json()
+                        video_download_url = data.get('video_url')
+                        
+                        if video_download_url:
+                            video_response = await client.get(video_download_url, follow_redirects=True)
+                            
+                            if video_response.status_code == 200:
+                                content = video_response.content
+                                size_mb = len(content) / (1024 * 1024)
+                                
+                                if 0.1 < size_mb < MAX_VIDEO_SIZE_MB:
+                                    video_path = os.path.join(temp_dir, f"video_{video_id}.mp4")
+                                    with open(video_path, 'wb') as f:
+                                        f.write(content)
+                                    logger.info(f"   ✅ Downloaded: {size_mb:.1f}MB")
+                                    return video_path
+                except Exception as e:
+                    logger.debug(f"Instagram API download failed: {e}")
             
-            # Parse response to get download link
-            soup = BeautifulSoup(response.text, "html.parser")
-            download_link_tag = soup.find('a')
+            # Fallback: Try ssstik.io (works for both)
+            logger.info("   Trying ssstik.io...")
+            try:
+                response = await client.post(
+                    'https://ssstik.io/abc',
+                    params={'url': 'dl'},
+                    headers={
+                        'User-Agent': get_random_user_agent(),
+                        'Accept': '*/*',
+                        'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+                        'Origin': 'https://ssstik.io',
+                        'Referer': 'https://ssstik.io/en',
+                    },
+                    data={
+                        'id': video_url,
+                        'locale': 'en',
+                        'tt': 'NE9MVmM4'
+                    }
+                )
+                
+                if response.status_code == 200:
+                    soup = BeautifulSoup(response.text, "html.parser")
+                    download_link_tag = soup.find('a')
+                    
+                    if download_link_tag and 'href' in download_link_tag.attrs:
+                        download_link = download_link_tag['href']
+                        
+                        video_response = await client.get(
+                            download_link,
+                            headers={'User-Agent': get_random_user_agent()},
+                            follow_redirects=True
+                        )
+                        
+                        if video_response.status_code == 200:
+                            content = video_response.content
+                            size_mb = len(content) / (1024 * 1024)
+                            
+                            if 0.1 < size_mb < MAX_VIDEO_SIZE_MB:
+                                video_path = os.path.join(temp_dir, f"video_{video_id}.mp4")
+                                with open(video_path, 'wb') as f:
+                                    f.write(content)
+                                logger.info(f"   ✅ Downloaded: {size_mb:.1f}MB")
+                                return video_path
+            except Exception as e:
+                logger.debug(f"ssstik.io download failed: {e}")
             
-            if not download_link_tag or 'href' not in download_link_tag.attrs:
-                logger.warning("   No download link found")
-                return None
-            
-            download_link = download_link_tag['href']
-            logger.info(f"   ✅ Got download link")
-            
-            # Step 2: Download the actual video
-            video_response = await client.get(
-                download_link,
-                headers={'User-Agent': get_random_user_agent()},
-                follow_redirects=True
-            )
-            
-            if video_response.status_code != 200:
-                logger.warning(f"   Video download failed: {video_response.status_code}")
-                return None
-            
-            # Save video
-            video_content = video_response.content
-            size_mb = len(video_content) / (1024 * 1024)
-            
-            if size_mb > MAX_VIDEO_SIZE_MB:
-                logger.warning(f"   Video too large: {size_mb:.1f}MB")
-                return None
-            
-            if size_mb < 0.1:
-                logger.warning(f"   Video too small: {size_mb:.2f}MB")
-                return None
-            
-            # Save to file
-            video_path = os.path.join(temp_dir, f"video_{video_id}.mp4")
-            
-            with open(video_path, 'wb') as f:
-                f.write(video_content)
-            
-            logger.info(f"   ✅ Downloaded: {size_mb:.1f}MB")
-            return video_path
+            logger.warning("   All download methods failed")
+            return None
             
     except Exception as e:
         logger.error(f"Download error: {e}")
@@ -1132,20 +1255,26 @@ async def process_profile_based_videos(
 ) -> dict:
     """
     Main pipeline: Scrape profiles → Process videos sequentially
+    Uses fallback URLs if primary sources fail
     """
     
     try:
         logger.info(f"🚀 Starting profile-based automation")
         logger.info(f"   Niche: {niche}")
-        logger.info(f"   Profiles: {len(profile_urls)}")
         logger.info(f"   Videos to generate: {num_videos}")
         
-        # Step 1: Scrape all profiles for video URLs
+        # Get niche config
+        niche_config = NICHE_KEYWORDS.get(niche, NICHE_KEYWORDS["funny"])
+        
+        # Step 1: Try primary URLs (Douyin)
         scraper = ProfileScraper()
         all_video_urls = []
         
-        for profile_url in profile_urls:
-            logger.info(f"📱 Scraping profile: {profile_url}")
+        primary_urls = profile_urls if profile_urls else niche_config["profile_urls"]
+        logger.info(f"   Trying {len(primary_urls)} primary URLs (Douyin)...")
+        
+        for profile_url in primary_urls:
+            logger.info(f"📱 Scraping: {profile_url}")
             video_urls = scraper.scrape_profile_videos(profile_url, max_videos=10)
             all_video_urls.extend(video_urls)
             logger.info(f"   Found {len(video_urls)} videos")
@@ -1153,12 +1282,28 @@ async def process_profile_based_videos(
             if len(all_video_urls) >= num_videos * 2:
                 break  # Have enough videos
         
+        # Step 2: If not enough videos, try fallback URLs (Instagram)
+        if len(all_video_urls) < num_videos:
+            logger.warning(f"⚠️ Only found {len(all_video_urls)} videos from primary sources")
+            logger.info("   Trying fallback URLs (Instagram)...")
+            
+            fallback_urls = niche_config.get("fallback_urls", [])
+            
+            for fallback_url in fallback_urls:
+                logger.info(f"📱 Scraping fallback: {fallback_url}")
+                video_urls = scraper.scrape_profile_videos(fallback_url, max_videos=10)
+                all_video_urls.extend(video_urls)
+                logger.info(f"   Found {len(video_urls)} videos")
+                
+                if len(all_video_urls) >= num_videos * 2:
+                    break
+        
         scraper.close()
         
         if not all_video_urls:
             return {
                 "success": False,
-                "error": "No videos found in profiles. Please check profile URLs."
+                "error": "No videos found. Please check URLs or try different niche."
             }
         
         logger.info(f"✅ Total videos found: {len(all_video_urls)}")
@@ -1167,7 +1312,7 @@ async def process_profile_based_videos(
         random.shuffle(all_video_urls)
         videos_to_process = all_video_urls[:num_videos]
         
-        # Step 2: Process videos sequentially (one at a time)
+        # Step 3: Process videos sequentially (one at a time)
         results = []
         success_count = 0
         
