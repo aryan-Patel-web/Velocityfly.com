@@ -70,16 +70,22 @@ const YouTubeAutomation = () => {
 
 
 
-// Add these to your existing useState declarations
+// ============================================
+// CHINA MULTI-NICHE AUTOMATION TAB - UPDATED VERSION
+// ============================================
+// Add this to your React component state at the top:
+
 const [chinaConfig, setChinaConfig] = useState({
   niche: 'funny',
+  num_videos: 1,
   show_captions: true,
-  num_videos: 1
+  profile_urls: [] // Will be loaded from backend
 });
 const [chinaGenerating, setChinaGenerating] = useState(false);
 const [chinaProgress, setChinaProgress] = useState(0);
 const [chinaResult, setChinaResult] = useState(null);
 const [chinaNiches, setChinaNiches] = useState({});
+const [loadingNiches, setLoadingNiches] = useState(true);
 
 /* ============================================ */
 /* ✅ PIXABAY SLIDESHOW GENERATOR TAB - V3 FINAL */
@@ -764,7 +770,38 @@ const replyToComment = useCallback(async (commentId, replyText) => {
 
 
 
+// Add this useEffect to load niches when component mounts:
+useEffect(() => {
+  loadChinaNiches();
+}, []);
 
+// Function to load niches from backend
+const loadChinaNiches = async () => {
+  try {
+    const response = await fetch(`${API_BASE}/api/china/niches`);
+    const data = await response.json();
+    
+    if (data.success) {
+      // Transform backend data to frontend format
+      const transformedNiches = {};
+      Object.keys(data.niches).forEach(key => {
+        const niche = data.niches[key];
+        transformedNiches[key] = {
+          name: niche.name,
+          icon: niche.icon,
+          english_keywords: niche.english_keywords,
+          chinese_keywords: niche.chinese_keywords,
+          default_profiles: niche.default_profiles
+        };
+      });
+      setChinaNiches(transformedNiches);
+    }
+  } catch (error) {
+    console.error('Error loading niches:', error);
+  } finally {
+    setLoadingNiches(false);
+  }
+};
 
 
 
@@ -8650,7 +8687,7 @@ onClick={async () => {
 
 
 
-
+{/* --------------------------------pixabay code end---------------------------------------------------- */}
 
 // MAIN TAB CONTENT
 {activeTab === 'pixabay' && status?.youtube_connected && (
@@ -9876,10 +9913,16 @@ onClick={async () => {
 {/* -------------------------------- MrBeast code end ---------------------------------------------------- */}
 
 
+{/* --------------------------------china  code end---------------------------------------------------- */}
+
+
 
 {/* ============================================ */}
 {/* CHINA MULTI-NICHE AUTOMATION TAB */}
 {/* ============================================ */}
+
+
+
 {activeTab === 'china-automation' && status?.youtube_connected && (
   <div style={{ 
     background: 'linear-gradient(135deg, #FF6B6B 0%, #FF8E53 100%)', 
@@ -9911,470 +9954,543 @@ onClick={async () => {
           fontWeight: '500',
           margin: 0
         }}>
-          Auto-find viral Chinese videos, translate to Hindi, and upload to YouTube
+          Scrape TikTok profiles, translate to Hindi, and auto-upload to YouTube
         </p>
       </div>
     </div>
 
-    {/* STEP 1: NICHE SELECTION */}
-    <div style={{
-      background: 'rgba(255,255,255,0.95)',
-      borderRadius: '15px',
-      padding: '30px',
-      marginBottom: '25px'
-    }}>
-      <h3 style={{ 
-        color: '#333', 
-        marginBottom: '20px', 
-        fontSize: '24px', 
-        fontWeight: '700' 
-      }}>
-        🎯 Step 1: Choose Your Niche
-      </h3>
+    {loadingNiches ? (
+      <div style={{ textAlign: 'center', padding: '40px', color: 'white' }}>
+        <p>Loading niches...</p>
+      </div>
+    ) : (
+      <>
+        {/* STEP 1: NICHE SELECTION */}
+        <div style={{
+          background: 'rgba(255,255,255,0.95)',
+          borderRadius: '15px',
+          padding: '30px',
+          marginBottom: '25px'
+        }}>
+          <h3 style={{ 
+            color: '#333', 
+            marginBottom: '20px', 
+            fontSize: '24px', 
+            fontWeight: '700' 
+          }}>
+            🎯 Step 1: Choose Your Niche
+          </h3>
 
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-        gap: '15px'
-      }}>
-        {Object.entries(chinaNiches).map(([nicheKey, nicheData]) => (
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+            gap: '15px'
+          }}>
+            {Object.entries(chinaNiches).map(([nicheKey, nicheData]) => (
+              <button
+                key={nicheKey}
+                onClick={() => {
+                  if (!chinaGenerating) {
+                    setChinaConfig(prev => ({ 
+                      ...prev, 
+                      niche: nicheKey,
+                      profile_urls: nicheData.default_profiles || []
+                    }));
+                  }
+                }}
+                disabled={chinaGenerating}
+                style={{
+                  padding: '20px',
+                  background: chinaConfig.niche === nicheKey 
+                    ? 'linear-gradient(135deg, #FF6B6B, #FF8E53)' 
+                    : 'white',
+                  color: chinaConfig.niche === nicheKey ? 'white' : '#333',
+                  border: chinaConfig.niche === nicheKey 
+                    ? 'none' 
+                    : '2px solid #ddd',
+                  borderRadius: '12px',
+                  cursor: chinaGenerating ? 'not-allowed' : 'pointer',
+                  fontWeight: '600',
+                  fontSize: '14px',
+                  opacity: chinaGenerating ? 0.6 : 1,
+                  transition: 'all 0.3s',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: '8px',
+                  boxShadow: chinaConfig.niche === nicheKey 
+                    ? '0 4px 15px rgba(255,107,107,0.3)' 
+                    : '0 2px 8px rgba(0,0,0,0.1)'
+                }}
+              >
+                <span style={{ fontSize: '32px' }}>{nicheData.icon}</span>
+                <span style={{ textAlign: 'center', lineHeight: '1.3' }}>
+                  {nicheData.name}
+                </span>
+              </button>
+            ))}
+          </div>
+
+          {/* Show selected niche info */}
+          {chinaNiches[chinaConfig.niche] && (
+            <>
+              <div style={{
+                marginTop: '20px',
+                padding: '15px',
+                background: '#f5f5f5',
+                borderRadius: '10px'
+              }}>
+                <div style={{ fontSize: '13px', color: '#666', marginBottom: '8px' }}>
+                  <strong>Search Keywords:</strong>
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                  {chinaNiches[chinaConfig.niche].english_keywords?.map((keyword, idx) => (
+                    <span
+                      key={idx}
+                      style={{
+                        padding: '4px 10px',
+                        background: 'white',
+                        borderRadius: '6px',
+                        fontSize: '12px',
+                        color: '#666',
+                        border: '1px solid #ddd'
+                      }}
+                    >
+                      {keyword}
+                    </span>
+                  ))}
+                </div>
+                <div style={{ marginTop: '8px', display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                  {chinaNiches[chinaConfig.niche].chinese_keywords?.map((keyword, idx) => (
+                    <span
+                      key={idx}
+                      style={{
+                        padding: '4px 10px',
+                        background: 'white',
+                        borderRadius: '6px',
+                        fontSize: '12px',
+                        color: '#666',
+                        border: '1px solid #ddd'
+                      }}
+                    >
+                      {keyword}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              {/* Profile URLs Section */}
+              <div style={{
+                marginTop: '20px',
+                padding: '20px',
+                background: '#e3f2fd',
+                borderRadius: '10px',
+                border: '2px solid #2196f3'
+              }}>
+                <h4 style={{ 
+                  fontSize: '16px', 
+                  marginBottom: '15px',
+                  color: '#1565c0',
+                  fontWeight: '700'
+                }}>
+                  📱 Profile URLs (Will scrape videos from these profiles)
+                </h4>
+                
+                {/* Default profiles info */}
+                <div style={{
+                  background: 'white',
+                  padding: '15px',
+                  borderRadius: '8px',
+                  marginBottom: '15px',
+                  fontSize: '13px',
+                  color: '#555'
+                }}>
+                  <strong>Default Profiles for {chinaNiches[chinaConfig.niche].name}:</strong>
+                  <ul style={{ marginTop: '10px', marginLeft: '20px' }}>
+                    {chinaNiches[chinaConfig.niche].default_profiles?.map((url, idx) => (
+                      <li key={idx} style={{ marginBottom: '5px' }}>
+                        <a 
+                          href={url} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          style={{ color: '#2196f3', textDecoration: 'none' }}
+                        >
+                          {url}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                <p style={{ fontSize: '12px', color: '#666', marginTop: '10px' }}>
+                  💡 Using default profiles. You can also add custom URLs by modifying chinaConfig.profile_urls in the code.
+                </p>
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* STEP 2: SETTINGS */}
+        <div style={{
+          background: 'rgba(255,255,255,0.95)',
+          borderRadius: '15px',
+          padding: '30px',
+          marginBottom: '25px'
+        }}>
+          <h3 style={{ 
+            color: '#333', 
+            marginBottom: '20px', 
+            fontSize: '24px', 
+            fontWeight: '700' 
+          }}>
+            ⚙️ Step 2: Configure Settings
+          </h3>
+
+          {/* Number of Videos */}
+          <div style={{ marginBottom: '25px' }}>
+            <label style={{ 
+              display: 'block', 
+              marginBottom: '10px', 
+              fontWeight: '600',
+              color: '#333',
+              fontSize: '16px'
+            }}>
+              🎬 How many videos to generate:
+            </label>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '10px' }}>
+              {[1, 2, 3, 4, 5].map((num) => (
+                <button
+                  key={num}
+                  onClick={() => setChinaConfig(prev => ({ ...prev, num_videos: num }))}
+                  disabled={chinaGenerating}
+                  style={{
+                    padding: '12px',
+                    background: chinaConfig.num_videos === num 
+                      ? 'linear-gradient(135deg, #FF6B6B, #FF8E53)' 
+                      : 'white',
+                    color: chinaConfig.num_videos === num ? 'white' : '#333',
+                    border: chinaConfig.num_videos === num 
+                      ? 'none' 
+                      : '2px solid #ddd',
+                    borderRadius: '10px',
+                    cursor: chinaGenerating ? 'not-allowed' : 'pointer',
+                    fontWeight: '700',
+                    fontSize: '18px',
+                    opacity: chinaGenerating ? 0.6 : 1,
+                    transition: 'all 0.3s'
+                  }}
+                >
+                  {num}
+                </button>
+              ))}
+            </div>
+            <p style={{ fontSize: '12px', color: '#666', marginTop: '8px' }}>
+              Each video processed individually: scrape → download → edit → upload
+            </p>
+          </div>
+
+          {/* Show Captions Toggle */}
+          <div style={{ marginBottom: '25px' }}>
+            <label style={{ 
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+              cursor: chinaGenerating ? 'not-allowed' : 'pointer',
+              fontWeight: '600',
+              color: '#333',
+              fontSize: '16px'
+            }}>
+              <input
+                type="checkbox"
+                checked={chinaConfig.show_captions}
+                onChange={(e) => setChinaConfig(prev => ({ ...prev, show_captions: e.target.checked }))}
+                disabled={chinaGenerating}
+                style={{
+                  width: '20px',
+                  height: '20px',
+                  cursor: chinaGenerating ? 'not-allowed' : 'pointer'
+                }}
+              />
+              <span>📝 Add text overlays / captions</span>
+            </label>
+          </div>
+        </div>
+
+        {/* STEP 3: GENERATE */}
+        <div style={{
+          background: 'rgba(255,255,255,0.95)',
+          borderRadius: '15px',
+          padding: '30px',
+          marginBottom: '25px'
+        }}>
+          <h3 style={{ 
+            color: '#333', 
+            marginBottom: '20px', 
+            fontSize: '24px', 
+            fontWeight: '700' 
+          }}>
+            🚀 Step 3: Generate Videos
+          </h3>
+
           <button
-            key={nicheKey}
-            onClick={() => {
-              if (!chinaGenerating) {
-                setChinaConfig(prev => ({ ...prev, niche: nicheKey }));
+            onClick={async () => {
+              setChinaGenerating(true);
+              setChinaProgress(0);
+              setChinaResult(null);
+
+              try {
+                console.log('Starting China generation...', chinaConfig);
+                
+                // Progress simulation
+                const progressInterval = setInterval(() => {
+                  setChinaProgress(prev => {
+                    if (prev >= 90) {
+                      clearInterval(progressInterval);
+                      return 90;
+                    }
+                    return prev + 5;
+                  });
+                }, 5000);
+
+                // Make API call to backend
+                const response = await fetch(`${API_BASE}/api/china/generate`, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                  },
+                  body: JSON.stringify({
+                    user_id: user.user_id,
+                    niche: chinaConfig.niche,
+                    num_videos: chinaConfig.num_videos,
+                    show_captions: chinaConfig.show_captions,
+                    profile_urls: chinaConfig.profile_urls.length > 0 
+                      ? chinaConfig.profile_urls 
+                      : chinaNiches[chinaConfig.niche]?.default_profiles
+                  })
+                });
+
+                const result = await response.json();
+                clearInterval(progressInterval);
+
+                setChinaProgress(100);
+                setChinaResult(result);
+
+                if (result.success) {
+                  console.log(`✅ Generated ${result.successful} videos`);
+                  alert(`✅ Generated ${result.successful}/${result.total_requested} videos successfully!`);
+                } else {
+                  console.error('Generation failed:', result.error);
+                  alert('❌ Generation failed: ' + result.error);
+                }
+              } catch (error) {
+                console.error('Error:', error);
+                alert('❌ Error: ' + error.message);
+                setChinaResult({ success: false, error: error.message });
+              } finally {
+                setChinaGenerating(false);
               }
             }}
             disabled={chinaGenerating}
             style={{
+              width: '100%',
               padding: '20px',
-              background: chinaConfig.niche === nicheKey 
-                ? 'linear-gradient(135deg, #FF6B6B, #FF8E53)' 
-                : 'white',
-              color: chinaConfig.niche === nicheKey ? 'white' : '#333',
-              border: chinaConfig.niche === nicheKey 
-                ? 'none' 
-                : '2px solid #ddd',
+              background: chinaGenerating 
+                ? 'linear-gradient(135deg, #999, #666)' 
+                : 'linear-gradient(135deg, #FF6B6B, #FF8E53)',
+              color: 'white',
+              border: 'none',
               borderRadius: '12px',
+              fontSize: '20px',
+              fontWeight: '800',
               cursor: chinaGenerating ? 'not-allowed' : 'pointer',
-              fontWeight: '600',
-              fontSize: '14px',
-              opacity: chinaGenerating ? 0.6 : 1,
-              transition: 'all 0.3s',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              gap: '8px',
-              boxShadow: chinaConfig.niche === nicheKey 
-                ? '0 4px 15px rgba(255,107,107,0.3)' 
-                : '0 2px 8px rgba(0,0,0,0.1)'
+              boxShadow: '0 6px 20px rgba(255,107,107,0.4)',
+              opacity: chinaGenerating ? 0.7 : 1,
+              transition: 'all 0.3s'
             }}
           >
-            <span style={{ fontSize: '32px' }}>{nicheData.icon}</span>
-            <span style={{ textAlign: 'center', lineHeight: '1.3' }}>
-              {nicheData.name}
-            </span>
+            {chinaGenerating 
+              ? '⏳ GENERATING VIDEOS...' 
+              : `🔥 GENERATE ${chinaConfig.num_videos} VIDEO${chinaConfig.num_videos > 1 ? 'S' : ''}`
+            }
           </button>
-        ))}
-      </div>
 
-      {/* Show selected niche keywords */}
-      {chinaNiches[chinaConfig.niche] && (
-        <div style={{
-          marginTop: '20px',
-          padding: '15px',
-          background: '#f5f5f5',
-          borderRadius: '10px'
-        }}>
-          <div style={{ fontSize: '13px', color: '#666', marginBottom: '8px' }}>
-            <strong>Search Keywords:</strong>
-          </div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-            {chinaNiches[chinaConfig.niche].english_keywords?.map((keyword, idx) => (
-              <span
-                key={idx}
-                style={{
-                  padding: '4px 10px',
-                  background: 'white',
-                  borderRadius: '6px',
-                  fontSize: '12px',
-                  color: '#666',
-                  border: '1px solid #ddd'
-                }}
-              >
-                {keyword}
-              </span>
-            ))}
-          </div>
-          <div style={{ marginTop: '8px', display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-            {chinaNiches[chinaConfig.niche].chinese_keywords?.map((keyword, idx) => (
-              <span
-                key={idx}
-                style={{
-                  padding: '4px 10px',
-                  background: 'white',
-                  borderRadius: '6px',
-                  fontSize: '12px',
-                  color: '#666',
-                  border: '1px solid #ddd'
-                }}
-              >
-                {keyword}
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-
-    {/* STEP 2: SETTINGS */}
-    <div style={{
-      background: 'rgba(255,255,255,0.95)',
-      borderRadius: '15px',
-      padding: '30px',
-      marginBottom: '25px'
-    }}>
-      <h3 style={{ 
-        color: '#333', 
-        marginBottom: '20px', 
-        fontSize: '24px', 
-        fontWeight: '700' 
-      }}>
-        ⚙️ Step 2: Configure Settings
-      </h3>
-
-      {/* Number of Videos */}
-      <div style={{ marginBottom: '25px' }}>
-        <label style={{ 
-          display: 'block', 
-          marginBottom: '10px', 
-          fontWeight: '600',
-          color: '#333',
-          fontSize: '16px'
-        }}>
-          🎬 How many videos to generate:
-        </label>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '10px' }}>
-          {[1, 2, 3, 4, 5].map((num) => (
-            <button
-              key={num}
-              onClick={() => setChinaConfig(prev => ({ ...prev, num_videos: num }))}
-              disabled={chinaGenerating}
-              style={{
-                padding: '12px',
-                background: chinaConfig.num_videos === num 
-                  ? 'linear-gradient(135deg, #FF6B6B, #FF8E53)' 
-                  : 'white',
-                color: chinaConfig.num_videos === num ? 'white' : '#333',
-                border: chinaConfig.num_videos === num 
-                  ? 'none' 
-                  : '2px solid #ddd',
-                borderRadius: '10px',
-                cursor: chinaGenerating ? 'not-allowed' : 'pointer',
-                fontWeight: '700',
-                fontSize: '18px',
-                opacity: chinaGenerating ? 0.6 : 1,
-                transition: 'all 0.3s'
-              }}
-            >
-              {num}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Show Captions Toggle */}
-      <div style={{ marginBottom: '25px' }}>
-        <label style={{ 
-          display: 'flex',
-          alignItems: 'center',
-          gap: '12px',
-          cursor: chinaGenerating ? 'not-allowed' : 'pointer',
-          fontWeight: '600',
-          color: '#333',
-          fontSize: '16px'
-        }}>
-          <input
-            type="checkbox"
-            checked={chinaConfig.show_captions}
-            onChange={(e) => setChinaConfig(prev => ({ ...prev, show_captions: e.target.checked }))}
-            disabled={chinaGenerating}
-            style={{
-              width: '20px',
-              height: '20px',
-              cursor: chinaGenerating ? 'not-allowed' : 'pointer'
-            }}
-          />
-          <span>📝 Add text overlays / captions</span>
-        </label>
-      </div>
-    </div>
-
-    {/* STEP 3: GENERATE */}
-    <div style={{
-      background: 'rgba(255,255,255,0.95)',
-      borderRadius: '15px',
-      padding: '30px',
-      marginBottom: '25px'
-    }}>
-      <h3 style={{ 
-        color: '#333', 
-        marginBottom: '20px', 
-        fontSize: '24px', 
-        fontWeight: '700' 
-      }}>
-        🚀 Step 3: Generate Videos
-      </h3>
-
-      <button
-        onClick={async () => {
-          setChinaGenerating(true);
-          setChinaProgress(0);
-          setChinaResult(null);
-
-          try {
-            console.log('Starting China generation...', chinaConfig);
-            
-            const progressInterval = setInterval(() => {
-              setChinaProgress(prev => {
-                if (prev >= 90) {
-                  clearInterval(progressInterval);
-                  return 90;
-                }
-                return prev + 5;
-              });
-            }, 4000);
-
-            const promises = [];
-            
-            for (let i = 0; i < chinaConfig.num_videos; i++) {
-              const promise = fetch(`${API_BASE}/api/china/generate`, {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({
-                  user_id: user.user_id,
-                  niche: chinaConfig.niche,
-                  show_captions: chinaConfig.show_captions
-                })
-              }).then(res => res.json());
-              
-              promises.push(promise);
-            }
-
-            const results = await Promise.all(promises);
-            clearInterval(progressInterval);
-
-            const successful = results.filter(r => r.success);
-            const failed = results.filter(r => !r.success);
-
-            setChinaProgress(100);
-            setChinaResult({
-              success: successful.length > 0,
-              count: successful.length,
-              videos: successful,
-              failed_count: failed.length,
-              failed: failed
-            });
-
-            if (successful.length > 0) {
-              console.log(`✅ Generated ${successful.length} videos`);
-              alert(`✅ Generated ${successful.length} videos successfully!${failed.length > 0 ? ` (${failed.length} failed)` : ''}`);
-            } else {
-              console.error('All generations failed');
-              alert('❌ All video generations failed. Check console for details.');
-            }
-          } catch (error) {
-            console.error('Error:', error);
-            alert('❌ Error: ' + error.message);
-          } finally {
-            setChinaGenerating(false);
-            setChinaProgress(0);
-          }
-        }}
-        disabled={chinaGenerating}
-        style={{
-          width: '100%',
-          padding: '20px',
-          background: chinaGenerating 
-            ? 'linear-gradient(135deg, #999, #666)' 
-            : 'linear-gradient(135deg, #FF6B6B, #FF8E53)',
-          color: 'white',
-          border: 'none',
-          borderRadius: '12px',
-          fontSize: '20px',
-          fontWeight: '800',
-          cursor: chinaGenerating ? 'not-allowed' : 'pointer',
-          boxShadow: '0 6px 20px rgba(255,107,107,0.4)',
-          opacity: chinaGenerating ? 0.7 : 1,
-          transition: 'all 0.3s'
-        }}
-      >
-        {chinaGenerating ? '⏳ GENERATING VIDEOS...' : `🔥 GENERATE ${chinaConfig.num_videos} VIDEO${chinaConfig.num_videos > 1 ? 'S' : ''}`}
-      </button>
-
-      {chinaGenerating && (
-        <div style={{ marginTop: '20px' }}>
-          <div style={{
-            width: '100%',
-            height: '30px',
-            background: '#e0e0e0',
-            borderRadius: '15px',
-            overflow: 'hidden'
-          }}>
-            <div style={{
-              width: `${chinaProgress}%`,
-              height: '100%',
-              background: 'linear-gradient(90deg, #FF6B6B, #FF8E53)',
-              transition: 'width 0.5s',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}>
-              <span style={{
-                color: 'white',
-                fontWeight: '700',
-                fontSize: '14px'
+          {chinaGenerating && (
+            <div style={{ marginTop: '20px' }}>
+              <div style={{
+                width: '100%',
+                height: '30px',
+                background: '#e0e0e0',
+                borderRadius: '15px',
+                overflow: 'hidden'
               }}>
-                {chinaProgress}%
-              </span>
+                <div style={{
+                  width: `${chinaProgress}%`,
+                  height: '100%',
+                  background: 'linear-gradient(90deg, #FF6B6B, #FF8E53)',
+                  transition: 'width 0.5s',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}>
+                  <span style={{
+                    color: 'white',
+                    fontWeight: '700',
+                    fontSize: '14px'
+                  }}>
+                    {chinaProgress}%
+                  </span>
+                </div>
+              </div>
+              <p style={{ 
+                textAlign: 'center', 
+                marginTop: '10px', 
+                color: '#666',
+                fontSize: '14px' 
+              }}>
+                Processing: Scrape → Download → Transcribe → Translate → Script → Voice → Edit → Upload...
+              </p>
             </div>
-          </div>
-          <p style={{ 
-            textAlign: 'center', 
-            marginTop: '10px', 
-            color: '#666',
-            fontSize: '14px' 
-          }}>
-            Processing: Search → Download → Transcribe → Translate → Script → Voice → Edit → Upload...
-          </p>
-        </div>
-      )}
+          )}
 
-      {chinaResult && chinaResult.success && (
+          {chinaResult && chinaResult.success && (
+            <div style={{
+              marginTop: '20px',
+              padding: '20px',
+              background: '#e8f5e9',
+              borderRadius: '12px',
+              border: '2px solid #4caf50'
+            }}>
+              <h4 style={{ color: '#2e7d32', marginBottom: '15px', fontSize: '18px', fontWeight: '700' }}>
+                ✅ {chinaResult.successful} / {chinaResult.total_requested} Videos Generated Successfully!
+                {chinaResult.failed > 0 && (
+                  <span style={{ color: '#f57c00', fontSize: '14px', marginLeft: '10px' }}>
+                    ({chinaResult.failed} failed)
+                  </span>
+                )}
+              </h4>
+              
+              <div style={{ display: 'grid', gap: '15px' }}>
+                {chinaResult.results?.filter(r => r.success).map((video, idx) => (
+                  <div key={idx} style={{
+                    padding: '15px',
+                    background: 'white',
+                    borderRadius: '8px',
+                    border: '1px solid #ddd'
+                  }}>
+                    <div style={{ fontSize: '14px', color: '#333', marginBottom: '8px', fontWeight: '600' }}>
+                      Video {video.index}: {video.title?.substring(0, 60)}...
+                    </div>
+                    <div style={{ fontSize: '12px', color: '#666', marginBottom: '8px' }}>
+                      <strong>Source:</strong> {video.source_url?.substring(0, 60)}...
+                    </div>
+                    <div style={{ fontSize: '12px', color: '#4caf50', marginBottom: '8px' }}>
+                      <strong>YouTube:</strong>{' '}
+                      <a 
+                        href={video.video_url} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        style={{ color: '#4caf50', textDecoration: 'underline' }}
+                      >
+                        {video.video_url}
+                      </a>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              
+              {chinaResult.failed > 0 && (
+                <div style={{ marginTop: '15px', padding: '15px', background: '#fff3cd', borderRadius: '8px' }}>
+                  <h5 style={{ color: '#856404', marginBottom: '10px', fontSize: '14px' }}>
+                    ⚠️ Failed Generations ({chinaResult.failed}):
+                  </h5>
+                  {chinaResult.results?.filter(r => !r.success).map((fail, idx) => (
+                    <div key={idx} style={{ fontSize: '12px', color: '#856404', marginBottom: '5px' }}>
+                      • Video {fail.index || idx + 1}: {fail.error}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {chinaResult && !chinaResult.success && (
+            <div style={{
+              marginTop: '20px',
+              padding: '20px',
+              background: '#ffebee',
+              borderRadius: '12px',
+              border: '2px solid #ef5350'
+            }}>
+              <h4 style={{ color: '#c62828', marginBottom: '10px', fontSize: '16px', fontWeight: '700' }}>
+                ❌ Generation Failed
+              </h4>
+              <p style={{ color: '#d32f2f', fontSize: '14px' }}>
+                {chinaResult.error}
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* HOW IT WORKS */}
         <div style={{
-          marginTop: '20px',
-          padding: '20px',
-          background: '#e8f5e9',
-          borderRadius: '12px',
-          border: '2px solid #4caf50'
+          padding: '25px',
+          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+          borderRadius: '15px',
+          color: 'white'
         }}>
-          <h4 style={{ color: '#2e7d32', marginBottom: '15px', fontSize: '18px', fontWeight: '700' }}>
-            ✅ {chinaResult.count} Video{chinaResult.count > 1 ? 's' : ''} Generated Successfully!
-            {chinaResult.failed_count > 0 && (
-              <span style={{ color: '#f57c00', fontSize: '14px', marginLeft: '10px' }}>
-                ({chinaResult.failed_count} failed)
-              </span>
-            )}
-          </h4>
-          
+          <h3 style={{ marginBottom: '20px', fontSize: '20px', fontWeight: '700' }}>
+            📖 How It Works
+          </h3>
           <div style={{ display: 'grid', gap: '15px' }}>
-            {chinaResult.videos?.map((video, idx) => (
+            {[
+              { icon: '1️⃣', text: 'Scrapes TikTok/Douyin profile URLs using Selenium' },
+              { icon: '2️⃣', text: 'Finds 10+ video URLs from each profile' },
+              { icon: '3️⃣', text: 'Downloads videos using ssstik.io API' },
+              { icon: '4️⃣', text: 'Extracts and transcribes audio (Chinese → Text)' },
+              { icon: '5️⃣', text: 'Translates Chinese → Hindi using Mistral AI' },
+              { icon: '6️⃣', text: 'Generates creative viral script (4 segments)' },
+              { icon: '7️⃣', text: 'Creates Hindi voiceover with ElevenLabs' },
+              { icon: '8️⃣', text: 'Processes video for Shorts (1080x1920, 9:16)' },
+              { icon: '9️⃣', text: 'Adds text overlays and background music' },
+              { icon: '🔟', text: 'Uploads to YouTube Shorts automatically' }
+            ].map((step, idx) => (
               <div key={idx} style={{
-                padding: '15px',
-                background: 'white',
+                display: 'flex',
+                gap: '12px',
+                alignItems: 'center',
+                background: 'rgba(255,255,255,0.15)',
+                padding: '12px',
                 borderRadius: '8px',
-                border: '1px solid #ddd'
+                backdropFilter: 'blur(10px)'
               }}>
-                <div style={{ fontSize: '14px', color: '#333', marginBottom: '8px', fontWeight: '600' }}>
-                  Video {idx + 1}: {video.title?.substring(0, 60)}...
-                </div>
-                <div style={{ fontSize: '12px', color: '#666', marginBottom: '8px' }}>
-                  <strong>Original:</strong> {video.original_title?.substring(0, 50)}...
-                </div>
-                <div style={{ fontSize: '12px', color: '#4caf50', marginBottom: '8px' }}>
-                  <strong>YouTube:</strong>{' '}
-                  <a 
-                    href={video.video_url} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    style={{ color: '#4caf50', textDecoration: 'underline' }}
-                  >
-                    {video.video_url}
-                  </a>
-                </div>
-                <div style={{ fontSize: '11px', color: '#999' }}>
-                  Niche: {video.niche} | Voice segments: {video.voice_segments}
-                </div>
+                <span style={{ fontSize: '24px' }}>{step.icon}</span>
+                <span style={{ fontSize: '14px' }}>{step.text}</span>
               </div>
             ))}
           </div>
           
-          {chinaResult.failed_count > 0 && (
-            <div style={{ marginTop: '15px', padding: '15px', background: '#fff3cd', borderRadius: '8px' }}>
-              <h5 style={{ color: '#856404', marginBottom: '10px', fontSize: '14px' }}>
-                ⚠️ Failed Generations ({chinaResult.failed_count}):
-              </h5>
-              {chinaResult.failed?.map((fail, idx) => (
-                <div key={idx} style={{ fontSize: '12px', color: '#856404', marginBottom: '5px' }}>
-                  • {fail.error}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-
-    {/* HOW IT WORKS */}
-    <div style={{
-      padding: '25px',
-      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-      borderRadius: '15px',
-      color: 'white'
-    }}>
-      <h3 style={{ marginBottom: '20px', fontSize: '20px', fontWeight: '700' }}>
-        📖 How It Works
-      </h3>
-      <div style={{ display: 'grid', gap: '15px' }}>
-        {[
-          { icon: '1️⃣', text: 'Searches Chinese platforms for trending videos in your niche' },
-          { icon: '2️⃣', text: 'Downloads video automatically using smart keyword matching' },
-          { icon: '3️⃣', text: 'Extracts and transcribes original audio (Chinese)' },
-          { icon: '4️⃣', text: 'Translates Chinese → Hindi using AI' },
-          { icon: '5️⃣', text: 'Generates creative viral script with Mistral AI' },
-          { icon: '6️⃣', text: 'Creates Hindi voiceover with ElevenLabs' },
-          { icon: '7️⃣', text: 'Processes video for Shorts (720x1280)' },
-          { icon: '8️⃣', text: 'Adds text overlays and background music' },
-          { icon: '9️⃣', text: 'Uploads to YouTube Shorts automatically' }
-        ].map((step, idx) => (
-          <div key={idx} style={{
-            display: 'flex',
-            gap: '12px',
-            alignItems: 'center',
+          <div style={{
+            marginTop: '20px',
+            padding: '15px',
             background: 'rgba(255,255,255,0.15)',
-            padding: '12px',
-            borderRadius: '8px',
+            borderRadius: '10px',
             backdropFilter: 'blur(10px)'
           }}>
-            <span style={{ fontSize: '24px' }}>{step.icon}</span>
-            <span style={{ fontSize: '14px' }}>{step.text}</span>
-          </div>
-        ))}
-      </div>
-      
-      <div style={{
-        marginTop: '20px',
-        padding: '15px',
-        background: 'rgba(255,255,255,0.15)',
-        borderRadius: '10px',
-        backdropFilter: 'blur(10px)'
-      }}>
-        <h4 style={{ fontSize: '16px', marginBottom: '10px', fontWeight: '700' }}>
-          🎯 Available Niches:
-        </h4>
-        <div style={{ fontSize: '13px', lineHeight: '1.8' }}>
-          {Object.entries(chinaNiches).map(([key, data], idx) => (
-            <div key={key}>
-              <strong>{data.icon} {data.name}</strong>
-              {idx < Object.keys(chinaNiches).length - 1 && ' • '}
+            <h4 style={{ fontSize: '16px', marginBottom: '10px', fontWeight: '700' }}>
+              🎯 Available Niches:
+            </h4>
+            <div style={{ fontSize: '13px', lineHeight: '1.8' }}>
+              {Object.entries(chinaNiches).map(([key, data]) => (
+                <span key={key} style={{ marginRight: '15px' }}>
+                  <strong>{data.icon} {data.name}</strong>
+                </span>
+              ))}
             </div>
-          ))}
+          </div>
         </div>
-      </div>
-    </div>
+      </>
+    )}
   </div>
 )}
 

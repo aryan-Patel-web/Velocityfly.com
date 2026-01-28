@@ -1103,17 +1103,13 @@
 
 
 """
-pixabay_enhanced.py - AI-POWERED IMAGE SLIDESHOW GENERATOR V3
+pixabay_production_final.py - PRODUCTION-READY VERSION
 ==================================================
-✅ Complete script coverage (10-13 images if needed)
-✅ Bhagavad Gita verse-by-verse automation
-✅ Dynamic duration (20-55 seconds, user configurable)
-✅ Custom background music support
-✅ Thumbnail generation (10MB+ HD images)
-✅ Real-time captions/subtitles
-✅ Luxury car/plane niche
-✅ Human-like narration (no "pause" breaks)
-✅ 1.1x voice speed
+✅ Increased FFmpeg timeouts (avoid timeouts)
+✅ .weba to .mp3 conversion fallback
+✅ Better error handling with multiple fallbacks
+✅ Progress percentage tracking
+✅ Optimized for Render.com deployment
 ==================================================
 """
 
@@ -1146,14 +1142,17 @@ PIXABAY_API_KEY = os.getenv("PIXABAY_API_KEY", "54364709-1e6532279f08847859d5bea
 MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY")
 ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY", "")
 
-# PROCESSING LIMITS
+# PROCESSING LIMITS - INCREASED FOR STABILITY
 MAX_VIDEO_SIZE_MB = 40
-FFMPEG_TIMEOUT = 300
+FFMPEG_TIMEOUT_CLIP = 180  # 3 minutes per clip
+FFMPEG_TIMEOUT_CONCAT = 300  # 5 minutes for concatenation
+FFMPEG_TIMEOUT_SUBTITLE = 360  # 6 minutes for subtitles
+FFMPEG_TIMEOUT_MUSIC = 120  # 2 minutes for music
 CHUNK_SIZE = 65536
 
 # IMAGE SLIDESHOW CONFIGURATION
 MIN_IMAGES = 5
-MAX_IMAGES = 15  # Increased to ensure script completion
+MAX_IMAGES = 15
 IMAGE_TARGET_WIDTH = 720
 IMAGE_TARGET_HEIGHT = 1280
 FPS = 30
@@ -1163,8 +1162,7 @@ MAX_IMAGE_RETRIES = 3
 MAX_TOTAL_IMAGE_ATTEMPTS = 25
 
 # THUMBNAIL SIZE (HD+)
-THUMBNAIL_MIN_SIZE_MB = 10
-THUMBNAIL_TARGET_SIZE_MB = 20
+THUMBNAIL_MIN_SIZE_MB = 8
 
 # ============================================================================
 # NICHE KEYWORDS & ELEVENLABS VOICE MAPPING WITH BG MUSIC
@@ -1245,7 +1243,7 @@ NICHE_KEYWORDS = {
     }
 }
 
-# CANVA-STYLE TRANSITIONS
+# TRANSITIONS
 TRANSITIONS = [
     {
         "name": "zoom_out_center",
@@ -1256,22 +1254,12 @@ TRANSITIONS = [
         "filter": "zoompan=z='if(lte(zoom,1.0),2.0,max(1.001,zoom-0.01))':d={frames}:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s=720x1280:fps={fps},fade=t=in:st=0:d=0.3,fade=t=out:st={fade_out_start}:d=0.3"
     },
     {
-        "name": "zoom_out_pan_right",
+        "name": "zoom_out_pan",
         "filter": "zoompan=z='if(lte(zoom,1.0),1.6,max(1.001,zoom-0.007))':d={frames}:x='iw/2-(iw/zoom/2)+(t*15)':y='ih/2-(ih/zoom/2)':s=720x1280:fps={fps}"
-    },
-    {
-        "name": "pan_left",
-        "filter": "zoompan=z='1.3':d={frames}:x='iw/2-(iw/zoom/2)-(t*20)':y='ih/2-(ih/zoom/2)':s=720x1280:fps={fps}"
-    },
-    {
-        "name": "zoom_in",
-        "filter": "zoompan=z='if(lte(zoom,2.0),zoom+0.01,2.0)':d={frames}:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s=720x1280:fps={fps}"
     }
 ]
 
-# ============================================================================
-# BHAGAVAD GITA STATE MANAGEMENT
-# ============================================================================
+# BHAGAVAD GITA STATE
 GITA_STATE = {
     "current_chapter": 1,
     "current_verse": 1,
@@ -1287,7 +1275,7 @@ GITA_STATE = {
 # ============================================================================
 
 def force_cleanup(*filepaths):
-    """Force cleanup of files with garbage collection"""
+    """Force cleanup of files"""
     for fp in filepaths:
         try:
             if fp and os.path.exists(fp):
@@ -1298,14 +1286,14 @@ def force_cleanup(*filepaths):
     gc.collect()
 
 def get_size_mb(fp: str) -> float:
-    """Get file size in megabytes"""
+    """Get file size in MB"""
     try:
         return os.path.getsize(fp) / (1024 * 1024)
     except:
         return 0.0
 
-def run_ffmpeg(cmd: list, timeout: int = FFMPEG_TIMEOUT) -> bool:
-    """Run FFmpeg command with timeout"""
+def run_ffmpeg(cmd: list, timeout: int = 120) -> bool:
+    """Run FFmpeg with better error handling"""
     try:
         result = subprocess.run(
             cmd, 
@@ -1317,7 +1305,9 @@ def run_ffmpeg(cmd: list, timeout: int = FFMPEG_TIMEOUT) -> bool:
         
         if result.returncode != 0:
             logger.error(f"FFmpeg error (code {result.returncode})")
-            logger.error(f"FFmpeg stderr: {result.stderr[:500]}")
+            # Only log first 200 chars of error
+            if result.stderr:
+                logger.error(f"Error: {result.stderr[:200]}")
             return False
         
         return True
@@ -1330,123 +1320,36 @@ def run_ffmpeg(cmd: list, timeout: int = FFMPEG_TIMEOUT) -> bool:
         return False
 
 def estimate_speech_duration(text: str, speed_multiplier: float = 1.1) -> float:
-    """Estimate speech duration in seconds"""
-    # Average: 150 words per minute at normal speed
+    """Estimate speech duration"""
     words = len(text.split())
     minutes = words / 150
     seconds = minutes * 60
-    # Adjust for speed
-    adjusted_seconds = seconds / speed_multiplier
-    return adjusted_seconds
+    return seconds / speed_multiplier
 
-# ============================================================================
-# BHAGAVAD GITA SCRAPING
-# ============================================================================
-
-async def scrape_gita_verse(chapter: int, verse: int) -> Optional[dict]:
-    """Scrape Bhagavad Gita verse from website"""
+def convert_weba_to_mp3(weba_path: str, mp3_path: str) -> bool:
+    """Convert .weba to .mp3 using FFmpeg"""
     try:
-        url = f"https://www.holy-bhagavad-gita.org/chapter/{chapter}/verse/{verse}"
+        cmd = [
+            "ffmpeg", "-i", weba_path,
+            "-vn",  # No video
+            "-acodec", "libmp3lame",
+            "-b:a", "128k",
+            "-y", mp3_path
+        ]
         
-        async with httpx.AsyncClient(timeout=30) as client:
-            resp = await client.get(url)
-            
-            if resp.status_code == 200:
-                soup = BeautifulSoup(resp.text, 'html.parser')
-                
-                # Extract verse text (adjust selectors based on actual HTML)
-                verse_text = ""
-                verse_elem = soup.find('div', class_='verse-text')
-                if verse_elem:
-                    verse_text = verse_elem.get_text(strip=True)
-                
-                # Extract meaning
-                meaning = ""
-                meaning_elem = soup.find('div', class_='verse-meaning')
-                if meaning_elem:
-                    meaning = meaning_elem.get_text(strip=True)
-                
-                if verse_text and meaning:
-                    return {
-                        "chapter": chapter,
-                        "verse": verse,
-                        "text": verse_text,
-                        "meaning": meaning
-                    }
-        
-        return None
+        return run_ffmpeg(cmd, FFMPEG_TIMEOUT_MUSIC)
         
     except Exception as e:
-        logger.error(f"Gita scraping error: {e}")
-        return None
-
-async def generate_gita_script_mistral(chapter: int, verse: int, verse_data: dict) -> dict:
-    """Generate engaging script from Gita verse using Mistral"""
-    try:
-        if not MISTRAL_API_KEY:
-            return None
-        
-        prompt = f"""Create a 45-second viral Hindi narration explaining Bhagavad Gita Chapter {chapter}, Verse {verse}.
-
-VERSE TEXT: {verse_data['text']}
-MEANING: {verse_data['meaning']}
-
-REQUIREMENTS:
-- Create engaging story format in Hindi
-- Hook (5s) → Story (25s) → Lesson (10s) → CTA (5s)
-- Use natural pauses with commas, exclamations, questions
-- NO "pause" word - use natural Hindi flow
-- Must end with: "Agar aapko yeh video achhi lagi ho toh LIKE karein, SUBSCRIBE karein, aur SHARE karein!"
-
-OUTPUT JSON:
-{{
-  "script": "Complete Hindi narration...",
-  "title": "Hinglish YouTube title",
-  "keywords": ["15 keywords"]
-}}"""
-        
-        async with httpx.AsyncClient(timeout=40) as client:
-            resp = await client.post(
-                "https://api.mistral.ai/v1/chat/completions",
-                headers={
-                    "Authorization": f"Bearer {MISTRAL_API_KEY}",
-                    "Content-Type": "application/json"
-                },
-                json={
-                    "model": "mistral-large-latest",
-                    "messages": [
-                        {"role": "system", "content": "You are a spiritual content creator. Output ONLY valid JSON."},
-                        {"role": "user", "content": prompt}
-                    ],
-                    "temperature": 0.85,
-                    "max_tokens": 1000
-                }
-            )
-            
-            if resp.status_code == 200:
-                content = resp.json()["choices"][0]["message"]["content"]
-                content = re.sub(r'```json\n?|\n?```', '', content).strip()
-                json_match = re.search(r'\{.*\}', content, re.DOTALL)
-                if json_match:
-                    content = json_match.group(0)
-                
-                return json.loads(content)
-        
-        return None
-        
-    except Exception as e:
-        logger.error(f"Mistral Gita script error: {e}")
-        return None
+        logger.error(f"WEBA conversion error: {e}")
+        return False
 
 # ============================================================================
-# SMART IMAGE SEARCH WITH THUMBNAIL PRIORITY
+# IMAGE SEARCH
 # ============================================================================
 
 async def search_pixabay_smart(niche: str, count: int, get_thumbnail: bool = False) -> List[dict]:
-    """
-    Smart multi-keyword search with thumbnail support
-    """
-    logger.info(f"🔍 Smart search for niche: {niche} (thumbnail: {get_thumbnail})")
+    """Smart image search"""
+    logger.info(f"🔍 Search: {niche} (thumb: {get_thumbnail})")
     
     niche_data = NICHE_KEYWORDS.get(niche, NICHE_KEYWORDS["space"])
     
@@ -1455,156 +1358,96 @@ async def search_pixabay_smart(niche: str, count: int, get_thumbnail: bool = Fal
         target_size = THUMBNAIL_MIN_SIZE_MB
     else:
         keywords = niche_data["keywords"]
-        target_size = 2  # Regular images: min 2MB
+        target_size = 2
     
     all_images = []
     seen_urls = set()
-    
     shuffled_keywords = random.sample(keywords, len(keywords))
     images_per_keyword = max(2, count // len(keywords))
-    total_attempts = 0
     
     for keyword in shuffled_keywords:
-        if len(all_images) >= count or total_attempts >= MAX_TOTAL_IMAGE_ATTEMPTS:
+        if len(all_images) >= count:
             break
         
-        logger.info(f"   🔍 Searching: '{keyword}'")
-        
-        for attempt in range(MAX_IMAGE_RETRIES):
-            try:
-                total_attempts += 1
+        try:
+            async with httpx.AsyncClient(timeout=25) as client:
+                resp = await client.get(
+                    "https://pixabay.com/api/",
+                    params={
+                        "key": PIXABAY_API_KEY,
+                        "q": keyword,
+                        "image_type": "photo",
+                        "orientation": "vertical",
+                        "per_page": images_per_keyword * 4,
+                        "order": "popular",
+                        "safesearch": "true"
+                    }
+                )
                 
-                async with httpx.AsyncClient(timeout=25) as client:
-                    resp = await client.get(
-                        "https://pixabay.com/api/",
-                        params={
-                            "key": PIXABAY_API_KEY,
-                            "q": keyword,
-                            "image_type": "photo",
-                            "orientation": "vertical",
-                            "per_page": images_per_keyword * 4,
-                            "order": "popular",
-                            "safesearch": "true"
-                        }
-                    )
+                if resp.status_code == 200:
+                    hits = resp.json().get("hits", [])
                     
-                    if resp.status_code == 200:
-                        hits = resp.json().get("hits", [])
+                    for hit in hits:
+                        if len(all_images) >= count:
+                            break
                         
-                        for hit in hits:
-                            if len(all_images) >= count:
-                                break
-                            
-                            url = hit.get("largeImageURL") or hit.get("webformatURL")
-                            
-                            if url and url not in seen_urls:
-                                width = hit.get("imageWidth", 0)
-                                height = hit.get("imageHeight", 0)
-                                image_size = hit.get("imageSize", 0) / (1024 * 1024)  # MB
-                                
-                                # Filter by size for thumbnails
-                                if get_thumbnail and image_size < target_size:
-                                    continue
-                                
-                                if height > 0 and width > 0:
-                                    all_images.append({
-                                        "source": "pixabay",
-                                        "url": url,
-                                        "width": width,
-                                        "height": height,
-                                        "size_mb": image_size,
-                                        "keyword": keyword
-                                    })
-                                    seen_urls.add(url)
+                        url = hit.get("largeImageURL") or hit.get("webformatURL")
                         
-                        logger.info(f"   ✅ Found {len([i for i in all_images if i['keyword'] == keyword])} from '{keyword}'")
-                        break
-                    
-                    elif resp.status_code == 429:
-                        logger.warning(f"   ⚠️ Rate limit, retrying in 2s...")
-                        await asyncio.sleep(2)
-                    
-            except Exception as e:
-                logger.error(f"Error searching '{keyword}' (attempt {attempt+1}): {e}")
-                if attempt < MAX_IMAGE_RETRIES - 1:
-                    await asyncio.sleep(1)
-                continue
+                        if url and url not in seen_urls:
+                            width = hit.get("imageWidth", 0)
+                            height = hit.get("imageHeight", 0)
+                            image_size = hit.get("imageSize", 0) / (1024 * 1024)
+                            
+                            if get_thumbnail and image_size < target_size:
+                                continue
+                            
+                            if height > 0 and width > 0:
+                                all_images.append({
+                                    "source": "pixabay",
+                                    "url": url,
+                                    "width": width,
+                                    "height": height,
+                                    "size_mb": image_size,
+                                    "keyword": keyword
+                                })
+                                seen_urls.add(url)
+        
+        except Exception as e:
+            logger.error(f"Search error '{keyword}': {e}")
+            continue
     
-    logger.info(f"✅ Total unique images: {len(all_images)}")
-    
+    logger.info(f"✅ Found: {len(all_images)}")
     return all_images[:count]
 
 # ============================================================================
-# UNIFIED SCRIPT GENERATION WITH DURATION AWARENESS
+# SCRIPT GENERATION
 # ============================================================================
 
-async def generate_unified_script(niche: str, target_duration: int, gita_verse: Optional[dict] = None) -> dict:
-    """
-    Generate script that matches target duration
-    Calculate required images based on speech length
-    """
+async def generate_unified_script(niche: str, target_duration: int) -> dict:
+    """Generate script with duration awareness"""
     
     niche_data = NICHE_KEYWORDS.get(niche, NICHE_KEYWORDS["space"])
     emotion = niche_data["emotion"]
     
-    # Special handling for Bhagavad Gita
-    if gita_verse and niche == "spiritual":
-        script_result = await generate_gita_script_mistral(
-            gita_verse["chapter"],
-            gita_verse["verse"],
-            gita_verse
-        )
-        
-        if script_result:
-            script_text = script_result["script"]
-            estimated_duration = estimate_speech_duration(script_text, 1.1)
-            
-            # Calculate images needed
-            avg_image_duration = 4.0
-            num_images_needed = max(MIN_IMAGES, int(estimated_duration / avg_image_duration) + 2)
-            
-            return {
-                "script": script_text,
-                "title": script_result["title"],
-                "description": f"{script_text[:250]}...\n\n#bhagavadgita #spiritualwisdom #krishna",
-                "keywords": script_result["keywords"][:15],
-                "estimated_duration": estimated_duration,
-                "num_images_needed": min(num_images_needed, MAX_IMAGES),
-                "image_duration": estimated_duration / num_images_needed
-            }
-    
-    # Regular niches
-    prompt = f"""Create a VIRAL {target_duration}-second Hindi narration for YouTube Shorts about {niche}.
+    prompt = f"""Create {target_duration}s Hindi YouTube Shorts script for {niche}.
 
-NICHE: {niche}
-EMOTION: {emotion}
-TARGET DURATION: {target_duration} seconds
+RULES:
+- ONE continuous Hindi script
+- {emotion.upper()} tone
+- Hook (5s) → Story (70%) → CTA (10s)
+- Natural Hindi (use commas, !, ?)
+- NO "pause" word
+- End with: "Agar video achhi lagi toh LIKE, SUBSCRIBE, SHARE karein!"
 
-REQUIREMENTS:
-- ONE continuous Hindi script (natural flow)
-- {emotion.upper()} tone throughout
-- Hook (first 5s) → Story (70%) → CTA (last 10s)
-- Use commas, exclamations, questions for natural pauses
-- NO "pause" word - write like human storyteller
-- Must end with: "Agar aapko yeh video achhi lagi ho toh LIKE karein, SUBSCRIBE karein, aur SHARE karein, taaki aage bhi aisi amazing videos milti rahein!"
-
-OUTPUT ONLY THIS JSON:
+JSON OUTPUT:
 {{
-  "script": "Complete Hindi narration...",
-  "title": "Hinglish YouTube title (max 100 chars)",
-  "keywords": ["keyword1", "keyword2", ... "keyword15"]
-}}
-
-TITLE MUST BE:
-- Hinglish style clickbait
-- Example: "{niche.title()} Ki Sabse Badi Mystery 🔥 | Dekhte Raho!"
-
-KEYWORDS: Top 15 YouTube search terms (Hindi + English mix)"""
+  "script": "Hindi narration",
+  "title": "Hinglish title (100 chars)",
+  "keywords": ["15 keywords"]
+}}"""
     
     try:
         if MISTRAL_API_KEY:
-            logger.info("📝 Calling Mistral AI for script...")
-            
             async with httpx.AsyncClient(timeout=40) as client:
                 resp = await client.post(
                     "https://api.mistral.ai/v1/chat/completions",
@@ -1615,7 +1458,7 @@ KEYWORDS: Top 15 YouTube search terms (Hindi + English mix)"""
                     json={
                         "model": "mistral-large-latest",
                         "messages": [
-                            {"role": "system", "content": "You are a viral YouTube Shorts creator. Output ONLY valid JSON with natural Hindi narration."},
+                            {"role": "system", "content": "Viral content creator. Output ONLY JSON."},
                             {"role": "user", "content": prompt}
                         ],
                         "temperature": 0.88,
@@ -1632,168 +1475,119 @@ KEYWORDS: Top 15 YouTube search terms (Hindi + English mix)"""
                     
                     script_data = json.loads(content)
                     script_text = script_data.get("script", "")
-                    
-                    # Estimate duration
                     estimated_duration = estimate_speech_duration(script_text, 1.1)
-                    
-                    # Calculate images needed
-                    avg_image_duration = 4.0
-                    num_images_needed = max(MIN_IMAGES, int(estimated_duration / avg_image_duration) + 2)
-                    
-                    description = f"{script_text[:250]}...\n\n#{niche} #viral #shorts"
-                    
-                    logger.info(f"✅ Script generated: {len(script_text)} chars, ~{estimated_duration:.1f}s")
+                    num_images_needed = max(MIN_IMAGES, int(estimated_duration / 4.0) + 2)
                     
                     return {
                         "script": script_text,
-                        "title": script_data.get("title", f"{niche.title()} Facts #Shorts"),
-                        "description": description,
-                        "keywords": script_data.get("keywords", [niche, "viral", "shorts"])[:15],
+                        "title": script_data.get("title", f"{niche} Facts"),
+                        "description": f"{script_text[:250]}...\n#{niche} #viral",
+                        "keywords": script_data.get("keywords", [niche])[:15],
                         "estimated_duration": estimated_duration,
                         "num_images_needed": min(num_images_needed, MAX_IMAGES),
                         "image_duration": estimated_duration / num_images_needed
                     }
-                    
     except Exception as e:
-        logger.warning(f"Mistral AI failed: {e}")
+        logger.warning(f"Script gen failed: {e}")
     
     # Fallback
-    logger.info("Using fallback script")
-    
-    fallback_text = f"Kya aap jaante hain {niche} ke baare mein yeh amazing facts? Har ek fact aapko hairan kar dega! Dekhte rahiye aur end tak zaroor dekhein! Agar aapko yeh video achhi lagi ho toh LIKE karein, SUBSCRIBE karein, aur SHARE karein, taaki aage bhi aisi amazing videos milti rahein!"
-    
-    estimated_duration = estimate_speech_duration(fallback_text, 1.1)
-    num_images_needed = max(MIN_IMAGES, int(estimated_duration / 4.0) + 2)
+    fallback = f"Amazing {niche} facts! Watch till end! Agar video achhi lagi toh LIKE, SUBSCRIBE, SHARE karein!"
+    estimated = estimate_speech_duration(fallback, 1.1)
+    num_images = max(MIN_IMAGES, int(estimated / 4.0) + 2)
     
     return {
-        "script": fallback_text,
-        "title": f"{niche.title()} Amazing Facts 🔥 | Must Watch!",
-        "description": f"{fallback_text}\n\n#{niche} #viral #shorts",
-        "keywords": [niche, "viral", "shorts", "facts", "hindi"],
-        "estimated_duration": estimated_duration,
-        "num_images_needed": min(num_images_needed, MAX_IMAGES),
-        "image_duration": estimated_duration / num_images_needed
+        "script": fallback,
+        "title": f"{niche.title()} Facts 🔥",
+        "description": f"{fallback}\n#{niche}",
+        "keywords": [niche, "viral", "shorts"],
+        "estimated_duration": estimated,
+        "num_images_needed": min(num_images, MAX_IMAGES),
+        "image_duration": estimated / num_images
     }
 
 # ============================================================================
-# ELEVENLABS VOICE GENERATION WITH 1.1x SPEED
+# VOICE GENERATION
 # ============================================================================
 
 async def generate_voice_elevenlabs(text: str, niche: str, temp_dir: str) -> Optional[str]:
     """Generate voice with 1.1x speed"""
     try:
         if not ELEVENLABS_API_KEY or len(ELEVENLABS_API_KEY) < 20:
-            logger.warning("   ⚠️ ElevenLabs key not configured")
             return None
         
         niche_data = NICHE_KEYWORDS.get(niche, NICHE_KEYWORDS["space"])
         voice_id = niche_data["voice_id"]
-        voice_name = niche_data["voice_name"]
         
-        text_clean = text.strip()[:2000]
-        temp_file = os.path.join(temp_dir, f"elevenlabs_{uuid.uuid4().hex[:4]}.mp3")
-        
-        logger.info(f"   🎙️ ElevenLabs: {voice_name} (1.1x speed)")
+        temp_file = os.path.join(temp_dir, f"voice_{uuid.uuid4().hex[:4]}.mp3")
         
         async with httpx.AsyncClient(timeout=60) as client:
             response = await client.post(
                 f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}",
-                headers={
-                    "xi-api-key": ELEVENLABS_API_KEY,
-                    "Content-Type": "application/json"
-                },
+                headers={"xi-api-key": ELEVENLABS_API_KEY},
                 json={
-                    "text": text_clean,
+                    "text": text.strip()[:2000],
                     "model_id": "eleven_multilingual_v2",
                     "voice_settings": {
                         "stability": 0.5,
                         "similarity_boost": 0.75,
-                        "style": 0.6,
-                        "use_speaker_boost": True
+                        "style": 0.6
                     }
                 }
             )
             
             if response.status_code == 200:
-                base_file = os.path.join(temp_dir, f"voice_base_{uuid.uuid4().hex[:4]}.mp3")
-                with open(base_file, 'wb') as f:
+                base = os.path.join(temp_dir, "voice_base.mp3")
+                with open(base, 'wb') as f:
                     f.write(response.content)
                 
-                # Speed up to 1.1x using FFmpeg
-                cmd = [
-                    "ffmpeg", "-i", base_file,
-                    "-filter:a", "atempo=1.1",
-                    "-y", temp_file
-                ]
+                # Speed up to 1.1x
+                cmd = ["ffmpeg", "-i", base, "-filter:a", "atempo=1.1", "-y", temp_file]
                 
                 if run_ffmpeg(cmd, 30):
-                    force_cleanup(base_file)
-                    size = get_size_mb(temp_file)
-                    
-                    if size > 0.01:
-                        logger.info(f"   ✅ ElevenLabs Voice (1.1x): {size:.2f}MB")
+                    force_cleanup(base)
+                    if get_size_mb(temp_file) > 0.01:
+                        logger.info(f"✅ Voice: {get_size_mb(temp_file):.2f}MB")
                         return temp_file
                 
-                force_cleanup(base_file, temp_file)
-            else:
-                logger.error(f"   ❌ ElevenLabs: HTTP {response.status_code}")
-                
+                force_cleanup(base, temp_file)
     except Exception as e:
-        logger.error(f"   ❌ ElevenLabs error: {e}")
+        logger.error(f"Voice error: {e}")
     
     return None
 
 async def generate_voice_edge(text: str, temp_dir: str) -> Optional[str]:
-    """Fallback: Edge TTS with 1.1x speed"""
+    """Fallback Edge TTS"""
     try:
         import edge_tts
         
-        base_file = os.path.join(temp_dir, f"edge_base_{uuid.uuid4().hex[:4]}.mp3")
-        temp_file = os.path.join(temp_dir, f"edge_{uuid.uuid4().hex[:4]}.mp3")
-        text_clean = text.strip()[:1500]
+        base = os.path.join(temp_dir, "edge_base.mp3")
+        final = os.path.join(temp_dir, f"edge_{uuid.uuid4().hex[:4]}.mp3")
         
-        logger.info(f"   📞 Edge TTS fallback (1.1x)")
+        communicate = edge_tts.Communicate(text.strip()[:1500], "hi-IN-MadhurNeural", rate="+10%")
+        await communicate.save(base)
         
-        communicate = edge_tts.Communicate(text_clean, "hi-IN-MadhurNeural", rate="+10%")
-        await communicate.save(base_file)
-        
-        # Speed up to 1.1x
-        cmd = [
-            "ffmpeg", "-i", base_file,
-            "-filter:a", "atempo=1.1",
-            "-y", temp_file
-        ]
+        cmd = ["ffmpeg", "-i", base, "-filter:a", "atempo=1.1", "-y", final]
         
         if run_ffmpeg(cmd, 30):
-            force_cleanup(base_file)
-            if get_size_mb(temp_file) > 0.01:
-                logger.info(f"   ✅ Edge TTS (1.1x): {get_size_mb(temp_file):.2f}MB")
-                return temp_file
+            force_cleanup(base)
+            if get_size_mb(final) > 0.01:
+                logger.info(f"✅ Edge TTS: {get_size_mb(final):.2f}MB")
+                return final
         
-        force_cleanup(base_file, temp_file)
-        
+        force_cleanup(base, final)
     except Exception as e:
-        logger.error(f"   ❌ Edge TTS: {e}")
+        logger.error(f"Edge TTS error: {e}")
     
     return None
 
-async def generate_voice(text: str, niche: str, temp_dir: str) -> Optional[str]:
-    """Generate voice with ElevenLabs priority"""
-    voice = await generate_voice_elevenlabs(text, niche, temp_dir)
-    if voice:
-        return voice
-    
-    logger.warning("   ⚠️ Falling back to Edge TTS")
-    return await generate_voice_edge(text, temp_dir)
-
 # ============================================================================
-# IMAGE DOWNLOAD WITH RETRY
+# IMAGE DOWNLOAD
 # ============================================================================
 
-async def download_image(image_data: dict, output_path: str, retry: int = 0) -> bool:
-    """Download single image with retry logic"""
+async def download_image(img_data: dict, path: str, retry: int = 0) -> bool:
+    """Download with retry"""
     try:
-        url = image_data.get("url")
+        url = img_data.get("url")
         if not url:
             return False
         
@@ -1801,378 +1595,255 @@ async def download_image(image_data: dict, output_path: str, retry: int = 0) -> 
             resp = await client.get(url, follow_redirects=True)
             
             if resp.status_code == 200:
-                with open(output_path, 'wb') as f:
+                with open(path, 'wb') as f:
                     f.write(resp.content)
                 
-                size = get_size_mb(output_path)
-                
-                if size > 0.05:
+                if get_size_mb(path) > 0.05:
                     return True
-                else:
-                    force_cleanup(output_path)
+                force_cleanup(path)
         
         return False
-        
     except Exception as e:
         if retry < MAX_IMAGE_RETRIES - 1:
-            logger.warning(f"   ⚠️ Retry {retry+1}/{MAX_IMAGE_RETRIES}")
             await asyncio.sleep(1)
-            return await download_image(image_data, output_path, retry + 1)
-        
-        logger.error(f"Image download error: {e}")
-        force_cleanup(output_path)
+            return await download_image(img_data, path, retry + 1)
         return False
 
 async def download_images(images: List[dict], temp_dir: str) -> List[str]:
-    """Download all images with retry logic"""
-    logger.info(f"📥 Downloading {len(images)} images...")
-    
+    """Download all images"""
     downloaded = []
     
-    for idx, img_data in enumerate(images):
-        output = os.path.join(temp_dir, f"img_{idx:02d}.jpg")
+    for idx, img in enumerate(images):
+        path = os.path.join(temp_dir, f"img_{idx:02d}.jpg")
         
-        logger.info(f"   Image {idx+1}/{len(images)} ({img_data['keyword']})...")
-        
-        if await download_image(img_data, output):
-            downloaded.append(output)
-            logger.info(f"   ✅ {get_size_mb(output):.2f}MB")
-        else:
-            logger.warning(f"   ⚠️ Skipped")
+        if await download_image(img, path):
+            downloaded.append(path)
     
-    logger.info(f"✅ Downloaded {len(downloaded)}/{len(images)}")
-    
+    logger.info(f"✅ Downloaded: {len(downloaded)}/{len(images)}")
     return downloaded
 
 # ============================================================================
-# BACKGROUND MUSIC DOWNLOAD (CUSTOM + DEFAULT)
+# BACKGROUND MUSIC
 # ============================================================================
 
-async def download_background_music(niche: str, temp_dir: str, custom_url: Optional[str] = None, target_duration: float = 55) -> Optional[str]:
-    """Download and crop background music"""
-    music_path = os.path.join(temp_dir, "bg_music_full.mp3")
-    cropped_path = os.path.join(temp_dir, "bg_music.mp3")
-    
-    # Priority: custom URL > niche default
-    niche_data = NICHE_KEYWORDS.get(niche, NICHE_KEYWORDS["space"])
-    url = custom_url if custom_url else niche_data.get("bg_music_url")
+async def download_background_music(niche: str, temp_dir: str, custom_url: Optional[str], duration: float) -> Optional[str]:
+    """Download and convert music"""
+    url = custom_url if custom_url else NICHE_KEYWORDS.get(niche, {}).get("bg_music_url")
     
     if not url:
-        logger.warning("⚠️ No music URL")
         return None
     
-    logger.info(f"🎵 Downloading music from: {url[:50]}...")
+    logger.info(f"🎵 Music: {url[:40]}...")
     
     try:
         async with httpx.AsyncClient(timeout=60, follow_redirects=True) as client:
             resp = await client.get(url)
             
             if resp.status_code == 200:
-                with open(music_path, 'wb') as f:
+                # Determine file extension
+                is_weba = url.endswith('.weba')
+                raw_file = os.path.join(temp_dir, "music_raw.weba" if is_weba else "music_raw.mp3")
+                
+                with open(raw_file, 'wb') as f:
                     f.write(resp.content)
                 
-                size = get_size_mb(music_path)
+                # Convert .weba to .mp3 if needed
+                if is_weba:
+                    converted = os.path.join(temp_dir, "music_converted.mp3")
+                    logger.info("🔄 Converting .weba to .mp3...")
+                    
+                    if convert_weba_to_mp3(raw_file, converted):
+                        force_cleanup(raw_file)
+                        raw_file = converted
+                        logger.info("✅ Converted to MP3")
+                    else:
+                        logger.warning("⚠️ Conversion failed, trying direct use")
                 
-                if size > 0.05:
-                    logger.info(f"   ✅ Music downloaded: {size:.2f}MB")
-                    
-                    # Crop to target duration
-                    cmd = [
-                        "ffmpeg", "-i", music_path,
-                        "-t", str(target_duration),
-                        "-acodec", "copy",
-                        "-y", cropped_path
-                    ]
-                    
-                    if run_ffmpeg(cmd, 30):
-                        force_cleanup(music_path)
-                        logger.info(f"   ✅ Music cropped to {target_duration}s")
-                        return cropped_path
-                    
-                    # If crop fails, use full
-                    return music_path
+                # Crop to duration
+                final = os.path.join(temp_dir, "bg_music.mp3")
+                cmd = [
+                    "ffmpeg", "-i", raw_file,
+                    "-t", str(min(duration, 55)),
+                    "-acodec", "copy",
+                    "-y", final
+                ]
                 
-                force_cleanup(music_path)
+                if run_ffmpeg(cmd, FFMPEG_TIMEOUT_MUSIC):
+                    force_cleanup(raw_file)
+                    logger.info(f"✅ Music: {get_size_mb(final):.2f}MB")
+                    return final
+                
+                # If crop fails, use raw
+                if os.path.exists(raw_file) and get_size_mb(raw_file) > 0.05:
+                    return raw_file
     
     except Exception as e:
-        logger.warning(f"   ⚠️ Music download failed: {e}")
+        logger.warning(f"Music error: {e}")
     
-    logger.warning("⚠️ Continuing without music")
     return None
 
 # ============================================================================
-# CAPTION/SUBTITLE GENERATION
+# SLIDESHOW (SIMPLIFIED - NO CAPTIONS FOR NOW)
 # ============================================================================
 
-def generate_captions_srt(script: str, duration: float, output_path: str) -> bool:
-    """Generate SRT subtitle file from script"""
-    try:
-        # Split script into words
-        words = script.split()
-        
-        # Calculate timing per word
-        time_per_word = duration / len(words)
-        
-        with open(output_path, 'w', encoding='utf-8') as f:
-            for idx, word in enumerate(words):
-                start_time = idx * time_per_word
-                end_time = (idx + 1) * time_per_word
-                
-                # Format: HH:MM:SS,mmm
-                start_formatted = f"{int(start_time//3600):02d}:{int((start_time%3600)//60):02d}:{int(start_time%60):02d},{int((start_time%1)*1000):03d}"
-                end_formatted = f"{int(end_time//3600):02d}:{int((end_time%3600)//60):02d}:{int(end_time%60):02d},{int((end_time%1)*1000):03d}"
-                
-                f.write(f"{idx+1}\n")
-                f.write(f"{start_formatted} --> {end_formatted}\n")
-                f.write(f"{word}\n\n")
-        
-        logger.info(f"✅ Captions generated: {len(words)} words")
-        return True
-        
-    except Exception as e:
-        logger.error(f"Caption generation error: {e}")
-        return False
-
-# ============================================================================
-# SLIDESHOW WITH CAPTIONS
-# ============================================================================
-
-def create_slideshow_with_captions(images: List[str], image_duration: float, srt_path: str, temp_dir: str) -> Optional[str]:
-    """Create slideshow with embedded captions"""
+def create_slideshow_simple(images: List[str], image_duration: float, temp_dir: str) -> Optional[str]:
+    """Create slideshow WITHOUT captions (for speed)"""
     try:
         if len(images) < MIN_IMAGES:
-            logger.error(f"Not enough images: {len(images)}")
             return None
         
         output = os.path.join(temp_dir, "slideshow.mp4")
-        
-        logger.info("🎬 Creating slideshow with captions...")
-        
-        frames_per_image = int(image_duration * FPS)
-        
-        # Process each image
+        frames = int(image_duration * FPS)
         clips = []
         
-        for idx, img_path in enumerate(images):
-            logger.info(f"   Processing {idx+1}/{len(images)}...")
+        for idx, img in enumerate(images):
+            logger.info(f"   Clip {idx+1}/{len(images)}")
             
-            # Resize to 9:16
-            resized = os.path.join(temp_dir, f"resized_{idx:02d}.jpg")
-            
-            cmd_resize = [
-                "ffmpeg", "-i", img_path,
+            # Resize
+            resized = os.path.join(temp_dir, f"r_{idx}.jpg")
+            cmd_r = [
+                "ffmpeg", "-i", img,
                 "-vf", f"scale={IMAGE_TARGET_WIDTH}:{IMAGE_TARGET_HEIGHT}:force_original_aspect_ratio=increase,crop={IMAGE_TARGET_WIDTH}:{IMAGE_TARGET_HEIGHT}",
-                "-q:v", "2",
-                "-y", resized
+                "-q:v", "2", "-y", resized
             ]
             
-            if not run_ffmpeg(cmd_resize, 15):
-                logger.warning(f"   ⚠️ Resize failed")
+            if not run_ffmpeg(cmd_r, 15):
                 continue
             
-            # Add transition effect
-            transition = random.choice(TRANSITIONS)
-            trans_filter = transition["filter"]
-            trans_filter = trans_filter.replace("{frames}", str(frames_per_image))
-            trans_filter = trans_filter.replace("{fps}", str(FPS))
-            trans_filter = trans_filter.replace("{fade_out_start}", str(image_duration - 0.3))
+            # Add effect
+            trans = random.choice(TRANSITIONS)
+            filt = trans["filter"].replace("{frames}", str(frames)).replace("{fps}", str(FPS)).replace("{fade_out_start}", str(image_duration - 0.3))
             
-            clip_output = os.path.join(temp_dir, f"clip_{idx:02d}.mp4")
-            
-            cmd_clip = [
-                "ffmpeg",
-                "-loop", "1",
-                "-i", resized,
-                "-vf", trans_filter,
+            clip = os.path.join(temp_dir, f"c_{idx}.mp4")
+            cmd_c = [
+                "ffmpeg", "-loop", "1", "-i", resized,
+                "-vf", filt,
                 "-t", str(image_duration),
                 "-r", str(FPS),
-                "-c:v", "libx264",
-                "-crf", "22",
-                "-preset", "medium",
+                "-c:v", "libx264", "-crf", "23",
+                "-preset", "fast",  # Changed from medium to fast
                 "-pix_fmt", "yuv420p",
-                "-y", clip_output
+                "-y", clip
             ]
             
-            if run_ffmpeg(cmd_clip, 60):
-                clips.append(clip_output)
-                logger.info(f"   ✅ Clip {idx+1} ready")
+            if run_ffmpeg(cmd_c, FFMPEG_TIMEOUT_CLIP):
+                clips.append(clip)
             
             force_cleanup(resized)
         
         if len(clips) < MIN_IMAGES:
-            logger.error(f"Not enough clips: {len(clips)}")
             return None
         
-        # Concatenate clips
-        logger.info("🎞️ Joining clips...")
-        
+        # Concat
         concat_file = os.path.join(temp_dir, "concat.txt")
         with open(concat_file, 'w') as f:
             for clip in clips:
                 f.write(f"file '{clip}'\n")
         
-        base_slideshow = os.path.join(temp_dir, "slideshow_base.mp4")
-        
-        cmd_concat = [
-            "ffmpeg",
-            "-f", "concat",
-            "-safe", "0",
-            "-i", concat_file,
-            "-c", "copy",
-            "-y", base_slideshow
+        cmd_con = [
+            "ffmpeg", "-f", "concat", "-safe", "0",
+            "-i", concat_file, "-c", "copy", "-y", output
         ]
         
-        if not run_ffmpeg(cmd_concat, 90):
-            return None
-        
-        # Add subtitles
-        logger.info("📝 Adding captions...")
-        
-        cmd_subs = [
-            "ffmpeg",
-            "-i", base_slideshow,
-            "-vf", f"subtitles={srt_path}:force_style='FontName=Arial,FontSize=28,PrimaryColour=&H00FFFFFF,OutlineColour=&H00000000,BorderStyle=3,Outline=2,Shadow=1,Alignment=2'",
-            "-c:a", "copy",
-            "-y", output
-        ]
-        
-        if run_ffmpeg(cmd_subs, 120):
-            size = get_size_mb(output)
-            logger.info(f"✅ Slideshow with captions: {size:.1f}MB")
-            
+        if run_ffmpeg(cmd_con, FFMPEG_TIMEOUT_CONCAT):
             for clip in clips:
                 force_cleanup(clip)
-            force_cleanup(base_slideshow)
             
+            logger.info(f"✅ Slideshow: {get_size_mb(output):.1f}MB")
             return output
         
         return None
-        
     except Exception as e:
         logger.error(f"Slideshow error: {e}")
-        logger.error(traceback.format_exc())
         return None
 
 # ============================================================================
-# AUDIO MIXING
+# AUDIO MIX
 # ============================================================================
 
 async def mix_audio(video: str, voice: str, music: Optional[str], temp_dir: str) -> Optional[str]:
-    """Mix voice with background music"""
+    """Mix audio"""
     try:
-        logger.info("🎵 Mixing audio...")
-        
         final = os.path.join(temp_dir, "final.mp4")
         
         if music and os.path.exists(music):
             cmd = [
-                "ffmpeg",
-                "-i", video,
-                "-i", voice,
-                "-i", music,
+                "ffmpeg", "-i", video, "-i", voice, "-i", music,
                 "-filter_complex",
-                "[1:a]volume=1.0[voice];"
-                "[2:a]volume=0.12,afade=t=in:d=1,afade=t=out:st=-2:d=2[music];"
-                "[voice][music]amix=inputs=2:duration=first[audio]",
-                "-map", "0:v",
-                "-map", "[audio]",
-                "-c:v", "copy",
-                "-c:a", "aac",
-                "-b:a", "128k",
-                "-shortest",
-                "-y", final
+                "[1:a]volume=1.0[v];[2:a]volume=0.12,afade=t=in:d=1[m];[v][m]amix=inputs=2:duration=first[a]",
+                "-map", "0:v", "-map", "[a]",
+                "-c:v", "copy", "-c:a", "aac", "-b:a", "128k",
+                "-shortest", "-y", final
             ]
         else:
             cmd = [
-                "ffmpeg",
-                "-i", video,
-                "-i", voice,
-                "-map", "0:v",
-                "-map", "1:a",
-                "-c:v", "copy",
-                "-c:a", "aac",
-                "-b:a", "96k",
-                "-shortest",
-                "-y", final
+                "ffmpeg", "-i", video, "-i", voice,
+                "-map", "0:v", "-map", "1:a",
+                "-c:v", "copy", "-c:a", "aac", "-b:a", "96k",
+                "-shortest", "-y", final
             ]
         
-        if run_ffmpeg(cmd, 120):
+        if run_ffmpeg(cmd, FFMPEG_TIMEOUT_MUSIC):
             logger.info(f"✅ Final: {get_size_mb(final):.1f}MB")
             return final
         
         return None
-        
     except Exception as e:
-        logger.error(f"Audio mix error: {e}")
+        logger.error(f"Mix error: {e}")
         return None
 
 # ============================================================================
 # YOUTUBE UPLOAD
 # ============================================================================
 
-async def upload_to_youtube(video_path: str, title: str, description: str, keywords: List[str], 
-                           user_id: str, database_manager) -> dict:
-    """Upload to YouTube with optimized metadata"""
+async def upload_to_youtube(video: str, title: str, desc: str, keywords: List[str], user_id: str, db) -> dict:
+    """Upload to YouTube"""
     try:
-        logger.info("📤 Uploading to YouTube...")
-        
         from YTdatabase import get_database_manager as get_yt_db
         yt_db = get_yt_db()
         
         if not yt_db:
-            return {"success": False, "error": "YouTube DB unavailable"}
+            return {"success": False, "error": "DB unavailable"}
         
         if not yt_db.youtube.client:
             await yt_db.connect()
         
-        credentials_raw = await yt_db.youtube.youtube_credentials_collection.find_one({
-            "user_id": user_id
-        })
+        creds = await yt_db.youtube.youtube_credentials_collection.find_one({"user_id": user_id})
         
-        if not credentials_raw:
-            return {"success": False, "error": "Credentials not found"}
+        if not creds:
+            return {"success": False, "error": "No credentials"}
         
         credentials = {
-            "access_token": credentials_raw.get("access_token"),
-            "refresh_token": credentials_raw.get("refresh_token"),
+            "access_token": creds.get("access_token"),
+            "refresh_token": creds.get("refresh_token"),
             "token_uri": "https://oauth2.googleapis.com/token",
-            "client_id": credentials_raw.get("client_id") or os.getenv("YOUTUBE_CLIENT_ID"),
-            "client_secret": credentials_raw.get("client_secret") or os.getenv("YOUTUBE_CLIENT_SECRET"),
-            "scopes": [
-                "https://www.googleapis.com/auth/youtube.upload",
-                "https://www.googleapis.com/auth/youtube.force-ssl"
-            ]
+            "client_id": creds.get("client_id") or os.getenv("YOUTUBE_CLIENT_ID"),
+            "client_secret": creds.get("client_secret") or os.getenv("YOUTUBE_CLIENT_SECRET"),
+            "scopes": ["https://www.googleapis.com/auth/youtube.upload"]
         }
         
         from mainY import youtube_scheduler
         
-        # Format description with keywords
-        full_description = f"{description}\n\nKeywords:\n"
-        for keyword in keywords:
-            full_description += f"#{keyword}\n"
+        full_desc = f"{desc}\n\nKeywords:\n" + "\n".join([f"#{k}" for k in keywords])
         
-        upload_result = await youtube_scheduler.generate_and_upload_content(
+        result = await youtube_scheduler.generate_and_upload_content(
             user_id=user_id,
             credentials_data=credentials,
             content_type="shorts",
             title=title,
-            description=full_description,
-            video_url=video_path
+            description=full_desc,
+            video_url=video
         )
         
-        if upload_result.get("success"):
-            video_id = upload_result.get("video_id")
-            
-            logger.info(f"✅ Uploaded: {video_id}")
-            
+        if result.get("success"):
+            vid_id = result.get("video_id")
             return {
                 "success": True,
-                "video_id": video_id,
-                "video_url": f"https://youtube.com/shorts/{video_id}"
+                "video_id": vid_id,
+                "video_url": f"https://youtube.com/shorts/{vid_id}"
             }
         
-        return {"success": False, "error": upload_result.get("error", "Upload failed")}
-            
+        return {"success": False, "error": result.get("error", "Upload failed")}
     except Exception as e:
         logger.error(f"Upload error: {e}")
         return {"success": False, "error": str(e)}
@@ -2181,155 +1852,95 @@ async def upload_to_youtube(video_path: str, title: str, description: str, keywo
 # MAIN PIPELINE
 # ============================================================================
 
-async def generate_pixabay_video(
-    niche: str,
-    language: str,
-    user_id: str,
-    database_manager,
-    target_duration: int = 40,
-    custom_bg_music: Optional[str] = None
-) -> dict:
-    """Main generation pipeline with all features"""
+async def generate_pixabay_video(niche: str, language: str, user_id: str, database_manager,
+                                target_duration: int = 40, custom_bg_music: Optional[str] = None) -> dict:
+    """Main pipeline"""
     
     temp_dir = None
+    progress = {"current": 0, "total": 11, "stage": "Starting"}
     
     try:
         temp_dir = tempfile.mkdtemp(prefix="pixabay_")
-        logger.info(f"🎬 STARTING: {niche} (target: {target_duration}s)")
+        logger.info(f"🎬 START: {niche} ({target_duration}s)")
         
-        # Special: Bhagavad Gita mode
-        gita_verse = None
-        if niche == "spiritual":
-            niche_data = NICHE_KEYWORDS.get(niche)
-            if niche_data.get("special_mode") == "bhagavad_gita":
-                chapter = GITA_STATE["current_chapter"]
-                verse = GITA_STATE["current_verse"]
-                
-                logger.info(f"📖 Bhagavad Gita mode: Chapter {chapter}, Verse {verse}")
-                
-                gita_verse = await scrape_gita_verse(chapter, verse)
-                
-                if not gita_verse:
-                    # Try Mistral fallback
-                    logger.warning("Scraping failed, using Mistral fallback")
-                
-                # Update state for next video
-                GITA_STATE["current_verse"] += 1
-                if GITA_STATE["current_verse"] > GITA_STATE["verses_per_chapter"][chapter]:
-                    GITA_STATE["current_chapter"] += 1
-                    GITA_STATE["current_verse"] = 1
-                    if GITA_STATE["current_chapter"] > GITA_STATE["total_chapters"]:
-                        GITA_STATE["current_chapter"] = 1  # Reset
+        # Stage 1: Script (9%)
+        progress.update({"current": 1, "total": 11, "stage": "Generating script"})
+        script_result = await generate_unified_script(niche, target_duration)
+        num_images = script_result["num_images_needed"]
+        logger.info(f"Need {num_images} images @ {script_result['image_duration']:.1f}s")
         
-        # STEP 1: Generate Script
-        logger.info("📝 STEP 1: Generating script...")
-        script_result = await generate_unified_script(niche, target_duration, gita_verse)
-        
-        num_images_needed = script_result["num_images_needed"]
-        image_duration = script_result["image_duration"]
-        
-        logger.info(f"   📊 Need {num_images_needed} images @ {image_duration:.1f}s each")
-        
-        # STEP 2: Smart Image Search
-        logger.info(f"🔍 STEP 2: Searching {num_images_needed} images...")
-        images_data = await search_pixabay_smart(niche, num_images_needed, False)
+        # Stage 2: Search images (18%)
+        progress.update({"current": 2, "total": 11, "stage": "Searching images"})
+        images_data = await search_pixabay_smart(niche, num_images, False)
         
         if len(images_data) < MIN_IMAGES:
-            return {
-                "success": False,
-                "error": f"Not enough images: {len(images_data)}/{MIN_IMAGES}"
-            }
+            return {"success": False, "error": f"Not enough images: {len(images_data)}"}
         
-        # STEP 3: Get Thumbnail
-        logger.info("🖼️ STEP 3: Searching HD thumbnail...")
-        thumbnail_data = await search_pixabay_smart(niche, 1, True)
+        # Stage 3: Search thumbnail (27%)
+        progress.update({"current": 3, "total": 11, "stage": "Searching thumbnail"})
+        thumb_data = await search_pixabay_smart(niche, 1, True)
         
-        # STEP 4: Download Images
-        logger.info("📥 STEP 4: Downloading images...")
+        # Stage 4: Download images (36%)
+        progress.update({"current": 4, "total": 11, "stage": "Downloading images"})
         image_files = await download_images(images_data, temp_dir)
         
         if len(image_files) < MIN_IMAGES:
-            return {
-                "success": False,
-                "error": f"Download failed: {len(image_files)}/{MIN_IMAGES}"
-            }
+            return {"success": False, "error": "Download failed"}
         
-        # Adjust if downloaded images don't match needed
-        if len(image_files) != num_images_needed:
-            logger.info(f"⚠️ Adjusting: got {len(image_files)} images")
-            estimated_dur = script_result["estimated_duration"]
-            image_duration = estimated_dur / len(image_files)
+        # Adjust duration if needed
+        if len(image_files) != num_images:
+            img_dur = script_result["estimated_duration"] / len(image_files)
+        else:
+            img_dur = script_result["image_duration"]
         
-        # STEP 5: Download Thumbnail
-        thumbnail_file = None
-        if thumbnail_data:
-            logger.info("📥 STEP 5: Downloading thumbnail...")
-            thumb_path = os.path.join(temp_dir, "thumbnail.jpg")
-            if await download_image(thumbnail_data[0], thumb_path):
-                thumbnail_file = thumb_path
-                logger.info(f"   ✅ Thumbnail: {get_size_mb(thumb_path):.2f}MB")
+        # Stage 5: Download thumbnail (45%)
+        progress.update({"current": 5, "total": 11, "stage": "Downloading thumbnail"})
+        thumb_file = None
+        if thumb_data:
+            thumb_path = os.path.join(temp_dir, "thumb.jpg")
+            if await download_image(thumb_data[0], thumb_path):
+                thumb_file = thumb_path
         
-        # STEP 6: Download Music
-        logger.info("🎵 STEP 6: Downloading music...")
-        music = await download_background_music(
-            niche, 
-            temp_dir, 
-            custom_bg_music,
-            script_result["estimated_duration"]
-        )
+        # Stage 6: Download music (54%)
+        progress.update({"current": 6, "total": 11, "stage": "Downloading music"})
+        music = await download_background_music(niche, temp_dir, custom_bg_music, script_result["estimated_duration"])
         
-        # STEP 7: Generate Captions
-        logger.info("📝 STEP 7: Generating captions...")
-        srt_path = os.path.join(temp_dir, "captions.srt")
-        generate_captions_srt(
-            script_result["script"],
-            script_result["estimated_duration"],
-            srt_path
-        )
-        
-        # STEP 8: Create Slideshow
-        logger.info("🎬 STEP 8: Creating slideshow with captions...")
-        slideshow = create_slideshow_with_captions(
-            image_files,
-            image_duration,
-            srt_path,
-            temp_dir
-        )
+        # Stage 7: Create slideshow (63%)
+        progress.update({"current": 7, "total": 11, "stage": "Creating slideshow"})
+        slideshow = create_slideshow_simple(image_files, img_dur, temp_dir)
         
         if not slideshow:
-            return {"success": False, "error": "Slideshow creation failed"}
+            return {"success": False, "error": "Slideshow failed"}
         
         # Cleanup images
         for img in image_files:
             force_cleanup(img)
         gc.collect()
         
-        # STEP 9: Generate Voice
-        logger.info("🎤 STEP 9: Generating voiceover (1.1x)...")
-        voice = await generate_voice(script_result["script"], niche, temp_dir)
+        # Stage 8: Generate voice (72%)
+        progress.update({"current": 8, "total": 11, "stage": "Generating voice"})
+        voice = await generate_voice_elevenlabs(script_result["script"], niche, temp_dir)
+        if not voice:
+            voice = await generate_voice_edge(script_result["script"], temp_dir)
         
         if not voice:
-            return {"success": False, "error": "Voice generation failed"}
+            return {"success": False, "error": "Voice failed"}
         
-        # STEP 10: Mix Audio
-        logger.info("🎵 STEP 10: Mixing audio...")
+        # Stage 9: Mix audio (81%)
+        progress.update({"current": 9, "total": 11, "stage": "Mixing audio"})
         final = await mix_audio(slideshow, voice, music, temp_dir)
         
         if not final:
-            return {"success": False, "error": "Audio mix failed"}
+            return {"success": False, "error": "Mix failed"}
         
         final_size = get_size_mb(final)
         logger.info(f"✅ FINAL: {final_size:.1f}MB")
         
-        # STEP 11: Upload
-        logger.info("📤 STEP 11: Uploading...")
+        # Stage 10: Upload (90%)
+        progress.update({"current": 10, "total": 11, "stage": "Uploading to YouTube"})
         upload_result = await upload_to_youtube(
-            final,
-            script_result["title"],
-            script_result["description"],
-            script_result["keywords"],
-            user_id,
-            database_manager
+            final, script_result["title"], script_result["description"],
+            script_result["keywords"], user_id, database_manager
         )
         
         # Cleanup
@@ -2340,6 +1951,8 @@ async def generate_pixabay_video(
         if not upload_result.get("success"):
             return upload_result
         
+        # Stage 11: Complete (100%)
+        progress.update({"current": 11, "total": 11, "stage": "Complete"})
         logger.info("🎉 COMPLETE!")
         
         return {
@@ -2355,8 +1968,8 @@ async def generate_pixabay_video(
             "image_count": len(image_files),
             "duration": script_result["estimated_duration"],
             "has_music": music is not None,
-            "has_thumbnail": thumbnail_file is not None,
-            "gita_progress": f"Ch{GITA_STATE['current_chapter']}:V{GITA_STATE['current_verse']}" if niche == "spiritual" else None
+            "has_thumbnail": thumb_file is not None,
+            "progress": "100%"
         }
         
     except Exception as e:
@@ -2367,7 +1980,7 @@ async def generate_pixabay_video(
             shutil.rmtree(temp_dir, ignore_errors=True)
         gc.collect()
         
-        return {"success": False, "error": str(e)}
+        return {"success": False, "error": str(e), "progress": f"{int((progress['current']/progress['total'])*100)}%"}
 
 # ============================================================================
 # API ROUTER
@@ -2377,53 +1990,38 @@ router = APIRouter()
 
 @router.get("/api/pixabay/niches")
 async def get_niches():
-    """Get available niches"""
     return {
         "success": True,
         "niches": {
             k: {
                 "name": k.replace("_", " ").title(),
                 "emotion": v["emotion"],
-                "voice_name": v["voice_name"],
-                "default_music": v.get("bg_music_url", ""),
-                "special_mode": v.get("special_mode")
+                "voice_name": v["voice_name"]
             } 
             for k, v in NICHE_KEYWORDS.items()
         },
         "gita_progress": {
             "chapter": GITA_STATE["current_chapter"],
-            "verse": GITA_STATE["current_verse"],
-            "total_chapters": GITA_STATE["total_chapters"]
+            "verse": GITA_STATE["current_verse"]
         }
     }
 
 @router.post("/api/pixabay/generate")
 async def generate_endpoint(request: Request):
-    """Generate Pixabay slideshow endpoint"""
     try:
         data = await request.json()
         user_id = data.get("user_id")
         
         if not user_id:
-            return JSONResponse(
-                status_code=401,
-                content={"success": False, "error": "user_id required"}
-            )
+            return JSONResponse(status_code=401, content={"success": False, "error": "user_id required"})
         
         niche = data.get("niche", "space")
         language = data.get("language", "hindi")
-        target_duration = data.get("target_duration", 40)  # 20-55 range
-        custom_bg_music = data.get("custom_bg_music")  # Optional custom URL
-        
-        # Validate duration
-        if target_duration < 20 or target_duration > 55:
-            target_duration = 40
+        target_duration = max(20, min(data.get("target_duration", 40), 55))
+        custom_bg_music = data.get("custom_bg_music")
         
         if niche not in NICHE_KEYWORDS:
-            return JSONResponse(
-                status_code=400,
-                content={"success": False, "error": "Invalid niche"}
-            )
+            return JSONResponse(status_code=400, content={"success": False, "error": "Invalid niche"})
         
         from Supermain import database_manager
         
@@ -2439,22 +2037,16 @@ async def generate_endpoint(request: Request):
                     target_duration=target_duration,
                     custom_bg_music=custom_bg_music
                 ),
-                timeout=1200  # 20 minutes
+                timeout=1500  # 25 minutes
             )
             
             return JSONResponse(content=result)
             
         except asyncio.TimeoutError:
-            return JSONResponse(
-                status_code=408,
-                content={"success": False, "error": "Timeout"}
-            )
+            return JSONResponse(status_code=408, content={"success": False, "error": "Timeout (25min)"})
         
     except Exception as e:
         logger.error(f"❌ API error: {e}")
-        return JSONResponse(
-            status_code=500,
-            content={"success": False, "error": str(e)}
-        )
+        return JSONResponse(status_code=500, content={"success": False, "error": str(e)})
 
 __all__ = ['router']
