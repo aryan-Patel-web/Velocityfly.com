@@ -2203,23 +2203,260 @@ async def get_youtube_analytics(user_id: str, days: int = 30):
 #             "message": "Upload failed"
 #         }
     
+# @app.post("/api/youtube/upload")
+# async def youtube_upload_video(request: dict):
+#     """
+#     Upload video to YouTube with multi-source support
+#     Supports: Google Drive, YouTube URL (update mode), local file, direct .mp4 URL
+#     """
+#     try:
+#         # ✅ DEBUG LOGGING
+#         logger.info("="*60)
+#         logger.info("📤 UPLOAD REQUEST RECEIVED")
+#         logger.info(f"📦 Request Keys: {list(request.keys())}")
+#         logger.info(f"📹 Video Mode: {request.get('video_mode', 'NOT SET')}")
+#         logger.info(f"📹 Video URL Type: {request.get('video_url', '')[:60]}...")
+#         logger.info(f"🎨 Thumbnail: {'YES' if request.get('thumbnail_url') else 'NO'}")
+#         logger.info("="*60)
+        
+#         # Extract parameters
+#         user_id = request.get("user_id")
+#         title = request.get("title", "Untitled Video")
+#         video_url = request.get("video_url", "")
+#         description = request.get("description", "")
+#         tags = request.get("tags", [])
+#         privacy_status = request.get("privacy_status", "public")
+#         content_type = request.get("content_type", "shorts")
+#         thumbnail_url = request.get("thumbnail_url")
+#         video_mode = request.get("video_mode", "new")  # 'new' or 'update'
+        
+#         # Validation
+#         if not user_id:
+#             raise HTTPException(status_code=400, detail="user_id is required")
+        
+#         if not video_url:
+#             raise HTTPException(status_code=400, detail="video_url is required")
+        
+#         if not title or not title.strip():
+#             raise HTTPException(status_code=400, detail="title is required")
+        
+#         # Check credentials
+#         credentials = await database_manager.get_youtube_credentials(user_id)
+#         if not credentials:
+#             raise HTTPException(status_code=400, detail="YouTube not connected")
+        
+#         # ============================================================
+#         # DETECT VIDEO SOURCE AND PROCESS
+#         # ============================================================
+#         video_file_path = None
+        
+#         # 1️⃣ GOOGLE DRIVE URL
+#         if 'drive.google.com' in video_url:
+#             logger.info("✅ Source: Google Drive URL")
+#             try:
+#                 video_file_path = await download_google_drive_video(video_url, user_id)
+#                 logger.info(f"✅ Downloaded from Google Drive: {video_file_path}")
+#             except Exception as drive_error:
+#                 logger.error(f"❌ Google Drive download failed: {drive_error}")
+#                 raise HTTPException(
+#                     status_code=400, 
+#                     detail=f"Failed to download from Google Drive: {str(drive_error)}"
+#                 )
+        
+#         # 2️⃣ YOUTUBE URL (UPDATE MODE ONLY)
+#         elif ('youtube.com' in video_url or 'youtu.be' in video_url):
+#             logger.info(f"✅ Source: YouTube URL (Mode: {video_mode})")
+            
+#             if video_mode == 'update':
+#                 logger.info("🔄 UPDATE MODE: Updating existing video thumbnail")
+                
+#                 # Extract video ID
+#                 video_id = None
+#                 patterns = [
+#                     r'youtube\.com/watch\?v=([a-zA-Z0-9_-]+)',
+#                     r'youtu\.be/([a-zA-Z0-9_-]+)',
+#                     r'youtube\.com/embed/([a-zA-Z0-9_-]+)',
+#                     r'youtube\.com/v/([a-zA-Z0-9_-]+)'
+#                 ]
+                
+#                 for pattern in patterns:
+#                     match = re.search(pattern, video_url)
+#                     if match:
+#                         video_id = match.group(1)
+#                         break
+                
+#                 if not video_id:
+#                     raise HTTPException(
+#                         status_code=400, 
+#                         detail="Invalid YouTube URL format. Example: https://youtube.com/watch?v=VIDEO_ID"
+#                     )
+                
+#                 logger.info(f"📹 Extracted Video ID: {video_id}")
+                
+#                 # Thumbnail is required for update mode
+#                 if not thumbnail_url:
+#                     raise HTTPException(
+#                         status_code=400, 
+#                         detail="Thumbnail required for update mode. Please generate thumbnails first."
+#                     )
+                
+#                 # Get authenticated YouTube service
+#                 youtube_service = await youtube_connector.get_authenticated_service(user_id)
+                
+#                 if not youtube_service:
+#                     raise HTTPException(
+#                         status_code=400, 
+#                         detail="Failed to authenticate with YouTube"
+#                     )
+                
+#                 # Upload thumbnail to existing video
+#                 try:
+#                     success = await youtube_connector._upload_thumbnail(
+#                         youtube_service,
+#                         video_id,
+#                         thumbnail_url
+#                     )
+                    
+#                     if success:
+#                         logger.info(f"✅ Thumbnail updated for video: {video_id}")
+#                         return {
+#                             "success": True,
+#                             "message": "Thumbnail updated successfully!",
+#                             "video_id": video_id,
+#                             "video_url": video_url,
+#                             "thumbnail_uploaded": True,
+#                             "mode": "update"
+#                         }
+#                     else:
+#                         raise HTTPException(
+#                             status_code=500, 
+#                             detail="Thumbnail upload failed. Check if video exists and you have permission."
+#                         )
+                        
+#                 except Exception as thumb_error:
+#                     logger.error(f"❌ Thumbnail upload error: {thumb_error}")
+#                     raise HTTPException(
+#                         status_code=500, 
+#                         detail=f"Thumbnail upload failed: {str(thumb_error)}"
+#                     )
+            
+#             else:
+#                 # NEW MODE with YouTube URL = ERROR
+#                 logger.error("❌ Cannot upload YouTube URL as new video")
+#                 raise HTTPException(
+#                     status_code=400, 
+#                     detail="Cannot upload a YouTube URL as a new video. Switch to 'Update Existing Thumbnail' mode to update thumbnails on existing videos."
+#                 )
+        
+#         # 3️⃣ LOCAL FILE (from manual upload)
+#         elif video_url.startswith('/tmp/'):
+#             logger.info("✅ Source: Local uploaded file")
+#             video_file_path = video_url
+            
+#             # Verify file exists
+#             if not os.path.exists(video_file_path):
+#                 raise HTTPException(
+#                     status_code=400, 
+#                     detail="Uploaded file not found. Please upload again."
+#                 )
+        
+#         # 4️⃣ DIRECT .MP4 URL
+#         else:
+#             logger.info("✅ Source: Direct .mp4 URL")
+            
+#             # Validate URL format
+#             if not video_url.startswith(('http://', 'https://')):
+#                 raise HTTPException(
+#                     status_code=400, 
+#                     detail="Invalid video URL. Must be HTTP/HTTPS URL or Google Drive link."
+#                 )
+            
+#             try:
+#                 video_file_path = await youtube_scheduler._download_video_temporarily(video_url)
+#                 logger.info(f"✅ Downloaded from URL: {video_file_path}")
+#             except Exception as download_error:
+#                 logger.error(f"❌ URL download failed: {download_error}")
+#                 raise HTTPException(
+#                     status_code=400, 
+#                     detail=f"Failed to download video: {str(download_error)}"
+#                 )
+        
+#         # ============================================================
+#         # UPLOAD TO YOUTUBE (NEW VIDEO)
+#         # ============================================================
+        
+#         if not video_file_path:
+#             raise HTTPException(
+#                 status_code=500, 
+#                 detail="Failed to process video. No valid video file path."
+#             )
+        
+#         logger.info(f"📤 Uploading to YouTube: {video_file_path}")
+        
+#         # Upload video
+#         upload_result = await youtube_scheduler.generate_and_upload_content(
+#             user_id=user_id,
+#             credentials_data=credentials,
+#             content_type=content_type,
+#             title=title.strip(),
+#             description=description.strip(),
+#             video_url=video_file_path,
+#             thumbnail_url=thumbnail_url
+#         )
+        
+#         # ============================================================
+#         # CLEANUP TEMPORARY FILES
+#         # ============================================================
+#         try:
+#             if video_file_path and video_file_path.startswith('/tmp/'):
+#                 if os.path.exists(video_file_path):
+#                     os.unlink(video_file_path)
+#                     logger.info(f"🗑️ Cleaned up temp file: {video_file_path}")
+#         except Exception as cleanup_error:
+#             logger.warning(f"⚠️ Cleanup failed (non-critical): {cleanup_error}")
+        
+#         logger.info(f"✅ Upload complete: {upload_result.get('success', False)}")
+#         return upload_result
+        
+#     except HTTPException as http_err:
+#         logger.error(f"❌ HTTP Exception: {http_err.detail}")
+#         raise
+        
+#     except Exception as e:
+#         logger.error(f"❌ Upload failed: {str(e)}")
+#         import traceback
+#         logger.error(f"Traceback:\n{traceback.format_exc()}")
+        
+#         return {
+#             "success": False,
+#             "error": str(e),
+#             "message": f"Upload failed: {str(e)}",
+#             "video_mode": request.get('video_mode', 'unknown'),
+#             "video_url_type": "youtube" if 'youtube' in request.get('video_url', '') else "other"
+#         }
+
 @app.post("/api/youtube/upload")
 async def youtube_upload_video(request: dict):
     """
-    Upload video to YouTube with multi-source support
+    Upload video to YouTube with multi-source support + THUMBNAIL SUPPORT
     Supports: Google Drive, YouTube URL (update mode), local file, direct .mp4 URL
     """
+
     try:
-        # ✅ DEBUG LOGGING
-        logger.info("="*60)
+        # =============================
+        # DEBUG LOGGING
+        # =============================
+        logger.info("=" * 60)
         logger.info("📤 UPLOAD REQUEST RECEIVED")
         logger.info(f"📦 Request Keys: {list(request.keys())}")
         logger.info(f"📹 Video Mode: {request.get('video_mode', 'NOT SET')}")
-        logger.info(f"📹 Video URL Type: {request.get('video_url', '')[:60]}...")
-        logger.info(f"🎨 Thumbnail: {'YES' if request.get('thumbnail_url') else 'NO'}")
-        logger.info("="*60)
-        
-        # Extract parameters
+        logger.info(f"🎨 Thumbnail URL: {bool(request.get('thumbnail_url'))}")
+        logger.info(f"🖼️ Thumbnail Path: {bool(request.get('thumbnail_path'))}")
+        logger.info("=" * 60)
+
+        # =============================
+        # Extract request params
+        # =============================
         user_id = request.get("user_id")
         title = request.get("title", "Untitled Video")
         video_url = request.get("video_url", "")
@@ -2228,49 +2465,49 @@ async def youtube_upload_video(request: dict):
         privacy_status = request.get("privacy_status", "public")
         content_type = request.get("content_type", "shorts")
         thumbnail_url = request.get("thumbnail_url")
-        video_mode = request.get("video_mode", "new")  # 'new' or 'update'
-        
+        thumbnail_path = request.get("thumbnail_path")
+        video_mode = request.get("video_mode", "new")  # new | update
+
+        # =============================
         # Validation
+        # =============================
         if not user_id:
             raise HTTPException(status_code=400, detail="user_id is required")
-        
+
         if not video_url:
             raise HTTPException(status_code=400, detail="video_url is required")
-        
+
         if not title or not title.strip():
             raise HTTPException(status_code=400, detail="title is required")
-        
+
+        # =============================
         # Check credentials
+        # =============================
         credentials = await database_manager.get_youtube_credentials(user_id)
         if not credentials:
             raise HTTPException(status_code=400, detail="YouTube not connected")
-        
-        # ============================================================
-        # DETECT VIDEO SOURCE AND PROCESS
-        # ============================================================
+
+        # =============================
+        # PROCESS VIDEO SOURCE
+        # =============================
         video_file_path = None
-        
-        # 1️⃣ GOOGLE DRIVE URL
-        if 'drive.google.com' in video_url:
-            logger.info("✅ Source: Google Drive URL")
+
+        # 1️⃣ GOOGLE DRIVE
+        if "drive.google.com" in video_url:
+            logger.info("✅ Source: Google Drive")
             try:
                 video_file_path = await download_google_drive_video(video_url, user_id)
-                logger.info(f"✅ Downloaded from Google Drive: {video_file_path}")
-            except Exception as drive_error:
-                logger.error(f"❌ Google Drive download failed: {drive_error}")
-                raise HTTPException(
-                    status_code=400, 
-                    detail=f"Failed to download from Google Drive: {str(drive_error)}"
-                )
-        
-        # 2️⃣ YOUTUBE URL (UPDATE MODE ONLY)
-        elif ('youtube.com' in video_url or 'youtu.be' in video_url):
+            except Exception as e:
+                raise HTTPException(status_code=400, detail=f"Google Drive download failed: {str(e)}")
+
+        # 2️⃣ YOUTUBE URL → UPDATE MODE ONLY
+        elif ("youtube.com" in video_url or "youtu.be" in video_url):
             logger.info(f"✅ Source: YouTube URL (Mode: {video_mode})")
-            
-            if video_mode == 'update':
-                logger.info("🔄 UPDATE MODE: Updating existing video thumbnail")
-                
-                # Extract video ID
+
+            if video_mode == "update":
+                logger.info("🔄 Updating existing video thumbnail")
+
+                # Extract Video ID
                 video_id = None
                 patterns = [
                     r'youtube\.com/watch\?v=([a-zA-Z0-9_-]+)',
@@ -2278,122 +2515,80 @@ async def youtube_upload_video(request: dict):
                     r'youtube\.com/embed/([a-zA-Z0-9_-]+)',
                     r'youtube\.com/v/([a-zA-Z0-9_-]+)'
                 ]
-                
+
                 for pattern in patterns:
                     match = re.search(pattern, video_url)
                     if match:
                         video_id = match.group(1)
                         break
-                
+
                 if not video_id:
-                    raise HTTPException(
-                        status_code=400, 
-                        detail="Invalid YouTube URL format. Example: https://youtube.com/watch?v=VIDEO_ID"
-                    )
-                
-                logger.info(f"📹 Extracted Video ID: {video_id}")
-                
-                # Thumbnail is required for update mode
-                if not thumbnail_url:
-                    raise HTTPException(
-                        status_code=400, 
-                        detail="Thumbnail required for update mode. Please generate thumbnails first."
-                    )
-                
-                # Get authenticated YouTube service
+                    raise HTTPException(status_code=400, detail="Invalid YouTube URL")
+
+                # Thumbnail required
+                if not thumbnail_url and not thumbnail_path:
+                    raise HTTPException(status_code=400, detail="Thumbnail required for update mode")
+
                 youtube_service = await youtube_connector.get_authenticated_service(user_id)
-                
                 if not youtube_service:
-                    raise HTTPException(
-                        status_code=400, 
-                        detail="Failed to authenticate with YouTube"
-                    )
-                
-                # Upload thumbnail to existing video
-                try:
-                    success = await youtube_connector._upload_thumbnail(
-                        youtube_service,
-                        video_id,
-                        thumbnail_url
-                    )
-                    
-                    if success:
-                        logger.info(f"✅ Thumbnail updated for video: {video_id}")
-                        return {
-                            "success": True,
-                            "message": "Thumbnail updated successfully!",
-                            "video_id": video_id,
-                            "video_url": video_url,
-                            "thumbnail_uploaded": True,
-                            "mode": "update"
-                        }
-                    else:
-                        raise HTTPException(
-                            status_code=500, 
-                            detail="Thumbnail upload failed. Check if video exists and you have permission."
-                        )
-                        
-                except Exception as thumb_error:
-                    logger.error(f"❌ Thumbnail upload error: {thumb_error}")
-                    raise HTTPException(
-                        status_code=500, 
-                        detail=f"Thumbnail upload failed: {str(thumb_error)}"
-                    )
-            
+                    raise HTTPException(status_code=400, detail="YouTube auth failed")
+
+                thumbnail_input = thumbnail_path if thumbnail_path else thumbnail_url
+
+                success = await youtube_connector._upload_thumbnail(
+                    youtube_service,
+                    video_id,
+                    thumbnail_input
+                )
+
+                if not success:
+                    raise HTTPException(status_code=500, detail="Thumbnail update failed")
+
+                return {
+                    "success": True,
+                    "message": "Thumbnail updated successfully",
+                    "video_id": video_id,
+                    "thumbnail_uploaded": True,
+                    "mode": "update"
+                }
+
             else:
-                # NEW MODE with YouTube URL = ERROR
-                logger.error("❌ Cannot upload YouTube URL as new video")
                 raise HTTPException(
-                    status_code=400, 
-                    detail="Cannot upload a YouTube URL as a new video. Switch to 'Update Existing Thumbnail' mode to update thumbnails on existing videos."
+                    status_code=400,
+                    detail="Cannot upload YouTube URL as new video. Use update mode."
                 )
-        
-        # 3️⃣ LOCAL FILE (from manual upload)
-        elif video_url.startswith('/tmp/'):
-            logger.info("✅ Source: Local uploaded file")
+
+        # 3️⃣ LOCAL FILE
+        elif video_url.startswith("/tmp/"):
+            logger.info("✅ Source: Local temp file")
             video_file_path = video_url
-            
-            # Verify file exists
+
             if not os.path.exists(video_file_path):
-                raise HTTPException(
-                    status_code=400, 
-                    detail="Uploaded file not found. Please upload again."
-                )
-        
-        # 4️⃣ DIRECT .MP4 URL
+                raise HTTPException(status_code=400, detail="Uploaded file not found")
+
+        # 4️⃣ DIRECT MP4 URL
         else:
-            logger.info("✅ Source: Direct .mp4 URL")
-            
-            # Validate URL format
-            if not video_url.startswith(('http://', 'https://')):
-                raise HTTPException(
-                    status_code=400, 
-                    detail="Invalid video URL. Must be HTTP/HTTPS URL or Google Drive link."
-                )
-            
+            logger.info("✅ Source: Direct URL")
+
+            if not video_url.startswith(("http://", "https://")):
+                raise HTTPException(status_code=400, detail="Invalid video URL")
+
             try:
                 video_file_path = await youtube_scheduler._download_video_temporarily(video_url)
-                logger.info(f"✅ Downloaded from URL: {video_file_path}")
-            except Exception as download_error:
-                logger.error(f"❌ URL download failed: {download_error}")
-                raise HTTPException(
-                    status_code=400, 
-                    detail=f"Failed to download video: {str(download_error)}"
-                )
-        
-        # ============================================================
-        # UPLOAD TO YOUTUBE (NEW VIDEO)
-        # ============================================================
-        
+            except Exception as e:
+                raise HTTPException(status_code=400, detail=f"Download failed: {str(e)}")
+
+        # =============================
+        # Validate file path
+        # =============================
         if not video_file_path:
-            raise HTTPException(
-                status_code=500, 
-                detail="Failed to process video. No valid video file path."
-            )
-        
+            raise HTTPException(status_code=500, detail="No valid video file path")
+
         logger.info(f"📤 Uploading to YouTube: {video_file_path}")
-        
-        # Upload video
+
+        # =============================
+        # Upload NEW video
+        # =============================
         upload_result = await youtube_scheduler.generate_and_upload_content(
             user_id=user_id,
             credentials_data=credentials,
@@ -2401,40 +2596,31 @@ async def youtube_upload_video(request: dict):
             title=title.strip(),
             description=description.strip(),
             video_url=video_file_path,
-            thumbnail_url=thumbnail_url
+            thumbnail_url=thumbnail_url,
+            thumbnail_path=thumbnail_path
         )
-        
-        # ============================================================
-        # CLEANUP TEMPORARY FILES
-        # ============================================================
+
+        # =============================
+        # Cleanup temp files
+        # =============================
         try:
-            if video_file_path and video_file_path.startswith('/tmp/'):
-                if os.path.exists(video_file_path):
-                    os.unlink(video_file_path)
-                    logger.info(f"🗑️ Cleaned up temp file: {video_file_path}")
+            if video_file_path.startswith("/tmp/") and os.path.exists(video_file_path):
+                os.unlink(video_file_path)
+                logger.info(f"🗑️ Deleted temp file: {video_file_path}")
         except Exception as cleanup_error:
-            logger.warning(f"⚠️ Cleanup failed (non-critical): {cleanup_error}")
-        
-        logger.info(f"✅ Upload complete: {upload_result.get('success', False)}")
+            logger.warning(f"⚠️ Cleanup failed: {cleanup_error}")
+
+        logger.info(f"✅ Upload complete: {upload_result.get('success')}")
+
         return upload_result
-        
+
     except HTTPException as http_err:
-        logger.error(f"❌ HTTP Exception: {http_err.detail}")
+        logger.error(f"❌ HTTP Error: {http_err.detail}")
         raise
-        
+
     except Exception as e:
         logger.error(f"❌ Upload failed: {str(e)}")
-        import traceback
-        logger.error(f"Traceback:\n{traceback.format_exc()}")
-        
-        return {
-            "success": False,
-            "error": str(e),
-            "message": f"Upload failed: {str(e)}",
-            "video_mode": request.get('video_mode', 'unknown'),
-            "video_url_type": "youtube" if 'youtube' in request.get('video_url', '') else "other"
-        }
-
+        return {"success": False, "error": str(e)}
 
 
 

@@ -1025,200 +1025,263 @@ class YouTubeAutomationScheduler:
             logger.error(f"YouTube automation setup failed: {e}")
             return {"success": False, "error": str(e)}
     
-    async def generate_and_upload_content(
-        self,
-        user_id: str,
-        credentials_data: Dict,
-        content_type: str = "shorts",
-        title: str = None,
-        description: str = None,
-        video_url: str = None,
-        thumbnail_url: str = None,
-    ) -> Dict[str, Any]:
-        """Generate and upload YouTube content"""
-        try:
-            if not title or not description:
-                ai_content = await self._generate_video_content(user_id, content_type)
-                if not ai_content.get("success"):
-                    return ai_content
-                
-                title = title or ai_content.get("title")
-                description = description or ai_content.get("description")
-                tags = ai_content.get("tags", [])
-            else:
-                tags = []
-            
-            if video_url:
-                temp_video_path = await self._download_video_temporarily(video_url)
-                
-                if not temp_video_path:
-                    return {
-                        "success": False,
-                        "error": "Failed to download video"
-                    }
-                
-                upload_result = await self.youtube_connector.upload_video(
-                    credentials_data=credentials_data,
-                    video_file_path=temp_video_path,
-                    title=title,
-                    description=description,
-                    tags=tags,
-                    privacy_status="public",
-                    thumbnail_data=thumbnail_url
-                )
-                
-                try:
-                    import os
-                    os.unlink(temp_video_path)
-                except Exception as e:
-                    logger.warning(f"Failed to delete temp file: {e}")
-                
-                if user_id in self.active_configs:
-                    config = self.active_configs[user_id].get("youtube_automation", {})
-                    if upload_result.get("success"):
-                        config["successful_uploads"] = config.get("successful_uploads", 0) + 1
-                    else:
-                        config["failed_uploads"] = config.get("failed_uploads", 0) + 1
-                    config["total_uploads"] = config.get("total_uploads", 0) + 1
-                
-                return upload_result
-            else:
-                return {
-                    "success": False,
-                    "error": "Video URL required for upload",
-                    "message": "Please provide a video URL or file to upload"
-                }
-                
-        except Exception as e:
-            logger.error(f"YouTube content generation/upload failed: {e}")
-            return {"success": False, "error": str(e)}
+
+
+
+
+
+
+
     
-    async def _generate_video_content(
-        self,
-        user_id: str,
-        content_type: str
-    ) -> Dict[str, Any]:
-        """Generate video title, description, and tags using AI"""
-        try:
-            if self.ai_service and hasattr(self.ai_service, 'generate_youtube_content'):
-                content_result = await self.ai_service.generate_youtube_content(
-                    content_type=content_type,
-                    topic="general",
-                    target_audience="general",
-                    duration_seconds=60 if content_type == "shorts" else 300,
-                    style="engaging"
-                )
-            else:
-                content_result = {
-                    "success": True,
-                    "title": f"AI Generated {content_type.title()} Video",
-                    "description": f"This is an AI-generated {content_type} video for your YouTube channel.",
-                    "tags": ["AI", "generated", "content", content_type]
-                }
-            
-            return content_result
-            
-        except Exception as e:
-            logger.error(f"AI content generation failed: {e}")
+async def generate_and_upload_content(
+    self,
+    user_id: str,
+    credentials_data: Dict,
+    content_type: str = "shorts",
+    title: str = None,
+    description: str = None,
+    video_url: str = None,
+    thumbnail_url: str = None,
+    thumbnail_path: str = None
+) -> Dict[str, Any]:
+    """Generate and upload YouTube content with thumbnail support"""
+
+    try:
+        # ==============================
+        # Generate AI title/description if missing
+        # ==============================
+        if not title or not description:
+            ai_content = await self._generate_video_content(user_id, content_type)
+
+            if not ai_content.get("success"):
+                return ai_content
+
+            title = title or ai_content.get("title")
+            description = description or ai_content.get("description")
+            tags = ai_content.get("tags", [])
+        else:
+            tags = []
+
+        # ==============================
+        # Validate video input
+        # ==============================
+        if not video_url:
             return {
                 "success": False,
-                "error": f"AI content generation failed: {str(e)}"
+                "error": "Video URL required",
+                "message": "Provide a video URL or file to upload"
             }
-    
-    async def _download_video_temporarily(self, video_url: str) -> Optional[str]:
-        """
-        Download video to temporary file or use local file directly
-        
-        Args:
-            video_url: URL to video file OR local file path
-            
-        Returns:
-            str: Path to video file, or None if failed
-        """
+
+        # ==============================
+        # Download video temporarily
+        # ==============================
+        temp_video_path = await self._download_video_temporarily(video_url)
+
+        if not temp_video_path:
+            return {"success": False, "error": "Failed to download video"}
+
+        # ==============================
+        # Upload Video
+        # ==============================
+        upload_result = await self.youtube_connector.upload_video(
+            credentials_data=credentials_data,
+            video_file_path=temp_video_path,
+            title=title,
+            description=description,
+            tags=tags,
+            privacy_status="public"
+        )
+
+        # ==============================
+        # Cleanup temp file
+        # ==============================
         try:
             import os
-            
-            # CHECK IF IT'S A LOCAL FILE FIRST
-            if video_url.startswith('/tmp/') or os.path.exists(video_url):
-                logger.info(f"Using local file directly: {video_url}")
-                return video_url
-            
-            # Original download logic for URLs
-            logger.info(f"Downloading video from: {video_url}")
-            
-            async with httpx.AsyncClient(timeout=60.0, follow_redirects=True) as client:
-                response = await client.get(video_url)
-                
-                if response.status_code == 200:
-                    temp_file = tempfile.NamedTemporaryFile(
-                        delete=False,
-                        suffix='.mp4'
-                    )
-                    temp_file.write(response.content)
-                    temp_file.close()
-                    
-                    logger.info(f"Video downloaded temporarily: {temp_file.name}")
-                    return temp_file.name
+            os.unlink(temp_video_path)
+        except Exception as e:
+            logger.warning(f"Temp delete failed: {e}")
+
+        # ==============================
+        # Upload Thumbnail (if video upload succeeded)
+        # ==============================
+        if upload_result.get("success") and (thumbnail_url or thumbnail_path):
+            try:
+                video_id = upload_result.get("video_id")
+
+                thumbnail_source = thumbnail_path if thumbnail_path else thumbnail_url
+
+                success = await self.youtube_connector._upload_thumbnail(
+                    credentials_data=credentials_data,
+                    video_id=video_id,
+                    thumbnail_input=thumbnail_source
+                )
+
+                upload_result["thumbnail_uploaded"] = bool(success)
+
+                if success:
+                    logger.info(f"✅ Thumbnail uploaded: {video_id}")
                 else:
-                    logger.error(f"Download failed with status: {response.status_code}")
-                    return None
-                    
-        except Exception as e:
-            logger.error(f"Video download failed: {e}")
-            return None
-    
-    def _get_next_upload_time(self, upload_schedule: List[str]) -> str:
-        """Get next scheduled upload time"""
-        if not upload_schedule:
-            return "No schedule set"
-        
-        try:
-            current_time = datetime.now().time()
-            
-            for time_str in sorted(upload_schedule):
-                upload_time = datetime.strptime(time_str, "%H:%M").time()
-                if upload_time > current_time:
-                    return f"Today at {time_str}"
-            
-            return f"Tomorrow at {sorted(upload_schedule)[0]}"
-            
-        except Exception:
-            return "Schedule error"
-    
-    async def get_automation_status(self, user_id: str) -> Dict[str, Any]:
-        """Get YouTube automation status for user"""
-        try:
-            user_config = self.active_configs.get(user_id, {})
-            
-            youtube_config = user_config.get("youtube_automation", {})
-            config_obj = youtube_config.get("config")
-            
-            if config_obj and hasattr(config_obj, '__dict__'):
-                config_data = config_obj.__dict__
-            elif isinstance(config_obj, dict):
-                config_data = config_obj
+                    logger.warning("⚠️ Thumbnail upload failed")
+
+            except Exception as thumb_err:
+                logger.error(f"❌ Thumbnail upload error: {thumb_err}")
+                upload_result["thumbnail_uploaded"] = False
+
+        # ==============================
+        # Update user automation stats
+        # ==============================
+        if user_id in self.active_configs:
+            config = self.active_configs[user_id].get("youtube_automation", {})
+
+            if upload_result.get("success"):
+                config["successful_uploads"] = config.get("successful_uploads", 0) + 1
             else:
-                config_data = None
-            
-            return {
+                config["failed_uploads"] = config.get("failed_uploads", 0) + 1
+
+            config["total_uploads"] = config.get("total_uploads", 0) + 1
+
+        return upload_result
+
+    except Exception as e:
+        logger.error(f"YouTube upload failed: {e}")
+        return {"success": False, "error": str(e)}
+
+
+async def _generate_video_content(
+    self,
+    user_id: str,
+    content_type: str
+) -> Dict[str, Any]:
+    """Generate video title, description, and tags using AI"""
+
+    try:
+        if self.ai_service and hasattr(self.ai_service, "generate_youtube_content"):
+            content_result = await self.ai_service.generate_youtube_content(
+                content_type=content_type,
+                topic="general",
+                target_audience="general",
+                duration_seconds=60 if content_type == "shorts" else 300,
+                style="engaging"
+            )
+        else:
+            content_result = {
                 "success": True,
-                "user_id": user_id,
-                "youtube_automation": {
-                    "enabled": "youtube_automation" in user_config,
-                    "config": config_data,
-                    "stats": {
-                        "total_uploads": youtube_config.get("total_uploads", 0),
-                        "successful_uploads": youtube_config.get("successful_uploads", 0),
-                        "failed_uploads": youtube_config.get("failed_uploads", 0)
-                    }
-                },
-                "scheduler_running": self.is_running,
-                "last_updated": datetime.now().isoformat()
+                "title": f"AI Generated {content_type.title()} Video",
+                "description": f"This is an AI-generated {content_type} video for your YouTube channel.",
+                "tags": ["AI", "generated", "content", content_type]
             }
-            
-        except Exception as e:
-            logger.error(f"YouTube status check failed: {e}")
-            return {"success": False, "error": str(e)}
+
+        return content_result
+
+    except Exception as e:
+        logger.error(f"AI content generation failed: {e}")
+        return {
+            "success": False,
+            "error": f"AI content generation failed: {str(e)}"
+        }
+
+
+async def _download_video_temporarily(self, video_url: str) -> Optional[str]:
+    """
+    Download video to temporary file or use local file directly
+    """
+
+    try:
+        import os
+        import tempfile
+        import httpx
+
+        # ==============================
+        # If local file path → return directly
+        # ==============================
+        if video_url.startswith("/tmp/") or os.path.exists(video_url):
+            logger.info(f"Using local file directly: {video_url}")
+            return video_url
+
+        # ==============================
+        # Download remote video
+        # ==============================
+        logger.info(f"Downloading video from: {video_url}")
+
+        async with httpx.AsyncClient(timeout=60.0, follow_redirects=True) as client:
+            response = await client.get(video_url)
+
+            if response.status_code == 200:
+                temp_file = tempfile.NamedTemporaryFile(
+                    delete=False,
+                    suffix=".mp4"
+                )
+                temp_file.write(response.content)
+                temp_file.close()
+
+                logger.info(f"Video downloaded temporarily: {temp_file.name}")
+                return temp_file.name
+
+            else:
+                logger.error(f"Download failed with status: {response.status_code}")
+                return None
+
+    except Exception as e:
+        logger.error(f"Video download failed: {e}")
+        return None
+
+
+def _get_next_upload_time(self, upload_schedule: List[str]) -> str:
+    """Get next scheduled upload time"""
+
+    if not upload_schedule:
+        return "No schedule set"
+
+    try:
+        current_time = datetime.now().time()
+
+        for time_str in sorted(upload_schedule):
+            upload_time = datetime.strptime(time_str, "%H:%M").time()
+            if upload_time > current_time:
+                return f"Today at {time_str}"
+
+        return f"Tomorrow at {sorted(upload_schedule)[0]}"
+
+    except Exception:
+        return "Schedule error"
+
+
+async def get_automation_status(self, user_id: str) -> Dict[str, Any]:
+    """Get YouTube automation status for user"""
+
+    try:
+        user_config = self.active_configs.get(user_id, {})
+
+        youtube_config = user_config.get("youtube_automation", {})
+        config_obj = youtube_config.get("config")
+
+        if config_obj and hasattr(config_obj, "__dict__"):
+            config_data = config_obj.__dict__
+        elif isinstance(config_obj, dict):
+            config_data = config_obj
+        else:
+            config_data = None
+
+        return {
+            "success": True,
+            "user_id": user_id,
+            "youtube_automation": {
+                "enabled": "youtube_automation" in user_config,
+                "config": config_data,
+                "stats": {
+                    "total_uploads": youtube_config.get("total_uploads", 0),
+                    "successful_uploads": youtube_config.get("successful_uploads", 0),
+                    "failed_uploads": youtube_config.get("failed_uploads", 0)
+                }
+            },
+            "scheduler_running": self.is_running,
+            "last_updated": datetime.now().isoformat()
+        }
+
+    except Exception as e:
+        logger.error(f"YouTube status check failed: {e}")
+        return {"success": False, "error": str(e)}
+
 
 
 # ============================================================================
@@ -1581,7 +1644,7 @@ class AutoReplyScheduler:
                 unique_words = set(words)
                 if len(unique_words) / len(words) < 0.4:  # Less than 40% unique words
                     return True
-            
+        
             # Check for excessive special characters
             special_chars = sum(1 for char in comment_text if not char.isalnum() and char != ' ')
             if special_chars / len(comment_text) > 0.3:  # More than 30% special chars

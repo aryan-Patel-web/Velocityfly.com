@@ -1029,6 +1029,7 @@ async def generate_pixabay_video(
                     
                     description = f"{script_text}\n\n" + "\n".join(keywords)
                     
+                    # Upload video with thumbnail support
                     upload_result = await youtube_scheduler.generate_and_upload_content(
                         user_id=user_id,
                         credentials_data=credentials,
@@ -1036,7 +1037,7 @@ async def generate_pixabay_video(
                         title=title,
                         description=description,
                         video_url=final_video,
-                        thumbnail_path=thumb_file
+                        thumbnail_path=thumb_file  # Pass thumbnail file path
                     )
                     
                     if upload_result.get("success"):
