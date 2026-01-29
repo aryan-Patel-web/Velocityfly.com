@@ -1185,7 +1185,7 @@ async def upload_to_youtube(
             title=title,
             description=full_description,
             video_url=video_path,
-            thumbnail_path=thumbnail_path  # ✅ Pass thumbnail if available
+            # ✅ Pass thumbnail if available
         )
         
         # ✅ HANDLE RESPONSE - EXACT LOGIC FROM VIRAL PIXEL
