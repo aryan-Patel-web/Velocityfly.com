@@ -589,11 +589,19 @@ async def download_image(img_data: dict, path: str, retry: int = 0) -> bool:
 
 async def download_images(images: List[dict], temp_dir: str) -> List[str]:
     downloaded = []
-    for idx, img in enumerate(images):
-        path = os.path.join(temp_dir, f"img_{idx:02d}.jpg")
+    total = len(images)
+    
+    for idx, img in enumerate(images, 1):
+        path = os.path.join(temp_dir, f"img_{idx-1:02d}.jpg")
+        logger.info(f"   📥 Downloading image {idx}/{total}...")
+        
         if await download_image(img, path):
             downloaded.append(path)
-    logger.info(f"✅ Downloaded: {len(downloaded)}/{len(images)}")
+            logger.info(f"      ✅ Image {idx}: {get_size_kb(path):.0f}KB")
+        else:
+            logger.warning(f"      ⚠️  Image {idx}: Download failed")
+    
+    logger.info(f"   📊 Downloaded: {len(downloaded)}/{total} images")
     return downloaded
 
 # ============================================================================
@@ -639,22 +647,36 @@ def create_slideshow(images: List[str], dur: float, temp_dir: str) -> Optional[s
         
         frames = int(dur * FPS)
         clips = []
+        total = len(images)
         
-        for idx, img in enumerate(images):
-            r = os.path.join(temp_dir, f"r{idx}.jpg")
+        logger.info(f"   🎞️  Processing {total} clips with transitions...")
+        
+        for idx, img in enumerate(images, 1):
+            logger.info(f"      🎬 Clip {idx}/{total}: Resizing & adding transition...")
+            
+            r = os.path.join(temp_dir, f"r{idx-1}.jpg")
             if not run_ffmpeg(["ffmpeg", "-i", img, "-vf", f"scale={IMAGE_TARGET_WIDTH}:{IMAGE_TARGET_HEIGHT}:force_original_aspect_ratio=increase,crop={IMAGE_TARGET_WIDTH}:{IMAGE_TARGET_HEIGHT}", "-q:v", "2", "-y", r], 15):
+                logger.warning(f"         ⚠️  Clip {idx}: Resize failed")
                 continue
             
             trans = random.choice(TRANSITIONS)
             filt = trans["filter"].replace("{frames}", str(frames)).replace("{fps}", str(FPS))
             
-            c = os.path.join(temp_dir, f"c{idx}.mp4")
+            c = os.path.join(temp_dir, f"c{idx-1}.mp4")
             if run_ffmpeg(["ffmpeg", "-loop", "1", "-i", r, "-vf", filt, "-t", str(dur), "-r", str(FPS), "-c:v", "libx264", "-crf", "23", "-preset", "fast", "-pix_fmt", "yuv420p", "-y", c], FFMPEG_TIMEOUT_CLIP):
                 clips.append(c)
+                logger.info(f"         ✅ Clip {idx}: Ready ({get_size_mb(c):.1f}MB)")
+            else:
+                logger.warning(f"         ⚠️  Clip {idx}: Processing failed")
+            
             force_cleanup(r)
         
         if len(clips) < MIN_IMAGES:
+            logger.error(f"   ❌ Not enough clips: {len(clips)}/{MIN_IMAGES}")
             return None
+        
+        logger.info(f"   ✅ All clips ready: {len(clips)}/{total}")
+        logger.info(f"   🔗 Concatenating clips...")
         
         concat = os.path.join(temp_dir, "concat.txt")
         with open(concat, 'w') as f:
@@ -665,10 +687,13 @@ def create_slideshow(images: List[str], dur: float, temp_dir: str) -> Optional[s
         if run_ffmpeg(["ffmpeg", "-f", "concat", "-safe", "0", "-i", concat, "-c", "copy", "-y", output], FFMPEG_TIMEOUT_CONCAT):
             for c in clips:
                 force_cleanup(c)
-            logger.info(f"✅ Slideshow: {get_size_mb(output):.1f}MB")
+            logger.info(f"   ✅ Concatenation complete")
             return output
+        
+        logger.error(f"   ❌ Concatenation failed")
         return None
-    except:
+    except Exception as e:
+        logger.error(f"   ❌ Slideshow error: {e}")
         return None
 
 # ============================================================================
@@ -747,97 +772,256 @@ async def generate_pixabay_video(niche: str, language: str, user_id: str, databa
     
     try:
         temp_dir = tempfile.mkdtemp(prefix="pixabay_")
-        logger.info(f"🎬 {niche} ({target_duration}s)")
+        logger.info(f"🎬 START: {niche} | Duration: {target_duration}s | Language: {language}")
+        logger.info(f"📁 Working directory: {temp_dir}")
         
         # LUXURY: Dynamic car
         if niche == "luxury":
+            logger.info("=" * 60)
+            logger.info("🚗 STEP 1: LUXURY CAR SELECTION")
+            logger.info("=" * 60)
             car = await select_and_scrape_car()
             if car:
                 context["car_data"] = car
                 NICHE_KEYWORDS["luxury"]["keywords"] = car.get("search_keywords", [])
                 NICHE_KEYWORDS["luxury"]["thumbnail_keywords"] = car.get("search_keywords", [])
                 thumbnail_text = car.get("thumbnail_text", "Luxury Car")
+                logger.info(f"   ✅ Selected: {car['brand']} {car['model']}")
+                logger.info(f"   ⚙️  Engine: {car.get('engine', 'N/A')}")
+                logger.info(f"   🔧 CC: {car.get('cc', 'N/A')} | HP: {car.get('horsepower', 'N/A')}")
+                logger.info(f"   ⚡ Top Speed: {car.get('top_speed', 'N/A')}")
+                logger.info(f"   💰 Price: {car.get('price_india', 'N/A')}")
+            else:
+                logger.warning("   ⚠️  Car selection failed, using fallback")
         
         # SPIRITUAL: Random deity
         elif niche == "spiritual":
+            logger.info("=" * 60)
+            logger.info("🕉️  STEP 1: SPIRITUAL DEITY SELECTION")
+            logger.info("=" * 60)
             deity_name, deity, story = select_deity()
             context["story"] = story
             NICHE_KEYWORDS["spiritual"]["keywords"] = deity["keywords"]
             NICHE_KEYWORDS["spiritual"]["thumbnail_keywords"] = deity["thumbnail_keywords"]
             thumbnail_text = deity["thumbnail_text"]
+            logger.info(f"   ✅ Selected: {deity_name.upper()}")
+            logger.info(f"   📖 Story length: {len(story)} characters")
         else:
+            logger.info("=" * 60)
+            logger.info(f"📝 STEP 1: {niche.upper()} CONTENT PREPARATION")
+            logger.info("=" * 60)
             thumbnail_text = NICHE_KEYWORDS[niche].get("thumbnail_text", "")
         
         # Generate UNIQUE script
+        logger.info("")
+        logger.info("=" * 60)
+        logger.info("📝 STEP 2: AI SCRIPT GENERATION")
+        logger.info("=" * 60)
+        logger.info(f"   🎯 Target duration: {target_duration}s")
+        logger.info(f"   🗣️  Language: {language}")
+        logger.info(f"   🎭 Emotion: {NICHE_KEYWORDS[niche]['emotion']}")
+        
         script_result = await generate_unique_script(niche, target_duration, context)
         num_images = script_result["num_images_needed"]
         img_dur = script_result["image_duration"]
         
+        logger.info(f"   ✅ Script generated successfully")
+        logger.info(f"   📊 Estimated duration: {script_result['estimated_duration']:.1f}s")
+        logger.info(f"   📸 Images needed: {num_images}")
+        logger.info(f"   ⏱️  Image duration: {img_dur:.1f}s each")
+        logger.info(f"   📝 Title: {script_result['title'][:50]}...")
+        logger.info(f"   🔑 Keywords: {len(script_result['keywords'])} total")
+        
         # Search images
+        logger.info("")
+        logger.info("=" * 60)
+        logger.info("🔍 STEP 3: SEARCHING HD IMAGES")
+        logger.info("=" * 60)
+        logger.info(f"   🎯 Target: {num_images} images")
+        logger.info(f"   📏 Min resolution: 1080x1920")
+        
         images_data = await search_pixabay_hd(niche, num_images, False)
         if len(images_data) < MIN_IMAGES:
+            logger.error(f"   ❌ Not enough images: {len(images_data)}/{MIN_IMAGES} minimum")
             return {"success": False, "error": f"Not enough images: {len(images_data)}"}
         
+        logger.info(f"   ✅ Found {len(images_data)} HD images")
+        
         # Search thumbnail (200KB-2MB)
+        logger.info("")
+        logger.info("=" * 60)
+        logger.info("🖼️  STEP 4: SEARCHING HD THUMBNAIL")
+        logger.info("=" * 60)
+        logger.info(f"   🎯 Size range: 200KB - 2MB")
+        
         thumb_data = await search_pixabay_hd(niche, 1, True)
         
+        if thumb_data:
+            logger.info(f"   ✅ Found thumbnail: {thumb_data[0]['size_kb']:.0f}KB")
+        else:
+            logger.warning(f"   ⚠️  No thumbnail found in size range")
+        
         # Download
+        logger.info("")
+        logger.info("=" * 60)
+        logger.info("📥 STEP 5: DOWNLOADING IMAGES")
+        logger.info("=" * 60)
+        
         image_files = await download_images(images_data, temp_dir)
         if len(image_files) < MIN_IMAGES:
+            logger.error(f"   ❌ Download failed: {len(image_files)}/{MIN_IMAGES} minimum")
             return {"success": False, "error": "Download failed"}
+        
+        logger.info(f"   ✅ Successfully downloaded: {len(image_files)}/{len(images_data)} images")
         
         if len(image_files) != num_images:
             img_dur = script_result["estimated_duration"] / len(image_files)
+            logger.info(f"   🔄 Adjusted image duration: {img_dur:.1f}s each")
         
         # Thumbnail with text overlay
+        logger.info("")
+        logger.info("=" * 60)
+        logger.info("🎨 STEP 6: CREATING THUMBNAIL WITH TEXT")
+        logger.info("=" * 60)
+        
         thumb_file = None
         if thumb_data:
             thumb_base = os.path.join(temp_dir, "thumb_base.jpg")
+            logger.info(f"   📥 Downloading thumbnail...")
             if await download_image(thumb_data[0], thumb_base):
                 thumb_final = os.path.join(temp_dir, "thumb.jpg")
+                logger.info(f"   ✏️  Adding text overlay: '{thumbnail_text}'")
                 if add_text_to_thumbnail(thumb_base, thumbnail_text, thumb_final):
                     thumb_file = thumb_final
-                    logger.info(f"✅ Thumb: {get_size_kb(thumb_final):.0f}KB")
+                    logger.info(f"   ✅ Thumbnail ready: {get_size_kb(thumb_final):.0f}KB")
+                else:
+                    logger.warning(f"   ⚠️  Text overlay failed")
+            else:
+                logger.warning(f"   ⚠️  Thumbnail download failed")
+        else:
+            logger.warning(f"   ⚠️  No thumbnail available")
         
         # Music
+        logger.info("")
+        logger.info("=" * 60)
+        logger.info("🎵 STEP 7: DOWNLOADING BACKGROUND MUSIC")
+        logger.info("=" * 60)
+        
+        if custom_bg_music:
+            logger.info(f"   🎼 Using custom URL")
+        else:
+            logger.info(f"   🎼 Using default {niche} music")
+        
         music = await download_music(niche, temp_dir, custom_bg_music, script_result["estimated_duration"])
         
+        if music:
+            logger.info(f"   ✅ Music ready: {get_size_mb(music):.2f}MB")
+        else:
+            logger.warning(f"   ⚠️  Music download failed, will proceed without music")
+        
         # Slideshow
+        logger.info("")
+        logger.info("=" * 60)
+        logger.info("🎬 STEP 8: CREATING VIDEO SLIDESHOW")
+        logger.info("=" * 60)
+        logger.info(f"   📸 Processing {len(image_files)} images")
+        logger.info(f"   ⏱️  Duration: {img_dur:.1f}s per image")
+        logger.info(f"   🎞️  FPS: {FPS}")
+        
         slideshow = create_slideshow(image_files, img_dur, temp_dir)
         if not slideshow:
+            logger.error(f"   ❌ Slideshow creation failed")
             return {"success": False, "error": "Slideshow failed"}
         
+        logger.info(f"   ✅ Slideshow created: {get_size_mb(slideshow):.1f}MB")
+        
+        # Cleanup images
+        logger.info(f"   🗑️  Cleaning up {len(image_files)} source images...")
         for img in image_files:
             force_cleanup(img)
         gc.collect()
+        logger.info(f"   ✅ Cleanup complete")
         
         # Voice 1.1x
+        logger.info("")
+        logger.info("=" * 60)
+        logger.info("🎙️  STEP 9: GENERATING VOICE (1.1x SPEED)")
+        logger.info("=" * 60)
+        logger.info(f"   🗣️  Voice: {NICHE_KEYWORDS[niche].get('voice_name', 'Default')}")
+        logger.info(f"   ⚡ Speed: 1.1x (faster narration)")
+        logger.info(f"   📝 Script length: {len(script_result['script'])} characters")
+        
         voice = await generate_voice_11labs(script_result["script"], niche, temp_dir)
-        if not voice:
+        if voice:
+            logger.info(f"   ✅ ElevenLabs voice generated: {get_size_mb(voice):.2f}MB")
+        else:
+            logger.warning(f"   ⚠️  ElevenLabs failed, trying Edge TTS...")
             voice = await generate_voice_edge(script_result["script"], temp_dir)
+            if voice:
+                logger.info(f"   ✅ Edge TTS voice generated: {get_size_mb(voice):.2f}MB")
+        
         if not voice:
+            logger.error(f"   ❌ Voice generation failed")
             return {"success": False, "error": "Voice failed"}
         
         # Mix
+        logger.info("")
+        logger.info("=" * 60)
+        logger.info("🎛️  STEP 10: MIXING AUDIO")
+        logger.info("=" * 60)
+        logger.info(f"   🎬 Video: {get_size_mb(slideshow):.1f}MB")
+        logger.info(f"   🎙️  Voice: {get_size_mb(voice):.2f}MB")
+        if music:
+            logger.info(f"   🎵 Music: {get_size_mb(music):.2f}MB (12% volume)")
+        else:
+            logger.info(f"   🎵 Music: None")
+        
         final = await mix_audio(slideshow, voice, music, temp_dir)
         if not final:
+            logger.error(f"   ❌ Audio mixing failed")
             return {"success": False, "error": "Mix failed"}
         
         final_size = get_size_mb(final)
-        logger.info(f"✅ DONE: {final_size:.1f}MB")
+        logger.info(f"   ✅ Final video ready: {final_size:.1f}MB")
         
         # Upload
+        logger.info("")
+        logger.info("=" * 60)
+        logger.info("📤 STEP 11: UPLOADING TO YOUTUBE")
+        logger.info("=" * 60)
+        logger.info(f"   📝 Title: {script_result['title']}")
+        logger.info(f"   🔑 Keywords: {len(script_result['keywords'])}")
+        logger.info(f"   ⏱️  Duration: ~{script_result['estimated_duration']:.0f}s")
+        
         upload_result = await upload_youtube(
             final, script_result["title"], script_result["description"],
             script_result["keywords"], user_id, database_manager
         )
         
+        # Cleanup
+        logger.info("")
+        logger.info("=" * 60)
+        logger.info("🗑️  STEP 12: CLEANUP")
+        logger.info("=" * 60)
+        
         if temp_dir:
             shutil.rmtree(temp_dir, ignore_errors=True)
+            logger.info(f"   ✅ Temporary files cleaned")
         gc.collect()
+        logger.info(f"   ✅ Memory cleaned")
         
         if not upload_result.get("success"):
+            logger.error(f"   ❌ Upload failed: {upload_result.get('error')}")
             return upload_result
+        
+        logger.info("")
+        logger.info("=" * 60)
+        logger.info("🎉 SUCCESS! VIDEO PUBLISHED")
+        logger.info("=" * 60)
+        logger.info(f"   🆔 Video ID: {upload_result.get('video_id')}")
+        logger.info(f"   🔗 URL: {upload_result.get('video_url')}")
+        logger.info(f"   📊 Stats: {len(image_files)} images, {final_size:.1f}MB, ~{script_result['estimated_duration']:.0f}s")
+        logger.info("=" * 60)
         
         result = {
             "success": True,
