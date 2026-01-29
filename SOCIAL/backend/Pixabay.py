@@ -78,7 +78,7 @@ NICHE_EXCLUSIONS = {
 
 SPIRITUAL_DEITIES = {
     "krishna": {
-        "keywords": ["krishna divine statue", "krishna flute colorful", "radha krishna love", "vrindavan temple"],
+        "keywords": ["krishna", "krishna flute colorful", "radha", "vrindavan temple"],
         "thumbnail_keywords": ["krishna divine colorful", "krishna statue golden"],
         "thumbnail_text": "Krishna Leela",
         "stories": [
@@ -431,7 +431,11 @@ async def generate_unique_script(niche: str, target_duration: int, context: dict
     min_words, max_words, target_words = calculate_word_limit(target_duration)
     
     # CTA/Outro (fixed)
-    cta = "Agar aapko yeh video pasand aayi ho toh LIKE karein, SUBSCRIBE karein aur apne doston ko SHARE karein!"
+    # cta = "Agar aapko yeh video pasand aayi ho toh LIKE karein, SUBSCRIBE karein aur apne doston ko SHARE karein!"
+    # cta = "Roz aise shocking facts dekhna chahte hain? LIKE karein, SUBSCRIBE karein aur SHARE karke support dikhayein."
+    cta = "Roz aise shocking facts ke liye LIKE karein, SUBSCRIBE karein aur SHARE karke ek Bharatiya creator ko support karein."
+
+
     
     # Content duration
     script_duration = target_duration - 10  # Reserve 10s for outro/CTA
