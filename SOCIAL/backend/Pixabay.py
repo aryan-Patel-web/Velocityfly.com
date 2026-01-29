@@ -54,7 +54,7 @@ IMAGE_TARGET_HEIGHT = 1280
 FPS = 30
 
 # THUMBNAIL: 200KB - 2MB
-THUMBNAIL_MIN_SIZE_KB = 200
+THUMBNAIL_MIN_SIZE_KB = 100
 THUMBNAIL_MAX_SIZE_KB = 2048
 
 # ============================================================================
