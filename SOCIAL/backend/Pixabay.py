@@ -1,15 +1,15 @@
 """
-pixabay_final_ultimate_v4.py - COMPLETE FINAL VERSION
+pixabay_final_corrected.py - COMPLETE CORRECTED VERSION
 ==================================================
-✅ AI generates UNIQUE scripts every time (no repetition)
-✅ Luxury: Dynamic car selection with real specs scraping
-✅ Spiritual: Random Krishna/Mahadev with authentic stories
-✅ Thumbnail: 200KB-2MB range with text overlays
-✅ Voice: 1.1x speed (ElevenLabs + Edge TTS)
-✅ Niche filtering: No coffee/couples in wrong niches
-✅ Target duration matches exactly (30s = 30s output)
-✅ Hook + Suspense + Story + Outro structure
-✅ ALL keywords similar and consistent
+✅ FIXED: Image duration calculation (30s video = 2-3s per image)
+✅ FIXED: Script word limits (220-300 words based on duration)
+✅ AI generates UNIQUE scripts every time
+✅ Luxury: Dynamic car selection with real specs
+✅ Spiritual: Random Krishna/Mahadev stories
+✅ Thumbnail: 200KB-2MB with text overlay
+✅ Voice: 1.1x speed
+✅ Niche filtering: No coffee/couples
+✅ Hook + Story + Outro structure
 ==================================================
 """
 
@@ -46,9 +46,9 @@ FFMPEG_TIMEOUT_CLIP = 180
 FFMPEG_TIMEOUT_CONCAT = 300
 FFMPEG_TIMEOUT_MUSIC = 120
 
-# IMAGE CONFIG
-MIN_IMAGES = 5
-MAX_IMAGES = 15
+# IMAGE CONFIG - FIXED CALCULATIONS
+MIN_IMAGES = 8
+MAX_IMAGES = 18
 IMAGE_TARGET_WIDTH = 720
 IMAGE_TARGET_HEIGHT = 1280
 FPS = 30
@@ -58,7 +58,7 @@ THUMBNAIL_MIN_SIZE_KB = 200
 THUMBNAIL_MAX_SIZE_KB = 2048
 
 # ============================================================================
-# NICHE EXCLUSIONS - FILTER IRRELEVANT IMAGES
+# NICHE EXCLUSIONS
 # ============================================================================
 
 NICHE_EXCLUSIONS = {
@@ -73,7 +73,7 @@ NICHE_EXCLUSIONS = {
 }
 
 # ============================================================================
-# SPIRITUAL DEITIES - AUTHENTIC STORIES
+# SPIRITUAL DEITIES
 # ============================================================================
 
 SPIRITUAL_DEITIES = {
@@ -82,13 +82,10 @@ SPIRITUAL_DEITIES = {
         "thumbnail_keywords": ["krishna divine colorful", "krishna statue golden"],
         "thumbnail_text": "Krishna Leela",
         "stories": [
-            "Krishna ka janam Mathura ki kaalgari mein hua. Kansa ne sabhi bachon ko maarne ka plan banaya kyunki bhavishyavani thi ki aathva beta uski maut banega. Jab Krishna paida hue, divya shakti ne prahariyon ko sula diya. Vasudeva basket mein Krishna ko lekar Yamuna paar karne lage. Yamuna ne apna paani khud neeche kar diya aur Shesh Naag ne phano se suraksha di. Krishna Gokul mein Yashoda ke paas pohonche. Yeh pehli divya leela thi.",
-            
-            "Krishna ka makhan churana bahut prasiddh hai. Yashoda makhan oonchai par rakhti thi par Krishna apne sakhao ke saath ladder banakar nikal lete the. Ek din Yashoda ne pakad liya aur mukh kholne ko kaha. Tab Yashoda ne Krishna ke mukh mein pura brahmaand dekha - suraj, chaand, prithvi, swarg sab kuch. Unhe yaad aaya ki yeh Bhagwan ka avatar hai.",
-            
-            "Govardhan Parvat uthana Krishna ki sabse badi leela hai. Vrindavan ke log Indra Dev ki pooja karte the. Krishna ne logo ko samjhaya ki Govardhan Parvat asli rakshak hai. Logo ne Govardhan ki pooja ki. Gusse mein Indra ne saat din baarish ki. Krishna ne chhoti ungli par pura parvat utha liya aur sab logo ko suraksha di. Saat din baad Indra ko apni galti ka ehsaas hua. Yeh leela sikhati hai ki ahankar ka nash hona zaroori hai.",
-            
-            "Kurukshetra yudh se pehle Arjun ne apne kul ke logo ke khilaf ladne se mana kar diya. Krishna ne Bhagavad Gita ka updesh diya. 'Karmanye Vadhikaraste Ma Phaleshu Kadachana' - karma par adhikar hai, phal par nahi. Krishna ne Vishwaroop bhi dikhaya jisme puri srishti unke sharir mein thi. Yeh updesh har peedhi ke liye hai."
+            "Krishna ka janam Mathura ki kaalgari mein hua. Kansa ne sabhi bachon ko maarne ka plan banaya kyunki bhavishyavani thi ki aathva beta uski maut banega. Jab Krishna paida hue, divya shakti ne prahariyon ko sula diya. Vasudeva basket mein Krishna ko lekar Yamuna paar karne lage. Yamuna ne apna paani khud neeche kar diya aur Shesh Naag ne phano se suraksha di. Krishna Gokul mein Yashoda ke paas pohonche.",
+            "Krishna ka makhan churana bahut prasiddh hai. Yashoda makhan oonchai par rakhti thi par Krishna apne sakhao ke saath ladder banakar nikal lete the. Ek din Yashoda ne pakad liya aur mukh kholne ko kaha. Tab Yashoda ne Krishna ke mukh mein pura brahmaand dekha - suraj, chaand, prithvi, swarg sab kuch.",
+            "Govardhan Parvat uthana Krishna ki sabse badi leela hai. Vrindavan ke log Indra Dev ki pooja karte the. Krishna ne logo ko samjhaya ki Govardhan Parvat asli rakshak hai. Gusse mein Indra ne saat din baarish ki. Krishna ne chhoti ungli par pura parvat utha liya aur sab logo ko suraksha di.",
+            "Kurukshetra yudh se pehle Arjun ne ladne se mana kar diya. Krishna ne Bhagavad Gita ka updesh diya. Karmanye Vadhikaraste Ma Phaleshu Kadachana - karma par adhikar hai, phal par nahi. Krishna ne Vishwaroop bhi dikhaya."
         ]
     },
     "mahadev": {
@@ -96,17 +93,15 @@ SPIRITUAL_DEITIES = {
         "thumbnail_keywords": ["mahadev powerful divine", "shiva statue golden"],
         "thumbnail_text": "Mahadev Shakti",
         "stories": [
-            "Samudra Manthan mein jab halahal vish nikla jo puri srishti ko nasht kar sakta tha, sab Mahadev ke paas gaye. Mahadev ne srishti ki raksha ke liye vish piya. Par nigala nahi, gale mein rok liya. Vish se gala neela pad gaya aur naam pada Neelkanth. Parvati ne turant gale par haath rakha taaki vish neeche na jaaye. Yeh sikhata hai ki Mahadev tyag aur balidan ki moorti hain.",
-            
-            "Parvati ne Shiva ko pati ke roop mein chahte hue ghori tapasya ki. Barfili pahadiyon mein, garmi mein, baarish mein - har paristhiti mein tapasya ki. Shiva ne budhe brahman ka roop dhaaran karke pariksha li. Par Parvati ne daanta. Tab Shiva prakat hue aur vivah karne ko taiyaar ho gaye. Yeh batata hai ki sacchi bhakti se sab kuch haasil hota hai.",
-            
-            "Ganga avataran ki katha mein Raja Bhagirath ne hazaaron saal tapasya ki taaki Ganga prithvi par utare. Brahma ji ne Ganga ko aadesh diya. Par Ganga ka veg itna tez tha ki prithvi barbad ho sakti thi. Bhagirath ne Shiva ki tapasya ki. Mahadev ne Ganga ko jataon mein rok liya aur saat dharaon mein pravahit kar diya. Isliye Ganga ko Shiva ki jata se nikli nadi kaha jaata hai."
+            "Samudra Manthan mein jab halahal vish nikla, sab Mahadev ke paas gaye. Mahadev ne srishti ki raksha ke liye vish piya. Par nigala nahi, gale mein rok liya. Vish se gala neela pad gaya aur naam pada Neelkanth. Parvati ne gale par haath rakha.",
+            "Parvati ne Shiva ko pati ke roop mein chahte hue ghori tapasya ki. Barfili pahadiyon mein, garmi mein, baarish mein tapasya ki. Shiva ne budhe brahman ka roop dhaaran karke pariksha li. Par Parvati ne daanta. Tab Shiva prakat hue aur vivah kiya.",
+            "Ganga avataran mein Raja Bhagirath ne tapasya ki taaki Ganga prithvi par utare. Par Ganga ka veg itna tez tha ki prithvi barbad ho sakti thi. Bhagirath ne Shiva ki tapasya ki. Mahadev ne Ganga ko jataon mein rok liya aur saat dharaon mein pravahit kar diya."
         ]
     }
 }
 
 # ============================================================================
-# NICHE KEYWORDS - CONSISTENT & SIMILAR
+# NICHE KEYWORDS
 # ============================================================================
 
 NICHE_KEYWORDS = {
@@ -151,12 +146,12 @@ NICHE_KEYWORDS = {
         "hindi_keywords": ["रहस्य", "प्राचीन"]
     },
     "spiritual": {
-        "keywords": [],  # Dynamic
+        "keywords": [],
         "emotion": "devotion",
         "voice_id": "yD0Zg2jxgfQLY8I2MEHO",
         "bg_music_url": "https://raw.githubusercontent.com/aryan-Patel-web/audio-collections/main/videoplayback.weba",
-        "thumbnail_keywords": [],  # Dynamic
-        "thumbnail_text": "",  # Dynamic
+        "thumbnail_keywords": [],
+        "thumbnail_text": "",
         "english_keywords": ["spiritual wisdom", "hindu mythology", "devotional stories"],
         "hindi_keywords": ["आध्यात्मिक", "भक्ति"]
     },
@@ -181,12 +176,12 @@ NICHE_KEYWORDS = {
         "hindi_keywords": ["मजेदार", "कॉमेडी"]
     },
     "luxury": {
-        "keywords": [],  # Dynamic
+        "keywords": [],
         "emotion": "aspiration",
         "voice_id": "l1CrgWMeEfm3xvPbn4YE",
         "bg_music_url": "https://raw.githubusercontent.com/aryan-Patel-web/audio-collections/main/videoplayback%20(7).weba",
-        "thumbnail_keywords": [],  # Dynamic
-        "thumbnail_text": "",  # Dynamic
+        "thumbnail_keywords": [],
+        "thumbnail_text": "",
         "english_keywords": ["luxury cars", "supercars", "car review"],
         "hindi_keywords": ["लग्जरी", "सुपरकार"]
     }
@@ -226,7 +221,31 @@ def run_ffmpeg(cmd: list, timeout: int = 120) -> bool:
         return False
 
 def estimate_speech_duration(text: str, speed: float = 1.1) -> float:
-    return (len(text.split()) / 150 * 60) / speed
+    """Estimate duration based on word count"""
+    words = len(text.split())
+    # Average: 150 words per minute at 1x speed
+    # At 1.1x speed: 165 words per minute
+    return (words / 165) * 60
+
+def calculate_word_limit(target_duration: int) -> tuple:
+    """Calculate word limits based on target duration
+    
+    30s video = 20s script + 10s outro/cta → 55-75 words for script
+    40s video = 30s script + 10s outro/cta → 82-110 words for script  
+    50s video = 40s script + 10s outro/cta → 110-150 words for script
+    """
+    # Reserve time for outro/CTA
+    script_duration = target_duration - 10  # Reserve 10s for outro/CTA
+    
+    # At 165 words/minute (1.1x speed)
+    words_per_second = 165 / 60  # ≈2.75 words/second
+    
+    # Calculate word limits
+    target_words = int(script_duration * words_per_second)
+    min_words = int(target_words * 0.85)  # 85% of target
+    max_words = int(target_words * 1.15)  # 115% of target
+    
+    return min_words, max_words, target_words
 
 def convert_weba_to_mp3(weba: str, mp3: str) -> bool:
     return run_ffmpeg(["ffmpeg", "-i", weba, "-vn", "-acodec", "libmp3lame", "-b:a", "128k", "-y", mp3], FFMPEG_TIMEOUT_MUSIC)
@@ -251,51 +270,42 @@ def filter_niche_images(hits: List[dict], niche: str) -> List[dict]:
 # ============================================================================
 
 def add_text_to_thumbnail(image_path: str, text: str, output_path: str) -> bool:
-    """Add text overlay to thumbnail"""
     try:
         img = Image.open(image_path)
         draw = ImageDraw.Draw(img)
         
-        # Try to use bold font
         try:
             font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 60)
         except:
             font = ImageFont.load_default()
         
-        # Calculate text position (center bottom)
         bbox = draw.textbbox((0, 0), text, font=font)
         text_width = bbox[2] - bbox[0]
         text_height = bbox[3] - bbox[1]
         
         position = ((img.width - text_width) // 2, img.height - text_height - 100)
         
-        # Draw text with outline
-        outline_color = "black"
-        text_color = "white"
-        
         # Outline
         for adj in range(-3, 4):
             for adj2 in range(-3, 4):
-                draw.text((position[0]+adj, position[1]+adj2), text, font=font, fill=outline_color)
+                draw.text((position[0]+adj, position[1]+adj2), text, font=font, fill="black")
         
         # Main text
-        draw.text(position, text, font=font, fill=text_color)
+        draw.text(position, text, font=font, fill="white")
         
         img.save(output_path, quality=95)
-        logger.info(f"✅ Text added to thumbnail: '{text}'")
+        logger.info(f"✅ Text added: '{text}'")
         return True
     except Exception as e:
         logger.error(f"Thumbnail text error: {e}")
         return False
 
 # ============================================================================
-# CAR SELECTION (DYNAMIC)
+# CAR SELECTION
 # ============================================================================
 
 async def select_and_scrape_car() -> dict:
-    """AI selects random car with real specs"""
-    
-    car_prompt = """Select ONE random luxury car from: BMW, Mercedes-Benz, Audi, Ferrari, Lamborghini, Rolls-Royce, Bugatti, Porsche, McLaren, Bentley, Aston Martin, Maserati, Koenigsegg, Pagani.
+    car_prompt = """Select ONE random luxury car from: BMW, Mercedes-Benz, Audi, Ferrari, Lamborghini, Rolls-Royce, Bugatti, Porsche, McLaren, Bentley, Aston Martin, Maserati.
 
 Provide REAL specifications in JSON:
 
@@ -311,10 +321,7 @@ Provide REAL specifications in JSON:
   "thumbnail_text": "Ferrari SF90"
 }
 
-CRITICAL:
-- Select DIFFERENT car every time
-- Provide 100% ACCURATE specs
-- Output ONLY JSON"""
+Output ONLY JSON. Select DIFFERENT car every time."""
     
     try:
         if not MISTRAL_API_KEY:
@@ -327,7 +334,7 @@ CRITICAL:
                 json={
                     "model": "mistral-large-latest",
                     "messages": [
-                        {"role": "system", "content": "Car expert. Always select DIFFERENT cars. Output ONLY JSON."},
+                        {"role": "system", "content": "Car expert. Select DIFFERENT cars. Output ONLY JSON."},
                         {"role": "user", "content": car_prompt}
                     ],
                     "temperature": 0.95,
@@ -341,7 +348,7 @@ CRITICAL:
                 match = re.search(r'\{.*\}', content, re.DOTALL)
                 if match:
                     car_data = json.loads(match.group(0))
-                    logger.info(f"🚗 Car: {car_data['brand']} {car_data['model']}")
+                    logger.info(f"🚗 {car_data['brand']} {car_data['model']}")
                     return car_data
     except Exception as e:
         logger.error(f"Car error: {e}")
@@ -355,7 +362,7 @@ def select_deity() -> tuple:
     deity_name = random.choice(["krishna", "mahadev"])
     deity = SPIRITUAL_DEITIES[deity_name]
     story = random.choice(deity["stories"])
-    logger.info(f"🕉️ Deity: {deity_name.upper()}")
+    logger.info(f"🕉️ {deity_name.upper()}")
     return deity_name, deity, story
 
 # ============================================================================
@@ -413,15 +420,21 @@ async def search_pixabay_hd(niche: str, count: int, is_thumbnail: bool = False, 
     return all_images[:count]
 
 # ============================================================================
-# SCRIPT GENERATION - ALWAYS UNIQUE
+# SCRIPT GENERATION - FIXED WORD LIMITS
 # ============================================================================
 
 async def generate_unique_script(niche: str, target_duration: int, context: dict = None) -> dict:
     niche_data = NICHE_KEYWORDS.get(niche, NICHE_KEYWORDS["space"])
     emotion = niche_data["emotion"]
     
+    # Calculate word limits
+    min_words, max_words, target_words = calculate_word_limit(target_duration)
+    
+    # CTA/Outro (fixed)
     cta = "Agar aapko yeh video pasand aayi ho toh LIKE karein, SUBSCRIBE karein aur apne doston ko SHARE karein!"
-    content_duration = max(15, target_duration - 8)
+    
+    # Content duration
+    script_duration = target_duration - 10  # Reserve 10s for outro/CTA
     
     if niche == "luxury" and context and "car_data" in context:
         car = context["car_data"]
@@ -429,25 +442,31 @@ async def generate_unique_script(niche: str, target_duration: int, context: dict
 Engine: {car['engine']} | CC: {car['cc']} | HP: {car['horsepower']}
 Top Speed: {car['top_speed']} | Price: {car['price_india']}
 
-Explain EVERYTHING about this car in exciting Hindi! UNIQUE script!"""
+Explain ALL specs in exciting Hindi!"""
     elif niche == "spiritual" and context and "story" in context:
-        specific = f"Use this story:\n{context['story']}\n\nNarrate in engaging Hindi! UNIQUE telling!"
+        specific = f"Use this story:\n{context['story']}\n\nNarrate in engaging Hindi!"
     else:
-        specific = f"Create UNIQUE {niche} content! Fresh facts, new angles!"
+        specific = f"Create UNIQUE {niche} content with fresh facts!"
     
-    prompt = f"""Create {content_duration}s Hindi script with this structure:
+    prompt = f"""Create {script_duration}s Hindi script ({min_words}-{max_words} words, target: {target_words} words):
 
-HOOK (5s): Start with shocking question/fact
-SUSPENSE (5s): Build curiosity
-MAIN STORY (75%): {specific}
-OUTRO (10%): Powerful conclusion
+STRICT STRUCTURE:
+1. HOOK (2-3s): Shocking question/fact
+2. MAIN CONTENT ({script_duration-5}s): {specific}
+3. CONCLUSION (2-3s): Powerful ending
 
-{emotion.upper()} tone. Natural Hindi. NO "pause". ALWAYS create UNIQUE content!
+CRITICAL RULES:
+- Word count: {min_words}-{max_words} words ONLY (target: {target_words})
+- NO CTA in your output (we add separately)
+- {emotion.upper()} tone
+- Natural Hindi, short sentences
+- NO "pause" word
+- UNIQUE content every time
 
 JSON:
 {{
-  "content": "Hindi script WITHOUT CTA",
-  "title": "Hinglish title 80 chars max"
+  "content": "Hindi script {min_words}-{max_words} words WITHOUT CTA",
+  "title": "Hinglish title max 80 chars"
 }}"""
     
     try:
@@ -459,7 +478,7 @@ JSON:
                     json={
                         "model": "mistral-large-latest",
                         "messages": [
-                            {"role": "system", "content": "Always create UNIQUE scripts. Never repeat. Output ONLY JSON."},
+                            {"role": "system", "content": f"Always create UNIQUE scripts. Strict word limit: {min_words}-{max_words} words. Output ONLY JSON."},
                             {"role": "user", "content": prompt}
                         ],
                         "temperature": 0.95,
@@ -474,19 +493,38 @@ JSON:
                     if match:
                         data = json.loads(match.group(0))
                         
-                        # Fix: Ensure content is string, not dict
                         script_content = data.get("content", "")
                         if isinstance(script_content, dict):
                             script_content = str(script_content)
                         elif not isinstance(script_content, str):
                             script_content = ""
                         
+                        # Add CTA
                         full_script = script_content + " " + cta
+                        
+                        # Calculate actual duration
+                        est_dur = estimate_speech_duration(full_script, 1.1)
+                        
+                        # FIXED: Calculate proper image count and duration
+                        # For 30s video: 10-15 images at 2-3s each
+                        # For 40s video: 12-15 images at 2.5-3.5s each
+                        if est_dur <= 30:
+                            num_imgs = random.randint(10, 15)
+                        elif est_dur <= 40:
+                            num_imgs = random.randint(12, 15)
+                        else:
+                            num_imgs = random.randint(14, 18)
+                        
+                        # Ensure within limits
+                        num_imgs = max(MIN_IMAGES, min(num_imgs, MAX_IMAGES))
+                        
+                        # Calculate image duration (2-3.5s per image)
+                        img_dur = est_dur / num_imgs
                         
                         all_keys = niche_data["english_keywords"][:10] + niche_data["hindi_keywords"][:5]
                         
-                        est_dur = estimate_speech_duration(full_script, 1.1)
-                        num_imgs = max(MIN_IMAGES, min(int(est_dur / 3.5) + 1, MAX_IMAGES))
+                        word_count = len(script_content.split())
+                        logger.info(f"📝 Script: {word_count} words, {est_dur:.1f}s, {num_imgs} images @ {img_dur:.1f}s each")
                         
                         return {
                             "script": full_script,
@@ -495,14 +533,16 @@ JSON:
                             "keywords": list(dict.fromkeys(all_keys))[:20],
                             "estimated_duration": est_dur,
                             "num_images_needed": num_imgs,
-                            "image_duration": est_dur / num_imgs
+                            "image_duration": img_dur,
+                            "word_count": word_count
                         }
     except Exception as e:
         logger.warning(f"Script error: {e}")
     
+    # Fallback
     fallback = f"Amazing {niche} facts! " + cta
     est = estimate_speech_duration(fallback, 1.1)
-    num = max(MIN_IMAGES, int(est / 3.5) + 1)
+    num = random.randint(10, 15)
     
     return {
         "script": fallback,
@@ -511,7 +551,8 @@ JSON:
         "keywords": (niche_data["english_keywords"][:10] + niche_data["hindi_keywords"][:5])[:20],
         "estimated_duration": est,
         "num_images_needed": num,
-        "image_duration": est / num
+        "image_duration": est / num,
+        "word_count": len(fallback.split())
     }
 
 # ============================================================================
@@ -589,19 +630,12 @@ async def download_image(img_data: dict, path: str, retry: int = 0) -> bool:
 
 async def download_images(images: List[dict], temp_dir: str) -> List[str]:
     downloaded = []
-    total = len(images)
-    
-    for idx, img in enumerate(images, 1):
-        path = os.path.join(temp_dir, f"img_{idx-1:02d}.jpg")
-        logger.info(f"   📥 Downloading image {idx}/{total}...")
-        
+    for idx, img in enumerate(images):
+        path = os.path.join(temp_dir, f"img_{idx:02d}.jpg")
         if await download_image(img, path):
             downloaded.append(path)
-            logger.info(f"      ✅ Image {idx}: {get_size_kb(path):.0f}KB")
-        else:
-            logger.warning(f"      ⚠️  Image {idx}: Download failed")
-    
-    logger.info(f"   📊 Downloaded: {len(downloaded)}/{total} images")
+            logger.info(f"   ✅ {idx+1}/{len(images)}: {get_size_kb(path):.0f}KB")
+    logger.info(f"✅ Downloaded: {len(downloaded)}/{len(images)}")
     return downloaded
 
 # ============================================================================
@@ -647,36 +681,24 @@ def create_slideshow(images: List[str], dur: float, temp_dir: str) -> Optional[s
         
         frames = int(dur * FPS)
         clips = []
-        total = len(images)
         
-        logger.info(f"   🎞️  Processing {total} clips with transitions...")
-        
-        for idx, img in enumerate(images, 1):
-            logger.info(f"      🎬 Clip {idx}/{total}: Resizing & adding transition...")
-            
-            r = os.path.join(temp_dir, f"r{idx-1}.jpg")
+        for idx, img in enumerate(images):
+            r = os.path.join(temp_dir, f"r{idx}.jpg")
             if not run_ffmpeg(["ffmpeg", "-i", img, "-vf", f"scale={IMAGE_TARGET_WIDTH}:{IMAGE_TARGET_HEIGHT}:force_original_aspect_ratio=increase,crop={IMAGE_TARGET_WIDTH}:{IMAGE_TARGET_HEIGHT}", "-q:v", "2", "-y", r], 15):
-                logger.warning(f"         ⚠️  Clip {idx}: Resize failed")
                 continue
             
             trans = random.choice(TRANSITIONS)
             filt = trans["filter"].replace("{frames}", str(frames)).replace("{fps}", str(FPS))
             
-            c = os.path.join(temp_dir, f"c{idx-1}.mp4")
+            c = os.path.join(temp_dir, f"c{idx}.mp4")
             if run_ffmpeg(["ffmpeg", "-loop", "1", "-i", r, "-vf", filt, "-t", str(dur), "-r", str(FPS), "-c:v", "libx264", "-crf", "23", "-preset", "fast", "-pix_fmt", "yuv420p", "-y", c], FFMPEG_TIMEOUT_CLIP):
                 clips.append(c)
-                logger.info(f"         ✅ Clip {idx}: Ready ({get_size_mb(c):.1f}MB)")
-            else:
-                logger.warning(f"         ⚠️  Clip {idx}: Processing failed")
+                logger.info(f"   ✅ Clip {idx+1}/{len(images)}")
             
             force_cleanup(r)
         
         if len(clips) < MIN_IMAGES:
-            logger.error(f"   ❌ Not enough clips: {len(clips)}/{MIN_IMAGES}")
             return None
-        
-        logger.info(f"   ✅ All clips ready: {len(clips)}/{total}")
-        logger.info(f"   🔗 Concatenating clips...")
         
         concat = os.path.join(temp_dir, "concat.txt")
         with open(concat, 'w') as f:
@@ -687,13 +709,11 @@ def create_slideshow(images: List[str], dur: float, temp_dir: str) -> Optional[s
         if run_ffmpeg(["ffmpeg", "-f", "concat", "-safe", "0", "-i", concat, "-c", "copy", "-y", output], FFMPEG_TIMEOUT_CONCAT):
             for c in clips:
                 force_cleanup(c)
-            logger.info(f"   ✅ Concatenation complete")
+            logger.info(f"✅ Slideshow: {get_size_mb(output):.1f}MB")
             return output
-        
-        logger.error(f"   ❌ Concatenation failed")
         return None
     except Exception as e:
-        logger.error(f"   ❌ Slideshow error: {e}")
+        logger.error(f"Slideshow error: {e}")
         return None
 
 # ============================================================================
@@ -761,7 +781,7 @@ async def upload_youtube(video: str, title: str, desc: str, keywords: List[str],
         return {"success": False, "error": str(e)}
 
 # ============================================================================
-# MAIN - FULLY DYNAMIC
+# MAIN
 # ============================================================================
 
 async def generate_pixabay_video(niche: str, language: str, user_id: str, database_manager,
@@ -772,256 +792,101 @@ async def generate_pixabay_video(niche: str, language: str, user_id: str, databa
     
     try:
         temp_dir = tempfile.mkdtemp(prefix="pixabay_")
-        logger.info(f"🎬 START: {niche} | Duration: {target_duration}s | Language: {language}")
-        logger.info(f"📁 Working directory: {temp_dir}")
+        logger.info(f"🎬 START: {niche} ({target_duration}s)")
         
-        # LUXURY: Dynamic car
+        # LUXURY
         if niche == "luxury":
-            logger.info("=" * 60)
-            logger.info("🚗 STEP 1: LUXURY CAR SELECTION")
-            logger.info("=" * 60)
             car = await select_and_scrape_car()
             if car:
                 context["car_data"] = car
                 NICHE_KEYWORDS["luxury"]["keywords"] = car.get("search_keywords", [])
                 NICHE_KEYWORDS["luxury"]["thumbnail_keywords"] = car.get("search_keywords", [])
                 thumbnail_text = car.get("thumbnail_text", "Luxury Car")
-                logger.info(f"   ✅ Selected: {car['brand']} {car['model']}")
-                logger.info(f"   ⚙️  Engine: {car.get('engine', 'N/A')}")
-                logger.info(f"   🔧 CC: {car.get('cc', 'N/A')} | HP: {car.get('horsepower', 'N/A')}")
-                logger.info(f"   ⚡ Top Speed: {car.get('top_speed', 'N/A')}")
-                logger.info(f"   💰 Price: {car.get('price_india', 'N/A')}")
-            else:
-                logger.warning("   ⚠️  Car selection failed, using fallback")
         
-        # SPIRITUAL: Random deity
+        # SPIRITUAL
         elif niche == "spiritual":
-            logger.info("=" * 60)
-            logger.info("🕉️  STEP 1: SPIRITUAL DEITY SELECTION")
-            logger.info("=" * 60)
             deity_name, deity, story = select_deity()
             context["story"] = story
             NICHE_KEYWORDS["spiritual"]["keywords"] = deity["keywords"]
             NICHE_KEYWORDS["spiritual"]["thumbnail_keywords"] = deity["thumbnail_keywords"]
             thumbnail_text = deity["thumbnail_text"]
-            logger.info(f"   ✅ Selected: {deity_name.upper()}")
-            logger.info(f"   📖 Story length: {len(story)} characters")
         else:
-            logger.info("=" * 60)
-            logger.info(f"📝 STEP 1: {niche.upper()} CONTENT PREPARATION")
-            logger.info("=" * 60)
             thumbnail_text = NICHE_KEYWORDS[niche].get("thumbnail_text", "")
         
-        # Generate UNIQUE script
-        logger.info("")
-        logger.info("=" * 60)
-        logger.info("📝 STEP 2: AI SCRIPT GENERATION")
-        logger.info("=" * 60)
-        logger.info(f"   🎯 Target duration: {target_duration}s")
-        logger.info(f"   🗣️  Language: {language}")
-        logger.info(f"   🎭 Emotion: {NICHE_KEYWORDS[niche]['emotion']}")
-        
+        # Generate script with proper word limits
         script_result = await generate_unique_script(niche, target_duration, context)
         num_images = script_result["num_images_needed"]
         img_dur = script_result["image_duration"]
         
-        logger.info(f"   ✅ Script generated successfully")
-        logger.info(f"   📊 Estimated duration: {script_result['estimated_duration']:.1f}s")
-        logger.info(f"   📸 Images needed: {num_images}")
-        logger.info(f"   ⏱️  Image duration: {img_dur:.1f}s each")
-        logger.info(f"   📝 Title: {script_result['title'][:50]}...")
-        logger.info(f"   🔑 Keywords: {len(script_result['keywords'])} total")
+        logger.info(f"📊 {script_result['word_count']} words, {num_images} images @ {img_dur:.1f}s")
         
         # Search images
-        logger.info("")
-        logger.info("=" * 60)
-        logger.info("🔍 STEP 3: SEARCHING HD IMAGES")
-        logger.info("=" * 60)
-        logger.info(f"   🎯 Target: {num_images} images")
-        logger.info(f"   📏 Min resolution: 1080x1920")
-        
         images_data = await search_pixabay_hd(niche, num_images, False)
         if len(images_data) < MIN_IMAGES:
-            logger.error(f"   ❌ Not enough images: {len(images_data)}/{MIN_IMAGES} minimum")
             return {"success": False, "error": f"Not enough images: {len(images_data)}"}
         
-        logger.info(f"   ✅ Found {len(images_data)} HD images")
-        
-        # Search thumbnail (200KB-2MB)
-        logger.info("")
-        logger.info("=" * 60)
-        logger.info("🖼️  STEP 4: SEARCHING HD THUMBNAIL")
-        logger.info("=" * 60)
-        logger.info(f"   🎯 Size range: 200KB - 2MB")
-        
+        # Search thumbnail
         thumb_data = await search_pixabay_hd(niche, 1, True)
         
-        if thumb_data:
-            logger.info(f"   ✅ Found thumbnail: {thumb_data[0]['size_kb']:.0f}KB")
-        else:
-            logger.warning(f"   ⚠️  No thumbnail found in size range")
-        
         # Download
-        logger.info("")
-        logger.info("=" * 60)
-        logger.info("📥 STEP 5: DOWNLOADING IMAGES")
-        logger.info("=" * 60)
-        
         image_files = await download_images(images_data, temp_dir)
         if len(image_files) < MIN_IMAGES:
-            logger.error(f"   ❌ Download failed: {len(image_files)}/{MIN_IMAGES} minimum")
             return {"success": False, "error": "Download failed"}
-        
-        logger.info(f"   ✅ Successfully downloaded: {len(image_files)}/{len(images_data)} images")
         
         if len(image_files) != num_images:
             img_dur = script_result["estimated_duration"] / len(image_files)
-            logger.info(f"   🔄 Adjusted image duration: {img_dur:.1f}s each")
+            logger.info(f"🔄 Adjusted: {len(image_files)} images @ {img_dur:.1f}s")
         
-        # Thumbnail with text overlay
-        logger.info("")
-        logger.info("=" * 60)
-        logger.info("🎨 STEP 6: CREATING THUMBNAIL WITH TEXT")
-        logger.info("=" * 60)
-        
+        # Thumbnail with text
         thumb_file = None
         if thumb_data:
             thumb_base = os.path.join(temp_dir, "thumb_base.jpg")
-            logger.info(f"   📥 Downloading thumbnail...")
             if await download_image(thumb_data[0], thumb_base):
                 thumb_final = os.path.join(temp_dir, "thumb.jpg")
-                logger.info(f"   ✏️  Adding text overlay: '{thumbnail_text}'")
                 if add_text_to_thumbnail(thumb_base, thumbnail_text, thumb_final):
                     thumb_file = thumb_final
-                    logger.info(f"   ✅ Thumbnail ready: {get_size_kb(thumb_final):.0f}KB")
-                else:
-                    logger.warning(f"   ⚠️  Text overlay failed")
-            else:
-                logger.warning(f"   ⚠️  Thumbnail download failed")
-        else:
-            logger.warning(f"   ⚠️  No thumbnail available")
         
         # Music
-        logger.info("")
-        logger.info("=" * 60)
-        logger.info("🎵 STEP 7: DOWNLOADING BACKGROUND MUSIC")
-        logger.info("=" * 60)
-        
-        if custom_bg_music:
-            logger.info(f"   🎼 Using custom URL")
-        else:
-            logger.info(f"   🎼 Using default {niche} music")
-        
         music = await download_music(niche, temp_dir, custom_bg_music, script_result["estimated_duration"])
         
-        if music:
-            logger.info(f"   ✅ Music ready: {get_size_mb(music):.2f}MB")
-        else:
-            logger.warning(f"   ⚠️  Music download failed, will proceed without music")
-        
         # Slideshow
-        logger.info("")
-        logger.info("=" * 60)
-        logger.info("🎬 STEP 8: CREATING VIDEO SLIDESHOW")
-        logger.info("=" * 60)
-        logger.info(f"   📸 Processing {len(image_files)} images")
-        logger.info(f"   ⏱️  Duration: {img_dur:.1f}s per image")
-        logger.info(f"   🎞️  FPS: {FPS}")
-        
         slideshow = create_slideshow(image_files, img_dur, temp_dir)
         if not slideshow:
-            logger.error(f"   ❌ Slideshow creation failed")
             return {"success": False, "error": "Slideshow failed"}
         
-        logger.info(f"   ✅ Slideshow created: {get_size_mb(slideshow):.1f}MB")
-        
-        # Cleanup images
-        logger.info(f"   🗑️  Cleaning up {len(image_files)} source images...")
         for img in image_files:
             force_cleanup(img)
         gc.collect()
-        logger.info(f"   ✅ Cleanup complete")
         
         # Voice 1.1x
-        logger.info("")
-        logger.info("=" * 60)
-        logger.info("🎙️  STEP 9: GENERATING VOICE (1.1x SPEED)")
-        logger.info("=" * 60)
-        logger.info(f"   🗣️  Voice: {NICHE_KEYWORDS[niche].get('voice_name', 'Default')}")
-        logger.info(f"   ⚡ Speed: 1.1x (faster narration)")
-        logger.info(f"   📝 Script length: {len(script_result['script'])} characters")
-        
         voice = await generate_voice_11labs(script_result["script"], niche, temp_dir)
-        if voice:
-            logger.info(f"   ✅ ElevenLabs voice generated: {get_size_mb(voice):.2f}MB")
-        else:
-            logger.warning(f"   ⚠️  ElevenLabs failed, trying Edge TTS...")
-            voice = await generate_voice_edge(script_result["script"], temp_dir)
-            if voice:
-                logger.info(f"   ✅ Edge TTS voice generated: {get_size_mb(voice):.2f}MB")
-        
         if not voice:
-            logger.error(f"   ❌ Voice generation failed")
+            voice = await generate_voice_edge(script_result["script"], temp_dir)
+        if not voice:
             return {"success": False, "error": "Voice failed"}
         
         # Mix
-        logger.info("")
-        logger.info("=" * 60)
-        logger.info("🎛️  STEP 10: MIXING AUDIO")
-        logger.info("=" * 60)
-        logger.info(f"   🎬 Video: {get_size_mb(slideshow):.1f}MB")
-        logger.info(f"   🎙️  Voice: {get_size_mb(voice):.2f}MB")
-        if music:
-            logger.info(f"   🎵 Music: {get_size_mb(music):.2f}MB (12% volume)")
-        else:
-            logger.info(f"   🎵 Music: None")
-        
         final = await mix_audio(slideshow, voice, music, temp_dir)
         if not final:
-            logger.error(f"   ❌ Audio mixing failed")
             return {"success": False, "error": "Mix failed"}
         
         final_size = get_size_mb(final)
-        logger.info(f"   ✅ Final video ready: {final_size:.1f}MB")
+        logger.info(f"✅ FINAL: {final_size:.1f}MB")
         
         # Upload
-        logger.info("")
-        logger.info("=" * 60)
-        logger.info("📤 STEP 11: UPLOADING TO YOUTUBE")
-        logger.info("=" * 60)
-        logger.info(f"   📝 Title: {script_result['title']}")
-        logger.info(f"   🔑 Keywords: {len(script_result['keywords'])}")
-        logger.info(f"   ⏱️  Duration: ~{script_result['estimated_duration']:.0f}s")
-        
         upload_result = await upload_youtube(
             final, script_result["title"], script_result["description"],
             script_result["keywords"], user_id, database_manager
         )
         
-        # Cleanup
-        logger.info("")
-        logger.info("=" * 60)
-        logger.info("🗑️  STEP 12: CLEANUP")
-        logger.info("=" * 60)
-        
         if temp_dir:
             shutil.rmtree(temp_dir, ignore_errors=True)
-            logger.info(f"   ✅ Temporary files cleaned")
         gc.collect()
-        logger.info(f"   ✅ Memory cleaned")
         
         if not upload_result.get("success"):
-            logger.error(f"   ❌ Upload failed: {upload_result.get('error')}")
             return upload_result
         
-        logger.info("")
-        logger.info("=" * 60)
-        logger.info("🎉 SUCCESS! VIDEO PUBLISHED")
-        logger.info("=" * 60)
-        logger.info(f"   🆔 Video ID: {upload_result.get('video_id')}")
-        logger.info(f"   🔗 URL: {upload_result.get('video_url')}")
-        logger.info(f"   📊 Stats: {len(image_files)} images, {final_size:.1f}MB, ~{script_result['estimated_duration']:.0f}s")
-        logger.info("=" * 60)
+        logger.info("🎉 SUCCESS!")
         
         result = {
             "success": True,
@@ -1034,6 +899,8 @@ async def generate_pixabay_video(niche: str, language: str, user_id: str, databa
             "niche": niche,
             "image_count": len(image_files),
             "duration": script_result["estimated_duration"],
+            "word_count": script_result["word_count"],
+            "image_duration": img_dur,
             "has_thumbnail": thumb_file is not None
         }
         
@@ -1045,7 +912,7 @@ async def generate_pixabay_video(niche: str, language: str, user_id: str, databa
         return result
         
     except Exception as e:
-        logger.error(f"❌ ERROR: {e}")
+        logger.error(f"❌ {e}")
         logger.error(traceback.format_exc())
         if temp_dir:
             shutil.rmtree(temp_dir, ignore_errors=True)
