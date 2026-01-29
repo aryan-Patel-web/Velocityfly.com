@@ -78,7 +78,7 @@ NICHE_EXCLUSIONS = {
 
 SPIRITUAL_DEITIES = {
     "krishna": {
-        "keywords": ["krishna", "krishna flute colorful", "radha", "vrindavan temple"],
+        "keywords": ["krishna","shri krishna" , "Radhna rani", "Vishnu", "radha", "vrindavan temple"],
         "thumbnail_keywords": ["krishna divine colorful", "krishna statue golden"],
         "thumbnail_text": "Krishna Leela",
         "stories": [
@@ -89,7 +89,7 @@ SPIRITUAL_DEITIES = {
         ]
     },
     "mahadev": {
-        "keywords": ["shiva statue powerful", "mahadev meditation", "shiva trishul divine", "shiva lingam sacred"],
+        "keywords": ["shiva statue powerful","shiv", "ai shiva" "mahadev meditation", "shiva trishul divine", "shiva lingam sacred"],
         "thumbnail_keywords": ["mahadev powerful divine", "shiva statue golden"],
         "thumbnail_text": "Mahadev Shakti",
         "stories": [
@@ -106,7 +106,7 @@ SPIRITUAL_DEITIES = {
 
 NICHE_KEYWORDS = {
     "space": {
-        "keywords": ["galaxy spiral bright", "nebula colorful space", "black hole dark space", "planet earth blue"],
+        "keywords": ["galaxy", "nebula", "black hole", "planet earth blue"],
         "emotion": "wonder",
         "voice_id": "oABbH1EqNQfpzYZZOAPR",
         "bg_music_url": "https://raw.githubusercontent.com/aryan-Patel-web/audio-collections/main/videoplayback%20(5).weba",
@@ -126,7 +126,7 @@ NICHE_KEYWORDS = {
         "hindi_keywords": ["भूतिया", "डरावनी", "हॉरर"]
     },
     "nature": {
-        "keywords": ["mountain peak nature", "waterfall nature", "forest green nature", "wildlife nature"],
+        "keywords": ["mountain peak nature","ocean","under sea" "waterfall nature", "forest green nature", "wildlife nature"],
         "emotion": "peace",
         "voice_id": "repzAAjoKlgcT2oOAIWt",
         "bg_music_url": "https://raw.githubusercontent.com/aryan-Patel-web/audio-collections/main/videoplayback%20(4).weba",
@@ -146,7 +146,16 @@ NICHE_KEYWORDS = {
         "hindi_keywords": ["रहस्य", "प्राचीन"]
     },
     "spiritual": {
-        "keywords": [],
+            "keywords": [
+        "lord krishna",
+        "bhagavad gita",
+        "meditation spiritual",
+        "temple",
+        "hindu devotion prayer",
+        "divine energy light",
+        "ancient indian spirituality",
+        "yoga meditation peace"
+    ],
         "emotion": "devotion",
         "voice_id": "yD0Zg2jxgfQLY8I2MEHO",
         "bg_music_url": "https://raw.githubusercontent.com/aryan-Patel-web/audio-collections/main/videoplayback.weba",
@@ -176,7 +185,18 @@ NICHE_KEYWORDS = {
         "hindi_keywords": ["मजेदार", "कॉमेडी"]
     },
     "luxury": {
-        "keywords": [],
+            "keywords": [
+        "luxury cars",
+        "rare cars",
+        "super cars",
+        "hyper cars",
+        "exotic cars",
+        "premium cars",
+        "sports cars",
+        "dream cars",
+        "millionaire cars",
+        "elite cars"
+    ],
         "emotion": "aspiration",
         "voice_id": "l1CrgWMeEfm3xvPbn4YE",
         "bg_music_url": "https://raw.githubusercontent.com/aryan-Patel-web/audio-collections/main/videoplayback%20(7).weba",
@@ -482,7 +502,7 @@ JSON:
                     json={
                         "model": "mistral-large-latest",
                         "messages": [
-                            {"role": "system", "content": f"Always create UNIQUE scripts. Strict word limit: {min_words}-{max_words} words. Output ONLY JSON."},
+                            {"role": "system", "content": f"Always create UNIQUE scripts,creativeness. Strict word limit: {min_words}-{max_words} words. Output ONLY JSON."},
                             {"role": "user", "content": prompt}
                         ],
                         "temperature": 0.95,
