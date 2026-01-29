@@ -473,7 +473,15 @@ JSON:
                     match = re.search(r'\{.*\}', content, re.DOTALL)
                     if match:
                         data = json.loads(match.group(0))
-                        full_script = data.get("content", "") + " " + cta
+                        
+                        # Fix: Ensure content is string, not dict
+                        script_content = data.get("content", "")
+                        if isinstance(script_content, dict):
+                            script_content = str(script_content)
+                        elif not isinstance(script_content, str):
+                            script_content = ""
+                        
+                        full_script = script_content + " " + cta
                         
                         all_keys = niche_data["english_keywords"][:10] + niche_data["hindi_keywords"][:5]
                         
@@ -482,7 +490,7 @@ JSON:
                         
                         return {
                             "script": full_script,
-                            "title": data.get("title", f"{niche} Facts"),
+                            "title": str(data.get("title", f"{niche} Facts")),
                             "description": full_script[:200],
                             "keywords": list(dict.fromkeys(all_keys))[:20],
                             "estimated_duration": est_dur,
