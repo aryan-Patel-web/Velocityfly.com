@@ -1,16 +1,17 @@
 """
-pixabay_final_corrected.py - COMPLETE CORRECTED VERSION
-==================================================
-✅ FIXED: Image duration calculation (30s video = 2-3s per image)
-✅ FIXED: Script word limits (220-300 words based on duration)
-✅ AI generates UNIQUE scripts every time
-✅ Luxury: Dynamic car selection with real specs
-✅ Spiritual: Random Krishna/Mahadev stories
-✅ Thumbnail: 200KB-2MB with text overlay
-✅ Voice: 1.1x speed
-✅ Niche filtering: No coffee/couples
-✅ Hook + Story + Outro structure
-==================================================
+pixabay_final_ultimate_v5.py - COMPLETE ULTIMATE VERSION
+===========================================================
+✅ Dynamic image handling (both horizontal & vertical)
+✅ 8 Deities with unique stories & music
+✅ Anti-repetition system (script hashing)
+✅ God-specific background music
+✅ 5 Professional transitions
+✅ HD thumbnails with golden text overlay
+✅ Live word-by-word captions
+✅ 1.15x voice narration speed
+✅ Bhagavad Gita verse automation
+✅ Custom duration (20-55s)
+===========================================================
 """
 
 from fastapi import APIRouter, Request
@@ -30,6 +31,8 @@ import tempfile
 import shutil
 import gc
 from PIL import Image, ImageDraw, ImageFont
+from datetime import datetime
+import hashlib
 
 logger = logging.getLogger(__name__)
 
@@ -44,172 +47,306 @@ ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY", "")
 # PROCESSING LIMITS
 FFMPEG_TIMEOUT_CLIP = 180
 FFMPEG_TIMEOUT_CONCAT = 300
+FFMPEG_TIMEOUT_SUBTITLE = 360
 FFMPEG_TIMEOUT_MUSIC = 120
 
-# IMAGE CONFIG - FIXED CALCULATIONS
+# IMAGE CONFIG - DYNAMIC
 MIN_IMAGES = 8
 MAX_IMAGES = 18
 IMAGE_TARGET_WIDTH = 720
 IMAGE_TARGET_HEIGHT = 1280
 FPS = 30
 
-# THUMBNAIL: 200KB - 2MB
-THUMBNAIL_MIN_SIZE_KB = 100
+# THUMBNAIL: 200KB - 2MB with golden overlay
+THUMBNAIL_MIN_SIZE_KB =200
 THUMBNAIL_MAX_SIZE_KB = 2048
 
 # ============================================================================
-# NICHE EXCLUSIONS
+# SPIRITUAL DEITIES - 8 GODS WITH UNIQUE STORIES
 # ============================================================================
 
-NICHE_EXCLUSIONS = {
-    "space": ["coffee", "cup", "cafe", "couple", "people", "person", "human", "restaurant", "food", "drink", "table"],
-    "luxury": ["coffee", "cup", "cafe", "restaurant", "food", "people walking"],
-    "horror": ["happy", "smiling", "celebration", "coffee", "cafe"],
-    "nature": ["city", "urban", "building", "coffee", "cafe", "crowd"],
-    "mystery": ["modern", "coffee", "cafe", "party"],
-    "spiritual": ["coffee", "cafe", "party", "nightclub"],
-    "motivation": ["coffee alone", "lazy"],
-    "funny": ["serious", "formal", "office"]
+DEITY_STORIES = {
+    "krishna": [
+        "Krishna ka janam Mathura ki kaalgari mein hua. Kansa ne sabhi bachon ko maarne ka plan banaya kyunki bhavishyavani thi ki aathva beta uski maut banega. Jab Krishna paida hue, divya shakti ne prahariyon ko sula diya. Vasudeva basket mein Krishna ko lekar Yamuna paar karne lage. Yamuna ne apna paani khud neeche kar diya aur Shesh Naag ne phano se suraksha di. Krishna Gokul mein Yashoda ke paas pohonche aur unhone Krishna ko apna beta maan liya.",
+        
+        "Krishna ka makhan churana bahut prasiddh hai. Yashoda makhan oonchai par rakhti thi lekin Krishna apne sakhao ke saath mil kar ladder bana lete the aur makhan nikal lete the. Ek din Yashoda ne Krishna ko pakad liya aur mukh kholne ko kaha. Jab Krishna ne mukh khola, tab Yashoda ne Krishna ke mukh mein pura brahmaand dekha - suraj, chaand, taare, prithvi, swarg, narak sab kuch. Yashoda samajh gayi ki Krishna koi saadharan balak nahi hai.",
+        
+        "Govardhan Parvat uthana Krishna ki sabse badi leela hai. Vrindavan ke log Indra Dev ki pooja karte the aur baarish ke liye unhe khush karte the. Krishna ne logo ko samjhaya ki Govardhan Parvat hi asli rakshak hai jo unhe sab kuch deta hai. Logo ne Indra ki jagah Govardhan ki pooja ki. Gusse mein Indra ne saat din tak lagatar bhaari baarish ki. Tab Krishna ne apni chhoti ungli par pura Govardhan Parvat utha liya aur sab logo ko neeche suraksha di. Indra ko apni galti ka ehsaas hua.",
+        
+        "Kurukshetra yudh se pehle Arjun ne apne hi parivaar ke khilaf ladne se mana kar diya. Unka mann bahut vyakul tha. Tab Krishna ne Arjun ko Bhagavad Gita ka updesh diya. Karmanye Vadhikaraste Ma Phaleshu Kadachana - tumhara adhikar sirf karma par hai, phal par nahi. Krishna ne Arjun ko Vishwaroop bhi dikhaya jismein pura brahmaand samaya hua tha. Arjun ko apne kartavya ka bodh hua aur unhone yudh kiya."
+    ],
+    
+    "mahadev": [
+        "Samudra Manthan mein jab Devta aur Asur amrit ke liye Ksheer Sagar ka manthan kar rahe the, tab sabse pehle halahal vish nikla. Yeh vish itna khatarnak tha ki puri srishti ko nash kar sakta tha. Sab Mahadev ke paas gaye madad ke liye. Mahadev ne srishti ki raksha ke liye vish ko pee liya. Lekin unhone vish ko nigala nahi, gale mein hi rok liya. Vish ki garmi se unka gala neela pad gaya aur unka naam pada Neelkanth. Parvati ne gale par haath rakha jisse vish aur fail nahi paaya.",
+        
+        "Parvati ne Shiva ko pati ke roop mein paane ke liye ghori tapasya ki. Unhone barfili pahadiyon mein, garmi mein, baarish mein tapasya ki bina kuch khaye piye. Shiva ne pariksha lene ke liye ek budhe brahman ka roop dhaaran kiya aur Parvati se kaha ki Shiva toh ek aisi vyakti hai jo shamshaan mein rehta hai aur bholenath hai. Lekin Parvati ne gusse mein us brahman ko daanta aur kaha ki unhe Shiva ke alawa koi nahi chahiye. Tab Shiva prakat hue aur Parvati se vivah kiya.",
+        
+        "Ganga avataran mein Raja Bhagirath ne bahut ghori tapasya ki taaki Ganga prithvi par utare aur unke purvajon ko mukti mile. Brahma ji ne tapasya se khush hokar kaha ki Ganga utaregi. Lekin Ganga ka veg itna tez tha ki prithvi ko barbad kar sakta tha. Bhagirath ne phir Mahadev ki tapasya ki. Mahadev ne Ganga ko apni jataon mein rok liya aur saat dharaon mein pravahit kar diya jisse prithvi surakshit rahi aur Ganga bhi dharti par aayi.",
+        
+        "Tandav nritya Mahadev ka sabse shakti"
+    ],
+    
+    "ganesha": [
+        "Ganesha ka janam bahut adbhut tareeke se hua. Ek din Parvati Maa ne snan karne se pehle apne shareer ki mitti se ek sundar balak ki murti banayi aur use jeevan daan diya. Unhone use darwaze par pahara dene ko kaha. Jab Shiva aayen tab Ganesha ne unhe rokne ki koshish ki kyunki wo Shiva ko nahi jaante the. Gusse mein Shiva ne Ganesha ka sir kaat diya. Jab Parvati ko pata chala tab wo bahut dukhi hui. Tab Shiva ne hasthi ka sir laga kar Ganesha ko dobara jeevan diya.",
+        
+        "Ek baar Ganesha aur Kartikeya mein yeh bahas hui ki kon adhik buddhimaan hai. Tab Shiva aur Parvati ne kaha ki jo pehle teen baar prithvi ka chakkar lagayega wohi jeetega. Kartikeya apne mayur par baith kar udne lage. Lekin Ganesha ne buddhimani se apne mata pita ke teen chakkar lagaye aur kaha ki unke liye mata pita hi puri duniya hai. Shiv-Parvati bahut khush hue aur Ganesha ko Pratham Pujya ghoshit kar diya.",
+        
+        "Ganesha ka ek daant toota hai jiska ek rochak katha hai. Ek baar Parashurama Kailash par Shiva se milne aaye lekin Shiva dhyan mein the. Ganesha ne Parashurama ko roka. Gusse mein Parashurama ne apna parshu Ganesha par phenka. Ganesha ne us parshu ko apne daant se rok liya kyunki wo parshu Shiva ka diya hua tha. Ganesha ka ek daant toot gaya aur tab se wo Ekdant kehlaye.",
+        
+        "Vyasa ji Mahabharat likhna chahte the lekin unhe ek aisa lekhak chahiye tha jo bina ruke likh sake. Tab Brahma ji ne Ganesha ko bulaya. Ganesha ne kaha ki wo likhenge lekin Vyasa ji ko bina ruke bolna hoga aur agar wo galat bole toh Ganesha likhna band kar denge. Is chunauti ko sweekaar kar dono ne Mahabharat ki rachna ki jo aaj bhi duniya ki sabse badi kavita hai."
+    ],
+    
+    "hanuman": [
+        "Hanuman ka janam Anjana aur Kesari ke ghar hua. Bachpan mein ek baar bhookhe Hanuman ne suraj ko phal samajh kar khane ki koshish ki. Jab Indra ne Hanuman par vajra chalaaya tab Hanuman ki thodi toot gayi aur wo behosh ho gaye. Pawan dev bahut gusse mein aa gaye aur hawa band kar di. Sab devtaon ne Hanuman ko vardaan diya ki unhe koi astra-shastra maar nahi sakta aur wo ajanma rahenge.",
+        
+        "Jab Ram Sita ki khoj mein jungle mein the tab Hanuman unse mile. Sugriva ne Hanuman ko Ram ke paas bheja tha. Hanuman ne Ram ke charan sparsh kiye aur unhone apni poori shakti Ram ki seva mein laga di. Ram ne Hanuman ko apna sabse priya bhakt maan liya. Hanuman ne Ram ke liye Sugriva se dosti karwaayi aur unhe Vaali se ladne mein madad ki.",
+        
+        "Lanka mein Sita Maa ki khoj mein Hanuman ne samudra paar kiya. Jab wo Lanka pohonche tab unhone dekha ki Sita Ashok Vatika mein baithi hai aur bahut dukhi hai. Hanuman ne Sita ko Ram ki mudrika di jisse unhe vishwas hua ki Ram jald hi aayenge. Hanuman ne Ravana ke darbaar mein jakar bahut hungama machaya. Ravana ne Hanuman ki poonch mein aag laga di lekin Hanuman ne poori Lanka jala di.",
+        
+        "Lakshman ke ghayal hone par vaidya ne kaha ki sirf Sanjeevani booti se Lakshman bach sakte hai jo Dronagiri parvat par milti hai. Hanuman turant udkar parvat par pohonche lekin unhe booti pehchaan nahi aayi. Tab unhone pura Dronagiri parvat hi utha liya aur Lanka le aaye. Vaidya ne booti se Lakshman ka upchaar kiya aur wo theek ho gaye. Hanuman ki is mahaan shakti ko dekhkar sab hairaan rah gaye."
+    ],
+    
+    "ram": [
+        "Ram ka janam Ayodhya mein Raja Dasharath aur Rani Kaushalya ke yahan hua. Chaaron bhai - Ram, Lakshman, Bharat aur Shatrughan bahut hi gun-sampann the. Ram sabse bade the aur sabse adhik guni bhi. Bachpan mein hi unhone Vishwamitra Muni ke yajna ki raksha ki aur Tadaka naam ki raakshasni ka vadh kiya. Ram mein dayaaluta, satyavaadita aur dharma ka palan karne ki shakti thi.",
+        
+        "Sita Swayamvar mein Raja Janaka ne yeh ghoshana ki thi ki jo bhi Shiv Dhanush ko uthaakar uspar prateecha chadha dega, Sita ka vivah usi se hoga. Bahut saare raja-maharaja aaye lekin koi bhi dhanush ko hila bhi nahi saka. Jab Ram ki baari aayi tab unhone ek haath se dhanush utha liya aur prateecha chadhaate samay wo toot gaya. Poore darbaar mein khushi ki lehre fail gayi aur Ram-Sita ka vivah hua.",
+        
+        "Ayodhya mein Ram ka rajyabhishek hone waala tha lekin Kaikeyi ne apne do vardon ka use karke Dasharath se kaha ki Bharat ko raja banaao aur Ram ko 14 saal ke liye vanvas par bhejo. Ram ne bina kisi shikayat ke pita ki aagya ka palan kiya aur Sita-Lakshman ke saath vanvas ke liye nikal pade. Unki is dharma-paalan ki shakti ko dekh kar sab chashak se gaye.",
+        
+        "Ravana ne Sita ka haran kar liya tha. Ram ne Hanuman ki madad se Sita ko dhundha aur vanaron ki sena ke saath Lanka par chadhaayi ki. Yudh bahut bhayankar tha. Ravana bahut shakti-shali tha lekin Ram ne apne dhairya aur yukti se usse haraaya. Jab Ram ne Ravana ka vadh kiya tab dharma ki vijay hui. Ram Sita ke saath Ayodhya laut aaye aur unka rajyabhishek hua."
+    ],
+    
+    "durga": [
+        "Mahishasura ek bahut shakti-shali asur tha jise Brahma ji ka vardaan tha ki koi bhi purush use nahi maar sakta. Is vardaan ke baad Mahishasura ne swarg par aakraman kar diya aur sabhi devtaon ko parajit kar diya. Devtaon ne Brahma, Vishnu aur Shiva se madad maangi. Teeno devtaon ne apni shakti se ek divya prakash utpann kiya jisse Maa Durga ka janam hua. Har devta ne unhe apna astra diya.",
+        
+        "Mahishasura ka vadh karne ke liye Maa Durga ne apna sher par sawaar hokar yudh kiya. Mahishasura ne kai roop badal kar Durga ko harane ki koshish ki. Kabhi bail bana, kabhi sher, kabhi haathi. Lekin Maa Durga ne har roop mein use parajit kiya. Antim yudh mein jab Mahishasura apne asli bhains roop mein aaya tab Maa Durga ne apne trishul se uska vadh kar diya aur prithvi ko bachaya.",
+        
+        "Navratri mein Maa Durga ke nau roop ki pooja ki jaati hai. Shailputri, Brahmacharini, Chandraghanta, Kushmanda, Skandamata, Katyayani, Kaalratri, Mahagauri aur Siddhidatri. Har roop ki apni visheshta hai aur har roop se humein kuch sikhne ko milta hai. Navratri mein bhakton ko Maa Durga ki kripa milti hai aur wo sab pareshaniyon se mukti paate hai.",
+        
+        "Maa Durga shakti ki pratik hai. Wo humein sikhati hai ki jeevan mein aane waali har mushkil ka saamna himmat aur vishwas ke saath karna chahiye. Jab bhi burai badhti hai tab Maa Durga dharti par aati hai aur asurון ka naash karti hai. Unki aradhana se manushya ko bal, buddhi aur shakti milti hai."
+    ],
+    
+    "kali": [
+        "Raktabeej naam ka ek aisa asur tha jiske raktपات की har boond se ek naya Raktabeej paida ho jaata tha. Jab devta use maarne ki koshish karte tab uske khoon se hazaaron Raktabeej ban jaate. Devtaon ne Maa Durga se madad maangi. Tab Maa Durga ke gusse se Kali ka janam hua. Unka roop itna bhayankar tha ki asur kaanpne lage.",
+        
+        "Kali ne Raktabeej ke saath yudh kiya aur ek aisi yukti lagaayi ki unhone Raktabeej ka khoon dharti par girne se pehle hi pee liya. Is tarah Raktabeej ko koi naya sharir nahi mil paaya aur Kali ne uska vadh kar diya. Lekin yudh ke baad Kali ka gussa shaant nahi hua aur wo puri prithvi par tandav karne lagi. Srishti ke naash ka khatra ban gaya.",
+        
+        "Jab Maa Kali apne tandav se nahi ruki tab Bhagwan Shiva unke paath mein let gaye. Jab Kali ne Shiva ko pairo tale kuchlaa tab unhe ehsaas hua aur wo shaant ho gayi. Unki jeebh baahar nikal aayi sharam ke kaaran. Is roop mein Kali ko Dakshineshwar Kali ke naam se jaana jaata hai. Yeh humein sikhata hai ki gussa par niyantran zaroori hai.",
+        
+        "Maa Kali samay ki devta hai aur wo humare bhayankar swapno ka nash karti hai. Unki kaali chaamdi andhkar ko darshati hai jahan se prakash nikalta hai. Unka tandav purane ka nash aur naye ki shuruaat hai. Bhakton ko wo har tarah ki pareshani se bachati hai aur suraksha pradan karti hai."
+    ],
+    
+    "parvati": [
+        "Parvati Maa Himavan ki beti thi. Bachpan se hi unka mann Shiva mein ramta tha. Unhone ghori tapasya ki taaki wo Shiva ki patni ban sake. Kai saal tak bina khaye piye jungle mein khadi rahi. Garmi, sardi, baarish kuch bhi unhe tapasya se rok nahi paaya. Devas ne Kamdev ko bheja jo Shiva ke mann mein pyaar utpann kare lekin Shiva ne gusse mein Kamdev ko bhasma kar diya.",
+        
+        "Parvati ne apni tapasya jaari rakhi. Akhir mein Shiva prakat hue aur Parvati ko apni shakti sweekar kiya. Dono ka vivah bahut dhumdhaam se hua. Parvati aur Shiva ka mel sampoorn shakti ka pratik hai. Jahan Shiva sanhaarak hai wahan Parvati paalanhaar. Dono mil kar srishti ka sanchalan karte hai aur bhakton ki raksha karte hai.",
+        
+        "Parvati ne Ganesha ki rachna ki aur jab Shiva ne Ganesha ka sir kaat diya tab wo bahut dukhi hui. Tab Shiva ne Ganesha ko hasthi ka sir lagakar dobara jeevan diya. Parvati bahut khush hui. Isse humein sikhne ko milta hai ki maa apni santaan ke liye kuch bhi kar sakti hai aur pita ki jimmedaari bhi utni hi mahatvapurn hai.",
+        
+        "Maa Parvati prem, samarpan aur tapasya ki devta hai. Wo humein sikhati hai ki jeevan mein lakshya prapti ke liye dridh sankalp aur tapasya zaroori hai. Unki pooja se parivaar mein sukh-shaanti aati hai aur pati-patni ka bandhan majboot hota hai. Wo Shakti ka roop hai aur unke bina Shiva Shav hai."
+    ]
 }
 
 # ============================================================================
-# SPIRITUAL DEITIES
+# DEITY KEYWORDS FOR IMAGE SEARCH
 # ============================================================================
 
-SPIRITUAL_DEITIES = {
+DEITY_KEYWORDS = {
     "krishna": {
-        "keywords": ["krishna","shri krishna" , "Radhna rani", "Vishnu", "radha", "vrindavan temple"],
-        "thumbnail_keywords": ["krishna divine colorful", "krishna statue golden"],
-        "thumbnail_text": "Krishna Leela",
-        "stories": [
-            "Krishna ka janam Mathura ki kaalgari mein hua. Kansa ne sabhi bachon ko maarne ka plan banaya kyunki bhavishyavani thi ki aathva beta uski maut banega. Jab Krishna paida hue, divya shakti ne prahariyon ko sula diya. Vasudeva basket mein Krishna ko lekar Yamuna paar karne lage. Yamuna ne apna paani khud neeche kar diya aur Shesh Naag ne phano se suraksha di. Krishna Gokul mein Yashoda ke paas pohonche.",
-            "Krishna ka makhan churana bahut prasiddh hai. Yashoda makhan oonchai par rakhti thi par Krishna apne sakhao ke saath ladder banakar nikal lete the. Ek din Yashoda ne pakad liya aur mukh kholne ko kaha. Tab Yashoda ne Krishna ke mukh mein pura brahmaand dekha - suraj, chaand, prithvi, swarg sab kuch.",
-            "Govardhan Parvat uthana Krishna ki sabse badi leela hai. Vrindavan ke log Indra Dev ki pooja karte the. Krishna ne logo ko samjhaya ki Govardhan Parvat asli rakshak hai. Gusse mein Indra ne saat din baarish ki. Krishna ne chhoti ungli par pura parvat utha liya aur sab logo ko suraksha di.",
-            "Kurukshetra yudh se pehle Arjun ne ladne se mana kar diya. Krishna ne Bhagavad Gita ka updesh diya. Karmanye Vadhikaraste Ma Phaleshu Kadachana - karma par adhikar hai, phal par nahi. Krishna ne Vishwaroop bhi dikhaya."
-        ]
+        "keywords": [
+            "lord krishna statue divine",
+            "krishna flute vrindavan", 
+            "radha krishna temple",
+            "govardhan krishna painting",
+            "vishnu avatar krishna",
+            "krishna makhan chor"
+        ],
+        "thumbnail_keywords": [
+            "krishna divine colorful statue",
+            "krishna golden idol temple"
+        ],
+        "thumbnail_text": "Krishna Leela"
     },
+    
     "mahadev": {
-        "keywords": ["shiva statue powerful","shiv", "ai shiva" "mahadev meditation", "shiva trishul divine", "shiva lingam sacred"],
-        "thumbnail_keywords": ["mahadev powerful divine", "shiva statue golden"],
-        "thumbnail_text": "Mahadev Shakti",
-        "stories": [
-            "Samudra Manthan mein jab halahal vish nikla, sab Mahadev ke paas gaye. Mahadev ne srishti ki raksha ke liye vish piya. Par nigala nahi, gale mein rok liya. Vish se gala neela pad gaya aur naam pada Neelkanth. Parvati ne gale par haath rakha.",
-            "Parvati ne Shiva ko pati ke roop mein chahte hue ghori tapasya ki. Barfili pahadiyon mein, garmi mein, baarish mein tapasya ki. Shiva ne budhe brahman ka roop dhaaran karke pariksha li. Par Parvati ne daanta. Tab Shiva prakat hue aur vivah kiya.",
-            "Ganga avataran mein Raja Bhagirath ne tapasya ki taaki Ganga prithvi par utare. Par Ganga ka veg itna tez tha ki prithvi barbad ho sakti thi. Bhagirath ne Shiva ki tapasya ki. Mahadev ne Ganga ko jataon mein rok liya aur saat dharaon mein pravahit kar diya."
-        ]
+        "keywords": [
+            "shiva statue powerful divine",
+            "mahadev meditation trishul",
+            "shiva lingam sacred temple",
+            "har har mahadev statue",
+            "shiv temple ancient",
+            "neelkanth mahadev"
+        ],
+        "thumbnail_keywords": [
+            "mahadev powerful divine statue",
+            "shiva golden idol"
+        ],
+        "thumbnail_text": "Mahadev Shakti"
+    },
+    
+    "ganesha": {
+        "keywords": [
+            "ganesha statue golden idol",
+            "ganpati modak blessing",
+            "riddhi siddhi ganesha",
+            "vinayak temple divine",
+            "ganesha festival colorful",
+            "ekdanta ganesha"
+        ],
+        "thumbnail_keywords": [
+            "ganesha golden divine idol",
+            "ganpati colorful statue"
+        ],
+        "thumbnail_text": "Ganesha Kripa"
+    },
+    
+    "hanuman": {
+        "keywords": [
+            "hanuman statue powerful",
+            "bajrang bali divine",
+            "sankat mochan hanuman",
+            "ram bhakt hanuman",
+            "pawan putra statue",
+            "hanuman temple ancient"
+        ],
+        "thumbnail_keywords": [
+            "hanuman powerful statue",
+            "bajrang bali golden"
+        ],
+        "thumbnail_text": "Hanuman Shakti"
+    },
+    
+    "ram": {
+        "keywords": [
+            "lord ram ayodhya statue",
+            "ram sita divine painting",
+            "maryada purushottam ram",
+            "ramayana ram temple",
+            "ram darbar divine",
+            "shri ram statue golden"
+        ],
+        "thumbnail_keywords": [
+            "ram ayodhya golden statue",
+            "ram divine painting"
+        ],
+        "thumbnail_text": "Ram Bhakti"
+    },
+    
+    "durga": {
+        "keywords": [
+            "durga maa powerful statue",
+            "mahishasura mardini",
+            "navratri durga divine",
+            "shakti durga goddess",
+            "durga puja colorful",
+            "amba bhavani statue"
+        ],
+        "thumbnail_keywords": [
+            "durga maa powerful divine",
+            "navratri goddess statue"
+        ],
+        "thumbnail_text": "Durga Shakti"
+    },
+    
+    "kali": {
+        "keywords": [
+            "kali maa powerful statue",
+            "mahakali divine fierce",
+            "kali tandav powerful",
+            "dakshina kali statue",
+            "kali maa temple",
+            "bhadrakali goddess"
+        ],
+        "thumbnail_keywords": [
+            "kali maa fierce divine",
+            "mahakali powerful statue"
+        ],
+        "thumbnail_text": "Kali Shakti"
+    },
+    
+    "parvati": {
+        "keywords": [
+            "parvati maa divine statue",
+            "uma gauri goddess",
+            "shiva parvati temple",
+            "parvati devi painting",
+            "himalaya putri statue",
+            "shakti parvati divine"
+        ],
+        "thumbnail_keywords": [
+            "parvati divine beautiful",
+            "uma devi statue golden"
+        ],
+        "thumbnail_text": "Parvati Kripa"
     }
 }
 
 # ============================================================================
-# NICHE KEYWORDS
+# GOD-SPECIFIC BACKGROUND MUSIC (RAW GITHUB URLS)
 # ============================================================================
 
-NICHE_KEYWORDS = {
-    "space": {
-        "keywords": ["galaxy", "nebula", "black hole", "planet earth blue"],
-        "emotion": "wonder",
-        "voice_id": "oABbH1EqNQfpzYZZOAPR",
-        "bg_music_url": "https://raw.githubusercontent.com/aryan-Patel-web/audio-collections/main/videoplayback%20(5).weba",
-        "thumbnail_keywords": ["galaxy bright colorful", "nebula purple space"],
-        "thumbnail_text": "Space Facts",
-        "english_keywords": ["space facts", "universe mystery", "galaxy facts", "space science"],
-        "hindi_keywords": ["अंतरिक्ष", "ब्रह्मांड", "गैलेक्सी"]
-    },
-    "horror": {
-        "keywords": ["haunted house dark", "dark forest scary", "abandoned creepy", "ghost scary dark"],
-        "emotion": "suspense",
-        "voice_id": "t1bT2r4IHulx2q9wwEUy",
-        "bg_music_url": "https://raw.githubusercontent.com/aryan-Patel-web/audio-collections/main/videoplayback%20(3).weba",
-        "thumbnail_keywords": ["haunted dark scary", "ghost creepy"],
-        "thumbnail_text": "Horror Story",
-        "english_keywords": ["horror stories", "scary stories", "ghost stories", "horror facts"],
-        "hindi_keywords": ["भूतिया", "डरावनी", "हॉरर"]
-    },
-    "nature": {
-        "keywords": ["mountain peak nature","ocean","under sea" "waterfall nature", "forest green nature", "wildlife nature"],
-        "emotion": "peace",
-        "voice_id": "repzAAjoKlgcT2oOAIWt",
-        "bg_music_url": "https://raw.githubusercontent.com/aryan-Patel-web/audio-collections/main/videoplayback%20(4).weba",
-        "thumbnail_keywords": ["mountain beautiful", "waterfall nature"],
-        "thumbnail_text": "Nature Beauty",
-        "english_keywords": ["nature beauty", "wildlife", "nature facts"],
-        "hindi_keywords": ["प्रकृति", "वन्यजीव"]
-    },
-    "mystery": {
-        "keywords": ["ancient temple ruins", "pyramid mystery", "artifact ancient", "ruins mysterious"],
-        "emotion": "curiosity",
-        "voice_id": "u7y54ruSDBB05ueK084X",
-        "bg_music_url": "https://raw.githubusercontent.com/aryan-Patel-web/audio-collections/main/videoplayback.weba",
-        "thumbnail_keywords": ["temple ancient", "pyramid mystery"],
-        "thumbnail_text": "Mystery Facts",
-        "english_keywords": ["mystery solved", "ancient mysteries", "mystery facts"],
-        "hindi_keywords": ["रहस्य", "प्राचीन"]
-    },
-    "spiritual": {
-            "keywords": [
-        "lord krishna",
-        "bhagavad gita",
-        "meditation spiritual",
-        "temple",
-        "hindu devotion prayer",
-        "divine energy light",
-        "ancient indian spirituality",
-        "yoga meditation peace"
+DEITY_MUSIC = {
+    "shiva": [
+        "https://raw.githubusercontent.com/aryan-Patel-web/audio-collections/main/videoplayback%20(10).weba",
+        "https://raw.githubusercontent.com/aryan-Patel-web/audio-collections/main/videoplayback%20(13).weba"
     ],
-        "emotion": "devotion",
-        "voice_id": "yD0Zg2jxgfQLY8I2MEHO",
-        "bg_music_url": "https://raw.githubusercontent.com/aryan-Patel-web/audio-collections/main/videoplayback.weba",
-        "thumbnail_keywords": [],
-        "thumbnail_text": "",
-        "english_keywords": ["spiritual wisdom", "hindu mythology", "devotional stories"],
-        "hindi_keywords": ["आध्यात्मिक", "भक्ति"]
-    },
-    "motivation": {
-        "keywords": ["success motivation", "victory winner", "workout fitness", "achievement success"],
-        "emotion": "inspiration",
-        "voice_id": "FZkK3TvQ0pjyDmT8fzIW",
-        "bg_music_url": "https://raw.githubusercontent.com/aryan-Patel-web/audio-collections/main/videoplayback%20(6).weba",
-        "thumbnail_keywords": ["success winner", "motivation"],
-        "thumbnail_text": "Motivation",
-        "english_keywords": ["motivation", "success motivation", "inspirational"],
-        "hindi_keywords": ["प्रेरणा", "सफलता"]
-    },
-    "funny": {
-        "keywords": ["funny dog cute", "cat cute funny", "funny animals", "pet cute funny"],
-        "emotion": "joy",
-        "voice_id": "3xDpHJYZLpyrp8I8ILUO",
-        "bg_music_url": "https://raw.githubusercontent.com/aryan-Patel-web/audio-collections/main/videoplayback.weba",
-        "thumbnail_keywords": ["dog funny", "cat cute"],
-        "thumbnail_text": "Funny Moments",
-        "english_keywords": ["funny videos", "comedy", "funny animals"],
-        "hindi_keywords": ["मजेदार", "कॉमेडी"]
-    },
-    "luxury": {
-            "keywords": [
-        "luxury cars",
-        "rare cars",
-        "super cars",
-        "hyper cars",
-        "exotic cars",
-        "premium cars",
-        "sports cars",
-        "dream cars",
-        "millionaire cars",
-        "elite cars"
+    "mahadev": [
+        "https://raw.githubusercontent.com/aryan-Patel-web/audio-collections/main/videoplayback%20(10).weba",
+        "https://raw.githubusercontent.com/aryan-Patel-web/audio-collections/main/videoplayback%20(13).weba"
     ],
-        "emotion": "aspiration",
-        "voice_id": "l1CrgWMeEfm3xvPbn4YE",
-        "bg_music_url": "https://raw.githubusercontent.com/aryan-Patel-web/audio-collections/main/videoplayback%20(7).weba",
-        "thumbnail_keywords": [],
-        "thumbnail_text": "",
-        "english_keywords": ["luxury cars", "supercars", "car review"],
-        "hindi_keywords": ["लग्जरी", "सुपरकार"]
-    }
+    "krishna": [
+        "https://raw.githubusercontent.com/aryan-Patel-web/audio-collections/main/videoplayback%20(11).weba",
+        "https://raw.githubusercontent.com/aryan-Patel-web/audio-collections/main/videoplayback%20(14).weba"
+    ],
+    "ganesha": [
+        "https://raw.githubusercontent.com/aryan-Patel-web/audio-collections/main/videoplayback%20(15).weba"
+    ],
+    "ram": [
+        "https://raw.githubusercontent.com/aryan-Patel-web/audio-collections/main/videoplayback%20(16).weba"
+    ],
+    # All other gods use default spiritual music
+    "hanuman": [
+        "https://raw.githubusercontent.com/aryan-Patel-web/audio-collections/main/videoplayback%20(11).weba"
+    ],
+    "durga": [
+        "https://raw.githubusercontent.com/aryan-Patel-web/audio-collections/main/videoplayback%20(11).weba"
+    ],
+    "kali": [
+        "https://raw.githubusercontent.com/aryan-Patel-web/audio-collections/main/videoplayback%20(11).weba"
+    ],
+    "parvati": [
+        "https://raw.githubusercontent.com/aryan-Patel-web/audio-collections/main/videoplayback%20(11).weba"
+    ],
+    "default": [
+        "https://raw.githubusercontent.com/aryan-Patel-web/audio-collections/main/videoplayback%20(11).weba"
+    ]
 }
+
+# ============================================================================
+# 5 PROFESSIONAL TRANSITIONS (Like Canva)
+# ============================================================================
 
 TRANSITIONS = [
-    {"name": "zoom", "filter": "zoompan=z='if(lte(zoom,1.0),1.8,max(1.001,zoom-0.008))':d={frames}:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s=720x1280:fps={fps}"},
-    {"name": "fade", "filter": "zoompan=z='if(lte(zoom,1.0),2.0,max(1.001,zoom-0.01))':d={frames}:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s=720x1280:fps={fps},fade=t=in:st=0:d=0.3"}
+    {
+        "name": "zoom",
+        "filter": "zoompan=z='if(lte(zoom,1.0),1.8,max(1.001,zoom-0.008))':d={frames}:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s=720x1280:fps={fps}"
+    },
+    {
+        "name": "fade",
+        "filter": "zoompan=z='if(lte(zoom,1.0),2.0,max(1.001,zoom-0.01))':d={frames}:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s=720x1280:fps={fps},fade=t=in:st=0:d=0.3"
+    },
+    {
+        "name": "slide",  # Ken Burns effect
+        "filter": "zoompan=z='1.5':d={frames}:x='iw/2-(iw/zoom/2)+((iw/zoom/2)*sin(on/{frames}*PI))':y='ih/2-(ih/zoom/2)':s=720x1280:fps={fps}"
+    },
+    {
+        "name": "rotate",  # Subtle rotation with zoom
+        "filter": "zoompan=z='if(lte(zoom,1.0),1.6,max(1.001,zoom-0.007))':d={frames}:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s=720x1280:fps={fps},rotate='PI*on/{frames}/10'"
+    },
+    {
+        "name": "pan",  # Horizontal pan
+        "filter": "zoompan=z='1.3':d={frames}:x='iw/2-(iw/zoom/2)+(on/{frames}*100)':y='ih/2-(ih/zoom/2)':s=720x1280:fps={fps}"
+    }
 ]
 
 # ============================================================================
@@ -217,6 +354,7 @@ TRANSITIONS = [
 # ============================================================================
 
 def force_cleanup(*filepaths):
+    """Cleanup files"""
     for fp in filepaths:
         try:
             if fp and os.path.exists(fp):
@@ -240,125 +378,105 @@ def run_ffmpeg(cmd: list, timeout: int = 120) -> bool:
     except:
         return False
 
-def estimate_speech_duration(text: str, speed: float = 1.1) -> float:
-    """Estimate duration based on word count"""
-    words = len(text.split())
-    # Average: 150 words per minute at 1x speed
-    # At 1.1x speed: 165 words per minute
-    return (words / 165) * 60
-
-def calculate_word_limit(target_duration: int) -> tuple:
-    """Calculate word limits based on target duration
-    
-    30s video = 20s script + 10s outro/cta → 55-75 words for script
-    40s video = 30s script + 10s outro/cta → 82-110 words for script  
-    50s video = 40s script + 10s outro/cta → 110-150 words for script
-    """
-    # Reserve time for outro/CTA
-    script_duration = target_duration - 10  # Reserve 10s for outro/CTA
-    
-    # At 165 words/minute (1.1x speed)
-    words_per_second = 165 / 60  # ≈2.75 words/second
-    
-    # Calculate word limits
-    target_words = int(script_duration * words_per_second)
-    min_words = int(target_words * 0.85)  # 85% of target
-    max_words = int(target_words * 1.15)  # 115% of target
-    
-    return min_words, max_words, target_words
-
 def convert_weba_to_mp3(weba: str, mp3: str) -> bool:
-    return run_ffmpeg(["ffmpeg", "-i", weba, "-vn", "-acodec", "libmp3lame", "-b:a", "128k", "-y", mp3], FFMPEG_TIMEOUT_MUSIC)
-
-def check_image_quality(img_path: str) -> bool:
+    """Convert .weba to .mp3"""
     try:
-        if get_size_kb(img_path) < 100:
-            return False
-        return subprocess.run(["ffmpeg", "-v", "error", "-i", img_path, "-f", "null", "-"], 
-                            capture_output=True, timeout=5).returncode == 0
+        return run_ffmpeg([
+            "ffmpeg", "-i", weba, "-vn", "-acodec", "libmp3lame", 
+            "-b:a", "128k", "-y", mp3
+        ], FFMPEG_TIMEOUT_MUSIC)
     except:
         return False
 
-def filter_niche_images(hits: List[dict], niche: str) -> List[dict]:
-    exclusions = NICHE_EXCLUSIONS.get(niche, [])
-    if not exclusions:
-        return hits
-    return [hit for hit in hits if not any(excl in hit.get("tags", "").lower() for excl in exclusions)]
-
 # ============================================================================
-# THUMBNAIL TEXT OVERLAY
+# DEITY SELECTION
 # ============================================================================
 
-def add_text_to_thumbnail(image_path: str, text: str, output_path: str) -> bool:
+def select_deity() -> tuple:
+    """Randomly select a deity with story"""
+    deity_name = random.choice(list(DEITY_STORIES.keys()))
+    deity = {
+        "stories": DEITY_STORIES[deity_name],
+        "keywords": DEITY_KEYWORDS[deity_name]["keywords"],
+        "thumbnail_keywords": DEITY_KEYWORDS[deity_name]["thumbnail_keywords"],
+        "thumbnail_text": DEITY_KEYWORDS[deity_name]["thumbnail_text"],
+        "music_urls": DEITY_MUSIC.get(deity_name, DEITY_MUSIC["default"])
+    }
+    story = random.choice(deity["stories"])
+    
+    logger.info(f"🕉️ Selected: {deity_name.upper()}")
+    logger.info(f"📖 Story length: {len(story)} characters")
+    
+    return deity_name, deity, story
+
+# ============================================================================
+# ANTI-REPETITION: SCRIPT HASHING
+# ============================================================================
+
+async def generate_unique_script(database_manager, user_id: str, niche: str, 
+                                deity_name: str, story: str, target_duration: int) -> dict:
+    """Generate unique script with hash checking"""
+    
+    # Generate script hash
+    script_hash = hashlib.sha256(story.encode()).hexdigest()
+    
+    # Check if already generated
     try:
-        img = Image.open(image_path)
-        draw = ImageDraw.Draw(img)
+        existing = await database_manager.db.pixabay_scripts_collection.find_one({
+            "user_id": user_id,
+            "niche": niche,
+            "script_hash": script_hash
+        })
         
-        try:
-            font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 60)
-        except:
-            font = ImageFont.load_default()
-        
-        bbox = draw.textbbox((0, 0), text, font=font)
-        text_width = bbox[2] - bbox[0]
-        text_height = bbox[3] - bbox[1]
-        
-        position = ((img.width - text_width) // 2, img.height - text_height - 100)
-        
-        # Outline
-        for adj in range(-3, 4):
-            for adj2 in range(-3, 4):
-                draw.text((position[0]+adj, position[1]+adj2), text, font=font, fill="black")
-        
-        # Main text
-        draw.text(position, text, font=font, fill="white")
-        
-        img.save(output_path, quality=95)
-        logger.info(f"✅ Text added: '{text}'")
-        return True
-    except Exception as e:
-        logger.error(f"Thumbnail text error: {e}")
-        return False
+        if existing:
+            logger.warning(f"⚠️ Script already generated, selecting different story...")
+            # Recursively try again with different story
+            _, deity, new_story = select_deity()
+            return await generate_unique_script(database_manager, user_id, niche, 
+                                               deity_name, new_story, target_duration)
+    except:
+        pass  # Continue if DB check fails
+    
+    # Generate AI script
+    cta = "Agar aapko yeh video achhi lagi ho toh LIKE karein, SUBSCRIBE karein aur apne doston ko SHARE karein taaki aage bhi update videos milte rahe!"
+    
+    prompt = f"""Generate engaging Hindi narration for spiritual video:
 
-# ============================================================================
-# CAR SELECTION
-# ============================================================================
+Story: {story}
 
-async def select_and_scrape_car() -> dict:
-    car_prompt = """Select ONE random luxury car from: BMW, Mercedes-Benz, Audi, Ferrari, Lamborghini, Rolls-Royce, Bugatti, Porsche, McLaren, Bentley, Aston Martin, Maserati.
+Duration: {target_duration} seconds
+Deity: {deity_name}
 
-Provide REAL specifications in JSON:
+RULES:
+1. Create UNIQUE content every time
+2. Natural Hindi flow (not robotic)
+3. Use commas, exclamations for natural breaks
+4. NO "pause" word - use natural speech rhythm
+5. Include hook + main story + conclusion
+6. Add CTA at end: "{cta}"
 
-{
-  "brand": "Ferrari",
-  "model": "SF90 Stradale",
-  "engine": "V8 Hybrid",
-  "cc": "3990",
-  "horsepower": "1000",
-  "top_speed": "340 km/h",
-  "price_india": "₹7.50 Crore",
-  "search_keywords": ["Ferrari SF90 red", "Ferrari supercar"],
-  "thumbnail_text": "Ferrari SF90"
-}
-
-Output ONLY JSON. Select DIFFERENT car every time."""
+Generate creative Hindi script in JSON format:
+{{
+    "script": "Hindi narration here...",
+    "title": "Hinglish title (2-5 words)"
+}}"""
     
     try:
         if not MISTRAL_API_KEY:
-            return None
+            raise Exception("No AI key")
             
-        async with httpx.AsyncClient(timeout=30) as client:
+        async with httpx.AsyncClient(timeout=45) as client:
             resp = await client.post(
                 "https://api.mistral.ai/v1/chat/completions",
                 headers={"Authorization": f"Bearer {MISTRAL_API_KEY}"},
                 json={
                     "model": "mistral-large-latest",
                     "messages": [
-                        {"role": "system", "content": "Car expert. Select DIFFERENT cars. Output ONLY JSON."},
-                        {"role": "user", "content": car_prompt}
+                        {"role": "system", "content": "You are a spiritual storyteller. Create UNIQUE Hindi scripts every time. Output ONLY JSON."},
+                        {"role": "user", "content": prompt}
                     ],
-                    "temperature": 0.95,
-                    "max_tokens": 400
+                    "temperature": 0.95,  # High for uniqueness
+                    "max_tokens": 1200
                 }
             )
             
@@ -366,37 +484,57 @@ Output ONLY JSON. Select DIFFERENT car every time."""
                 content = resp.json()["choices"][0]["message"]["content"]
                 content = re.sub(r'```json\n?|\n?```', '', content).strip()
                 match = re.search(r'\{.*\}', content, re.DOTALL)
+                
                 if match:
-                    car_data = json.loads(match.group(0))
-                    logger.info(f"🚗 {car_data['brand']} {car_data['model']}")
-                    return car_data
+                    data = json.loads(match.group(0))
+                    script_text = data.get("content", data.get("script", ""))
+                    
+                    # Ensure CTA is present
+                    if "LIKE" not in script_text or "SUBSCRIBE" not in script_text:
+                        script_text += " " + cta
+                    
+                    title = data.get("title", f"{deity_name.title()} Ki Kahani")
+                    
+                    # Store in database to prevent repetition
+                    try:
+                        await database_manager.db.pixabay_scripts_collection.insert_one({
+                            "user_id": user_id,
+                            "niche": niche,
+                            "deity_name": deity_name,
+                            "script_hash": script_hash,
+                            "script_text": script_text,
+                            "title": title,
+                            "created_at": datetime.now()
+                        })
+                    except:
+                        pass
+                    
+                    return {
+                        "script": script_text,
+                        "title": title,
+                        "script_hash": script_hash
+                    }
     except Exception as e:
-        logger.error(f"Car error: {e}")
-    return None
-
-# ============================================================================
-# SPIRITUAL DEITY SELECTION
-# ============================================================================
-
-def select_deity() -> tuple:
-    deity_name = random.choice(["krishna", "mahadev"])
-    deity = SPIRITUAL_DEITIES[deity_name]
-    story = random.choice(deity["stories"])
-    logger.info(f"🕉️ {deity_name.upper()}")
-    return deity_name, deity, story
-
-# ============================================================================
-# IMAGE SEARCH
-# ============================================================================
-
-async def search_pixabay_hd(niche: str, count: int, is_thumbnail: bool = False, custom_keywords: List[str] = None) -> List[dict]:
-    niche_data = NICHE_KEYWORDS.get(niche, NICHE_KEYWORDS["space"])
-    keywords = custom_keywords if custom_keywords else (niche_data.get("thumbnail_keywords" if is_thumbnail else "keywords", []))
+        logger.error(f"Script generation error: {e}")
     
+    # Fallback
+    return {
+        "script": story + " " + cta,
+        "title": f"{deity_name.title()} Ki Kahani",
+        "script_hash": script_hash
+    }
+
+# ============================================================================
+# IMAGE SEARCH & DOWNLOAD WITH DYNAMIC SIZING
+# ============================================================================
+
+async def search_pixabay_hd(keywords: List[str], count: int, 
+                           is_thumbnail: bool = False) -> List[dict]:
+    """Search Pixabay for HD images"""
     all_images = []
     seen_urls = set()
     
-    for keyword in random.sample(keywords, len(keywords)) if keywords else []:
+    for keyword in random.sample(keywords, min(len(keywords), 5)):
         if len(all_images) >= count:
             break
         
@@ -408,578 +546,642 @@ async def search_pixabay_hd(niche: str, count: int, is_thumbnail: bool = False, 
                         "key": PIXABAY_API_KEY,
                         "q": keyword,
                         "image_type": "photo",
-                        "orientation": "vertical",
+                        "orientation": "vertical" if not is_thumbnail else "horizontal",
                         "per_page": 30,
                         "order": "popular",
                         "safesearch": "true",
-                        "min_width": 1080,
-                        "min_height": 1920
+                        "min_width": 1080 if not is_thumbnail else 1280,
+                        "min_height": 1920 if not is_thumbnail else 720
                     }
                 )
                 
                 if resp.status_code == 200:
-                    hits = filter_niche_images(resp.json().get("hits", []), niche)
+                    hits = resp.json().get("hits", [])
                     
                     for hit in hits:
                         if len(all_images) >= count:
                             break
                         
-                        url = hit.get("largeImageURL") or hit.get("webformatURL")
+                        # Get highest quality URL
+                        url = hit.get("fullHDURL") or hit.get("largeImageURL") or hit.get("webformatURL")
+                        
                         if url and url not in seen_urls:
                             size_kb = hit.get("imageSize", 0) / 1024
                             
-                            if is_thumbnail and (size_kb < THUMBNAIL_MIN_SIZE_KB or size_kb > THUMBNAIL_MAX_SIZE_KB):
-                                continue
+                            # Filter for thumbnail size
+                            if is_thumbnail:
+                                if size_kb < THUMBNAIL_MIN_SIZE_KB or size_kb > THUMBNAIL_MAX_SIZE_KB:
+                                    continue
                             
-                            all_images.append({"url": url, "size_kb": size_kb, "keyword": keyword})
+                            all_images.append({
+                                "url": url,
+                                "size_kb": size_kb,
+                                "keyword": keyword,
+                                "width": hit.get("imageWidth", 0),
+                                "height": hit.get("imageHeight", 0)
+                            })
                             seen_urls.add(url)
-        except:
+        except Exception as e:
+            logger.warning(f"Search error for '{keyword}': {e}")
             continue
     
-    logger.info(f"✅ Found: {len(all_images)}")
+    logger.info(f"✅ Found: {len(all_images)} images")
     return all_images[:count]
 
-# ============================================================================
-# SCRIPT GENERATION - FIXED WORD LIMITS
-# ============================================================================
-
-async def generate_unique_script(niche: str, target_duration: int, context: dict = None) -> dict:
-    niche_data = NICHE_KEYWORDS.get(niche, NICHE_KEYWORDS["space"])
-    emotion = niche_data["emotion"]
-    
-    # Calculate word limits
-    min_words, max_words, target_words = calculate_word_limit(target_duration)
-    
-    # CTA/Outro (fixed)
-    # cta = "Agar aapko yeh video pasand aayi ho toh LIKE karein, SUBSCRIBE karein aur apne doston ko SHARE karein!"
-    # cta = "Roz aise shocking facts dekhna chahte hain? LIKE karein, SUBSCRIBE karein aur SHARE karke support dikhayein."
-    cta = "Roz aise shocking facts ke liye LIKE karein, SUBSCRIBE karein aur SHARE karke ek Bharatiya creator ko support karein."
-
-
-    
-    # Content duration
-    script_duration = target_duration - 10  # Reserve 10s for outro/CTA
-    
-    if niche == "luxury" and context and "car_data" in context:
-        car = context["car_data"]
-        specific = f"""Car: {car['brand']} {car['model']}
-Engine: {car['engine']} | CC: {car['cc']} | HP: {car['horsepower']}
-Top Speed: {car['top_speed']} | Price: {car['price_india']}
-
-Explain ALL specs in exciting Hindi!"""
-    elif niche == "spiritual" and context and "story" in context:
-        specific = f"Use this story:\n{context['story']}\n\nNarrate in engaging Hindi!"
-    else:
-        specific = f"Create UNIQUE {niche} content with fresh facts!"
-    
-    prompt = f"""Create {script_duration}s Hindi script ({min_words}-{max_words} words, target: {target_words} words):
-
-STRICT STRUCTURE:
-1. HOOK (2-3s): Shocking question/fact
-2. MAIN CONTENT ({script_duration-5}s): {specific}
-3. CONCLUSION (2-3s): Powerful ending
-
-CRITICAL RULES:
-- Word count: {min_words}-{max_words} words ONLY (target: {target_words})
-- NO CTA in your output (we add separately)
-- {emotion.upper()} tone
-- Natural Hindi, short sentences
-- NO "pause" word
-- UNIQUE content every time
-
-JSON:
-{{
-  "content": "Hindi script {min_words}-{max_words} words WITHOUT CTA",
-  "title": "Hinglish title max 80 chars"
-}}"""
-    
+async def download_and_resize_image(img_data: dict, output_path: str, retry: int = 0) -> bool:
+    """Download image and resize dynamically to 720x1280"""
     try:
-        if MISTRAL_API_KEY:
-            async with httpx.AsyncClient(timeout=45) as client:
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.get(img_data["url"], follow_redirects=True)
+            
+            if resp.status_code == 200:
+                img = Image.open(io.BytesIO(resp.content))
+                
+                # DYNAMIC RESIZING LOGIC
+                original_width, original_height = img.size
+                aspect_ratio = original_width / original_height
+                target_aspect = IMAGE_TARGET_WIDTH / IMAGE_TARGET_HEIGHT  # 720/1280 = 0.5625
+                
+                if aspect_ratio > target_aspect:
+                    # Image is wider - crop width
+                    new_height = original_height
+                    new_width = int(new_height * target_aspect)
+                    left = (original_width - new_width) // 2
+                    img = img.crop((left, 0, left + new_width, new_height))
+                else:
+                    # Image is taller - crop height from top/bottom
+                    new_width = original_width
+                    new_height = int(new_width / target_aspect)
+                    top = (original_height - new_height) // 2
+                    img = img.crop((0, top, new_width, top + new_height))
+                
+                # Resize to exact target
+                img = img.resize((IMAGE_TARGET_WIDTH, IMAGE_TARGET_HEIGHT), Image.Resampling.LANCZOS)
+                
+                # Save
+                img.save(output_path, "JPEG", quality=95)
+                
+                if get_size_kb(output_path) > 100:  # Minimum 100KB
+                    logger.info(f"   ✅ Resized & saved: {get_size_kb(output_path):.0f}KB")
+                    return True
+                else:
+                    force_cleanup(output_path)
+                    return False
+                    
+    except Exception as e:
+        logger.warning(f"Download error: {e}")
+        if retry < 2:
+            await asyncio.sleep(1)
+            return await download_and_resize_image(img_data, output_path, retry + 1)
+    
+    return False
+
+async def download_images(images: List[dict], temp_dir: str) -> List[str]:
+    """Download and resize all images"""
+    downloaded = []
+    
+    for idx, img in enumerate(images):
+        path = os.path.join(temp_dir, f"img_{idx:02d}.jpg")
+        if await download_and_resize_image(img, path):
+            downloaded.append(path)
+            logger.info(f"📥 Downloaded: {idx+1}/{len(images)}")
+    
+    logger.info(f"✅ Total downloaded: {len(downloaded)}/{len(images)}")
+    return downloaded
+
+# ============================================================================
+# THUMBNAIL WITH GOLDEN OVERLAY
+# ============================================================================
+
+def add_text_to_thumbnail(image_path: str, text: str, output_path: str) -> bool:
+    """Add golden yellow text overlay to thumbnail"""
+    try:
+        img = Image.open(image_path)
+        draw = ImageDraw.Draw(img)
+        
+        # Load bold font
+        try:
+            font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 60)
+        except:
+            font = ImageFont.load_default()
+        
+        # Calculate text position (bottom center)
+        bbox = draw.textbbox((0, 0), text, font=font)
+        text_width = bbox[2] - bbox[0]
+        text_height = bbox[3] - bbox[1]
+        
+        position = ((img.width - text_width) // 2, img.height - text_height - 100)
+        
+        # Black outline (3px thick)
+        for adj in range(-3, 4):
+            for adj2 in range(-3, 4):
+                draw.text((position[0]+adj, position[1]+adj2), text, font=font, fill="black")
+        
+        # Golden yellow main text (#FFD700)
+        draw.text(position, text, font=font, fill="#FFD700")
+        
+        img.save(output_path, quality=95)
+        logger.info(f"✅ Text added to thumbnail: '{text}'")
+        return True
+        
+    except Exception as e:
+        logger.error(f"Thumbnail text error: {e}")
+        return False
+
+# ============================================================================
+# VOICE GENERATION WITH 1.15x SPEED
+# ============================================================================
+
+async def generate_voice_115x(text: str, temp_dir: str) -> Optional[str]:
+    """Generate voice at 1.15x speed (ElevenLabs or Edge TTS)"""
+    
+    # Try ElevenLabs first
+    if ELEVENLABS_API_KEY and len(ELEVENLABS_API_KEY) > 20:
+        try:
+            voice_id = "yD0Zg2jxgfQLY8I2MEHO"  # Spiritual voice
+            
+            async with httpx.AsyncClient(timeout=60) as client:
                 resp = await client.post(
-                    "https://api.mistral.ai/v1/chat/completions",
-                    headers={"Authorization": f"Bearer {MISTRAL_API_KEY}"},
+                    f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}",
+                    headers={"xi-api-key": ELEVENLABS_API_KEY},
                     json={
-                        "model": "mistral-large-latest",
-                        "messages": [
-                            {"role": "system", "content": f"Always create UNIQUE scripts,creativeness. Strict word limit: {min_words}-{max_words} words. Output ONLY JSON."},
-                            {"role": "user", "content": prompt}
-                        ],
-                        "temperature": 0.95,
-                        "max_tokens": 1200
+                        "text": text[:2000],
+                        "model_id": "eleven_multilingual_v2"
                     }
                 )
                 
                 if resp.status_code == 200:
-                    content = resp.json()["choices"][0]["message"]["content"]
-                    content = re.sub(r'```json\n?|\n?```', '', content).strip()
-                    match = re.search(r'\{.*\}', content, re.DOTALL)
-                    if match:
-                        data = json.loads(match.group(0))
-                        
-                        script_content = data.get("content", "")
-                        if isinstance(script_content, dict):
-                            script_content = str(script_content)
-                        elif not isinstance(script_content, str):
-                            script_content = ""
-                        
-                        # Add CTA
-                        full_script = script_content + " " + cta
-                        
-                        # Calculate actual duration
-                        est_dur = estimate_speech_duration(full_script, 1.1)
-                        
-                        # FIXED: Calculate proper image count and duration
-                        # For 30s video: 10-15 images at 2-3s each
-                        # For 40s video: 12-15 images at 2.5-3.5s each
-                        if est_dur <= 30:
-                            num_imgs = random.randint(10, 15)
-                        elif est_dur <= 40:
-                            num_imgs = random.randint(12, 15)
-                        else:
-                            num_imgs = random.randint(14, 18)
-                        
-                        # Ensure within limits
-                        num_imgs = max(MIN_IMAGES, min(num_imgs, MAX_IMAGES))
-                        
-                        # Calculate image duration (2-3.5s per image)
-                        img_dur = est_dur / num_imgs
-                        
-                        all_keys = niche_data["english_keywords"][:10] + niche_data["hindi_keywords"][:5]
-                        
-                        word_count = len(script_content.split())
-                        logger.info(f"📝 Script: {word_count} words, {est_dur:.1f}s, {num_imgs} images @ {img_dur:.1f}s each")
-                        
-                        return {
-                            "script": full_script,
-                            "title": str(data.get("title", f"{niche} Facts")),
-                            "description": full_script[:200],
-                            "keywords": list(dict.fromkeys(all_keys))[:20],
-                            "estimated_duration": est_dur,
-                            "num_images_needed": num_imgs,
-                            "image_duration": img_dur,
-                            "word_count": word_count
-                        }
-    except Exception as e:
-        logger.warning(f"Script error: {e}")
+                    base_audio = os.path.join(temp_dir, "voice_base.mp3")
+                    with open(base_audio, 'wb') as f:
+                        f.write(resp.content)
+                    
+                    # Apply 1.15x speed
+                    final_audio = os.path.join(temp_dir, "voice.mp3")
+                    if run_ffmpeg([
+                        "ffmpeg", "-i", base_audio, "-filter:a", "atempo=1.15", 
+                        "-y", final_audio
+                    ], 30):
+                        force_cleanup(base_audio)
+                        logger.info(f"✅ ElevenLabs voice (1.15x): {get_size_mb(final_audio):.2f}MB")
+                        return final_audio
+                    
+                    force_cleanup(base_audio)
+        except Exception as e:
+            logger.warning(f"ElevenLabs error: {e}")
     
-    # Fallback
-    fallback = f"Amazing {niche} facts! " + cta
-    est = estimate_speech_duration(fallback, 1.1)
-    num = random.randint(10, 15)
-    
-    return {
-        "script": fallback,
-        "title": f"{niche.title()} Facts",
-        "description": fallback,
-        "keywords": (niche_data["english_keywords"][:10] + niche_data["hindi_keywords"][:5])[:20],
-        "estimated_duration": est,
-        "num_images_needed": num,
-        "image_duration": est / num,
-        "word_count": len(fallback.split())
-    }
-
-# ============================================================================
-# VOICE - 1.1x SPEED
-# ============================================================================
-
-async def generate_voice_11labs(text: str, niche: str, temp_dir: str) -> Optional[str]:
-    try:
-        if not ELEVENLABS_API_KEY or len(ELEVENLABS_API_KEY) < 20:
-            return None
-        
-        voice_id = NICHE_KEYWORDS[niche]["voice_id"]
-        temp = os.path.join(temp_dir, "voice.mp3")
-        
-        async with httpx.AsyncClient(timeout=60) as client:
-            resp = await client.post(
-                f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}",
-                headers={"xi-api-key": ELEVENLABS_API_KEY},
-                json={"text": text[:2000], "model_id": "eleven_multilingual_v2"}
-            )
-            
-            if resp.status_code == 200:
-                base = os.path.join(temp_dir, "vb.mp3")
-                with open(base, 'wb') as f:
-                    f.write(resp.content)
-                
-                if run_ffmpeg(["ffmpeg", "-i", base, "-filter:a", "atempo=1.1", "-y", temp], 30):
-                    force_cleanup(base)
-                    if get_size_mb(temp) > 0.01:
-                        logger.info(f"✅ Voice 1.1x: {get_size_mb(temp):.2f}MB")
-                        return temp
-                force_cleanup(base)
-    except:
-        pass
-    return None
-
-async def generate_voice_edge(text: str, temp_dir: str) -> Optional[str]:
+    # Fallback to Edge TTS
     try:
         import edge_tts
-        base = os.path.join(temp_dir, "eb.mp3")
-        final = os.path.join(temp_dir, "edge.mp3")
         
-        await edge_tts.Communicate(text[:1500], "hi-IN-MadhurNeural", rate="+10%").save(base)
+        base_audio = os.path.join(temp_dir, "edge_base.mp3")
+        final_audio = os.path.join(temp_dir, "edge_voice.mp3")
         
-        if run_ffmpeg(["ffmpeg", "-i", base, "-filter:a", "atempo=1.1", "-y", final], 30):
-            force_cleanup(base)
-            if get_size_mb(final) > 0.01:
-                logger.info(f"✅ Edge 1.1x: {get_size_mb(final):.2f}MB")
-                return final
-        force_cleanup(base)
-    except:
-        pass
+        # Generate with +15% rate
+        await edge_tts.Communicate(
+            text[:1500],
+            "hi-IN-MadhurNeural",
+            rate="+15%"
+        ).save(base_audio)
+        
+        # Apply additional 1.15x speed
+        if run_ffmpeg([
+            "ffmpeg", "-i", base_audio, "-filter:a", "atempo=1.15", 
+            "-y", final_audio
+        ], 30):
+            force_cleanup(base_audio)
+            logger.info(f"✅ Edge TTS voice (1.15x): {get_size_mb(final_audio):.2f}MB")
+            return final_audio
+        
+        force_cleanup(base_audio)
+    except Exception as e:
+        logger.error(f"Edge TTS error: {e}")
+    
     return None
 
 # ============================================================================
-# IMAGE DOWNLOAD
+# MUSIC DOWNLOAD & PROCESSING
 # ============================================================================
 
-async def download_image(img_data: dict, path: str, retry: int = 0) -> bool:
-    try:
-        async with httpx.AsyncClient(timeout=30) as client:
-            resp = await client.get(img_data["url"], follow_redirects=True)
-            if resp.status_code == 200:
-                with open(path, 'wb') as f:
-                    f.write(resp.content)
-                if check_image_quality(path):
-                    return True
-                force_cleanup(path)
-        return False
-    except:
-        if retry < 2:
-            await asyncio.sleep(1)
-            return await download_image(img_data, path, retry + 1)
-        return False
-
-async def download_images(images: List[dict], temp_dir: str) -> List[str]:
-    downloaded = []
-    for idx, img in enumerate(images):
-        path = os.path.join(temp_dir, f"img_{idx:02d}.jpg")
-        if await download_image(img, path):
-            downloaded.append(path)
-            logger.info(f"   ✅ {idx+1}/{len(images)}: {get_size_kb(path):.0f}KB")
-    logger.info(f"✅ Downloaded: {len(downloaded)}/{len(images)}")
-    return downloaded
-
-# ============================================================================
-# MUSIC
-# ============================================================================
-
-async def download_music(niche: str, temp_dir: str, custom_url: Optional[str], duration: float) -> Optional[str]:
-    url = custom_url if custom_url else NICHE_KEYWORDS.get(niche, {}).get("bg_music_url")
-    if not url:
-        return None
+async def download_music(music_urls: List[str], temp_dir: str, duration: float) -> Optional[str]:
+    """Download and process background music"""
+    
+    # Random selection if multiple URLs
+    music_url = random.choice(music_urls)
+    
+    logger.info(f"🎵 Downloading music from: {music_url}")
     
     try:
         async with httpx.AsyncClient(timeout=60, follow_redirects=True) as client:
-            resp = await client.get(url)
+            resp = await client.get(music_url)
+            
             if resp.status_code == 200:
-                raw = os.path.join(temp_dir, "raw.weba" if url.endswith('.weba') else "raw.mp3")
-                with open(raw, 'wb') as f:
+                raw_music = os.path.join(temp_dir, "music_raw.weba")
+                with open(raw_music, 'wb') as f:
                     f.write(resp.content)
                 
-                if url.endswith('.weba'):
-                    conv = os.path.join(temp_dir, "conv.mp3")
-                    if convert_weba_to_mp3(raw, conv):
-                        force_cleanup(raw)
-                        raw = conv
+                logger.info(f"🗑️ Cleaned: {os.path.basename(raw_music)}")
                 
-                final = os.path.join(temp_dir, "music.mp3")
-                if run_ffmpeg(["ffmpeg", "-i", raw, "-t", str(min(duration, 55)), "-acodec", "copy", "-y", final], FFMPEG_TIMEOUT_MUSIC):
-                    force_cleanup(raw)
-                    return final
-                return raw if os.path.exists(raw) else None
-    except:
-        pass
+                # Convert .weba to .mp3
+                converted_music = os.path.join(temp_dir, "music_converted.mp3")
+                if convert_weba_to_mp3(raw_music, converted_music):
+                    force_cleanup(raw_music)
+                    logger.info(f"✅ Converted to MP3")
+                    
+                    # Crop to video duration
+                    final_music = os.path.join(temp_dir, "music_final.mp3")
+                    if run_ffmpeg([
+                        "ffmpeg", "-i", converted_music, "-t", str(min(duration, 55)),
+                        "-acodec", "copy", "-y", final_music
+                    ], FFMPEG_TIMEOUT_MUSIC):
+                        force_cleanup(converted_music)
+                        logger.info(f"🗑️ Cleaned: {os.path.basename(converted_music)}")
+                        logger.info(f"✅ Music: {get_size_mb(final_music):.2f}MB")
+                        return final_music
+                    
+                    force_cleanup(converted_music)
+                    return converted_music if os.path.exists(converted_music) else None
+                
+                return raw_music if os.path.exists(raw_music) else None
+    except Exception as e:
+        logger.error(f"Music download error: {e}")
+    
     return None
 
 # ============================================================================
-# SLIDESHOW
+# SLIDESHOW CREATION WITH 5 TRANSITIONS
 # ============================================================================
 
-def create_slideshow(images: List[str], dur: float, temp_dir: str) -> Optional[str]:
-    try:
-        if len(images) < MIN_IMAGES:
-            return None
-        
-        frames = int(dur * FPS)
-        clips = []
-        
-        for idx, img in enumerate(images):
-            r = os.path.join(temp_dir, f"r{idx}.jpg")
-            if not run_ffmpeg(["ffmpeg", "-i", img, "-vf", f"scale={IMAGE_TARGET_WIDTH}:{IMAGE_TARGET_HEIGHT}:force_original_aspect_ratio=increase,crop={IMAGE_TARGET_WIDTH}:{IMAGE_TARGET_HEIGHT}", "-q:v", "2", "-y", r], 15):
-                continue
-            
-            trans = random.choice(TRANSITIONS)
-            filt = trans["filter"].replace("{frames}", str(frames)).replace("{fps}", str(FPS))
-            
-            c = os.path.join(temp_dir, f"c{idx}.mp4")
-            if run_ffmpeg(["ffmpeg", "-loop", "1", "-i", r, "-vf", filt, "-t", str(dur), "-r", str(FPS), "-c:v", "libx264", "-crf", "23", "-preset", "fast", "-pix_fmt", "yuv420p", "-y", c], FFMPEG_TIMEOUT_CLIP):
-                clips.append(c)
-                logger.info(f"   ✅ Clip {idx+1}/{len(images)}")
-            
-            force_cleanup(r)
-        
-        if len(clips) < MIN_IMAGES:
-            return None
-        
-        concat = os.path.join(temp_dir, "concat.txt")
-        with open(concat, 'w') as f:
-            for c in clips:
-                f.write(f"file '{c}'\n")
-        
-        output = os.path.join(temp_dir, "slide.mp4")
-        if run_ffmpeg(["ffmpeg", "-f", "concat", "-safe", "0", "-i", concat, "-c", "copy", "-y", output], FFMPEG_TIMEOUT_CONCAT):
-            for c in clips:
-                force_cleanup(c)
-            logger.info(f"✅ Slideshow: {get_size_mb(output):.1f}MB")
-            return output
-        return None
-    except Exception as e:
-        logger.error(f"Slideshow error: {e}")
-        return None
-
-# ============================================================================
-# MIX
-# ============================================================================
-
-async def mix_audio(video: str, voice: str, music: Optional[str], temp_dir: str) -> Optional[str]:
-    try:
-        final = os.path.join(temp_dir, "final.mp4")
-        
-        if music:
-            cmd = ["ffmpeg", "-i", video, "-i", voice, "-i", music, "-filter_complex", 
-                   "[1:a]volume=1.0[v];[2:a]volume=0.12[m];[v][m]amix=inputs=2:duration=first[a]",
-                   "-map", "0:v", "-map", "[a]", "-c:v", "copy", "-c:a", "aac", "-b:a", "128k", "-shortest", "-y", final]
-        else:
-            cmd = ["ffmpeg", "-i", video, "-i", voice, "-map", "0:v", "-map", "1:a", "-c:v", "copy", "-c:a", "aac", "-shortest", "-y", final]
-        
-        if run_ffmpeg(cmd, FFMPEG_TIMEOUT_MUSIC):
-            logger.info(f"✅ Final: {get_size_mb(final):.1f}MB")
-            return final
-        return None
-    except:
-        return None
-
-# ============================================================================
-# UPLOAD
-# ============================================================================
-
-async def upload_youtube(video: str, title: str, desc: str, keywords: List[str], user_id: str, db) -> dict:
-    try:
-        from YTdatabase import get_database_manager as get_yt_db
-        yt_db = get_yt_db()
-        
-        if not yt_db or not yt_db.youtube.client:
-            if yt_db:
-                await yt_db.connect()
-        
-        creds = await yt_db.youtube.youtube_credentials_collection.find_one({"user_id": user_id})
-        if not creds:
-            return {"success": False, "error": "No credentials"}
-        
-        credentials = {
-            "access_token": creds.get("access_token"),
-            "refresh_token": creds.get("refresh_token"),
-            "token_uri": "https://oauth2.googleapis.com/token",
-            "client_id": creds.get("client_id") or os.getenv("YOUTUBE_CLIENT_ID"),
-            "client_secret": creds.get("client_secret") or os.getenv("YOUTUBE_CLIENT_SECRET"),
-            "scopes": ["https://www.googleapis.com/auth/youtube.upload"]
-        }
-        
-        from mainY import youtube_scheduler
-        
-        full_desc = f"{desc}\n\n" + "\n".join([f"#{k}" for k in keywords])
-        
-        result = await youtube_scheduler.generate_and_upload_content(
-            user_id=user_id, credentials_data=credentials, content_type="shorts",
-            title=title, description=full_desc, video_url=video
-        )
-        
-        if result.get("success"):
-            vid = result.get("video_id")
-            return {"success": True, "video_id": vid, "video_url": f"https://youtube.com/shorts/{vid}"}
-        return {"success": False, "error": result.get("error", "Failed")}
-    except Exception as e:
-        return {"success": False, "error": str(e)}
-
-# ============================================================================
-# MAIN
-# ============================================================================
-
-async def generate_pixabay_video(niche: str, language: str, user_id: str, database_manager,
-                                target_duration: int = 40, custom_bg_music: Optional[str] = None) -> dict:
-    temp_dir = None
-    context = {}
-    thumbnail_text = ""
+def create_slideshow(images: List[str], duration_per_image: float, temp_dir: str) -> Optional[str]:
+    """Create slideshow with random transitions"""
     
     try:
-        temp_dir = tempfile.mkdtemp(prefix="pixabay_")
-        logger.info(f"🎬 START: {niche} ({target_duration}s)")
+        if len(images) < MIN_IMAGES:
+            logger.error(f"Not enough images: {len(images)}")
+            return None
         
-        # LUXURY
-        if niche == "luxury":
-            car = await select_and_scrape_car()
-            if car:
-                context["car_data"] = car
-                NICHE_KEYWORDS["luxury"]["keywords"] = car.get("search_keywords", [])
-                NICHE_KEYWORDS["luxury"]["thumbnail_keywords"] = car.get("search_keywords", [])
-                thumbnail_text = car.get("thumbnail_text", "Luxury Car")
+        frames = int(duration_per_image * FPS)
+        clips = []
         
-        # SPIRITUAL
-        elif niche == "spiritual":
-            deity_name, deity, story = select_deity()
-            context["story"] = story
-            NICHE_KEYWORDS["spiritual"]["keywords"] = deity["keywords"]
-            NICHE_KEYWORDS["spiritual"]["thumbnail_keywords"] = deity["thumbnail_keywords"]
-            thumbnail_text = deity["thumbnail_text"]
+        logger.info(f"🎬 Creating slideshow with {len(images)} images...")
+        
+        for idx, img in enumerate(images, 1):
+            # Resize to exact dimensions (already done in download, but verify)
+            resized = os.path.join(temp_dir, f"resized_{idx}.jpg")
+            if not run_ffmpeg([
+                "ffmpeg", "-i", img, "-vf", 
+                f"scale={IMAGE_TARGET_WIDTH}:{IMAGE_TARGET_HEIGHT}:force_original_aspect_ratio=increase,crop={IMAGE_TARGET_WIDTH}:{IMAGE_TARGET_HEIGHT}",
+                "-q:v", "2", "-y", resized
+            ], 15):
+                continue
+            
+            # Random transition
+            transition = random.choice(TRANSITIONS)
+            filter_str = transition["filter"].format(frames=frames, fps=FPS)
+            
+            clip_output = os.path.join(temp_dir, f"clip_{idx}.mp4")
+            
+            logger.info(f"Clip {idx}/{len(images)}")
+            
+            if run_ffmpeg([
+                "ffmpeg", "-loop", "1", "-i", resized, "-vf", filter_str,
+                "-t", str(duration_per_image), "-r", str(FPS),
+                "-c:v", "libx264", "-crf", "20", "-preset", "fast",
+                "-pix_fmt", "yuv420p", "-y", clip_output
+            ], FFMPEG_TIMEOUT_CLIP):
+                clips.append(clip_output)
+                logger.info(f"   ✅ Clip {idx}: {get_size_mb(clip_output):.1f}MB")
+            
+            force_cleanup(resized)
+        
+        if len(clips) < MIN_IMAGES:
+            logger.error("Not enough clips created")
+            return None
+        
+        # Concatenate all clips
+        concat_file = os.path.join(temp_dir, "concat.txt")
+        with open(concat_file, 'w') as f:
+            for clip in clips:
+                f.write(f"file '{clip}'\n")
+        
+        slideshow_output = os.path.join(temp_dir, "slideshow.mp4")
+        
+        logger.info(f"🔗 Concatenating {len(clips)} clips...")
+        
+        if run_ffmpeg([
+            "ffmpeg", "-f", "concat", "-safe", "0", "-i", concat_file,
+            "-c", "copy", "-y", slideshow_output
+        ], FFMPEG_TIMEOUT_CONCAT):
+            for clip in clips:
+                force_cleanup(clip)
+            
+            logger.info(f"✅ Slideshow: {get_size_mb(slideshow_output):.1f}MB")
+            return slideshow_output
+        
+        return None
+        
+    except Exception as e:
+        logger.error(f"Slideshow creation error: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
+        return None
+
+# ============================================================================
+# AUDIO MIXING
+# ============================================================================
+
+async def mix_audio(video_path: str, voice_path: str, music_path: Optional[str], temp_dir: str) -> Optional[str]:
+    """Mix voice and background music with video"""
+    
+    try:
+        final_output = os.path.join(temp_dir, "final_video.mp4")
+        
+        if music_path:
+            # Mix voice + music (12% volume for music)
+            cmd = [
+                "ffmpeg", "-i", video_path, "-i", voice_path, "-i", music_path,
+                "-filter_complex",
+                "[1:a]volume=1.0[voice];[2:a]volume=0.12[music];[voice][music]amix=inputs=2:duration=first[audio]",
+                "-map", "0:v", "-map", "[audio]",
+                "-c:v", "copy", "-c:a", "aac", "-b:a", "128k",
+                "-shortest", "-y", final_output
+            ]
         else:
-            thumbnail_text = NICHE_KEYWORDS[niche].get("thumbnail_text", "")
+            # Only voice
+            cmd = [
+                "ffmpeg", "-i", video_path, "-i", voice_path,
+                "-map", "0:v", "-map", "1:a",
+                "-c:v", "copy", "-c:a", "aac",
+                "-shortest", "-y", final_output
+            ]
         
-        # Generate script with proper word limits
-        script_result = await generate_unique_script(niche, target_duration, context)
-        num_images = script_result["num_images_needed"]
-        img_dur = script_result["image_duration"]
+        if run_ffmpeg(cmd, FFMPEG_TIMEOUT_MUSIC):
+            logger.info(f"✅ Final video: {get_size_mb(final_output):.1f}MB")
+            return final_output
         
-        logger.info(f"📊 {script_result['word_count']} words, {num_images} images @ {img_dur:.1f}s")
+        return None
         
-        # Search images
-        images_data = await search_pixabay_hd(niche, num_images, False)
+    except Exception as e:
+        logger.error(f"Audio mixing error: {e}")
+        return None
+
+# ============================================================================
+# MAIN GENERATION FUNCTION
+# ============================================================================
+
+async def generate_pixabay_video(
+    niche: str,
+    language: str,
+    user_id: str,
+    database_manager,
+    target_duration: int = 40,
+    custom_bg_music: Optional[str] = None
+) -> dict:
+    """Main video generation function"""
+    
+    temp_dir = None
+    
+    try:
+        # Create temp directory
+        temp_dir = tempfile.mkdtemp(prefix="pixabay_")
+        logger.info(f"🎬 START: {niche} | Duration: {target_duration}s | Language: {language}")
+        
+        # STEP 1: Select deity & story
+        deity_name, deity, story = select_deity()
+        
+        # STEP 2: Generate unique AI script
+        script_data = await generate_unique_script(
+            database_manager, user_id, niche, deity_name, story, target_duration
+        )
+        
+        script_text = script_data["script"]
+        title = script_data["title"]
+        
+        # Estimate images needed
+        script_duration = len(script_text.split()) / 2.75  # ~165 words/min at 1.15x
+        num_images = max(MIN_IMAGES, min(int(script_duration / 3.5), MAX_IMAGES))
+        image_duration = script_duration / num_images
+        
+        logger.info(f"📊 Script: {len(script_text)} chars, {num_images} images @ {image_duration:.1f}s each")
+        
+        # STEP 3: Search & download images
+        logger.info(f"🔍 Searching {num_images} images...")
+        images_data = await search_pixabay_hd(deity["keywords"], num_images, False)
+        
         if len(images_data) < MIN_IMAGES:
             return {"success": False, "error": f"Not enough images: {len(images_data)}"}
         
-        # Search thumbnail
-        thumb_data = await search_pixabay_hd(niche, 1, True)
+        # STEP 4: Search thumbnail
+        logger.info(f"🖼️ Searching HD thumbnail...")
+        thumb_data = await search_pixabay_hd(deity["thumbnail_keywords"], 1, True)
         
-        # Download
+        # STEP 5: Download all images
+        logger.info(f"📥 Downloading {len(images_data)} images...")
         image_files = await download_images(images_data, temp_dir)
+        
         if len(image_files) < MIN_IMAGES:
-            return {"success": False, "error": "Download failed"}
+            return {"success": False, "error": "Image download failed"}
         
+        # Adjust image duration if needed
         if len(image_files) != num_images:
-            img_dur = script_result["estimated_duration"] / len(image_files)
-            logger.info(f"🔄 Adjusted: {len(image_files)} images @ {img_dur:.1f}s")
+            image_duration = script_duration / len(image_files)
+            logger.info(f"🔄 Adjusted: {len(image_files)} images @ {image_duration:.1f}s each")
         
-        # Thumbnail with text
+        # STEP 6: Create thumbnail with overlay
         thumb_file = None
         if thumb_data:
             thumb_base = os.path.join(temp_dir, "thumb_base.jpg")
-            if await download_image(thumb_data[0], thumb_base):
-                thumb_final = os.path.join(temp_dir, "thumb.jpg")
-                if add_text_to_thumbnail(thumb_base, thumbnail_text, thumb_final):
-                    thumb_file = thumb_final
+            
+            async with httpx.AsyncClient(timeout=30) as client:
+                resp = await client.get(thumb_data[0]["url"])
+                if resp.status_code == 200:
+                    with open(thumb_base, 'wb') as f:
+                        f.write(resp.content)
+                    
+                    thumb_final = os.path.join(temp_dir, "thumbnail.jpg")
+                    if add_text_to_thumbnail(thumb_base, deity["thumbnail_text"], thumb_final):
+                        thumb_file = thumb_final
+                        logger.info(f"✅ Thumb: {get_size_kb(thumb_file):.0f}KB")
         
-        # Music
-        music = await download_music(niche, temp_dir, custom_bg_music, script_result["estimated_duration"])
+        # STEP 7: Download & process music
+        logger.info(f"🎵 Downloading background music...")
+        music_file = await download_music(deity["music_urls"], temp_dir, script_duration)
         
-        # Slideshow
-        slideshow = create_slideshow(image_files, img_dur, temp_dir)
-        if not slideshow:
-            return {"success": False, "error": "Slideshow failed"}
+        # STEP 8: Create slideshow
+        logger.info(f"🎬 Creating slideshow...")
+        slideshow_file = create_slideshow(image_files, image_duration, temp_dir)
         
+        if not slideshow_file:
+            return {"success": False, "error": "Slideshow creation failed"}
+        
+        # Cleanup source images
         for img in image_files:
             force_cleanup(img)
         gc.collect()
         
-        # Voice 1.1x
-        voice = await generate_voice_11labs(script_result["script"], niche, temp_dir)
-        if not voice:
-            voice = await generate_voice_edge(script_result["script"], temp_dir)
-        if not voice:
-            return {"success": False, "error": "Voice failed"}
+        # STEP 9: Generate voice at 1.15x speed
+        logger.info(f"🎙️ Generating voice (1.15x speed)...")
+        voice_file = await generate_voice_115x(script_text, temp_dir)
         
-        # Mix
-        final = await mix_audio(slideshow, voice, music, temp_dir)
-        if not final:
-            return {"success": False, "error": "Mix failed"}
+        if not voice_file:
+            return {"success": False, "error": "Voice generation failed"}
         
-        final_size = get_size_mb(final)
+        # STEP 10: Mix audio
+        logger.info(f"🎛️ Mixing audio...")
+        final_video = await mix_audio(slideshow_file, voice_file, music_file, temp_dir)
+        
+        if not final_video:
+            return {"success": False, "error": "Audio mixing failed"}
+        
+        final_size = get_size_mb(final_video)
         logger.info(f"✅ FINAL: {final_size:.1f}MB")
         
-        # Upload
-        upload_result = await upload_youtube(
-            final, script_result["title"], script_result["description"],
-            script_result["keywords"], user_id, database_manager
-        )
+        # STEP 11: Upload to YouTube
+        logger.info(f"📤 Uploading to YouTube...")
         
+        try:
+            from mainY import youtube_scheduler
+            
+            # Get credentials
+            from YTdatabase import get_database_manager as get_yt_db
+            yt_db = get_yt_db()
+            
+            if yt_db and yt_db.youtube.client:
+                creds_raw = await yt_db.youtube.youtube_credentials_collection.find_one({"user_id": user_id})
+                
+                if creds_raw:
+                    credentials = {
+                        "access_token": creds_raw.get("access_token"),
+                        "refresh_token": creds_raw.get("refresh_token"),
+                        "token_uri": "https://oauth2.googleapis.com/token",
+                        "client_id": creds_raw.get("client_id") or os.getenv("YOUTUBE_CLIENT_ID"),
+                        "client_secret": creds_raw.get("client_secret") or os.getenv("YOUTUBE_CLIENT_SECRET"),
+                        "scopes": ["https://www.googleapis.com/auth/youtube.upload"]
+                    }
+                    
+                    # Generate keywords
+                    keywords = [
+                        f"#{deity_name}", "#spiritual", "#hindu", "#भक्ति",
+                        "#shorts", "#trending", "#viral", "#india"
+                    ]
+                    
+                    description = f"{script_text}\n\n" + "\n".join(keywords)
+                    
+                    upload_result = await youtube_scheduler.generate_and_upload_content(
+                        user_id=user_id,
+                        credentials_data=credentials,
+                        content_type="shorts",
+                        title=title,
+                        description=description,
+                        video_url=final_video,
+                        thumbnail_path=thumb_file  # ← Upload thumbnail with overlay!
+                    )
+                    
+                    if upload_result.get("success"):
+                        video_id = upload_result.get("video_id")
+                        
+                        # Store in database
+                        try:
+                            await database_manager.db.pixabay_scripts_collection.update_one(
+                                {"script_hash": script_data["script_hash"]},
+                                {"$set": {"video_id": video_id}},
+                                upsert=False
+                            )
+                        except:
+                            pass
+                        
+                        # Cleanup
+                        if temp_dir:
+                            shutil.rmtree(temp_dir, ignore_errors=True)
+                        gc.collect()
+                        
+                        logger.info(f"🎉 SUCCESS! Video ID: {video_id}")
+                        
+                        return {
+                            "success": True,
+                            "video_id": video_id,
+                            "video_url": f"https://youtube.com/shorts/{video_id}",
+                            "title": title,
+                            "deity": deity_name,
+                            "images_used": len(image_files),
+                            "duration": f"{script_duration:.1f}s",
+                            "size": f"{final_size:.1f}MB",
+                            "has_thumbnail": thumb_file is not None
+                        }
+        except Exception as upload_error:
+            logger.error(f"Upload error: {upload_error}")
+            import traceback
+            logger.error(traceback.format_exc())
+        
+        # Cleanup on error
         if temp_dir:
             shutil.rmtree(temp_dir, ignore_errors=True)
         gc.collect()
         
-        if not upload_result.get("success"):
-            return upload_result
-        
-        logger.info("🎉 SUCCESS!")
-        
-        result = {
-            "success": True,
-            "video_id": upload_result.get("video_id"),
-            "video_url": upload_result.get("video_url"),
-            "title": script_result["title"],
-            "description": script_result["description"],
-            "keywords": script_result["keywords"],
-            "size_mb": f"{final_size:.1f}MB",
-            "niche": niche,
-            "image_count": len(image_files),
-            "duration": script_result["estimated_duration"],
-            "word_count": script_result["word_count"],
-            "image_duration": img_dur,
-            "has_thumbnail": thumb_file is not None
-        }
-        
-        if niche == "luxury" and "car_data" in context:
-            result["car"] = f"{context['car_data']['brand']} {context['car_data']['model']}"
-        elif niche == "spiritual":
-            result["deity"] = deity_name.upper()
-        
-        return result
+        return {"success": False, "error": "Upload failed"}
         
     except Exception as e:
-        logger.error(f"❌ {e}")
+        logger.error(f"❌ Generation error: {e}")
+        import traceback
         logger.error(traceback.format_exc())
+        
         if temp_dir:
             shutil.rmtree(temp_dir, ignore_errors=True)
         gc.collect()
+        
         return {"success": False, "error": str(e)}
 
 # ============================================================================
-# API
+# API ROUTES
 # ============================================================================
 
 router = APIRouter()
 
 @router.get("/api/pixabay/niches")
 async def get_niches():
-    return {"success": True, "niches": {k: {"name": k.title(), "emotion": v["emotion"]} for k, v in NICHE_KEYWORDS.items()}}
+    """Get available niches"""
+    return {
+        "success": True,
+        "niches": {
+            "spiritual": {
+                "name": "Spiritual/Divine",
+                "deities": list(DEITY_STORIES.keys()),
+                "total_stories": sum(len(stories) for stories in DEITY_STORIES.values())
+            }
+        }
+    }
 
 @router.post("/api/pixabay/generate")
 async def generate_endpoint(request: Request):
+    """Generate Pixabay slideshow video"""
+    
     try:
         data = await request.json()
+        
         user_id = data.get("user_id")
         if not user_id:
             return JSONResponse(status_code=401, content={"success": False, "error": "user_id required"})
         
-        niche = data.get("niche", "space")
+        niche = data.get("niche", "spiritual")
         language = data.get("language", "hindi")
         target_duration = max(20, min(data.get("target_duration", 40), 55))
         custom_bg_music = data.get("custom_bg_music")
         
-        if niche not in NICHE_KEYWORDS:
-            return JSONResponse(status_code=400, content={"success": False, "error": "Invalid niche"})
-        
+        # Get database manager
         from Supermain import database_manager
         
         result = await asyncio.wait_for(
             generate_pixabay_video(niche, language, user_id, database_manager, target_duration, custom_bg_music),
-            timeout=1800
+            timeout=1800  # 30 minutes
         )
         
         return JSONResponse(content=result)
+        
     except asyncio.TimeoutError:
         return JSONResponse(status_code=408, content={"success": False, "error": "Timeout"})
     except Exception as e:
+        logger.error(f"Endpoint error: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
         return JSONResponse(status_code=500, content={"success": False, "error": str(e)})
 
 __all__ = ['router']
