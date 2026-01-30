@@ -105,27 +105,91 @@ def run_ffmpeg(cmd: list, timeout: int = FFMPEG_TIMEOUT) -> bool:
 # ============================================================================
 
 async def download_youtube_video(url: str, temp_dir: str) -> Optional[str]:
-    """Download YouTube video/short using yt-dlp"""
+    """Download YouTube video/short using yt-dlp with cookies"""
     try:
         output_path = os.path.join(temp_dir, "original.mp4")
         
         logger.info(f"📥 Downloading from: {url}")
         
+        # Try multiple methods to bypass YouTube's bot detection
+        
+        # Method 1: Use cookies from browser (if available)
         cmd = [
             "yt-dlp",
+            "--cookies-from-browser", "chrome",  # Try Chrome cookies
             "-f", "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
             "--merge-output-format", "mp4",
+            "--no-check-certificates",
+            "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
             "-o", output_path,
             url
         ]
         
         process = subprocess.run(cmd, capture_output=True, timeout=300, check=False)
         
+        # If Chrome cookies fail, try Firefox
         if process.returncode != 0:
-            logger.error(f"yt-dlp error: {process.stderr.decode()}")
-            return None
+            logger.warning("Chrome cookies failed, trying Firefox...")
+            cmd[1] = "--cookies-from-browser"
+            cmd[2] = "firefox"
+            process = subprocess.run(cmd, capture_output=True, timeout=300, check=False)
+        
+        # If browser cookies fail, try without cookies but with headers
+        if process.returncode != 0:
+            logger.warning("Browser cookies failed, trying with headers only...")
+            cmd = [
+                "yt-dlp",
+                "-f", "18/best[height<=480]/best",  # Lower quality but more reliable
+                "--no-check-certificates",
+                "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+                "--referer", "https://www.youtube.com/",
+                "--add-header", "Accept-Language:en-US,en;q=0.9",
+                "--extractor-args", "youtube:player_client=android",
+                "-o", output_path,
+                url
+            ]
+            process = subprocess.run(cmd, capture_output=True, timeout=300, check=False)
+        
+        if process.returncode != 0:
+            error_msg = process.stderr.decode()
+            logger.error(f"yt-dlp error: {error_msg}")
+            
+            # If still failing, try yt-dlp with --no-warnings
+            if "Sign in" in error_msg or "bot" in error_msg:
+                logger.warning("Bot detection triggered, trying alternative method...")
+                
+                # Last resort: use direct download with lowest quality
+                cmd = [
+                    "yt-dlp",
+                    "-f", "worst",
+                    "--no-check-certificates",
+                    "--extractor-args", "youtube:player_client=android,web",
+                    "--no-warnings",
+                    "-o", output_path,
+                    url
+                ]
+                process = subprocess.run(cmd, capture_output=True, timeout=300, check=False)
+        
+        # If yt-dlp completely fails, try pytube as fallback
+        if not os.path.exists(output_path):
+            logger.warning("yt-dlp failed, trying pytube fallback...")
+            try:
+                from pytube import YouTube
+                
+                yt = YouTube(url)
+                stream = yt.streams.filter(progressive=True, file_extension='mp4').first()
+                
+                if not stream:
+                    stream = yt.streams.filter(file_extension='mp4').first()
+                
+                if stream:
+                    stream.download(output_path=temp_dir, filename="original.mp4")
+                    logger.info("✅ Downloaded using pytube")
+            except Exception as pytube_error:
+                logger.error(f"Pytube also failed: {pytube_error}")
         
         if not os.path.exists(output_path):
+            logger.error("Download failed - file not found")
             return None
         
         size_mb = get_file_size_mb(output_path)
@@ -135,6 +199,7 @@ async def download_youtube_video(url: str, temp_dir: str) -> Optional[str]:
         
     except Exception as e:
         logger.error(f"Download error: {e}")
+        logger.error(traceback.format_exc())
         return None
 
 # ============================================================================
