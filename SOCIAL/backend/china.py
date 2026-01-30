@@ -1,10 +1,10 @@
 """
-china_optimized.py - MEMORY-OPTIMIZED DOUYIN AUTOMATION
+china_api.py - DOUYIN API-BASED SCRAPING
 ===========================================================================
-✅ Low memory footprint (<512MB)
-✅ Process video immediately after finding it
-✅ Better Douyin selectors
-✅ Faster scraping with early exit
+✅ Uses Douyin's internal API (more reliable than HTML parsing)
+✅ Profile-specific scraping (not random)
+✅ Detailed step-by-step logging
+✅ Works with 2 niches: Funny & Animals
 ===========================================================================
 """
 
@@ -18,44 +18,48 @@ import uuid
 import httpx
 import json
 import re
-import random
 import subprocess
-from typing import List, Dict, Optional
+from typing import Optional
 import tempfile
 import shutil
 import gc
-from datetime import datetime
-from selenium import webdriver
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.common.by import By
-import time
-from bs4 import BeautifulSoup
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+# Setup logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - [%(levelname)s] - %(message)s'
+)
 logger = logging.getLogger(__name__)
 
-# Configuration
-MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY")
-ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY", "sk_346aca9fb63af57816b2f0323b6312b75a65aa852656eeac")
-ELEVENLABS_VOICE_ID = "nPczCjzI2devNBz1zQrb"
+# Config
 MAX_VIDEO_SIZE_MB = 50
 TARGET_DURATION = 50
 
-NICHE_CONFIG = {
+# Profile configurations
+PROFILES = {
     "funny": {
-        "name": "Funny",
-        "profile_url": "https://www.douyin.com/user/MS4wLjABAAAAe-jjss5iSv02OGU_kOaQCc4jOSuHiCb3NlmA7koeoC7ISTKHLMtVTt-ELmNLkHfV",
-        "fallback_search": "https://www.douyin.com/search/搞笑"
+        "name": "Funny/Comedy",
+        "sec_uid": "MS4wLjABAAAAe-jjss5iSv02OGU_kOaQCc4jOSuHiCb3NlmA7koeoC7ISTKHLMtVTt-ELmNLkHfV",
+        "user_id": "56007218020",
+        "fallback_keyword": "搞笑"
     },
     "animals": {
-        "name": "Animals",
-        "profile_url": "https://www.douyin.com/user/MS4wLjABAAAA424aSWu0zdBbu6sTR0wIo-okI65xkC9dEltXycuVo0f3WdUTVbA1j8Hbi6Jvqwt1",
-        "fallback_search": "https://www.douyin.com/search/萌宠"
+        "name": "Animals/Pets",
+        "sec_uid": "MS4wLjABAAAA424aSWu0zdBbu6sTR0wIo-okI65xkC9dEltXycuVo0f3WdUTVbA1j8Hbi6Jvqwt1",
+        "user_id": "78632067601",
+        "fallback_keyword": "萌宠"
     }
 }
 
+def log_step(step: str, status: str, message: str):
+    """Detailed logging with step tracking"""
+    symbols = {"START": "🔵", "SUCCESS": "✅", "ERROR": "❌", "INFO": "ℹ️", "WARNING": "⚠️"}
+    symbol = symbols.get(status, "•")
+    logger.info(f"{symbol} [{step}] {message}")
+    print(f"{symbol} [{step}] {message}")  # Also print to console
+
 def cleanup(*files):
-    """Quick cleanup"""
+    """Cleanup files"""
     for f in files:
         try:
             if f and os.path.exists(f):
@@ -65,161 +69,226 @@ def cleanup(*files):
     gc.collect()
 
 def run_ffmpeg(cmd, timeout=60):
-    """Run FFmpeg efficiently"""
+    """Run FFmpeg"""
     try:
         subprocess.run(cmd, capture_output=True, timeout=timeout, check=True)
         return True
     except:
         return False
 
-class FastDouyinScraper:
-    """Memory-efficient scraper - finds ONE video and exits"""
+async def scrape_douyin_api(profile: dict) -> Optional[str]:
+    """
+    Scrape using Douyin's internal API
+    More reliable than HTML parsing
+    """
+    step = "API_SCRAPE"
+    log_step(step, "START", f"Scraping profile: {profile['name']}")
     
-    def __init__(self):
-        self.driver = None
-    
-    def init_driver(self):
-        """Lightweight Chrome instance"""
-        try:
-            logger.info("🌐 Starting Chrome (headless)...")
-            options = Options()
-            options.add_argument("--headless=new")
-            options.add_argument("--no-sandbox")
-            options.add_argument("--disable-dev-shm-usage")
-            options.add_argument("--disable-gpu")
-            options.add_argument("--window-size=1280,720")
-            options.add_argument("--disable-extensions")
-            options.add_argument("--disable-logging")
-            options.add_argument("--log-level=3")
-            options.add_argument(f"user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0")
+    try:
+        # Douyin's API endpoint for user posts
+        api_url = "https://www.douyin.com/aweme/v1/web/aweme/post/"
+        
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Referer': 'https://www.douyin.com/',
+            'Accept': 'application/json',
+        }
+        
+        params = {
+            'sec_user_id': profile['sec_uid'],
+            'count': '10',
+            'max_cursor': '0',
+        }
+        
+        log_step(step, "INFO", f"Calling API with sec_uid: {profile['sec_uid'][:30]}...")
+        
+        async with httpx.AsyncClient(timeout=30) as client:
+            response = await client.get(api_url, headers=headers, params=params)
             
-            # Memory optimizations
-            options.add_argument("--disable-images")  # Don't load images
-            options.add_argument("--blink-settings=imagesEnabled=false")
+            log_step(step, "INFO", f"API Response Status: {response.status_code}")
             
-            self.driver = webdriver.Chrome(options=options)
-            self.driver.set_page_load_timeout(20)
-            self.driver.set_script_timeout(20)
-            
-            logger.info("✅ Chrome ready")
-            return True
-        except Exception as e:
-            logger.error(f"❌ Chrome init failed: {e}")
-            return False
-    
-    def find_one_video(self, url: str) -> Optional[str]:
-        """
-        CRITICAL: Find FIRST video only, then EXIT
-        This prevents memory issues from long scraping
-        """
-        try:
-            if not self.driver:
-                if not self.init_driver():
-                    return None
-            
-            logger.info(f"📱 Loading: {url[:60]}...")
-            self.driver.get(url)
-            
-            # Short wait
-            logger.info("⏳ Wait 8s...")
-            time.sleep(8)
-            
-            # Light scroll (only 2 scrolls to save memory)
-            logger.info("📜 Quick scroll...")
-            for i in range(2):
-                self.driver.execute_script("window.scrollBy(0, 500);")
-                time.sleep(1.5)
-            
-            # Updated selectors for Douyin 2026
-            selectors = [
-                # Most common Douyin selectors
-                "a[href*='video']",
-                "a[href*='modal']",
-                "div[data-e2e='user-post-item'] a",
-                "li a[href*='douyin.com']",
-            ]
-            
-            logger.info("🔍 Searching for video...")
-            for selector in selectors:
-                try:
-                    elements = self.driver.find_elements(By.CSS_SELECTOR, selector)
-                    logger.info(f"   {selector}: {len(elements)} found")
+            if response.status_code == 200:
+                data = response.json()
+                
+                # Extract video list
+                aweme_list = data.get('aweme_list', [])
+                log_step(step, "INFO", f"Found {len(aweme_list)} videos in response")
+                
+                if aweme_list:
+                    # Get first video's ID
+                    first_video = aweme_list[0]
+                    aweme_id = first_video.get('aweme_id')
                     
-                    for elem in elements:
-                        try:
-                            href = elem.get_attribute('href')
-                            if href and ('video' in href or 'modal' in href):
-                                if not href.startswith('http'):
-                                    href = 'https://www.douyin.com' + href
-                                
-                                logger.info(f"✅ FOUND VIDEO: {href[:60]}...")
-                                return href  # STOP HERE - Only need 1!
-                        except:
-                            continue
+                    if aweme_id:
+                        video_url = f"https://www.douyin.com/video/{aweme_id}"
+                        log_step(step, "SUCCESS", f"Found video: {video_url}")
+                        return video_url
+                    else:
+                        log_step(step, "ERROR", "No aweme_id in video data")
+                else:
+                    log_step(step, "ERROR", "Empty aweme_list in response")
+            else:
+                log_step(step, "ERROR", f"API returned {response.status_code}")
+        
+        return None
+        
+    except Exception as e:
+        log_step(step, "ERROR", f"Exception: {str(e)[:100]}")
+        return None
+
+async def scrape_douyin_web(profile: dict) -> Optional[str]:
+    """
+    Fallback: Scrape using web page with better selectors
+    """
+    step = "WEB_SCRAPE"
+    log_step(step, "START", "Trying web scraping fallback")
+    
+    try:
+        from selenium import webdriver
+        from selenium.webdriver.chrome.options import Options
+        from selenium.webdriver.common.by import By
+        import time
+        
+        log_step(step, "INFO", "Initializing Chrome...")
+        
+        options = Options()
+        options.add_argument("--headless=new")
+        options.add_argument("--no-sandbox")
+        options.add_argument("--disable-dev-shm-usage")
+        options.add_argument("--disable-gpu")
+        options.add_argument("--window-size=1280,720")
+        options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0")
+        
+        driver = webdriver.Chrome(options=options)
+        driver.set_page_load_timeout(20)
+        
+        profile_url = f"https://www.douyin.com/user/{profile['sec_uid']}"
+        log_step(step, "INFO", f"Loading: {profile_url[:60]}...")
+        
+        driver.get(profile_url)
+        time.sleep(8)
+        
+        # Scroll
+        log_step(step, "INFO", "Scrolling page...")
+        for i in range(2):
+            driver.execute_script("window.scrollBy(0, 500);")
+            time.sleep(1.5)
+        
+        # Updated selectors based on your screenshots
+        selectors = [
+            # From your screenshots, I see these patterns:
+            "a[href*='/video/']",
+            "div[class*='douyin'] a",
+            "li a[href*='douyin.com']",
+        ]
+        
+        log_step(step, "INFO", "Searching for video links...")
+        
+        for selector in selectors:
+            elements = driver.find_elements(By.CSS_SELECTOR, selector)
+            log_step(step, "INFO", f"Selector '{selector}': {len(elements)} elements")
+            
+            for elem in elements:
+                try:
+                    href = elem.get_attribute('href')
+                    if href and 'video' in href and 'douyin.com' in href:
+                        driver.quit()
+                        log_step(step, "SUCCESS", f"Found: {href[:60]}...")
+                        return href
                 except:
                     continue
-            
-            logger.warning("⚠️ No videos found")
-            return None
-            
-        except Exception as e:
-            logger.error(f"❌ Scraping error: {e}")
-            return None
-    
-    def close(self):
-        """Clean shutdown"""
-        try:
-            if self.driver:
-                self.driver.quit()
-                self.driver = None
-                gc.collect()
-        except:
-            pass
+        
+        driver.quit()
+        log_step(step, "ERROR", "No videos found with any selector")
+        return None
+        
+    except Exception as e:
+        log_step(step, "ERROR", f"Exception: {str(e)[:100]}")
+        return None
 
 async def download_video(url: str, temp_dir: str) -> Optional[str]:
-    """Lightweight download with ONE method"""
-    logger.info(f"📥 Downloading: {url[:60]}...")
+    """Download video with detailed logging"""
+    step = "DOWNLOAD"
+    log_step(step, "START", f"Downloading from: {url[:60]}...")
     
     try:
         async with httpx.AsyncClient(timeout=60) as client:
-            # Try direct HTML parsing
-            resp = await client.get(url, headers={'User-Agent': 'Mozilla/5.0'}, follow_redirects=True)
+            log_step(step, "INFO", "Fetching video page HTML...")
             
-            if resp.status_code == 200:
-                html = resp.text
+            response = await client.get(
+                url,
+                headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0)'},
+                follow_redirects=True
+            )
+            
+            log_step(step, "INFO", f"Page status: {response.status_code}")
+            
+            if response.status_code != 200:
+                log_step(step, "ERROR", f"Failed to load page: {response.status_code}")
+                return None
+            
+            html = response.text
+            log_step(step, "INFO", f"HTML length: {len(html)} chars")
+            
+            # Extract video URL from HTML
+            patterns = [
+                r'"playAddr"[^"]*"(https://[^"]+\.mp4[^"]*)"',
+                r'playUrl[^"]*"(https://[^"]+\.mp4[^"]*)"',
+                r'"play_addr"[^{]+url_list[^[]+\["([^"]+)"',
+            ]
+            
+            video_url = None
+            for i, pattern in enumerate(patterns, 1):
+                log_step(step, "INFO", f"Trying pattern {i}/{len(patterns)}...")
+                matches = re.findall(pattern, html)
                 
-                # Find video URL patterns
-                patterns = [
-                    r'"playAddr"[^"]*"(https://[^"]+\.mp4[^"]*)"',
-                    r'playUrl[^"]*"(https://[^"]+\.mp4)"',
-                ]
-                
-                for pattern in patterns:
-                    matches = re.findall(pattern, html)
-                    if matches:
-                        video_url = matches[0].replace('\\/', '/')
-                        logger.info(f"   Found video URL")
-                        
-                        # Download
-                        vid_resp = await client.get(video_url, follow_redirects=True, timeout=90)
-                        if vid_resp.status_code == 200:
-                            size_mb = len(vid_resp.content) / (1024*1024)
-                            if 0.1 < size_mb < MAX_VIDEO_SIZE_MB:
-                                path = os.path.join(temp_dir, "video.mp4")
-                                with open(path, 'wb') as f:
-                                    f.write(vid_resp.content)
-                                logger.info(f"✅ Downloaded: {size_mb:.1f}MB")
-                                return path
-        
-        logger.error("❌ Download failed")
-        return None
+                if matches:
+                    video_url = matches[0].replace('\\/', '/')
+                    log_step(step, "SUCCESS", f"Pattern {i} matched!")
+                    log_step(step, "INFO", f"Video URL: {video_url[:60]}...")
+                    break
+            
+            if not video_url:
+                log_step(step, "ERROR", "No video URL found in HTML")
+                return None
+            
+            # Download video
+            log_step(step, "INFO", "Downloading video file...")
+            
+            video_resp = await client.get(
+                video_url,
+                headers={'User-Agent': 'Mozilla/5.0'},
+                follow_redirects=True,
+                timeout=90
+            )
+            
+            if video_resp.status_code != 200:
+                log_step(step, "ERROR", f"Video download failed: {video_resp.status_code}")
+                return None
+            
+            size_mb = len(video_resp.content) / (1024 * 1024)
+            log_step(step, "INFO", f"Downloaded {size_mb:.2f} MB")
+            
+            if not (0.1 < size_mb < MAX_VIDEO_SIZE_MB):
+                log_step(step, "ERROR", f"Invalid size: {size_mb:.2f} MB")
+                return None
+            
+            path = os.path.join(temp_dir, "video.mp4")
+            with open(path, 'wb') as f:
+                f.write(video_resp.content)
+            
+            log_step(step, "SUCCESS", f"Saved to: {path}")
+            return path
+            
     except Exception as e:
-        logger.error(f"❌ Download error: {e}")
+        log_step(step, "ERROR", f"Exception: {str(e)[:100]}")
+        traceback.print_exc()
         return None
 
-async def simple_process(video_path: str, temp_dir: str) -> Optional[str]:
-    """Ultra-simple video processing"""
-    logger.info("⚙️ Processing video...")
+async def process_video(video_path: str, temp_dir: str) -> Optional[str]:
+    """Process video for YouTube Shorts"""
+    step = "PROCESS"
+    log_step(step, "START", "Processing for YouTube Shorts (1080x1920)")
     
     try:
         output = os.path.join(temp_dir, "processed.mp4")
@@ -229,50 +298,47 @@ async def simple_process(video_path: str, temp_dir: str) -> Optional[str]:
             "-t", str(TARGET_DURATION),
             "-vf", "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920",
             "-c:v", "libx264", "-crf", "28", "-preset", "ultrafast",
-            "-an",  # Remove audio for now to save memory
+            "-an",
             "-y", output
         ]
         
-        if run_ffmpeg(cmd, 60):
-            cleanup(video_path)
-            logger.info(f"✅ Processed: {os.path.getsize(output)/(1024*1024):.1f}MB")
-            return output
+        log_step(step, "INFO", "Running FFmpeg...")
         
-        return None
+        if run_ffmpeg(cmd, 60):
+            size_mb = os.path.getsize(output) / (1024 * 1024)
+            log_step(step, "SUCCESS", f"Processed: {size_mb:.1f} MB")
+            cleanup(video_path)
+            return output
+        else:
+            log_step(step, "ERROR", "FFmpeg failed")
+            return None
+            
     except Exception as e:
-        logger.error(f"❌ Processing error: {e}")
+        log_step(step, "ERROR", f"Exception: {str(e)[:100]}")
         return None
 
-def get_simple_script(niche: str) -> dict:
-    """Simple fallback script"""
-    if niche == "animals":
-        return {
-            "title": "प्यारा जानवर वीडियो 🐶❤️",
-            "description": "Cute animal video",
-            "hashtags": ["animals", "cute", "viral"]
-        }
-    else:
-        return {
-            "title": "मजेदार वीडियो 😂",
-            "description": "Funny video",
-            "hashtags": ["funny", "comedy", "viral"]
-        }
-
-async def upload_to_yt(video_path: str, script: dict, user_id: str, database_manager) -> dict:
-    """Simple YT upload"""
-    logger.info("📤 Uploading to YouTube...")
+async def upload_to_youtube(video_path: str, niche: str, user_id: str, db_manager) -> dict:
+    """Upload to YouTube"""
+    step = "UPLOAD"
+    log_step(step, "START", "Uploading to YouTube...")
     
     try:
         from YTdatabase import get_database_manager as get_yt_db
         from mainY import youtube_scheduler
+        
+        log_step(step, "INFO", "Fetching YouTube credentials...")
         
         yt_db = get_yt_db()
         if not yt_db.youtube.client:
             await yt_db.connect()
         
         creds_raw = await yt_db.youtube.youtube_credentials_collection.find_one({"user_id": user_id})
+        
         if not creds_raw:
-            return {"success": False, "error": "No YouTube credentials"}
+            log_step(step, "ERROR", "No YouTube credentials found")
+            return {"success": False, "error": "No credentials"}
+        
+        log_step(step, "INFO", "Building credentials...")
         
         creds = {
             "access_token": creds_raw.get("access_token"),
@@ -283,156 +349,175 @@ async def upload_to_yt(video_path: str, script: dict, user_id: str, database_man
             "scopes": ["https://www.googleapis.com/auth/youtube.upload"]
         }
         
+        # Simple titles
+        titles = {
+            "funny": "मजेदार वीडियो 😂 | Funny Video",
+            "animals": "प्यारा जानवर 🐶 | Cute Animal"
+        }
+        
+        title = titles.get(niche, "वीडियो | Video")
+        description = f"{niche.title()} video from Douyin"
+        hashtags = [niche, "viral", "shorts"]
+        
+        log_step(step, "INFO", f"Title: {title}")
+        log_step(step, "INFO", "Calling YouTube upload API...")
+        
         result = await youtube_scheduler.generate_and_upload_content(
             user_id=user_id,
             credentials_data=creds,
             content_type="shorts",
-            title=script["title"],
-            description=script["description"] + "\n\n#" + " #".join(script["hashtags"]),
+            title=title,
+            description=description + "\n\n#" + " #".join(hashtags),
             video_url=video_path
         )
         
         if result.get("success"):
-            logger.info(f"✅ Uploaded: {result.get('video_id')}")
+            video_id = result.get("video_id")
+            video_url = f"https://youtube.com/shorts/{video_id}"
+            log_step(step, "SUCCESS", f"Uploaded: {video_url}")
+            
             return {
                 "success": True,
-                "video_id": result.get("video_id"),
-                "video_url": f"https://youtube.com/shorts/{result.get('video_id')}"
+                "video_id": video_id,
+                "video_url": video_url
             }
-        
-        return {"success": False, "error": result.get("error")}
+        else:
+            log_step(step, "ERROR", f"Upload failed: {result.get('error')}")
+            return {"success": False, "error": result.get("error")}
+            
     except Exception as e:
-        logger.error(f"❌ Upload error: {e}")
+        log_step(step, "ERROR", f"Exception: {str(e)[:100]}")
         return {"success": False, "error": str(e)}
 
-async def process_one_video_complete(niche: str, user_id: str, database_manager) -> dict:
+async def process_one_video(niche: str, user_id: str, db_manager) -> dict:
     """
-    OPTIMIZED PIPELINE:
-    1. Find ONE video
-    2. Download it immediately
-    3. Process immediately  
-    4. Upload immediately
-    5. Clean up immediately
+    Complete pipeline for ONE video with detailed logging
+    """
+    log_step("PIPELINE", "START", f"=== STARTING {niche.upper()} VIDEO ===")
     
-    This prevents memory buildup!
-    """
     temp_dir = None
-    scraper = None
     
     try:
-        logger.info(f"🚀 Starting {niche} video automation")
+        # Get profile config
+        profile = PROFILES.get(niche)
+        if not profile:
+            return {"success": False, "error": f"Invalid niche: {niche}"}
         
-        temp_dir = tempfile.mkdtemp(prefix="douyin_")
-        config = NICHE_CONFIG.get(niche, NICHE_CONFIG["animals"])
+        log_step("PIPELINE", "INFO", f"Profile: {profile['name']}")
+        log_step("PIPELINE", "INFO", f"User ID: {profile['user_id']}")
         
-        # STEP 1: Find ONE video (then stop scraping!)
-        logger.info("STEP 1: Scraping for ONE video...")
-        scraper = FastDouyinScraper()
+        temp_dir = tempfile.mkdtemp(prefix=f"douyin_{niche}_")
+        log_step("PIPELINE", "INFO", f"Temp dir: {temp_dir}")
         
-        video_url = scraper.find_one_video(config["profile_url"])
-        if not video_url:
-            logger.info("   Trying fallback search...")
-            video_url = scraper.find_one_video(config["fallback_search"])
+        # STEP 1: Scrape for video URL
+        log_step("PIPELINE", "INFO", "Step 1/4: Scraping...")
         
-        scraper.close()  # Close browser IMMEDIATELY to free memory
-        scraper = None
-        gc.collect()
+        video_url = await scrape_douyin_api(profile)
         
         if not video_url:
+            log_step("PIPELINE", "WARNING", "API scraping failed, trying web scraping...")
+            video_url = await scrape_douyin_web(profile)
+        
+        if not video_url:
+            log_step("PIPELINE", "ERROR", "All scraping methods failed")
             return {"success": False, "error": "No videos found"}
         
-        logger.info(f"✅ Found video: {video_url[:60]}...")
-        
         # STEP 2: Download
-        logger.info("STEP 2: Downloading...")
+        log_step("PIPELINE", "INFO", "Step 2/4: Downloading...")
+        
         video_path = await download_video(video_url, temp_dir)
+        
         if not video_path:
             return {"success": False, "error": "Download failed"}
         
         # STEP 3: Process
-        logger.info("STEP 3: Processing...")
-        processed = await simple_process(video_path, temp_dir)
+        log_step("PIPELINE", "INFO", "Step 3/4: Processing...")
+        
+        processed = await process_video(video_path, temp_dir)
+        
         if not processed:
             return {"success": False, "error": "Processing failed"}
         
         # STEP 4: Upload
-        logger.info("STEP 4: Uploading...")
-        script = get_simple_script(niche)
-        result = await upload_to_yt(processed, script, user_id, database_manager)
+        log_step("PIPELINE", "INFO", "Step 4/4: Uploading...")
         
-        # STEP 5: Cleanup
-        logger.info("STEP 5: Cleanup...")
+        result = await upload_to_youtube(processed, niche, user_id, db_manager)
+        
+        # Cleanup
         if temp_dir:
             shutil.rmtree(temp_dir, ignore_errors=True)
         gc.collect()
         
         if result.get("success"):
-            logger.info(f"🎉 SUCCESS: {result['video_url']}")
+            log_step("PIPELINE", "SUCCESS", "=== PIPELINE COMPLETE ===")
             return {
                 "success": True,
                 "video_url": result["video_url"],
                 "video_id": result["video_id"],
-                "title": script["title"],
                 "source": video_url
             }
-        
-        return result
-        
+        else:
+            log_step("PIPELINE", "ERROR", "Upload failed")
+            return result
+            
     except Exception as e:
-        logger.error(f"❌ Pipeline error: {e}")
-        logger.error(traceback.format_exc())
+        log_step("PIPELINE", "ERROR", f"Exception: {str(e)}")
+        traceback.print_exc()
         
-        if scraper:
-            scraper.close()
         if temp_dir:
             shutil.rmtree(temp_dir, ignore_errors=True)
         gc.collect()
         
         return {"success": False, "error": str(e)}
 
-# API
+# API Router
 router = APIRouter()
 
 @router.post("/api/china/generate")
 async def generate(request: Request):
-    """Generate videos - processes ONE at a time"""
+    """Generate videos"""
     try:
         data = await request.json()
+        
         niche = data.get("niche", "animals")
         user_id = data.get("user_id")
         num_videos = data.get("num_videos", 1)
         
+        log_step("API", "START", f"Request: {niche} / {num_videos} videos / user: {user_id}")
+        
         if not user_id:
             return JSONResponse(status_code=401, content={"error": "user_id required"})
         
-        if niche not in NICHE_CONFIG:
-            return JSONResponse(status_code=400, content={"error": f"Invalid niche. Use: {list(NICHE_CONFIG.keys())}"})
+        if niche not in PROFILES:
+            return JSONResponse(status_code=400, content={
+                "error": f"Invalid niche. Use: {list(PROFILES.keys())}"
+            })
         
         from Supermain import database_manager
         
-        logger.info(f"📨 Request: {user_id} / {niche} / {num_videos} videos")
-        
         results = []
+        success_count = 0
+        
         for i in range(num_videos):
-            logger.info(f"\n{'='*60}")
-            logger.info(f"VIDEO {i+1}/{num_videos}")
-            logger.info(f"{'='*60}\n")
+            log_step("API", "INFO", f"\n{'='*60}\nVIDEO {i+1}/{num_videos}\n{'='*60}")
             
             result = await asyncio.wait_for(
-                process_one_video_complete(niche, user_id, database_manager),
-                timeout=600  # 10 min per video
+                process_one_video(niche, user_id, database_manager),
+                timeout=600
             )
             
             results.append(result)
             
-            if not result.get("success"):
-                logger.warning(f"⚠️ Video {i+1} failed: {result.get('error')}")
+            if result.get("success"):
+                success_count += 1
+                log_step("API", "SUCCESS", f"Video {i+1} uploaded: {result['video_url']}")
+            else:
+                log_step("API", "ERROR", f"Video {i+1} failed: {result.get('error')}")
             
-            # Short break between videos
             if i < num_videos - 1:
                 await asyncio.sleep(3)
         
-        success_count = sum(1 for r in results if r.get("success"))
+        log_step("API", "INFO", f"FINAL: {success_count}/{num_videos} successful")
         
         return JSONResponse(content={
             "success": True,
@@ -442,24 +527,23 @@ async def generate(request: Request):
             "results": results
         })
         
-    except asyncio.TimeoutError:
-        return JSONResponse(status_code=408, content={"error": "Timeout"})
     except Exception as e:
-        logger.error(f"API error: {e}")
+        log_step("API", "ERROR", f"API error: {str(e)}")
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 @router.get("/api/china/test")
 async def test():
     return {
         "success": True,
-        "message": "Douyin Automation - Memory Optimized",
-        "features": [
-            "✅ Low memory (<512MB)",
-            "✅ Process one video at a time",
-            "✅ Immediate cleanup",
-            "✅ Fast scraping (finds 1 video and stops)"
-        ],
-        "niches": list(NICHE_CONFIG.keys())
+        "message": "Douyin API Scraper",
+        "niches": list(PROFILES.keys()),
+        "profiles": {
+            k: {
+                "name": v["name"],
+                "user_id": v["user_id"]
+            }
+            for k, v in PROFILES.items()
+        }
     }
 
 __all__ = ['router']
