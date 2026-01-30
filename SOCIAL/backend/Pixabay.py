@@ -1518,7 +1518,7 @@
 
 
 """
-pixabay_final_complete_WORKING.py - COMPLETE WORKING VERSION
+pixabay_final_complete_WORKING.py - COMPLETE WORKING VERSION WITH VERTEX AI TTS
 ================================================================
 ✅ FIXED: Unique AI scripts for same niche (NO REPETITION)
 ✅ FIXED: Proper YouTube upload using Viral Pixel's working logic
@@ -1532,6 +1532,9 @@ pixabay_final_complete_WORKING.py - COMPLETE WORKING VERSION
 ✅ HD thumbnails with golden text overlay
 ✅ 1.15x voice speed
 ✅ Custom duration (20-55s)
+✅ NEW: Vertex AI TTS as fallback when ElevenLabs fails
+✅ NEW: 3 Hindi voices (Kore Female, Iapetus Male, Achernar Female)
+✅ NEW: Edge TTS as final fallback
 ================================================================
 """
 
@@ -1565,6 +1568,8 @@ logger.setLevel(logging.INFO)
 PIXABAY_API_KEY = os.getenv("PIXABAY_API_KEY", "54364709-1e6532279f08847859d5bea5e")
 MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY")
 ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY", "")
+GOOGLE_VERTEX_API_KEY = os.getenv("GOOGLE_VERTEX_API_KEY", "AIzaSyAb8RN6KKt384GXtEg7vxZnhXZNxhoTrXw3mcoe7RevLa881bSw")
+GOOGLE_PROJECT_ID = os.getenv("GOOGLE_PROJECT_ID", "gen-lang-client-0264552009")
 MONGODB_URI = os.getenv("MONGODB_URI", "mongodb+srv://aryan:aryan@cluster0.7iquw6v.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0")
 
 # PROCESSING LIMITS
@@ -1574,7 +1579,7 @@ FFMPEG_TIMEOUT_MUSIC = 120
 
 # IMAGE CONFIG - SQUARE FORMAT (1080x1080)
 MIN_IMAGES = 8
-MAX_IMAGES = 14
+MAX_IMAGES = 18
 IMAGE_TARGET_WIDTH = 1080
 IMAGE_TARGET_HEIGHT = 1080
 FPS = 30
@@ -1586,6 +1591,25 @@ VIDEO_HEIGHT = 1280
 # THUMBNAIL
 THUMBNAIL_MIN_SIZE_KB = 200
 THUMBNAIL_MAX_SIZE_KB = 2048
+
+# VERTEX AI HINDI VOICES (3 options for random selection)
+VERTEX_AI_HINDI_VOICES = [
+    {
+        "name": "hi-IN-Standard-A",  # Kore Female
+        "gender": "FEMALE",
+        "description": "Kore (Female) - Natural Hindi voice"
+    },
+    {
+        "name": "hi-IN-Standard-B",  # Iapetus Male
+        "gender": "MALE", 
+        "description": "Iapetus (Male) - Deep Hindi voice"
+    },
+    {
+        "name": "hi-IN-Standard-C",  # Achernar Female
+        "gender": "FEMALE",
+        "description": "Achernar (Female) - Clear Hindi voice"
+    }
+]
 
 # ============================================================================
 # SPIRITUAL DEITIES - 8 GODS WITH UNIQUE STORIES
@@ -1670,62 +1694,62 @@ DEITY_CONFIG = {
         "keywords": ["lord krishna statue", "krishna flute", "radha krishna", "govardhan", "krishna makhan"],
         "thumbnail_keywords": ["krishna divine statue", "krishna golden idol"],
         "thumbnail_text": "Krishna Leela",
-        "music_urls": SPIRITUAL_MUSIC_URLS,  # Uses all spiritual music randomly
+        "music_urls": SPIRITUAL_MUSIC_URLS,
         "voice_id": "yD0Zg2jxgfQLY8I2MEHO"
     },
     "mahadev": {
         "keywords": ["shiva statue", "mahadev meditation", "shiva lingam", "har har mahadev", "neelkanth"],
         "thumbnail_keywords": ["mahadev statue", "shiva golden"],
         "thumbnail_text": "Mahadev Shakti",
-        "music_urls": SPIRITUAL_MUSIC_URLS,  # Uses all spiritual music randomly
+        "music_urls": SPIRITUAL_MUSIC_URLS,
         "voice_id": "yD0Zg2jxgfQLY8I2MEHO"
     },
     "ganesha": {
         "keywords": ["ganesha statue", "ganpati modak", "vinayak temple", "ganesha festival"],
         "thumbnail_keywords": ["ganesha golden idol", "ganpati statue"],
         "thumbnail_text": "Ganesha Kripa",
-        "music_urls": SPIRITUAL_MUSIC_URLS,  # Uses all spiritual music randomly
+        "music_urls": SPIRITUAL_MUSIC_URLS,
         "voice_id": "yD0Zg2jxgfQLY8I2MEHO"
     },
     "hanuman": {
         "keywords": ["hanuman statue", "bajrang bali", "sankat mochan", "pawan putra"],
         "thumbnail_keywords": ["hanuman powerful", "bajrang bali golden"],
         "thumbnail_text": "Hanuman Shakti",
-        "music_urls": SPIRITUAL_MUSIC_URLS,  # Uses all spiritual music randomly
+        "music_urls": SPIRITUAL_MUSIC_URLS,
         "voice_id": "yD0Zg2jxgfQLY8I2MEHO"
     },
     "ram": {
         "keywords": ["lord ram statue", "ram sita", "ayodhya ram", "ram darbar"],
         "thumbnail_keywords": ["ram ayodhya statue", "ram divine"],
         "thumbnail_text": "Ram Bhakti",
-        "music_urls": SPIRITUAL_MUSIC_URLS,  # Uses all spiritual music randomly
+        "music_urls": SPIRITUAL_MUSIC_URLS,
         "voice_id": "yD0Zg2jxgfQLY8I2MEHO"
     },
     "durga": {
         "keywords": ["durga maa statue", "mahishasura mardini", "navratri durga", "shakti durga"],
         "thumbnail_keywords": ["durga maa powerful", "navratri goddess"],
         "thumbnail_text": "Durga Shakti",
-        "music_urls": SPIRITUAL_MUSIC_URLS,  # Uses all spiritual music randomly
+        "music_urls": SPIRITUAL_MUSIC_URLS,
         "voice_id": "yD0Zg2jxgfQLY8I2MEHO"
     },
     "kali": {
         "keywords": ["kali maa statue", "mahakali", "kali tandav", "dakshina kali"],
         "thumbnail_keywords": ["kali maa fierce", "mahakali statue"],
         "thumbnail_text": "Kali Shakti",
-        "music_urls": SPIRITUAL_MUSIC_URLS,  # Uses all spiritual music randomly
+        "music_urls": SPIRITUAL_MUSIC_URLS,
         "voice_id": "yD0Zg2jxgfQLY8I2MEHO"
     },
     "parvati": {
         "keywords": ["parvati maa statue", "uma gauri", "shiva parvati", "shakti parvati"],
         "thumbnail_keywords": ["parvati divine", "uma devi statue"],
         "thumbnail_text": "Parvati Kripa",
-        "music_urls": SPIRITUAL_MUSIC_URLS,  # Uses all spiritual music randomly
+        "music_urls": SPIRITUAL_MUSIC_URLS,
         "voice_id": "yD0Zg2jxgfQLY8I2MEHO"
     }
 }
 
 # ============================================================================
-# OTHER NICHES CONFIGURATION - UPDATED SPACE WITH MULTIPLE MUSIC URLs
+# OTHER NICHES CONFIGURATION
 # ============================================================================
 
 NICHE_CONFIG = {
@@ -1856,7 +1880,7 @@ def select_deity() -> tuple:
     
     return deity_name, deity_config, story
 
-# ============================================================================
+# ==================================================================================================================================
 # UNIQUE SCRIPT GENERATION WITH MONGODB DEDUPLICATION
 # ============================================================================
 
@@ -2442,14 +2466,87 @@ def add_golden_text_to_thumbnail(image_path: str, text: str, output_path: str) -
         return False
 
 # ============================================================================
-# VOICE GENERATION (1.15x SPEED)
+# ✅ NEW: VERTEX AI TTS FUNCTION (FALLBACK #1)
+# ============================================================================
+
+async def generate_voice_vertex_ai(text: str, temp_dir: str) -> Optional[str]:
+    """Generate voice using Google Vertex AI TTS (Fallback when ElevenLabs fails)"""
+    
+    if not GOOGLE_VERTEX_API_KEY:
+        logger.warning("❌ Vertex AI API key not available")
+        return None
+    
+    try:
+        # Randomly select one of the 3 Hindi voices
+        voice_config = random.choice(VERTEX_AI_HINDI_VOICES)
+        logger.info(f"🔊 Vertex AI: Using {voice_config['description']}")
+        
+        # Vertex AI Text-to-Speech API endpoint
+        url = f"https://texttospeech.googleapis.com/v1/text:synthesize?key={GOOGLE_VERTEX_API_KEY}"
+        
+        payload = {
+            "input": {
+                "text": text[:2000]  # Limit text length
+            },
+            "voice": {
+                "languageCode": "hi-IN",
+                "name": voice_config["name"],
+                "ssmlGender": voice_config["gender"]
+            },
+            "audioConfig": {
+                "audioEncoding": "MP3",
+                "speakingRate": 1.15,  # 1.15x speed as required
+                "pitch": 0.0,
+                "volumeGainDb": 0.0
+            }
+        }
+        
+        async with httpx.AsyncClient(timeout=60) as client:
+            resp = await client.post(url, json=payload)
+            
+            if resp.status_code == 200:
+                result = resp.json()
+                
+                if "audioContent" in result:
+                    # Decode base64 audio content
+                    import base64
+                    audio_content = base64.b64decode(result["audioContent"])
+                    
+                    # Save audio file
+                    output_path = os.path.join(temp_dir, "vertex_voice.mp3")
+                    with open(output_path, 'wb') as f:
+                        f.write(audio_content)
+                    
+                    logger.info(f"✅ Vertex AI Voice: {get_size_mb(output_path):.2f}MB ({voice_config['description']})")
+                    return output_path
+                else:
+                    logger.error("❌ Vertex AI: No audioContent in response")
+                    return None
+            else:
+                logger.error(f"❌ Vertex AI Error: {resp.status_code} - {resp.text}")
+                return None
+                
+    except Exception as e:
+        logger.error(f"❌ Vertex AI TTS error: {e}")
+        logger.error(traceback.format_exc())
+        return None
+
+# ============================================================================
+# ✅ UPDATED: VOICE GENERATION WITH 3-TIER FALLBACK SYSTEM
 # ============================================================================
 
 async def generate_voice_115x(text: str, voice_id: str, temp_dir: str) -> Optional[str]:
-    """Generate voice at 1.15x speed using ElevenLabs or Edge TTS"""
+    """
+    Generate voice with 3-tier fallback system:
+    1. ElevenLabs (Primary)
+    2. Vertex AI TTS with 3 Hindi voices (Fallback #1)
+    3. Edge TTS (Fallback #2)
+    """
     
+    # ========== TIER 1: ELEVENLABS (PRIMARY) ==========
     if ELEVENLABS_API_KEY and len(ELEVENLABS_API_KEY) > 20:
         try:
+            logger.info("🎙️ Attempting ElevenLabs TTS...")
             async with httpx.AsyncClient(timeout=60) as client:
                 resp = await client.post(
                     f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}",
@@ -2471,12 +2568,22 @@ async def generate_voice_115x(text: str, voice_id: str, temp_dir: str) -> Option
                         "-y", final
                     ], 30):
                         force_cleanup(base)
-                        logger.info(f"✅ Voice (1.15x): {get_size_mb(final):.2f}MB")
+                        logger.info(f"✅ ElevenLabs Voice (1.15x): {get_size_mb(final):.2f}MB")
                         return final
                     force_cleanup(base)
         except Exception as e:
-            logger.warning(f"ElevenLabs error: {e}")
+            logger.warning(f"⚠️ ElevenLabs failed: {e}")
+    else:
+        logger.warning("⚠️ ElevenLabs API key not available")
     
+    # ========== TIER 2: VERTEX AI TTS (FALLBACK #1) ==========
+    logger.info("🔄 Falling back to Vertex AI TTS...")
+    vertex_voice = await generate_voice_vertex_ai(text, temp_dir)
+    if vertex_voice:
+        return vertex_voice
+    
+    # ========== TIER 3: EDGE TTS (FALLBACK #2) ==========
+    logger.info("🔄 Falling back to Edge TTS...")
     try:
         import edge_tts
         
@@ -2494,16 +2601,17 @@ async def generate_voice_115x(text: str, voice_id: str, temp_dir: str) -> Option
             "-y", final
         ], 30):
             force_cleanup(base)
-            logger.info(f"✅ Edge Voice (1.15x): {get_size_mb(final):.2f}MB")
+            logger.info(f"✅ Edge TTS Voice (1.15x): {get_size_mb(final):.2f}MB")
             return final
         force_cleanup(base)
     except Exception as e:
-        logger.error(f"Edge TTS error: {e}")
+        logger.error(f"❌ Edge TTS error: {e}")
     
+    logger.error("❌ All voice generation methods failed!")
     return None
 
 # ============================================================================
-# MUSIC DOWNLOAD & PROCESSING - UPDATED TO HANDLE MP3 AND OTHER FORMATS
+# MUSIC DOWNLOAD & PROCESSING
 # ============================================================================
 
 async def download_music(music_urls: List[str], temp_dir: str, duration: float) -> Optional[str]:
@@ -2534,7 +2642,6 @@ async def download_music(music_urls: List[str], temp_dir: str, duration: float) 
                         logger.info(f"✅ Music (MP3): {get_size_mb(final):.2f}MB")
                         return final
                     
-                    # If trimming failed, return raw file
                     return raw if os.path.exists(raw) else None
                     
                 else:
@@ -2684,7 +2791,7 @@ async def mix_audio(
         return None
 
 # ============================================================================
-# ✅ YOUTUBE UPLOAD - USING VIRAL PIXEL'S WORKING LOGIC
+# YOUTUBE UPLOAD
 # ============================================================================
 
 async def upload_to_youtube(
@@ -2696,11 +2803,10 @@ async def upload_to_youtube(
     database_manager,
     thumbnail_path: Optional[str] = None
 ) -> dict:
-    """✅ Upload video to YouTube using Viral Pixel's exact working logic"""
+    """Upload video to YouTube using Viral Pixel's exact working logic"""
     try:
         logger.info("📤 Connecting to YouTube database...")
         
-        # ✅ EXACT IMPORT FROM VIRAL PIXEL
         from YTdatabase import get_database_manager as get_yt_db
         yt_db = get_yt_db()
         
@@ -2710,7 +2816,6 @@ async def upload_to_youtube(
         if not yt_db.youtube.client:
             await yt_db.connect()
         
-        # ✅ GET CREDENTIALS - EXACT LOGIC FROM VIRAL PIXEL
         logger.info(f"📤 Fetching YouTube credentials for user: {user_id}")
         
         credentials_raw = await yt_db.youtube.youtube_credentials_collection.find_one({
@@ -2720,7 +2825,6 @@ async def upload_to_youtube(
         if not credentials_raw:
             return {"success": False, "error": "YouTube credentials not found"}
         
-        # ✅ BUILD CREDENTIALS OBJECT - EXACT STRUCTURE FROM VIRAL PIXEL
         credentials = {
             "access_token": credentials_raw.get("access_token"),
             "refresh_token": credentials_raw.get("refresh_token"),
@@ -2735,13 +2839,10 @@ async def upload_to_youtube(
         
         logger.info("📤 Uploading to YouTube...")
         
-        # ✅ EXACT IMPORT FROM VIRAL PIXEL
         from mainY import youtube_scheduler
         
-        # ✅ COMBINE TAGS INTO DESCRIPTION - EXACT LOGIC
         full_description = f"{description}\n\n#{' #'.join(tags)}"
         
-        # ✅ UPLOAD WITH EXACT PARAMETERS FROM VIRAL PIXEL
         upload_result = await youtube_scheduler.generate_and_upload_content(
             user_id=user_id,
             credentials_data=credentials,
@@ -2749,10 +2850,8 @@ async def upload_to_youtube(
             title=title,
             description=full_description,
             video_url=video_path,
-            # ✅ Pass thumbnail if available
         )
         
-        # ✅ HANDLE RESPONSE - EXACT LOGIC FROM VIRAL PIXEL
         if upload_result.get("success"):
             video_id = upload_result.get("video_id")
             video_url = f"https://youtube.com/shorts/{video_id}"
@@ -2871,16 +2970,14 @@ async def generate_pixabay_video(
                             thumb_file = thumb_final
                             logger.info(f"✅ Thumb: {get_size_kb(thumb_file):.0f}KB")
         
-        # STEP 7: Download & process music - UPDATED TO USE NEW URLs
+        # STEP 7: Download & process music
         logger.info(f"🎵 Downloading music...")
         
         if niche == "spiritual":
-            # Use the shared spiritual music URLs - randomly selected
             music_urls = deity_config.get("music_urls", SPIRITUAL_MUSIC_URLS)
             music_file = await download_music(music_urls, temp_dir, script_duration)
             logger.info(f"🎵 Using spiritual music from shared pool")
         elif niche == "space":
-            # Space has multiple music URLs now
             music_urls = deity_config.get("music_urls", [])
             if music_urls:
                 music_file = await download_music(music_urls, temp_dir, script_duration)
@@ -2888,7 +2985,6 @@ async def generate_pixabay_video(
             else:
                 music_file = None
         else:
-            # Other niches use single music URL
             music_url = custom_bg_music or deity_config.get("music_url", "")
             if music_url:
                 music_file = await download_music([music_url], temp_dir, script_duration)
@@ -2908,13 +3004,13 @@ async def generate_pixabay_video(
             force_cleanup(img)
         gc.collect()
         
-        # STEP 9: Generate voice at 1.15x speed
-        logger.info(f"🎙️ Generating voice (1.15x)...")
+        # STEP 9: Generate voice with 3-tier fallback (ElevenLabs → Vertex AI → Edge TTS)
+        logger.info(f"🎙️ Generating voice with 3-tier fallback system...")
         voice_id = deity_config.get("voice_id", "yD0Zg2jxgfQLY8I2MEHO")
         voice_file = await generate_voice_115x(script_text, voice_id, temp_dir)
         
         if not voice_file:
-            return {"success": False, "error": "Voice generation failed"}
+            return {"success": False, "error": "Voice generation failed (all fallbacks exhausted)"}
         
         # STEP 10: Mix audio (voice + music)
         logger.info(f"🎛️ Mixing audio...")
@@ -2926,10 +3022,9 @@ async def generate_pixabay_video(
         final_size = get_size_mb(final_video)
         logger.info(f"✅ FINAL VIDEO: {final_size:.1f}MB")
         
-        # ✅ STEP 11: Upload to YouTube using Viral Pixel's working logic
-        logger.info(f"📤 Uploading to YouTube (using Viral Pixel logic)...")
+        # STEP 11: Upload to YouTube
+        logger.info(f"📤 Uploading to YouTube...")
         
-        # Generate keywords
         keywords = [
             f"#{deity_name}",
             "#shorts",
@@ -2940,7 +3035,6 @@ async def generate_pixabay_video(
         
         description = script_text
         
-        # ✅ USE VIRAL PIXEL'S EXACT UPLOAD FUNCTION
         upload_result = await upload_to_youtube(
             video_path=final_video,
             title=title,
@@ -2948,7 +3042,6 @@ async def generate_pixabay_video(
             tags=keywords,
             user_id=user_id,
             database_manager=database_manager,
-            # thumbnail_path=thumb_file
         )
         
         if upload_result.get("success"):
@@ -3036,6 +3129,11 @@ async def get_niches():
             "motivation": {"name": "Motivation"},
             "funny": {"name": "Funny & Comedy"},
             "luxury": {"name": "Luxury Lifestyle"}
+        },
+        "voice_fallback_system": {
+            "tier1": "ElevenLabs (Primary)",
+            "tier2": "Vertex AI TTS (3 Hindi voices)",
+            "tier3": "Edge TTS (Final fallback)"
         }
     }
 
@@ -3058,7 +3156,6 @@ async def generate_endpoint(request: Request):
         target_duration = max(20, min(data.get("target_duration", 40), 55))
         custom_bg_music = data.get("custom_bg_music")
         
-        # ✅ GET DATABASE MANAGER - EXACT IMPORT FROM VIRAL PIXEL
         from Supermain import database_manager
         
         result = await asyncio.wait_for(
