@@ -15,7 +15,7 @@
 # ✅ Space niche with multiple music options (NEW)
 # ✅ 5 Professional transitions
 # ✅ HD thumbnails with golden text overlay
-# ✅ 1.2x voice speed
+# ✅ 1.15x voice speed
 # ✅ Custom duration (20-55s)
 # ✅ NEW: Vertex AI TTS as fallback when ElevenLabs fails
 # ✅ NEW: 3 Hindi voices (Kore Female, Iapetus Male, Achernar Female)
@@ -980,7 +980,7 @@
 #             },
 #             "audioConfig": {
 #                 "audioEncoding": "MP3",
-#                 "speakingRate": 1.2,  # 1.2x speed as required
+#                 "speakingRate": 1.15,  # 1.15x speed as required
 #                 "pitch": 0.0,
 #                 "volumeGainDb": 0.0
 #             }
@@ -1049,11 +1049,11 @@
                     
 #                     final = os.path.join(temp_dir, "voice.mp3")
 #                     if run_ffmpeg([
-#                         "ffmpeg", "-i", base, "-filter:a", "atempo=1.2",
+#                         "ffmpeg", "-i", base, "-filter:a", "atempo=1.15",
 #                         "-y", final
 #                     ], 30):
 #                         force_cleanup(base)
-#                         logger.info(f"✅ ElevenLabs Voice (1.2x): {get_size_mb(final):.2f}MB")
+#                         logger.info(f"✅ ElevenLabs Voice (1.15x): {get_size_mb(final):.2f}MB")
 #                         return final
 #                     force_cleanup(base)
 #         except Exception as e:
@@ -1082,11 +1082,11 @@
 #         ).save(base)
         
 #         if run_ffmpeg([
-#             "ffmpeg", "-i", base, "-filter:a", "atempo=1.2",
+#             "ffmpeg", "-i", base, "-filter:a", "atempo=1.15",
 #             "-y", final
 #         ], 30):
 #             force_cleanup(base)
-#             logger.info(f"✅ Edge TTS Voice (1.2x): {get_size_mb(final):.2f}MB")
+#             logger.info(f"✅ Edge TTS Voice (1.15x): {get_size_mb(final):.2f}MB")
 #             return final
 #         force_cleanup(base)
 #     except Exception as e:
@@ -1710,7 +1710,7 @@ pixabay_final_complete_WORKING.py - COMPLETE WORKING VERSION WITH ALL NEW FEATUR
 ✅ Space niche with multiple music options (NEW)
 ✅ 5 Professional transitions
 ✅ HD thumbnails with golden text overlay
-✅ 1.2x voice speed
+✅ 1.15x voice speed
 ✅ Custom duration (20-55s)
 ✅ NEW: Vertex AI TTS as fallback when ElevenLabs fails
 ✅ NEW: 3 Hindi voices (Kore Female, Iapetus Male, Achernar Female)
@@ -2009,51 +2009,12 @@ NICHE_CONFIG = {
 # TRANSITIONS
 # ============================================================================
 
-# TRANSITIONS = [
-#     {"name": "zoom", "filter": "zoompan=z='if(lte(zoom,1.0),1.8,max(1.001,zoom-0.008))':d={frames}:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s={width}x{height}:fps={fps}"},
-#     {"name": "fade", "filter": "zoompan=z='if(lte(zoom,1.0),2.0,max(1.001,zoom-0.01))':d={frames}:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s={width}x{height}:fps={fps},fade=t=in:st=0:d=0.3"},
-#     {"name": "slide", "filter": "zoompan=z='1.5':d={frames}:x='iw/2-(iw/zoom/2)+((iw/zoom/2)*sin(on/{frames}*PI))':y='ih/2-(ih/zoom/2)':s={width}x{height}:fps={fps}"},
-#     {"name": "pan", "filter": "zoompan=z='1.3':d={frames}:x='iw/2-(iw/zoom/2)+(on/{frames}*100)':y='ih/2-(ih/zoom/2)':s={width}x{height}:fps={fps}"}
-# ]
-
-# ============================================================================
-# PREMIUM REEL TRANSITIONS (CANVA-STYLE • FREE)
-# ============================================================================
-
 TRANSITIONS = [
-
-    # 1️⃣ Cinematic Slow Zoom (Luxury / Space / Motivation)
-    {
-        "name": "cinematic_zoom",
-        "filter": "zoompan=z='min(1.6,1.0+on*0.002)':d={frames}:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s={width}x{height}:fps={fps}"
-    },
-
-    # 2️⃣ Smooth Ease-In Zoom (No jerk, very premium)
-    {
-        "name": "ease_zoom",
-        "filter": "zoompan=z='1+0.3*(1-cos(on/{frames}*PI))/2':d={frames}:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s={width}x{height}:fps={fps}"
-    },
-
-    # 3️⃣ Parallax Drift (High-end Canva Pro feel)
-    {
-        "name": "parallax",
-        "filter": "zoompan=z='1.4':d={frames}:x='iw/2-(iw/zoom/2)+sin(on/18)*40':y='ih/2-(ih/zoom/2)+cos(on/22)*30':s={width}x{height}:fps={fps}"
-    },
-
-    # 4️⃣ Soft Fade Zoom (Most viral Shorts style)
-    {
-        "name": "soft_fade",
-        "filter": "zoompan=z='1+on*0.0018':d={frames}:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s={width}x{height}:fps={fps},fade=t=in:st=0:d=0.35,fade=t=out:st=({frames}/{fps}-0.35):d=0.35"
-    },
-
-    # 5️⃣ Cinematic Push (Netflix / Documentary style)
-    {
-        "name": "cinematic_push",
-        "filter": "zoompan=z='1.25':d={frames}:x='iw/2-(iw/zoom/2)+(on/{frames}*120)':y='ih/2-(ih/zoom/2)':s={width}x{height}:fps={fps}"
-    }
-
+    {"name": "zoom", "filter": "zoompan=z='if(lte(zoom,1.0),1.8,max(1.001,zoom-0.008))':d={frames}:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s={width}x{height}:fps={fps}"},
+    {"name": "fade", "filter": "zoompan=z='if(lte(zoom,1.0),2.0,max(1.001,zoom-0.01))':d={frames}:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s={width}x{height}:fps={fps},fade=t=in:st=0:d=0.3"},
+    {"name": "slide", "filter": "zoompan=z='1.5':d={frames}:x='iw/2-(iw/zoom/2)+((iw/zoom/2)*sin(on/{frames}*PI))':y='ih/2-(ih/zoom/2)':s={width}x{height}:fps={fps}"},
+    {"name": "pan", "filter": "zoompan=z='1.3':d={frames}:x='iw/2-(iw/zoom/2)+(on/{frames}*100)':y='ih/2-(ih/zoom/2)':s={width}x{height}:fps={fps}"}
 ]
-
 
 # ============================================================================
 # UTILITIES
@@ -2802,7 +2763,7 @@ async def generate_voice_vertex_ai(text: str, temp_dir: str) -> Optional[str]:
             },
             "audioConfig": {
                 "audioEncoding": "MP3",
-                "speakingRate": 1.2,
+                "speakingRate": 1.15,
                 "pitch": 0.0,
                 "volumeGainDb": 0.0
             }
@@ -2869,11 +2830,11 @@ async def generate_voice_115x(text: str, voice_id: str, temp_dir: str) -> Option
                     
                     final = os.path.join(temp_dir, "voice.mp3")
                     if run_ffmpeg([
-                        "ffmpeg", "-i", base, "-filter:a", "atempo=1.2",
+                        "ffmpeg", "-i", base, "-filter:a", "atempo=1.15",
                         "-y", final
                     ], 30):
                         force_cleanup(base)
-                        logger.info(f"✅ ElevenLabs Voice (1.2x): {get_size_mb(final):.2f}MB")
+                        logger.info(f"✅ ElevenLabs Voice (1.15x): {get_size_mb(final):.2f}MB")
                         return final
                     force_cleanup(base)
         except Exception as e:
@@ -2887,15 +2848,6 @@ async def generate_voice_115x(text: str, voice_id: str, temp_dir: str) -> Option
     if vertex_voice:
         return vertex_voice
     
-
-
-
-
-
-
-
-
-    
     # ========== TIER 3: EDGE TTS (FALLBACK #2) ==========
     logger.info("🔄 Falling back to Edge TTS...")
     try:
@@ -2906,17 +2858,16 @@ async def generate_voice_115x(text: str, voice_id: str, temp_dir: str) -> Option
         
         await edge_tts.Communicate(
             text[:1500],
-            # "hi-IN-MadhurNeural",
-            "hi-IN-RaviNeural",
-            rate="+20%"
+            "hi-IN-MadhurNeural",
+            rate="+15%"
         ).save(base)
         
         if run_ffmpeg([
-            "ffmpeg", "-i", base, "-filter:a", "atempo=1.2",
+            "ffmpeg", "-i", base, "-filter:a", "atempo=1.15",
             "-y", final
         ], 30):
             force_cleanup(base)
-            logger.info(f"✅ Edge TTS Voice (1.2x): {get_size_mb(final):.2f}MB")
+            logger.info(f"✅ Edge TTS Voice (1.15x): {get_size_mb(final):.2f}MB")
             return final
         force_cleanup(base)
     except Exception as e:
@@ -2924,15 +2875,6 @@ async def generate_voice_115x(text: str, voice_id: str, temp_dir: str) -> Option
     
     logger.error("❌ All voice generation methods failed!")
     return None
-
-
-
-# EDGE_MALE_VOICES_WEIGHTED = [
-#     ("hi-IN-RaviNeural", 5),      # Most preferred (deep documentary)
-#     ("hi-IN-PrabhatNeural", 3),   # Authority / news
-#     ("hi-IN-MadhurNeural", 2)     # Safe fallback
-# ]
-
 
 # ============================================================================
 # MUSIC DOWNLOAD & PROCESSING
