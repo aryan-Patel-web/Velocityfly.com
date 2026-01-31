@@ -91,23 +91,22 @@ const [loadingNiches, setLoadingNiches] = useState(true);
 // PIXABAY TAB - STATE MANAGEMENT (Paste at top with other useState)
 // ============================================================================
 
-const [pixabayConfig, setPixabayConfig] = useState({
+
+// ✅ Automation-specific states (ADD THESE NEW ONES)
+const [pixabayAutomationConfig, setPixabayAutomationConfig] = useState({
   niche: 'luxury',
   language: 'hindi',
   target_duration: 40,
+  max_posts_per_day: 10,
+  upload_times: [],
   custom_bg_music: '',
-  user_input: '' // NEW: User custom input
+  user_input: ''
 });
-
-const [pixabayGenerating, setPixabayGenerating] = useState(false);
-const [pixabayProgress, setPixabayProgress] = useState(0);
-const [pixabayResult, setPixabayResult] = useState(null);
-const [gitaProgress, setGitaProgress] = useState({
-  chapter: 1,
-  verse: 1,
-  total_chapters: 18
-});
-
+const [pixabayAutomationEnabled, setPixabayAutomationEnabled] = useState(false);
+const [pixabayAutomationLogs, setPixabayAutomationLogs] = useState([]);
+const [loadingPixabayLogs, setLoadingPixabayLogs] = useState(false);
+// const [showTestScheduler, setShowTestScheduler] = useState(false);
+// const [testScheduleTime, setTestScheduleTime] = useState('');
 
 
 
@@ -812,7 +811,55 @@ const loadChinaNiches = async () => {
   }
 };
 
+// ✅ Fetch automation status
+const fetchPixabayAutomationStatus = async () => {
+  try {
+    const response = await fetch(`${API_BASE}/api/pixabay-automation/status/${user.user_id}`, {
+      headers: { 
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      if (data.success) {
+        if (data.config) {
+          setPixabayAutomationConfig(data.config);
+        }
+        setPixabayAutomationEnabled(data.active);
+        
+        // Also fetch logs if active
+        if (data.active) {
+          fetchPixabayAutomationLogs();
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Failed to fetch Pixabay automation status:', error);
+  }
+};
 
+// ✅ Fetch automation logs
+const fetchPixabayAutomationLogs = async () => {
+  try {
+    const response = await fetch(`${API_BASE}/api/pixabay-automation/logs/${user.user_id}?limit=20`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      if (data.success) {
+        setPixabayAutomationLogs(data.logs || []);
+      }
+    }
+  } catch (error) {
+    console.error('Failed to fetch logs:', error);
+  }
+};
 
 
 const generateAutoReply = useCallback(async (commentText, commentId, videoTitle = '') => {
@@ -1448,6 +1495,26 @@ useEffect(() => {
   loadSavedUrl();
 }, [user]);
 
+
+// ✅ Fetch Pixabay automation status on mount
+useEffect(() => {
+  if (user?.user_id && token && status?.youtube_connected) {
+    fetchPixabayAutomationStatus();
+  }
+}, [user?.user_id, token, status?.youtube_connected]);
+
+// ✅ Auto-refresh logs every 30 seconds when automation is active
+useEffect(() => {
+  let interval;
+  if (pixabayAutomationEnabled && user?.user_id && token) {
+    interval = setInterval(() => {
+      fetchPixabayAutomationLogs();
+    }, 30000); // 30 seconds
+  }
+  return () => {
+    if (interval) clearInterval(interval);
+  };
+}, [pixabayAutomationEnabled, user?.user_id, token]);
 
 // ============================================================================
 // PIXABAY TAB - useEffect TO FETCH NICHE INFO (Paste with other useEffect)
@@ -8379,9 +8446,12 @@ onClick={async () => {
 {/* --------------------------------pixabay code end---------------------------------------------------- */}
 
 {/* --------------------------------PIXABAY CODE START---------------------------------------------------- */}
+{/* ========================================== */}
+{/* STEP 4: NOW ADD THIS TAB CONTENT */}
+{/* ========================================== */}
+{/* Add this where you want the automation tab to appear */}
 
-{/* MAIN TAB CONTENT */}
-{activeTab === 'pixabay' && status?.youtube_connected && (
+{activeTab === 'pixabay-automation' && status?.youtube_connected && (
   <div style={{ 
     background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', 
     borderRadius: '20px', 
@@ -8389,6 +8459,7 @@ onClick={async () => {
     boxShadow: '0 12px 40px rgba(0, 0, 0, 0.4)',
     minHeight: '700px'
   }}>
+    {/* HEADER */}
     <div style={{ 
       display: 'flex', 
       justifyContent: 'space-between', 
@@ -8407,7 +8478,7 @@ onClick={async () => {
           margin: 0,
           letterSpacing: '-0.5px'
         }}>
-          🖼️ AI Slideshow Studio Pro
+          🤖 Pixabay Auto-Scheduler
         </h2>
         <p style={{ 
           color: 'rgba(255,255,255,0.95)', 
@@ -8416,7 +8487,7 @@ onClick={async () => {
           margin: 0,
           textShadow: '1px 1px 2px rgba(0,0,0,0.2)'
         }}>
-          SEO Titles • 15+ Keywords • AI Image Search • User Input • Story Deduplication
+          Auto-generate & upload videos at scheduled times • Set it and forget it!
         </p>
       </div>
       <div style={{
@@ -8427,342 +8498,153 @@ onClick={async () => {
         border: '2px solid rgba(255,255,255,0.3)'
       }}>
         <div style={{ color: 'white', fontSize: '14px', fontWeight: '700' }}>
-          🎯 {pixabayConfig.niche.toUpperCase()} • {pixabayConfig.target_duration}s • 🎙️ {pixabayConfig.language.toUpperCase()}
+          🎯 {pixabayAutomationConfig.niche.toUpperCase()} • {pixabayAutomationConfig.target_duration}s • 🎙️ {pixabayAutomationConfig.language.toUpperCase()}
         </div>
       </div>
     </div>
 
-    {/* BHAGAVAD GITA PROGRESS (if spiritual niche) */}
-    {pixabayConfig.niche === 'spiritual' && gitaProgress && (
-      <div style={{
-        background: 'linear-gradient(135deg, #fff9c4, #ffeb3b)',
-        borderRadius: '15px',
-        padding: '20px',
-        marginBottom: '25px',
-        border: '3px solid #ffc107',
-        boxShadow: '0 6px 20px rgba(255,193,7,0.3)'
-      }}>
-        <h3 style={{ margin: 0, marginBottom: '10px', fontSize: '18px', fontWeight: '800', color: '#e65100' }}>
-          📖 Bhagavad Gita Progress
-        </h3>
-        <div style={{ color: '#555', fontSize: '15px', lineHeight: '1.6' }}>
-          <strong>Current:</strong> Chapter {gitaProgress.chapter}, Verse {gitaProgress.verse}
-          <br />
-          <strong>Remaining:</strong> {gitaProgress.total_chapters - gitaProgress.chapter + 1} chapters
-          <br />
-          <em style={{ fontSize: '13px', opacity: 0.8 }}>Next video will automatically continue from this verse</em>
-        </div>
-      </div>
-    )}
-
-    {/* STEP 1: NICHE SELECTION */}
+    {/* AUTOMATION STATUS BANNER */}
     <div style={{
-      background: 'rgba(255,255,255,0.98)',
+      padding: '30px',
+      background: pixabayAutomationEnabled 
+        ? 'linear-gradient(135deg, #11998e 0%, #38ef7d 100%)' 
+        : 'rgba(255,255,255,0.15)',
       borderRadius: '18px',
-      padding: '35px',
       marginBottom: '30px',
-      boxShadow: '0 8px 32px rgba(0,0,0,0.1)'
+      border: `3px solid ${pixabayAutomationEnabled ? '#FFD700' : 'rgba(255,255,255,0.3)'}`,
+      backdropFilter: 'blur(10px)',
+      boxShadow: '0 8px 32px rgba(0,0,0,0.2)'
     }}>
-      <h3 style={{ 
-        color: '#1a1a2e', 
-        marginBottom: '25px', 
-        fontSize: '26px', 
-        fontWeight: '800',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '12px'
-      }}>
-        <span style={{ 
-          background: 'linear-gradient(135deg, #667eea, #764ba2)',
-          color: 'white',
-          borderRadius: '12px',
-          width: '42px',
-          height: '42px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontSize: '20px',
-          fontWeight: '900'
-        }}>1</span>
-        Choose Your Niche
-      </h3>
-
       <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-        gap: '18px',
-        marginBottom: '25px'
-      }}>
-        {[
-          { 
-            id: 'space', 
-            emoji: '🌌', 
-            name: 'Space & Universe', 
-            desc: 'AI-generated mysteries'
-          },
-          { 
-            id: 'horror', 
-            emoji: '👻', 
-            name: 'Horror & Mystery', 
-            desc: 'Dark suspense stories'
-          },
-          { 
-            id: 'nature', 
-            emoji: '🌿', 
-            name: 'Nature & Wildlife', 
-            desc: 'Peaceful landscapes'
-          },
-          { 
-            id: 'mystery', 
-            emoji: '🔍', 
-            name: 'Ancient Mystery', 
-            desc: 'Lost civilizations'
-          },
-          { 
-            id: 'spiritual', 
-            emoji: '🕉️', 
-            name: 'Bhagavad Gita', 
-            desc: 'Auto verse series'
-          },
-          { 
-            id: 'motivation', 
-            emoji: '💪', 
-            name: 'Motivation + Phonk', 
-            desc: 'Success inspiration'
-          },
-          { 
-            id: 'funny', 
-            emoji: '😂', 
-            name: 'Funny & Comedy', 
-            desc: 'Hilarious moments'
-          },
-          { 
-            id: 'luxury', 
-            emoji: '💎', 
-            name: 'Luxury + Phonk', 
-            desc: 'Cars/Jets/Yachts'
-          }
-        ].map((niche) => (
-          <div
-            key={niche.id}
-            onClick={() => {
-              if (!pixabayGenerating) {
-                setPixabayConfig(prev => ({ 
-                  ...prev, 
-                  niche: niche.id,
-                  user_input: '' 
-                }));
-              }
-            }}
-            style={{
-              padding: '20px',
-              background: pixabayConfig.niche === niche.id 
-                ? 'linear-gradient(135deg, #667eea, #764ba2)' 
-                : 'white',
-              color: pixabayConfig.niche === niche.id ? 'white' : '#1a1a2e',
-              border: pixabayConfig.niche === niche.id 
-                ? '3px solid #FFD700' 
-                : '2px solid #e8e8e8',
-              borderRadius: '12px',
-              cursor: pixabayGenerating ? 'not-allowed' : 'pointer',
-              transition: 'all 0.3s',
-              textAlign: 'center',
-              boxShadow: pixabayConfig.niche === niche.id 
-                ? '0 10px 30px rgba(102,126,234,0.4)' 
-                : '0 4px 12px rgba(0,0,0,0.08)',
-              opacity: pixabayGenerating ? 0.6 : 1,
-              transform: pixabayConfig.niche === niche.id ? 'scale(1.05)' : 'scale(1)',
-              position: 'relative'
-            }}
-          >
-            {pixabayConfig.niche === niche.id && (
-              <div style={{
-                position: 'absolute',
-                top: '8px',
-                right: '8px',
-                background: '#FFD700',
-                color: '#1a1a2e',
-                borderRadius: '50%',
-                width: '24px',
-                height: '24px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: '14px',
-                fontWeight: '900'
-              }}>
-                ✓
-              </div>
-            )}
-            <div style={{ fontSize: '48px', marginBottom: '10px' }}>
-              {niche.emoji}
-            </div>
-            <div style={{ fontWeight: '700', fontSize: '15px', marginBottom: '6px' }}>
-              {niche.name}
-            </div>
-            <div style={{ fontSize: '11px', opacity: 0.85 }}>
-              {niche.desc}
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* NEW: USER INPUT FIELD */}
-      {pixabayConfig.niche !== 'spiritual' && (
-        <div style={{
-          marginTop: '20px',
-          padding: '20px',
-          background: 'linear-gradient(135deg, #e3f2fd, #bbdefb)',
-          borderRadius: '12px',
-          border: '2px solid #2196f3'
-        }}>
-          <label style={{ 
-            display: 'block', 
-            marginBottom: '10px', 
-            fontWeight: '700', 
-            fontSize: '15px',
-            color: '#1a1a2e'
-          }}>
-            💡 Custom Topic (Optional - AI will adapt content)
-          </label>
-          <input
-            type="text"
-            value={pixabayConfig.user_input}
-            onChange={(e) => setPixabayConfig(prev => ({
-              ...prev,
-              user_input: e.target.value
-            }))}
-            disabled={pixabayGenerating}
-            placeholder={
-              pixabayConfig.niche === 'space' ? 'e.g., Black Holes, Neutron Stars, Galaxy Formation' :
-              pixabayConfig.niche === 'luxury' ? 'e.g., BMW M5, Lamborghini Aventador, Private Jet, Superyacht, Rolex Watch' :
-              pixabayConfig.niche === 'horror' ? 'e.g., Haunted House, Ghost Story, Cursed Doll' :
-              pixabayConfig.niche === 'nature' ? 'e.g., Amazon Rainforest, Ocean Depths, Mountains' :
-              pixabayConfig.niche === 'mystery' ? 'e.g., Pyramids, Atlantis, Nazca Lines' :
-              pixabayConfig.niche === 'motivation' ? 'e.g., Success Mindset, Goal Setting, Discipline' :
-              pixabayConfig.niche === 'funny' ? 'e.g., Dog Fails, Cat Funny Moments, Pet Reactions' :
-              'Enter your topic...'
-            }
-            style={{
-              width: '100%',
-              padding: '14px',
-              border: '2px solid #2196f3',
-              borderRadius: '10px',
-              fontSize: '15px',
-              fontWeight: '500',
-              opacity: pixabayGenerating ? 0.6 : 1
-            }}
-          />
-          <div style={{
-            marginTop: '12px',
-            padding: '12px',
-            background: '#fff3cd',
-            borderLeft: '4px solid #ffc107',
-            borderRadius: '8px',
-            fontSize: '13px',
-            color: '#856404',
-            lineHeight: '1.5'
-          }}>
-            <strong>🤖 AI Magic:</strong> Leave empty for random content, or enter specific topic. 
-            AI will generate unique script, find matching images, and create SEO title with 15+ keywords!
-            {pixabayConfig.niche === 'luxury' && (
-              <div style={{ marginTop: '8px', fontWeight: '600' }}>
-                🚗 For Luxury: Enter car brand (BMW, Ferrari), Private Jet, Superyacht, Luxury Watch, or Villa
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-    </div>
-
-    {/* STEP 2: DURATION SELECTOR */}
-    <div style={{
-      background: 'rgba(255,255,255,0.98)',
-      borderRadius: '18px',
-      padding: '35px',
-      marginBottom: '30px',
-      boxShadow: '0 8px 32px rgba(0,0,0,0.1)'
-    }}>
-      <h3 style={{ 
-        color: '#1a1a2e', 
-        marginBottom: '25px', 
-        fontSize: '26px', 
-        fontWeight: '800',
         display: 'flex',
+        justifyContent: 'space-between',
         alignItems: 'center',
-        gap: '12px'
+        flexWrap: 'wrap',
+        gap: '20px'
       }}>
-        <span style={{ 
-          background: 'linear-gradient(135deg, #667eea, #764ba2)',
-          color: 'white',
-          borderRadius: '12px',
-          width: '42px',
-          height: '42px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontSize: '20px',
-          fontWeight: '900'
-        }}>2</span>
-        Set Video Duration (Max 70s)
-      </h3>
-
-      <div style={{ marginBottom: '20px' }}>
-        <div style={{ 
-          display: 'flex', 
-          justifyContent: 'space-between', 
-          marginBottom: '12px',
-          fontSize: '15px',
-          fontWeight: '600',
-          color: '#666'
-        }}>
-          <span>20 sec (Short)</span>
-          <span style={{ 
-            fontSize: '22px', 
-            color: '#667eea',
-            fontWeight: '900'
+        <div>
+          <h3 style={{ 
+            color: 'white', 
+            marginBottom: '10px',
+            fontSize: '28px',
+            fontWeight: '900',
+            textShadow: '2px 2px 4px rgba(0,0,0,0.3)'
           }}>
-            {pixabayConfig.target_duration}s
-          </span>
-          <span>60 sec (Max)</span>
+            {pixabayAutomationEnabled ? '🟢 AUTOMATION RUNNING' : '🔴 AUTOMATION STOPPED'}
+          </h3>
+          <p style={{ 
+            margin: 0, 
+            fontSize: '16px',
+            color: 'rgba(255,255,255,0.95)',
+            fontWeight: '500'
+          }}>
+            {pixabayAutomationEnabled 
+              ? `Niche: ${pixabayAutomationConfig.niche.toUpperCase()} • ${pixabayAutomationConfig.upload_times.length} scheduled times • Max ${pixabayAutomationConfig.max_posts_per_day} posts/day` 
+              : 'Configure settings below and click START to begin automation'}
+          </p>
         </div>
         
-        <input
-          type="range"
-          min="20"
-          max="60"
-          value={pixabayConfig.target_duration}
-          onChange={(e) => setPixabayConfig(prev => ({
-            ...prev,
-            target_duration: parseInt(e.target.value)
-          }))}
-          disabled={pixabayGenerating}
-          style={{
-            width: '100%',
-            height: '8px',
-            borderRadius: '4px',
-            background: `linear-gradient(to right, #667eea 0%, #667eea ${((pixabayConfig.target_duration - 20) / 40) * 100}%, #e0e0e0 ${((pixabayConfig.target_duration - 20) / 40) * 100}%, #e0e0e0 100%)`,
-            outline: 'none',
-            cursor: pixabayGenerating ? 'not-allowed' : 'pointer',
-            opacity: pixabayGenerating ? 0.6 : 1
+        <button
+          onClick={async () => {
+            if (!pixabayAutomationEnabled) {
+              // ✅ VALIDATE BEFORE START
+              if (!pixabayAutomationConfig.niche) {
+                alert('❌ Please select a niche!');
+                return;
+              }
+              
+              if (pixabayAutomationConfig.upload_times.length === 0) {
+                alert('❌ Please add at least one upload time!');
+                return;
+              }
+              
+              if (!confirm(`Start Pixabay automation?\n\nNiche: ${pixabayAutomationConfig.niche}\nTimes: ${pixabayAutomationConfig.upload_times.join(', ')}\n\nVideos will be auto-generated and uploaded at these times.`)) {
+                return;
+              }
+              
+              // ✅ START AUTOMATION
+              try {
+                const response = await fetch(`${API_BASE}/api/pixabay-automation/start`, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                  },
+                  body: JSON.stringify({
+                    config: pixabayAutomationConfig
+                  })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                  setPixabayAutomationEnabled(true);
+                  alert(`✅ Automation Started!\n\nNiche: ${pixabayAutomationConfig.niche}\nSchedule: ${pixabayAutomationConfig.upload_times.join(', ')}\n\nVideos will be auto-generated at scheduled times.`);
+                  
+                  // Fetch updated status
+                  fetchPixabayAutomationStatus();
+                  fetchPixabayAutomationLogs();
+                } else {
+                  alert(`❌ Failed to start automation\n\n${result.error}`);
+                }
+              } catch (error) {
+                console.error('Start automation error:', error);
+                alert(`❌ Error: ${error.message}`);
+              }
+            } else {
+              // ✅ STOP AUTOMATION
+              if (!confirm('Stop Pixabay automation?\n\nScheduled videos will no longer be generated.')) {
+                return;
+              }
+              
+              try {
+                const response = await fetch(`${API_BASE}/api/pixabay-automation/stop`, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                  }
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                  setPixabayAutomationEnabled(false);
+                  alert('⏹️ Automation stopped.');
+                } else {
+                  alert(`❌ Failed: ${result.error}`);
+                }
+              } catch (error) {
+                console.error('Stop automation error:', error);
+                alert(`❌ Error: ${error.message}`);
+              }
+            }
           }}
-        />
-      </div>
-
-      <div style={{
-        padding: '15px',
-        background: '#e3f2fd',
-        borderLeft: '4px solid #2196f3',
-        borderRadius: '8px',
-        fontSize: '13px',
-        color: '#0d47a1',
-        lineHeight: '1.6'
-      }}>
-        <strong>⏱️ Note:</strong> Script auto-adjusts to fit duration. More images downloaded if needed. Max video length: 60 seconds (perfect for YouTube Shorts).
+          disabled={!pixabayAutomationEnabled && (!pixabayAutomationConfig.niche || pixabayAutomationConfig.upload_times.length === 0)}
+          style={{
+            padding: '18px 48px',
+            background: pixabayAutomationEnabled 
+              ? 'linear-gradient(135deg, #dc3545, #c82333)' 
+              : 'linear-gradient(135deg, #28a745, #218838)',
+            color: 'white',
+            border: 'none',
+            borderRadius: '15px',
+            fontWeight: '900',
+            fontSize: '20px',
+            cursor: (!pixabayAutomationEnabled && (!pixabayAutomationConfig.niche || pixabayAutomationConfig.upload_times.length === 0)) ? 'not-allowed' : 'pointer',
+            opacity: (!pixabayAutomationEnabled && (!pixabayAutomationConfig.niche || pixabayAutomationConfig.upload_times.length === 0)) ? 0.5 : 1,
+            boxShadow: '0 6px 20px rgba(0,0,0,0.3)',
+            transition: 'all 0.3s',
+            textTransform: 'uppercase',
+            letterSpacing: '1px'
+          }}
+        >
+          {pixabayAutomationEnabled ? '⏹️ STOP NOW' : '▶️ START NOW'}
+        </button>
       </div>
     </div>
 
-    {/* STEP 3: LANGUAGE & CUSTOM BG MUSIC */}
+    {/* CONFIGURATION PANEL */}
     <div style={{
       background: 'rgba(255,255,255,0.98)',
       borderRadius: '18px',
@@ -8790,474 +8672,617 @@ onClick={async () => {
           justifyContent: 'center',
           fontSize: '20px',
           fontWeight: '900'
-        }}>3</span>
-        Language & Audio
+        }}>⚙️</span>
+        Configuration
       </h3>
+      
+      {/* NICHE SELECTION */}
+      <div style={{ marginBottom: '25px' }}>
+        <label style={{ 
+          display: 'block', 
+          marginBottom: '12px', 
+          fontWeight: '700',
+          color: '#1a1a2e',
+          fontSize: '16px'
+        }}>
+          🎯 Select Niche (Required) *
+        </label>
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+          gap: '12px'
+        }}>
+          {[
+            { id: 'space', emoji: '🌌', name: 'Space' },
+            { id: 'horror', emoji: '👻', name: 'Horror' },
+            { id: 'nature', emoji: '🌿', name: 'Nature' },
+            { id: 'mystery', emoji: '🔍', name: 'Mystery' },
+            { id: 'spiritual', emoji: '🕉️', name: 'Spiritual' },
+            { id: 'motivation', emoji: '💪', name: 'Motivation' },
+            { id: 'funny', emoji: '😂', name: 'Funny' },
+            { id: 'luxury', emoji: '💎', name: 'Luxury' }
+          ].map((n) => (
+            <button
+              key={n.id}
+              onClick={() => !pixabayAutomationEnabled && setPixabayAutomationConfig(prev => ({
+                ...prev,
+                niche: n.id
+              }))}
+              disabled={pixabayAutomationEnabled}
+              style={{
+                padding: '16px',
+                background: pixabayAutomationConfig.niche === n.id 
+                  ? 'linear-gradient(135deg, #667eea, #764ba2)' 
+                  : 'white',
+                color: pixabayAutomationConfig.niche === n.id ? 'white' : '#1a1a2e',
+                border: pixabayAutomationConfig.niche === n.id 
+                  ? '3px solid #FFD700' 
+                  : '2px solid #e0e0e0',
+                borderRadius: '12px',
+                fontSize: '15px',
+                fontWeight: '700',
+                cursor: pixabayAutomationEnabled ? 'not-allowed' : 'pointer',
+                opacity: pixabayAutomationEnabled ? 0.6 : 1,
+                textAlign: 'center',
+                transition: 'all 0.3s',
+                boxShadow: pixabayAutomationConfig.niche === n.id 
+                  ? '0 4px 15px rgba(102,126,234,0.4)' 
+                  : '0 2px 8px rgba(0,0,0,0.05)'
+              }}
+            >
+              <div style={{ fontSize: '32px', marginBottom: '6px' }}>{n.emoji}</div>
+              {n.name}
+            </button>
+          ))}
+        </div>
+      </div>
 
+      {/* LANGUAGE */}
       <div style={{ marginBottom: '25px' }}>
         <label style={{ 
           display: 'block', 
           marginBottom: '10px', 
-          fontWeight: '700', 
-          fontSize: '15px',
-          color: '#1a1a2e'
+          fontWeight: '700',
+          color: '#1a1a2e',
+          fontSize: '16px'
         }}>
-          Language
+          🗣️ Language
         </label>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '15px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
           {[
             { id: 'hindi', label: 'हिन्दी (Hindi)', icon: '🇮🇳' },
             { id: 'english', label: 'English', icon: '🇬🇧' }
           ].map((lang) => (
             <button
               key={lang.id}
-              onClick={() => setPixabayConfig(prev => ({ ...prev, language: lang.id }))}
-              disabled={pixabayGenerating}
+              onClick={() => !pixabayAutomationEnabled && setPixabayAutomationConfig(prev => ({
+                ...prev,
+                language: lang.id
+              }))}
+              disabled={pixabayAutomationEnabled}
               style={{
-                padding: '16px',
-                background: pixabayConfig.language === lang.id 
+                padding: '14px',
+                background: pixabayAutomationConfig.language === lang.id 
                   ? 'linear-gradient(135deg, #667eea, #764ba2)' 
                   : 'white',
-                color: pixabayConfig.language === lang.id ? 'white' : '#1a1a2e',
-                border: pixabayConfig.language === lang.id 
+                color: pixabayAutomationConfig.language === lang.id ? 'white' : '#1a1a2e',
+                border: pixabayAutomationConfig.language === lang.id 
                   ? '2px solid #FFD700' 
-                  : '2px solid #e8e8e8',
+                  : '2px solid #e0e0e0',
                 borderRadius: '10px',
-                cursor: pixabayGenerating ? 'not-allowed' : 'pointer',
-                fontWeight: '600',
                 fontSize: '15px',
-                opacity: pixabayGenerating ? 0.6 : 1,
+                fontWeight: '600',
+                cursor: pixabayAutomationEnabled ? 'not-allowed' : 'pointer',
+                opacity: pixabayAutomationEnabled ? 0.6 : 1,
                 transition: 'all 0.3s',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                gap: '10px'
+                gap: '8px'
               }}
             >
-              <span style={{ fontSize: '24px' }}>{lang.icon}</span>
+              <span style={{ fontSize: '20px' }}>{lang.icon}</span>
               {lang.label}
             </button>
           ))}
         </div>
       </div>
 
-      {/* MUSIC INFO */}
-      <div style={{
-        padding: '15px',
-        background: 'linear-gradient(135deg, #e8eaf6, #c5cae9)',
-        borderLeft: '4px solid #5c6bc0',
-        borderRadius: '8px',
-        marginBottom: '20px'
-      }}>
-        <div style={{ fontSize: '14px', color: '#283593', lineHeight: '1.6' }}>
-          <strong>🎵 Auto Music:</strong>
-          <br />
-          <span style={{ fontSize: '13px' }}>
-            {pixabayConfig.niche === 'spiritual' && '• Spiritual: 10 divine tracks (auto-random)'}
-            {pixabayConfig.niche === 'space' && '• Space: 12 cinematic sci-fi tracks'}
-            {pixabayConfig.niche === 'luxury' && '• Luxury: 16 phonk/slowed tracks (hypnotic vibes)'}
-            {pixabayConfig.niche === 'motivation' && '• Motivation: 16 phonk/slowed tracks (energetic)'}
-            {!['spiritual', 'space', 'luxury', 'motivation'].includes(pixabayConfig.niche) && `• ${pixabayConfig.niche}: Default niche music`}
-          </span>
+      {/* DURATION */}
+      <div style={{ marginBottom: '25px' }}>
+        <label style={{ 
+          display: 'block', 
+          marginBottom: '12px', 
+          fontWeight: '700',
+          color: '#1a1a2e',
+          fontSize: '16px'
+        }}>
+          ⏱️ Video Duration: <span style={{ color: '#667eea' }}>{pixabayAutomationConfig.target_duration}s</span>
+        </label>
+        <div style={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          marginBottom: '8px',
+          fontSize: '13px',
+          color: '#666'
+        }}>
+          <span>20s (Short)</span>
+          <span>55s (Max)</span>
         </div>
+        <input
+          type="range"
+          min="20"
+          max="55"
+          value={pixabayAutomationConfig.target_duration}
+          onChange={(e) => setPixabayAutomationConfig(prev => ({
+            ...prev,
+            target_duration: parseInt(e.target.value)
+          }))}
+          disabled={pixabayAutomationEnabled}
+          style={{
+            width: '100%',
+            height: '8px',
+            borderRadius: '4px',
+            background: `linear-gradient(to right, #667eea 0%, #667eea ${((pixabayAutomationConfig.target_duration - 20) / 35) * 100}%, #e0e0e0 ${((pixabayAutomationConfig.target_duration - 20) / 35) * 100}%, #e0e0e0 100%)`,
+            outline: 'none',
+            cursor: pixabayAutomationEnabled ? 'not-allowed' : 'pointer',
+            opacity: pixabayAutomationEnabled ? 0.6 : 1
+          }}
+        />
       </div>
 
-      <div>
+      {/* MAX POSTS PER DAY */}
+      <div style={{ marginBottom: '25px' }}>
         <label style={{ 
           display: 'block', 
           marginBottom: '10px', 
-          fontWeight: '700', 
-          fontSize: '15px',
-          color: '#1a1a2e'
+          fontWeight: '700',
+          color: '#1a1a2e',
+          fontSize: '16px'
         }}>
-          Custom Background Music (Optional)
+          📊 Max Posts Per Day
         </label>
         <input
-          type="url"
-          value={pixabayConfig.custom_bg_music}
-          onChange={(e) => setPixabayConfig(prev => ({
+          type="number"
+          min="1"
+          max="20"
+          value={pixabayAutomationConfig.max_posts_per_day}
+          onChange={(e) => setPixabayAutomationConfig(prev => ({
             ...prev,
-            custom_bg_music: e.target.value
+            max_posts_per_day: parseInt(e.target.value) || 10
           }))}
-          disabled={pixabayGenerating}
-          placeholder="Enter .weba/.mp3 URL (GitHub RAW link recommended)"
+          disabled={pixabayAutomationEnabled}
           style={{
             width: '100%',
             padding: '14px',
-            border: '2px solid #e0e0e0',
             borderRadius: '10px',
-            fontSize: '14px',
-            fontFamily: 'monospace',
-            opacity: pixabayGenerating ? 0.6 : 1
+            border: '2px solid #e0e0e0',
+            fontSize: '15px',
+            fontWeight: '600',
+            background: pixabayAutomationEnabled ? '#f5f5f5' : 'white',
+            opacity: pixabayAutomationEnabled ? 0.6 : 1
           }}
         />
-        <div style={{
-          marginTop: '10px',
-          padding: '12px',
-          background: '#fff3cd',
-          borderLeft: '4px solid #ffc107',
-          borderRadius: '8px',
-          fontSize: '12px',
-          color: '#856404'
+        <small style={{ display: 'block', marginTop: '6px', color: '#666', fontSize: '13px' }}>
+          Recommended: 5-10 posts per day to avoid spam
+        </small>
+      </div>
+
+      {/* UPLOAD TIMES */}
+      <div style={{ marginBottom: '25px' }}>
+        <label style={{ 
+          display: 'block', 
+          marginBottom: '12px', 
+          fontWeight: '700',
+          color: '#1a1a2e',
+          fontSize: '16px'
         }}>
-          <strong>💡 Tip:</strong> Leave empty to use auto niche-based music. Custom music overrides default if provided.
+          🕐 Upload Schedule (IST - 24-hour format) *
+        </label>
+        
+        {/* Display existing times */}
+        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '15px' }}>
+          {pixabayAutomationConfig.upload_times.filter(t => t && t.trim()).map((time, idx) => (
+            <span key={idx} style={{
+              padding: '12px 20px',
+              background: 'linear-gradient(135deg, #667eea, #764ba2)',
+              color: 'white',
+              borderRadius: '25px',
+              fontSize: '15px',
+              fontWeight: '700',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              boxShadow: '0 4px 12px rgba(102,126,234,0.3)'
+            }}>
+              🕐 {time}
+              {!pixabayAutomationEnabled && (
+                <button
+                  onClick={() => {
+                    setPixabayAutomationConfig(prev => ({
+                      ...prev,
+                      upload_times: prev.upload_times.filter((_, i) => i !== idx)
+                    }));
+                  }}
+                  style={{
+                    background: 'rgba(255,255,255,0.3)',
+                    border: 'none',
+                    color: 'white',
+                    cursor: 'pointer',
+                    fontSize: '18px',
+                    fontWeight: '900',
+                    width: '24px',
+                    height: '24px',
+                    borderRadius: '50%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: 0,
+                    transition: 'all 0.2s'
+                  }}
+                  onMouseOver={(e) => e.target.style.background = 'rgba(255,255,255,0.5)'}
+                  onMouseOut={(e) => e.target.style.background = 'rgba(255,255,255,0.3)'}
+                >
+                  ×
+                </button>
+              )}
+            </span>
+          ))}
         </div>
+        
+        {!pixabayAutomationEnabled && (
+          <>
+            {/* Add new time */}
+            <div style={{ display: 'flex', gap: '12px', marginBottom: '20px' }}>
+              <input
+                type="time"
+                id="newPixabayTime"
+                style={{
+                  padding: '14px',
+                  borderRadius: '10px',
+                  border: '2px solid #e0e0e0',
+                  fontSize: '15px',
+                  fontWeight: '600',
+                  flex: 1
+                }}
+              />
+              <button
+                onClick={() => {
+                  const input = document.getElementById('newPixabayTime');
+                  if (input.value && !pixabayAutomationConfig.upload_times.includes(input.value)) {
+                    setPixabayAutomationConfig(prev => ({
+                      ...prev,
+                      upload_times: [...prev.upload_times.filter(t => t && t.trim()), input.value].sort()
+                    }));
+                    input.value = '';
+                  } else if (pixabayAutomationConfig.upload_times.includes(input.value)) {
+                    alert('⚠️ This time is already added!');
+                  } else {
+                    alert('⚠️ Please select a time!');
+                  }
+                }}
+                style={{
+                  padding: '14px 32px',
+                  background: 'linear-gradient(135deg, #28a745, #218838)',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '10px',
+                  fontSize: '15px',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap',
+                  boxShadow: '0 4px 12px rgba(40,167,69,0.3)'
+                }}
+              >
+                ➕ Add Time
+              </button>
+            </div>
+
+            {/* QUICK TEST SCHEDULER */}
+            <div style={{
+              padding: '20px',
+              background: 'linear-gradient(135deg, #fff9c4, #ffeb3b)',
+              borderRadius: '12px',
+              border: '3px solid #ffc107',
+              boxShadow: '0 4px 15px rgba(255,193,7,0.3)'
+            }}>
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                marginBottom: '12px'
+              }}>
+                <strong style={{ color: '#856404', fontSize: '16px', fontWeight: '800' }}>
+                  🧪 Quick Test (For Testing Only)
+                </strong>
+                <button
+                  onClick={() => setShowTestScheduler(!showTestScheduler)}
+                  style={{
+                    padding: '8px 16px',
+                    background: '#ffc107',
+                    color: '#000',
+                    border: 'none',
+                    borderRadius: '8px',
+                    fontSize: '13px',
+                    fontWeight: '700',
+                    cursor: 'pointer'
+                  }}
+                >
+                  {showTestScheduler ? 'Hide' : 'Show'}
+                </button>
+              </div>
+
+              {showTestScheduler && (
+                <>
+                  <p style={{ color: '#856404', fontSize: '14px', marginBottom: '12px', lineHeight: '1.5' }}>
+                    Add a test time 2-5 minutes from now to verify automation works:
+                  </p>
+                  <div style={{ display: 'flex', gap: '10px', marginBottom: '12px' }}>
+                    {[2, 3, 5].map(minutes => {
+                      const testTime = new Date(Date.now() + minutes * 60000);
+                      const timeString = testTime.toTimeString().substring(0, 5);
+                      return (
+                        <button
+                          key={minutes}
+                          onClick={() => {
+                            if (!pixabayAutomationConfig.upload_times.includes(timeString)) {
+                              setPixabayAutomationConfig(prev => ({
+                                ...prev,
+                                upload_times: [...prev.upload_times, timeString].sort()
+                              }));
+                              alert(`✅ Test time ${timeString} added!\n\nDon't forget to click "START NOW" button above.`);
+                            } else {
+                              alert('⚠️ This time is already added!');
+                            }
+                          }}
+                          style={{
+                            flex: 1,
+                            padding: '12px',
+                            background: '#ffc107',
+                            color: '#000',
+                            border: '2px solid #ff9800',
+                            borderRadius: '8px',
+                            fontSize: '14px',
+                            fontWeight: '700',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s'
+                          }}
+                        >
+                          +{minutes} min<br/><small>({timeString})</small>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <small style={{ color: '#856404', fontSize: '13px', display: 'block', fontWeight: '600' }}>
+                    💡 Current IST time: {new Date().toLocaleTimeString('en-IN', {
+                      hour: '2-digit', 
+                      minute: '2-digit',
+                      hour12: false
+                    })}
+                  </small>
+                </>
+              )}
+            </div>
+          </>
+        )}
+        
+        <small style={{ display: 'block', marginTop: '12px', color: '#666', fontSize: '13px', lineHeight: '1.5' }}>
+          💡 System checks every minute. Videos will be auto-generated at scheduled times.
+        </small>
       </div>
     </div>
 
-    {/* STEP 4: GENERATE */}
+    {/* ACTIVITY LOGS */}
     <div style={{
+      padding: '30px',
       background: 'rgba(255,255,255,0.98)',
       borderRadius: '18px',
-      padding: '35px',
-      marginBottom: '30px',
       boxShadow: '0 8px 32px rgba(0,0,0,0.1)'
     }}>
-      <h3 style={{ 
-        color: '#1a1a2e', 
-        marginBottom: '25px', 
-        fontSize: '26px', 
-        fontWeight: '800',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '12px'
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center', 
+        marginBottom: '20px' 
       }}>
-        <span style={{ 
-          background: 'linear-gradient(135deg, #667eea, #764ba2)',
-          color: 'white',
-          borderRadius: '12px',
-          width: '42px',
-          height: '42px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontSize: '20px',
-          fontWeight: '900'
-        }}>4</span>
-        Generate & Upload
-      </h3>
-
-      <button
-        onClick={async () => {
-          if (!pixabayConfig.niche) {
-            alert('❌ Please select a niche first!');
-            return;
-          }
-
-          setPixabayGenerating(true);
-          setPixabayProgress(0);
-          setPixabayResult(null);
-
-          try {
-            console.log('🎬 Starting generation...', pixabayConfig);
-            
-            const response = await fetch(`${API_BASE}/api/pixabay/generate`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-              },
-              body: JSON.stringify({
-                user_id: user.user_id,
-                niche: pixabayConfig.niche,
-                language: pixabayConfig.language,
-                target_duration: pixabayConfig.target_duration,
-                custom_bg_music: pixabayConfig.custom_bg_music || undefined,
-                user_input: pixabayConfig.user_input || undefined
-              })
+        <h3 style={{ 
+          color: '#1a1a2e', 
+          fontSize: '22px', 
+          fontWeight: '800', 
+          margin: 0 
+        }}>
+          📋 Activity Logs
+        </h3>
+        <button
+          onClick={() => {
+            setLoadingPixabayLogs(true);
+            fetchPixabayAutomationLogs().finally(() => {
+              setLoadingPixabayLogs(false);
             });
-
-            const progressInterval = setInterval(() => {
-              setPixabayProgress(prev => {
-                if (prev >= 95) {
-                  clearInterval(progressInterval);
-                  return 95;
-                }
-                return prev + 5;
-              });
-            }, 4000);
-
-            const result = await response.json();
-            clearInterval(progressInterval);
-
-            if (result.success) {
-              setPixabayProgress(100);
-              setPixabayResult(result);
-              console.log('✅ Success:', result);
-              
-              if (pixabayConfig.niche === 'spiritual' && result.gita_progress) {
-                const [chapter, verse] = result.gita_progress.replace('Ch', '').split(':V');
-                setGitaProgress(prev => ({
-                  ...prev,
-                  chapter: parseInt(chapter),
-                  verse: parseInt(verse)
-                }));
-              }
-              
-              setTimeout(() => {
-                alert(`🎉 SUCCESS!\n\n✅ Video uploaded!\n\n📺 ${result.video_url}\n\n📊 ${result.image_count} images • ${Math.round(result.duration)}s\n\n🏷️ Title: ${result.title}\n\n🆔 Story ID: ${result.story_id}`);
-              }, 500);
-            } else {
-              console.error('❌ Failed:', result.error);
-              alert(`❌ FAILED\n\n${result.error}`);
-            }
-          } catch (error) {
-            console.error('❌ Error:', error);
-            alert(`❌ ERROR\n\n${error.message}`);
-          } finally {
-            setPixabayGenerating(false);
-            setTimeout(() => setPixabayProgress(0), 2000);
-          }
-        }}
-        disabled={pixabayGenerating || !pixabayConfig.niche}
-        style={{
-          width: '100%',
-          padding: '24px',
-          background: pixabayGenerating 
-            ? 'linear-gradient(135deg, #95a5a6, #7f8c8d)' 
-            : 'linear-gradient(135deg, #667eea, #764ba2)',
-          color: 'white',
-          border: 'none',
-          borderRadius: '15px',
-          fontSize: '22px',
-          fontWeight: '900',
-          cursor: (pixabayGenerating || !pixabayConfig.niche) ? 'not-allowed' : 'pointer',
-          boxShadow: '0 8px 32px rgba(102,126,234,0.4)',
-          opacity: (pixabayGenerating || !pixabayConfig.niche) ? 0.7 : 1,
-          transition: 'all 0.3s',
-          textTransform: 'uppercase'
-        }}
-      >
-        {pixabayGenerating ? (
-          <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '15px' }}>
-            <span style={{ 
-              display: 'inline-block', 
-              width: '24px', 
-              height: '24px', 
-              border: '3px solid rgba(255,255,255,0.3)',
-              borderTop: '3px solid white',
-              borderRadius: '50%',
-              animation: 'spin 1s linear infinite'
-            }}></span>
-            GENERATING AI MAGIC...
-          </span>
-        ) : (
-          '🚀 GENERATE VIDEO'
-        )}
-      </button>
-
-      {pixabayGenerating && (
-        <div style={{ marginTop: '25px' }}>
-          <div style={{
-            width: '100%',
-            height: '40px',
-            background: '#e0e0e0',
-            borderRadius: '20px',
-            overflow: 'hidden',
-            position: 'relative'
-          }}>
-            <div style={{
-              width: `${pixabayProgress}%`,
-              height: '100%',
-              background: 'linear-gradient(90deg, #667eea, #764ba2)',
-              transition: 'width 0.5s',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}>
-              <span style={{
-                color: 'white',
-                fontWeight: '800',
-                fontSize: '16px'
-              }}>
-                {pixabayProgress}%
-              </span>
-            </div>
-          </div>
-          <p style={{ 
-            textAlign: 'center', 
-            marginTop: '15px', 
-            color: '#666',
+          }}
+          disabled={loadingPixabayLogs}
+          style={{
+            padding: '10px 20px',
+            background: 'linear-gradient(135deg, #007bff, #0056b3)',
+            color: 'white',
+            border: 'none',
+            borderRadius: '8px',
             fontSize: '14px',
-            lineHeight: '1.6'
-          }}>
-            🤖 AI Script ({pixabayConfig.user_input ? `Topic: ${pixabayConfig.user_input}` : 'Random'}) → 🔍 AI Keywords → 📥 Images → 🖼️ Thumbnail → 🎙️ Voice (1.15x) → 🎬 Effects → 🎵 Mix → 📝 SEO Title & 15+ Keywords → 📤 Upload...
+            fontWeight: '700',
+            cursor: loadingPixabayLogs ? 'not-allowed' : 'pointer',
+            opacity: loadingPixabayLogs ? 0.6 : 1,
+            boxShadow: '0 4px 12px rgba(0,123,255,0.3)'
+          }}
+        >
+          {loadingPixabayLogs ? '⏳ Loading...' : '🔄 Refresh'}
+        </button>
+      </div>
+
+      {pixabayAutomationLogs.length === 0 ? (
+        <div style={{
+          padding: '60px 20px',
+          textAlign: 'center',
+          color: '#999',
+          background: '#f8f9fa',
+          borderRadius: '12px'
+        }}>
+          <div style={{ fontSize: '64px', marginBottom: '16px' }}>📭</div>
+          <p style={{ margin: 0, fontSize: '18px', fontWeight: '600' }}>
+            No activity yet
+          </p>
+          <p style={{ margin: '8px 0 0 0', fontSize: '14px' }}>
+            Start automation to see logs here
           </p>
         </div>
-      )}
-
-      {pixabayResult && (
-        <div style={{
-          marginTop: '25px',
-          padding: '25px',
-          background: 'linear-gradient(135deg, #e8f5e9, #c8e6c9)',
-          borderRadius: '15px',
-          border: '3px solid #4caf50'
-        }}>
-          <h4 style={{ 
-            color: '#2e7d32', 
-            marginBottom: '18px', 
-            fontSize: '20px', 
-            fontWeight: '800'
-          }}>
-            ✅ Video Uploaded Successfully!
-          </h4>
-          
-          <div style={{
-            padding: '15px',
-            background: 'white',
-            borderRadius: '10px',
-            marginBottom: '15px'
-          }}>
-            <div style={{ fontSize: '13px', color: '#666', marginBottom: '8px', fontWeight: '600' }}>
-              📝 VIRAL TITLE (Hinglish):
-            </div>
-            <div style={{ fontSize: '16px', fontWeight: '700', color: '#1a1a2e', marginBottom: '12px' }}>
-              {pixabayResult.title}
-            </div>
-            
-            <div style={{ fontSize: '13px', color: '#666', marginBottom: '8px', fontWeight: '600' }}>
-              📄 DESCRIPTION (15+ Keywords):
-            </div>
-            <div style={{ fontSize: '13px', color: '#555', lineHeight: '1.6', marginBottom: '12px' }}>
-              {pixabayResult.description?.substring(0, 200)}...
-            </div>
-            
-            <div style={{ fontSize: '13px', color: '#666', marginBottom: '8px', fontWeight: '600' }}>
-              🏷️ HASHTAGS:
-            </div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-              {pixabayResult.hashtags?.map((tag, idx) => (
-                <span key={idx} style={{
-                  background: '#e3f2fd',
-                  color: '#1976d2',
-                  padding: '4px 10px',
-                  borderRadius: '12px',
-                  fontSize: '12px',
+      ) : (
+        <div style={{ maxHeight: '500px', overflowY: 'auto' }}>
+          {pixabayAutomationLogs.map((log, idx) => (
+            <div key={idx} style={{
+              padding: '18px',
+              background: log.success 
+                ? 'linear-gradient(135deg, #f0f9ff, #e0f2fe)' 
+                : 'linear-gradient(135deg, #fff1f0, #ffe4e6)',
+              borderLeft: `5px solid ${log.success ? '#0284c7' : '#ef4444'}`,
+              borderRadius: '10px',
+              marginBottom: '12px',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
+            }}>
+              <div style={{ 
+                display: 'flex', 
+                justifyContent: 'space-between', 
+                alignItems: 'center',
+                marginBottom: '10px' 
+              }}>
+                <span style={{ 
+                  fontWeight: '700', 
+                  fontSize: '15px',
+                  color: log.success ? '#0284c7' : '#ef4444' 
+                }}>
+                  {log.success ? '✅ Success' : '❌ Failed'} - {log.step}
+                </span>
+                <span style={{ fontSize: '13px', color: '#666', fontWeight: '600' }}>
+                  {new Date(log.timestamp).toLocaleString('en-IN', {
+                    month: 'short',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  })}
+                </span>
+              </div>
+              
+              {log.details && (
+                <div style={{ 
+                  fontSize: '14px', 
+                  color: '#333', 
+                  marginBottom: '8px',
+                  lineHeight: '1.5'
+                }}>
+                  {log.details}
+                </div>
+              )}
+              
+              {log.video_id && (
+                <div style={{ 
+                  fontSize: '13px', 
+                  color: '#0284c7',
+                  marginBottom: '6px',
                   fontWeight: '600'
                 }}>
-                  {tag}
-                </span>
-              ))}
+                  🎬 Video ID: <code style={{
+                    background: '#e0f2fe',
+                    padding: '2px 8px',
+                    borderRadius: '4px',
+                    fontFamily: 'monospace'
+                  }}>{log.video_id}</code>
+                </div>
+              )}
+              
+              {log.niche && (
+                <div style={{ fontSize: '13px', color: '#666' }}>
+                  🎯 Niche: <strong>{log.niche}</strong>
+                </div>
+              )}
+              
+              {log.error && (
+                <div style={{ 
+                  fontSize: '13px', 
+                  color: '#dc2626', 
+                  marginTop: '10px',
+                  padding: '10px',
+                  background: '#fee2e2',
+                  borderRadius: '6px',
+                  fontWeight: '600'
+                }}>
+                  ❌ Error: {log.error}
+                </div>
+              )}
             </div>
-          </div>
-          
-          <div style={{ 
-            display: 'grid', 
-            gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', 
-            gap: '12px',
-            marginBottom: '15px'
-          }}>
-            <div style={{ background: 'white', padding: '12px', borderRadius: '8px' }}>
-              <div style={{ fontSize: '11px', color: '#666', marginBottom: '4px' }}>VIDEO ID</div>
-              <div style={{ fontSize: '13px', fontWeight: '700' }}>{pixabayResult.video_id}</div>
-            </div>
-            <div style={{ background: 'white', padding: '12px', borderRadius: '8px' }}>
-              <div style={{ fontSize: '11px', color: '#666', marginBottom: '4px' }}>STORY ID</div>
-              <div style={{ fontSize: '13px', fontWeight: '700', fontFamily: 'monospace' }}>{pixabayResult.story_id}</div>
-            </div>
-            <div style={{ background: 'white', padding: '12px', borderRadius: '8px' }}>
-              <div style={{ fontSize: '11px', color: '#666', marginBottom: '4px' }}>IMAGES</div>
-              <div style={{ fontSize: '13px', fontWeight: '700' }}>{pixabayResult.image_count} photos</div>
-            </div>
-            <div style={{ background: 'white', padding: '12px', borderRadius: '8px' }}>
-              <div style={{ fontSize: '11px', color: '#666', marginBottom: '4px' }}>DURATION</div>
-              <div style={{ fontSize: '13px', fontWeight: '700' }}>{Math.round(pixabayResult.duration)}s</div>
-            </div>
-            <div style={{ background: 'white', padding: '12px', borderRadius: '8px' }}>
-              <div style={{ fontSize: '11px', color: '#666', marginBottom: '4px' }}>SIZE</div>
-              <div style={{ fontSize: '13px', fontWeight: '700' }}>{pixabayResult.size_mb}</div>
-            </div>
-            {pixabayResult.user_input && (
-              <div style={{ background: 'white', padding: '12px', borderRadius: '8px' }}>
-                <div style={{ fontSize: '11px', color: '#666', marginBottom: '4px' }}>TOPIC</div>
-                <div style={{ fontSize: '13px', fontWeight: '700' }}>{pixabayResult.user_input}</div>
-              </div>
-            )}
-          </div>
-
-          {pixabayResult.image_keywords && (
-            <div style={{
-              padding: '12px',
-              background: '#fff3cd',
-              borderRadius: '8px',
-              marginBottom: '15px'
-            }}>
-              <div style={{ fontSize: '12px', color: '#856404', fontWeight: '600', marginBottom: '6px' }}>
-                🔍 AI-Generated Image Keywords:
-              </div>
-              <div style={{ fontSize: '11px', color: '#856404' }}>
-                {pixabayResult.image_keywords?.join(', ')}
-              </div>
-            </div>
-          )}
-
-          
-            href={pixabayResult.video_url}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{
-              display: 'inline-block',
-              padding: '14px 24px',
-              background: '#FF0000',
-              color: 'white',
-              textDecoration: 'none',
-              borderRadius: '10px',
-              fontWeight: '700',
-              fontSize: '15px'
-            }}
-          <a>
-            🎬 View on YouTube
-          </a>
+          ))}
         </div>
       )}
     </div>
 
-    {/* FEATURES LIST */}
+    {/* HOW IT WORKS */}
     <div style={{
       padding: '30px',
-      background: 'linear-gradient(135deg, rgba(255,255,255,0.15), rgba(255,255,255,0.1))',
+      background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
       borderRadius: '18px',
       color: 'white',
-      backdropFilter: 'blur(10px)',
-      border: '2px solid rgba(255,255,255,0.2)'
+      marginTop: '30px',
+      boxShadow: '0 8px 32px rgba(245,87,108,0.4)'
     }}>
-      <h3 style={{ marginBottom: '20px', fontSize: '24px', fontWeight: '800' }}>
-        ✨ Pro Features (All New!)
+      <h3 style={{ 
+        marginBottom: '20px', 
+        fontSize: '24px', 
+        fontWeight: '900',
+        textShadow: '2px 2px 4px rgba(0,0,0,0.3)'
+      }}>
+        📖 How Automation Works
       </h3>
-      <div style={{ display: 'grid', gap: '10px' }}>
+      <div style={{ display: 'grid', gap: '12px' }}>
         {[
-          '🎯 AI-Generated Image Keywords (No hardcoded keywords - adapts to content)',
-          '📝 Viral Hinglish Titles (Not full Hindi - like trending videos)',
-          '🔍 SEO Descriptions with 15+ Keywords (Predicted search terms)',
-          '🏷️ 5-7 Dynamic Hashtags per video',
-          '💡 User Input Support (Custom topics per niche)',
-          '🆔 Story ID Deduplication (Prevents repeat content)',
-          '🎵 16 Phonk Music Tracks (Luxury & Motivation niches)',
-          '🚗 Dynamic Content Types (Cars/Jets/Yachts/Watches/Villas for luxury)',
-          '⏱️ Max 70s Duration (Perfect for YouTube Shorts)',
-          '🤖 AI Script Adaptation (Changes based on user input)',
-          '🎙️ 3-Tier Voice Fallback (ElevenLabs → Vertex AI → Edge TTS)',
-          '🖼️ HD Thumbnails with golden text (Spiritual niche)',
-          '📊 MongoDB Tracking (All scripts stored with metadata)'
-        ].map((feature, idx) => (
+          { icon: '1️⃣', text: `System checks time every minute` },
+          { icon: '2️⃣', text: `When scheduled time matches, automation triggers` },
+          { icon: '3️⃣', text: `Generates AI script for ${pixabayAutomationConfig.niche} niche` },
+          { icon: '4️⃣', text: `Searches and downloads ${pixabayAutomationConfig.niche} images` },
+          { icon: '5️⃣', text: `Creates ${pixabayAutomationConfig.target_duration}s slideshow video with music` },
+          { icon: '6️⃣', text: `Generates SEO-optimized title & description` },
+          { icon: '7️⃣', text: `Uploads to YouTube Shorts automatically` },
+          { icon: '8️⃣', text: `Respects daily limit (${pixabayAutomationConfig.max_posts_per_day} videos/day max)` }
+        ].map((step, idx) => (
           <div key={idx} style={{
             display: 'flex',
-            gap: '12px',
+            gap: '14px',
             alignItems: 'center',
-            background: 'rgba(255,255,255,0.1)',
-            padding: '12px',
-            borderRadius: '8px'
+            background: 'rgba(255,255,255,0.15)',
+            padding: '14px',
+            borderRadius: '10px',
+            backdropFilter: 'blur(10px)',
+            border: '1px solid rgba(255,255,255,0.2)'
           }}>
-            <span style={{ fontSize: '20px' }}>✓</span>
-            <span style={{ fontSize: '14px' }}>{feature}</span>
+            <span style={{ fontSize: '28px', minWidth: '40px' }}>{step.icon}</span>
+            <span style={{ fontSize: '15px', fontWeight: '500', lineHeight: '1.4' }}>
+              {step.text}
+            </span>
           </div>
         ))}
+      </div>
+      
+      <div style={{
+        marginTop: '20px',
+        padding: '16px',
+        background: 'rgba(255,255,255,0.2)',
+        borderRadius: '10px',
+        borderLeft: '4px solid #FFD700'
+      }}>
+        <strong style={{ fontSize: '15px' }}>💡 Pro Tip:</strong>
+        <p style={{ margin: '8px 0 0 0', fontSize: '14px', lineHeight: '1.5' }}>
+          Set times when your audience is most active (7 AM, 1 PM, 6 PM, 11 PM) for maximum engagement!
+        </p>
       </div>
     </div>
   </div>
 )}
-
 {/* --------------------------------PIXABAY CODE END---------------------------------------------------- */}
 
 <style>{`

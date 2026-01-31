@@ -3348,6 +3348,115 @@ async def debug_my_reddit_connection(current_user: dict = Depends(get_current_us
 # FIXED PRODUCT AUTOMATION ENDPOINTS - REPLACE YOUR EXISTING ONES
 # ============================================================================
 
+# @app.post("/api/product-automation/start")
+# async def start_product_automation(request: Request, current_user: dict = Depends(get_current_user)):
+#     """Start automated product scraping + video generation + upload"""
+#     try:
+#         body = await request.json()
+        
+#         # ✅ FIX: Use authenticated user's ID from JWT token
+#         user_id = current_user.get("id") or current_user.get("user_id")
+#         user_email = current_user.get("email", "Unknown")
+        
+#         if not user_id:
+#             return JSONResponse(
+#                 status_code=401,
+#                 content={"success": False, "error": "Authentication required"}
+#             )
+        
+#         config = body.get('config', {})
+        
+#         # Validate required fields
+#         base_url = config.get('base_url', '')
+#         search_query = config.get('search_query', '')
+#         upload_times = config.get('upload_times', [])
+        
+#         if not base_url or not search_query:
+#             return JSONResponse(
+#                 status_code=400,
+#                 content={"success": False, "error": "base_url and search_query required"}
+#             )
+        
+#         if len(upload_times) == 0:
+#             return JSONResponse(
+#                 status_code=400,
+#                 content={"success": False, "error": "At least one upload time required"}
+#             )
+        
+#         # ✅ CRITICAL: Verify YouTube is connected for THIS authenticated user
+#         youtube_creds = await database_manager.get_youtube_credentials(user_id)
+        
+#         if not youtube_creds:
+#             logger.error(f"❌ No YouTube credentials found for user: {user_email} ({user_id})")
+#             return JSONResponse(
+#                 status_code=403,
+#                 content={
+#                     "success": False, 
+#                     "error": "YouTube not connected. Please connect your YouTube account first.",
+#                     "action_required": "connect_youtube",
+#                     "user_info": {
+#                         "email": user_email,
+#                         "user_id": user_id
+#                     }
+#                 }
+#             )
+        
+#         logger.info(f"✅ YouTube credentials verified for user: {user_email}")
+        
+#         # Store automation config with ENABLED = TRUE
+#         success = await database_manager.store_automation_config(
+#             user_id=user_id,  # ✅ Use authenticated user_id
+#             config_type="product_automation",
+#             config_data={
+#                 "enabled": True,  # ✅ CRITICAL: Must be True
+#                 "base_url": base_url,
+#                 "search_query": search_query,
+#                 "max_posts_per_day": config.get('max_posts_per_day', 200),
+#                 "upload_times": upload_times,
+#                 "auto_scrape": config.get('auto_scrape', True),
+#                 "auto_generate_video": config.get('auto_generate_video', True),
+#                 "auto_upload": config.get('auto_upload', True),
+#                 "created_at": datetime.now().isoformat(),
+#                 "updated_at": datetime.now().isoformat()
+#             }
+#         )
+        
+#         if not success:
+#             return JSONResponse(
+#                 status_code=500,
+#                 content={"success": False, "error": "Failed to store config"}
+#             )
+        
+#         logger.info(f"✅ Product automation STARTED for user: {user_email} ({user_id})")
+#         logger.info(f"   Base URL: {base_url}")
+#         logger.info(f"   Search: {search_query}")
+#         logger.info(f"   Times: {upload_times}")
+        
+#         return JSONResponse(content={
+#             "success": True,
+#             "message": "Product automation started successfully! Videos will be uploaded to your connected YouTube channel.",
+#             "config": {
+#                 "base_url": base_url,
+#                 "search_query": search_query,
+#                 "upload_times": upload_times,
+#                 "max_posts_per_day": config.get('max_posts_per_day', 200)
+#             },
+#             "next_run": upload_times[0] if upload_times else "Not set",
+#             "user_info": {
+#                 "email": user_email,
+#                 "youtube_connected": True,
+#                 "channel_name": youtube_creds.get('channel_info', {}).get('title', 'Your Channel')
+#             }
+#         })
+        
+#     except Exception as e:
+#         logger.error(f"❌ Start automation failed: {e}")
+#         import traceback
+#         logger.error(traceback.format_exc())
+#         return JSONResponse(
+#             status_code=500,
+#             content={"success": False, "error": str(e)}
+#         )
 
 @app.post("/api/product-automation/start")
 async def start_product_automation(request: Request, current_user: dict = Depends(get_current_user)):
@@ -3587,6 +3696,298 @@ async def stop_product_automation(request: Request, current_user: dict = Depends
 
 
 
+
+
+# ============================================================================
+# PIXABAY AUTOMATION ROUTES - ADD THESE TO Supermain.py
+# ============================================================================
+# PASTE THESE AFTER YOUR EXISTING PRODUCT AUTOMATION ROUTES (around line 2800)
+# Look for: @app.post("/api/product-automation/stop")
+# Add these routes RIGHT AFTER that section
+
+from datetime import datetime, time as time_type, timezone, timedelta
+
+# ============================================================================
+# START PIXABAY AUTOMATION
+# ============================================================================
+@app.post("/api/pixabay-automation/start")
+async def start_pixabay_automation(request: Request, current_user: dict = Depends(get_current_user)):
+    """Start automated Pixabay video generation + upload"""
+    try:
+        body = await request.json()
+        
+        # ✅ Use authenticated user from JWT token
+        user_id = current_user.get("id") or current_user.get("user_id")
+        user_email = current_user.get("email", "Unknown")
+        
+        if not user_id:
+            return JSONResponse(
+                status_code=401,
+                content={"success": False, "error": "Authentication required"}
+            )
+        
+        config = body.get('config', {})
+        
+        # Validate required fields
+        niche = config.get('niche', '')
+        upload_times = config.get('upload_times', [])
+        
+        if not niche:
+            return JSONResponse(
+                status_code=400,
+                content={"success": False, "error": "Niche is required"}
+            )
+        
+        if len(upload_times) == 0:
+            return JSONResponse(
+                status_code=400,
+                content={"success": False, "error": "At least one upload time required"}
+            )
+        
+        # ✅ Verify YouTube is connected for THIS authenticated user
+        try:
+            from YTdatabase import get_database_manager as get_yt_db
+            yt_db = get_yt_db()
+            
+            if not yt_db:
+                return JSONResponse(
+                    status_code=500,
+                    content={"success": False, "error": "YouTube service not available"}
+                )
+            
+            # Connect if needed
+            if not yt_db.youtube.client or yt_db.youtube.youtube_credentials_collection is None:
+                logger.info("📡 Connecting to YouTube database...")
+                await yt_db.connect()
+            
+            youtube_creds = await yt_db.get_youtube_credentials(user_id)
+            
+        except Exception as db_err:
+            logger.error(f"❌ YouTube database error: {db_err}")
+            return JSONResponse(
+                status_code=500,
+                content={"success": False, "error": f"Database error: {str(db_err)}"}
+            )
+        
+        if not youtube_creds:
+            logger.error(f"❌ No YouTube credentials found for user: {user_email} ({user_id})")
+            return JSONResponse(
+                status_code=403,
+                content={
+                    "success": False, 
+                    "error": "YouTube not connected. Please connect your YouTube account first.",
+                    "action_required": "connect_youtube"
+                }
+            )
+        
+        logger.info(f"✅ YouTube credentials verified for user: {user_email}")
+        
+        # Store automation config with ENABLED = TRUE
+        success = await database_manager.store_automation_config(
+            user_id=user_id,
+            config_type="pixabay_automation",
+            config_data={
+                "enabled": True,
+                "niche": niche,
+                "language": config.get('language', 'hindi'),
+                "target_duration": config.get('target_duration', 40),
+                "max_posts_per_day": config.get('max_posts_per_day', 10),
+                "upload_times": upload_times,
+                "custom_bg_music": config.get('custom_bg_music', ''),
+                "user_input": config.get('user_input', ''),
+                "created_at": datetime.now().isoformat(),
+                "updated_at": datetime.now().isoformat()
+            }
+        )
+        
+        if not success:
+            return JSONResponse(
+                status_code=500,
+                content={"success": False, "error": "Failed to store config"}
+            )
+        
+        logger.info(f"✅ Pixabay automation STARTED for user: {user_email} ({user_id})")
+        logger.info(f"   Niche: {niche}")
+        logger.info(f"   Times: {upload_times}")
+        
+        return JSONResponse(content={
+            "success": True,
+            "message": "Pixabay automation started successfully!",
+            "config": {
+                "niche": niche,
+                "language": config.get('language', 'hindi'),
+                "upload_times": upload_times,
+                "max_posts_per_day": config.get('max_posts_per_day', 10)
+            },
+            "next_run": upload_times[0] if upload_times else "Not set",
+            "user_info": {
+                "email": user_email,
+                "youtube_connected": True,
+                "channel_name": youtube_creds.get('channel_info', {}).get('title', 'Your Channel')
+            }
+        })
+        
+    except Exception as e:
+        logger.error(f"❌ Start Pixabay automation failed: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "error": str(e)}
+        )
+
+
+# ============================================================================
+# STOP PIXABAY AUTOMATION
+# ============================================================================
+@app.post("/api/pixabay-automation/stop")
+async def stop_pixabay_automation(request: Request, current_user: dict = Depends(get_current_user)):
+    """Stop automated Pixabay video generation"""
+    try:
+        user_id = current_user.get("id") or current_user.get("user_id")
+        user_email = current_user.get("email", "Unknown")
+        
+        if not user_id:
+            return JSONResponse(
+                status_code=401,
+                content={"success": False, "error": "Authentication required"}
+            )
+        
+        # Disable automation
+        success = await database_manager.disable_automation(user_id, "pixabay_automation")
+        
+        if not success:
+            return JSONResponse(
+                status_code=500,
+                content={"success": False, "error": "Failed to disable automation"}
+            )
+        
+        logger.info(f"⏹️ Pixabay automation STOPPED for user: {user_email} ({user_id})")
+        
+        return JSONResponse(content={
+            "success": True,
+            "message": "Pixabay automation stopped successfully",
+            "user_info": {
+                "email": user_email,
+                "user_id": user_id
+            }
+        })
+        
+    except Exception as e:
+        logger.error(f"❌ Stop Pixabay automation failed: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "error": str(e)}
+        )
+
+
+# ============================================================================
+# GET PIXABAY AUTOMATION STATUS
+# ============================================================================
+@app.get("/api/pixabay-automation/status/{user_id}")
+async def get_pixabay_automation_status(user_id: str):
+    """Get Pixabay automation status and today's post count"""
+    try:
+        if not database_manager or not database_manager.connected:
+            return JSONResponse(
+                status_code=500,
+                content={"success": False, "error": "Database not connected"}
+            )
+        
+        # Get config
+        config = await database_manager.get_automation_config(user_id, "pixabay_automation")
+        
+        # Get today's posts count
+        today_posts = await database_manager.get_automation_posts_count(
+            user_id,
+            date=datetime.now().date()
+        )
+        
+        if not config:
+            return JSONResponse(content={
+                "success": True,
+                "active": False,
+                "posts_today": today_posts,
+                "config": None
+            })
+        
+        config_data = config.get("config_data", {})
+        enabled = config_data.get("enabled", False)
+        
+        return JSONResponse(content={
+            "success": True,
+            "active": enabled,
+            "posts_today": today_posts,
+            "config": {
+                "niche": config_data.get("niche", ""),
+                "language": config_data.get("language", "hindi"),
+                "target_duration": config_data.get("target_duration", 40),
+                "upload_times": config_data.get("upload_times", []),
+                "max_posts_per_day": config_data.get("max_posts_per_day", 10),
+                "user_input": config_data.get("user_input", ""),
+                "remaining_today": max(0, config_data.get("max_posts_per_day", 10) - today_posts)
+            }
+        })
+        
+    except Exception as e:
+        logger.error(f"❌ Get Pixabay automation status failed: {e}")
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "error": str(e)}
+        )
+
+
+# ============================================================================
+# GET PIXABAY AUTOMATION LOGS
+# ============================================================================
+@app.get("/api/pixabay-automation/logs/{user_id}")
+async def get_pixabay_automation_logs(user_id: str, limit: int = 20):
+    """Get Pixabay automation activity logs"""
+    try:
+        if not database_manager or not database_manager.connected:
+            return JSONResponse(
+                status_code=500,
+                content={"success": False, "error": "Database not connected"}
+            )
+        
+        logs = []
+        cursor = database_manager.db.pixabay_automation_logs.find(
+            {"user_id": user_id}
+        ).sort("timestamp", -1).limit(limit)
+        
+        async for log in cursor:
+            logs.append({
+                "timestamp": log.get("timestamp").isoformat() if log.get("timestamp") else "",
+                "step": log.get("step", ""),
+                "success": log.get("success", False),
+                "details": log.get("details", ""),
+                "error": log.get("error", ""),
+                "niche": log.get("niche", ""),
+                "video_id": log.get("video_id", ""),
+                "story_id": log.get("story_id", "")
+            })
+        
+        return JSONResponse(content={
+            "success": True,
+            "logs": logs
+        })
+        
+    except Exception as e:
+        logger.error(f"Get Pixabay logs failed: {e}")
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "error": str(e)}
+        )
+
+
+
+
+
+
+
+
 # Background task runner (runs every hour)
 # ============================================================================
 # FIXED BACKGROUND TASK - REPLACE run_product_automation_tasks()
@@ -3596,23 +3997,146 @@ async def stop_product_automation(request: Request, current_user: dict = Depends
 
 
 
+# async def run_product_automation_tasks():
+#     """Background task with detailed logging"""
+#     logger.info("=" * 70)
+#     logger.info("🚀 PRODUCT AUTOMATION BACKGROUND TASK STARTED")
+#     logger.info("=" * 70)
+    
+#     while True:
+#         try:
+#             # current_time = datetime.now().strftime('%H:%M')
+#             IST = timezone(timedelta(hours=5, minutes=30))
+#             current_time = datetime.now(IST).strftime('%H:%M')
+#             logger.info(f"🕐 Current IST time: {current_time}")
+#             current_minute = datetime.now().minute
+            
+#             # Log every 5 minutes
+#             if current_minute % 5 == 0:
+#                 logger.info(f"🤖 Automation check at {current_time}")
+            
+#             if not database_manager or not database_manager.connected:
+#                 if current_minute % 5 == 0:
+#                     logger.warning("⚠️ Database not connected")
+#                 await asyncio.sleep(60)
+#                 continue
+            
+#             # Get all configs
+#             configs = await database_manager.get_all_automation_configs_by_type("product_automation")
+            
+#             if current_minute % 5 == 0:
+#                 logger.info(f"📋 Found {len(configs)} total automation configs")
+            
+#             active_count = 0
+#             for config in configs:
+#                 try:
+#                     user_id = config.get("user_id")
+#                     config_data = config.get("config_data", {})
+#                     enabled = config_data.get("enabled", False)
+                    
+#                     # Log config details every 5 minutes
+#                     if current_minute % 5 == 0:
+#                         logger.info(f"   User {user_id[:8]}... | enabled={enabled}")
+#                         logger.info(f"      base_url: {config_data.get('base_url', 'NOT SET')}")
+#                         logger.info(f"      search_query: {config_data.get('search_query', 'NOT SET')}")
+#                         logger.info(f"      upload_times: {config_data.get('upload_times', [])}")
+                    
+#                     if not enabled:
+#                         if current_minute % 5 == 0:
+#                             logger.warning(f"      ❌ SKIPPED: Disabled")
+#                         continue
+                    
+#                     active_count += 1
+                    
+#                     upload_times = config_data.get("upload_times", [])
+#                     base_url = config_data.get("base_url", "")
+#                     search_query = config_data.get("search_query", "")
+                    
+#                     if current_minute % 5 == 0:
+#                         logger.info(f"      ✅ ACTIVE automation")
+                    
+#                     # Check time match
+#                     if current_time in upload_times:
+#                         logger.info("=" * 70)
+#                         logger.info(f"🔔 TIME MATCH! TRIGGERING AUTOMATION")
+#                         logger.info(f"   User: {user_id}")
+#                         logger.info(f"   Current: {current_time}")
+#                         logger.info(f"   Scheduled: {upload_times}")
+#                         logger.info(f"   URL: {base_url}")
+#                         logger.info(f"   Search: {search_query}")
+#                         logger.info("=" * 70)
+                        
+#                         # Check daily limit
+#                         posts_today = await database_manager.get_automation_posts_count(
+#                             user_id,
+#                             date=datetime.now().date()
+#                         )
+                        
+#                         max_posts = config_data.get("max_posts_per_day", 200)
+                        
+#                         logger.info(f"   Posts today: {posts_today}/{max_posts}")
+                        
+#                         if posts_today >= max_posts:
+#                             logger.warning(f"   ❌ Daily limit reached")
+#                             continue
+                        
+#                         logger.info(f"   ✅ EXECUTING AUTOMATION NOW!")
+                        
+#                         # Execute (non-blocking)
+#                         asyncio.create_task(execute_product_automation(user_id, config_data))
+#                     else:
+#                         # Log mismatch every 5 min
+#                         if current_minute % 5 == 0:
+#                             logger.info(f"      ⏰ No match: {current_time} vs {upload_times}")
+                    
+#                 except Exception as e:
+#                     logger.error(f"❌ Config error: {e}")
+#                     import traceback
+#                     logger.error(traceback.format_exc())
+#                     continue
+            
+#             if current_minute % 5 == 0:
+#                 logger.info(f"📊 Summary: {active_count} active / {len(configs)} total")
+#                 logger.info("-" * 70)
+            
+#             # Wait 60 seconds
+#             await asyncio.sleep(60)
+            
+#         except Exception as e:
+#             logger.error(f"❌ Task error: {e}")
+#             import traceback
+#             logger.error(traceback.format_exc())
+#             await asyncio.sleep(60)
+
+
+
+
+# ============================================================================
+# UPDATE BACKGROUND TASK RUNNER - MODIFY EXISTING run_product_automation_tasks()
+# ============================================================================
+# FIND THIS FUNCTION (around line 2900) AND REPLACE IT WITH THIS VERSION:
+
 async def run_product_automation_tasks():
-    """Background task with detailed logging"""
+    """
+    Background task with detailed logging
+    Runs BOTH product automation AND Pixabay automation
+    """
     logger.info("=" * 70)
-    logger.info("🚀 PRODUCT AUTOMATION BACKGROUND TASK STARTED")
+    logger.info("🚀 UNIFIED AUTOMATION BACKGROUND TASK STARTED")
+    logger.info("   - Product Automation")
+    logger.info("   - Pixabay Automation")
     logger.info("=" * 70)
     
     while True:
         try:
-            # current_time = datetime.now().strftime('%H:%M')
+            # Get current IST time
             IST = timezone(timedelta(hours=5, minutes=30))
             current_time = datetime.now(IST).strftime('%H:%M')
-            logger.info(f"🕐 Current IST time: {current_time}")
             current_minute = datetime.now().minute
             
             # Log every 5 minutes
             if current_minute % 5 == 0:
-                logger.info(f"🤖 Automation check at {current_time}")
+                logger.info(f"🕐 Automation check at {current_time} IST")
             
             if not database_manager or not database_manager.connected:
                 if current_minute % 5 == 0:
@@ -3620,50 +4144,27 @@ async def run_product_automation_tasks():
                 await asyncio.sleep(60)
                 continue
             
-            # Get all configs
-            configs = await database_manager.get_all_automation_configs_by_type("product_automation")
+            # ============================================================
+            # 1️⃣ CHECK PRODUCT AUTOMATION
+            # ============================================================
+            product_configs = await database_manager.get_all_automation_configs_by_type("product_automation")
             
             if current_minute % 5 == 0:
-                logger.info(f"📋 Found {len(configs)} total automation configs")
+                logger.info(f"📦 Found {len(product_configs)} product automation configs")
             
-            active_count = 0
-            for config in configs:
+            for config in product_configs:
                 try:
                     user_id = config.get("user_id")
                     config_data = config.get("config_data", {})
                     enabled = config_data.get("enabled", False)
                     
-                    # Log config details every 5 minutes
-                    if current_minute % 5 == 0:
-                        logger.info(f"   User {user_id[:8]}... | enabled={enabled}")
-                        logger.info(f"      base_url: {config_data.get('base_url', 'NOT SET')}")
-                        logger.info(f"      search_query: {config_data.get('search_query', 'NOT SET')}")
-                        logger.info(f"      upload_times: {config_data.get('upload_times', [])}")
-                    
                     if not enabled:
-                        if current_minute % 5 == 0:
-                            logger.warning(f"      ❌ SKIPPED: Disabled")
                         continue
                     
-                    active_count += 1
-                    
                     upload_times = config_data.get("upload_times", [])
-                    base_url = config_data.get("base_url", "")
-                    search_query = config_data.get("search_query", "")
                     
-                    if current_minute % 5 == 0:
-                        logger.info(f"      ✅ ACTIVE automation")
-                    
-                    # Check time match
                     if current_time in upload_times:
-                        logger.info("=" * 70)
-                        logger.info(f"🔔 TIME MATCH! TRIGGERING AUTOMATION")
-                        logger.info(f"   User: {user_id}")
-                        logger.info(f"   Current: {current_time}")
-                        logger.info(f"   Scheduled: {upload_times}")
-                        logger.info(f"   URL: {base_url}")
-                        logger.info(f"   Search: {search_query}")
-                        logger.info("=" * 70)
+                        logger.info(f"🔔 PRODUCT AUTOMATION TRIGGER: {current_time} for user {user_id}")
                         
                         # Check daily limit
                         posts_today = await database_manager.get_automation_posts_count(
@@ -3673,32 +4174,59 @@ async def run_product_automation_tasks():
                         
                         max_posts = config_data.get("max_posts_per_day", 200)
                         
-                        logger.info(f"   Posts today: {posts_today}/{max_posts}")
-                        
                         if posts_today >= max_posts:
-                            logger.warning(f"   ❌ Daily limit reached")
+                            logger.warning(f"   ❌ Daily limit reached ({posts_today}/{max_posts})")
                             continue
                         
-                        logger.info(f"   ✅ EXECUTING AUTOMATION NOW!")
-                        
-                        # Execute (non-blocking)
+                        # Execute
                         asyncio.create_task(execute_product_automation(user_id, config_data))
-                    else:
-                        # Log mismatch every 5 min
-                        if current_minute % 5 == 0:
-                            logger.info(f"      ⏰ No match: {current_time} vs {upload_times}")
                     
                 except Exception as e:
-                    logger.error(f"❌ Config error: {e}")
-                    import traceback
-                    logger.error(traceback.format_exc())
+                    logger.error(f"❌ Product config error: {e}")
                     continue
             
-            if current_minute % 5 == 0:
-                logger.info(f"📊 Summary: {active_count} active / {len(configs)} total")
-                logger.info("-" * 70)
+            # ============================================================
+            # 2️⃣ CHECK PIXABAY AUTOMATION
+            # ============================================================
+            pixabay_configs = await database_manager.get_all_automation_configs_by_type("pixabay_automation")
             
-            # Wait 60 seconds
+            if current_minute % 5 == 0:
+                logger.info(f"🖼️ Found {len(pixabay_configs)} Pixabay automation configs")
+            
+            for config in pixabay_configs:
+                try:
+                    user_id = config.get("user_id")
+                    config_data = config.get("config_data", {})
+                    enabled = config_data.get("enabled", False)
+                    
+                    if not enabled:
+                        continue
+                    
+                    upload_times = config_data.get("upload_times", [])
+                    
+                    if current_time in upload_times:
+                        logger.info(f"🔔 PIXABAY AUTOMATION TRIGGER: {current_time} for user {user_id}")
+                        
+                        # Check daily limit
+                        posts_today = await database_manager.get_automation_posts_count(
+                            user_id,
+                            date=datetime.now().date()
+                        )
+                        
+                        max_posts = config_data.get("max_posts_per_day", 10)
+                        
+                        if posts_today >= max_posts:
+                            logger.warning(f"   ❌ Daily limit reached ({posts_today}/{max_posts})")
+                            continue
+                        
+                        # Execute
+                        asyncio.create_task(execute_pixabay_automation(user_id, config_data))
+                    
+                except Exception as e:
+                    logger.error(f"❌ Pixabay config error: {e}")
+                    continue
+            
+            # Wait 60 seconds before next check
             await asyncio.sleep(60)
             
         except Exception as e:
@@ -4418,6 +4946,188 @@ async def execute_product_automation(user_id: str, config: dict):
         import traceback
         logger.error(traceback.format_exc())
         await log_step("fatal_error", False, error=str(e))
+
+
+
+
+
+
+# ============================================================================
+# PIXABAY AUTOMATION BACKGROUND TASK - ADD TO Supermain.py
+# ============================================================================
+# PASTE THIS AFTER execute_product_automation() function (around line 3100)
+# This function will be called by the background scheduler
+
+async def execute_pixabay_automation(user_id: str, config: dict):
+    """
+    Execute Pixabay automation: generate video and upload to YouTube
+    Called automatically at scheduled times
+    """
+    
+    # Helper function to log each step
+    async def log_step(step: str, success: bool, details: str = "", error: str = "", video_id: str = "", story_id: str = ""):
+        """Log Pixabay automation step to database"""
+        try:
+            await database_manager.db.pixabay_automation_logs.insert_one({
+                "user_id": user_id,
+                "timestamp": datetime.now(),
+                "step": step,
+                "success": success,
+                "details": details,
+                "error": error,
+                "niche": config.get("niche", ""),
+                "video_id": video_id,
+                "story_id": story_id
+            })
+        except Exception as e:
+            logger.error(f"Failed to log Pixabay step: {e}")
+    
+    try:
+        logger.info("=" * 70)
+        logger.info(f"🔄 EXECUTING PIXABAY AUTOMATION FOR USER: {user_id}")
+        logger.info("=" * 70)
+        
+        # ✅ Get config
+        niche = config.get("niche", "spiritual")
+        language = config.get("language", "hindi")
+        target_duration = config.get("target_duration", 40)
+        custom_bg_music = config.get("custom_bg_music", "")
+        user_input = config.get("user_input", "")
+        
+        logger.info(f"🎬 Niche: {niche}")
+        logger.info(f"🗣️ Language: {language}")
+        logger.info(f"⏱️ Duration: {target_duration}s")
+        
+        await log_step("start", True, f"Starting Pixabay automation for niche: {niche}")
+        
+        # ✅ STEP 1: VERIFY YOUTUBE CREDENTIALS
+        logger.info(f"📍 STEP 1: Verifying YouTube connection for user: {user_id}")
+        
+        try:
+            from YTdatabase import get_database_manager as get_yt_db
+            yt_db = get_yt_db()
+            
+            if not yt_db:
+                error_msg = "YouTube database not connected"
+                logger.error(f"   ❌ {error_msg}")
+                await log_step("youtube_check", False, error=error_msg)
+                return
+            
+            # Connect if needed
+            if not yt_db.youtube.client or yt_db.youtube.youtube_credentials_collection is None:
+                logger.info("   📡 Connecting to YouTube database...")
+                await yt_db.connect()
+            
+            # Get credentials
+            credentials_raw = await yt_db.youtube.youtube_credentials_collection.find_one({
+                "user_id": user_id
+            })
+            
+            if not credentials_raw:
+                error_msg = f"No YouTube credentials found for user_id: {user_id}"
+                logger.error(f"   ❌ {error_msg}")
+                await log_step("youtube_check", False, error=error_msg)
+                return
+            
+            # Build credentials
+            credentials = {
+                "access_token": credentials_raw.get("access_token"),
+                "refresh_token": credentials_raw.get("refresh_token"),
+                "token_uri": credentials_raw.get("token_uri", "https://oauth2.googleapis.com/token"),
+                "client_id": credentials_raw.get("client_id") or os.getenv("YOUTUBE_CLIENT_ID"),
+                "client_secret": credentials_raw.get("client_secret") or os.getenv("YOUTUBE_CLIENT_SECRET"),
+                "scopes": credentials_raw.get("scopes", [
+                    "https://www.googleapis.com/auth/youtube.upload",
+                    "https://www.googleapis.com/auth/youtube.force-ssl"
+                ]),
+                "channel_info": credentials_raw.get("channel_info", {})
+            }
+            
+            channel_name = credentials.get("channel_info", {}).get("title", "Unknown")
+            logger.info(f"   ✅ YouTube credentials verified! Channel: {channel_name}")
+            await log_step("youtube_check", True, f"Channel: {channel_name}")
+            
+        except Exception as cred_error:
+            error_msg = f"Failed to retrieve credentials: {cred_error}"
+            logger.error(f"   ❌ {error_msg}")
+            await log_step("youtube_check", False, error=error_msg)
+            return
+        
+        # ✅ STEP 2: GENERATE PIXABAY VIDEO
+        logger.info(f"📍 STEP 2: Generating Pixabay video...")
+        
+        try:
+            # Import the Pixabay video generator
+            from Pixabay import generate_pixabay_video
+            
+            # Generate video
+            video_result = await generate_pixabay_video(
+                niche=niche,
+                language=language,
+                user_id=user_id,
+                database_manager=database_manager,
+                target_duration=target_duration,
+                custom_bg_music=custom_bg_music if custom_bg_music else None,
+                user_input=user_input if user_input else None
+            )
+            
+            if not video_result.get("success"):
+                error_msg = f"Video generation failed: {video_result.get('error', 'Unknown error')}"
+                logger.error(f"   ❌ {error_msg}")
+                await log_step("generate_video", False, error=error_msg)
+                return
+            
+            video_id = video_result.get("video_id")
+            video_url = video_result.get("video_url")
+            story_id = video_result.get("story_id", "")
+            title = video_result.get("title", "")
+            
+            logger.info(f"   ✅ Video generated successfully!")
+            logger.info(f"   Video ID: {video_id}")
+            logger.info(f"   Story ID: {story_id}")
+            logger.info(f"   Title: {title}")
+            
+            await log_step("generate_video", True, f"Video ID: {video_id}, Story: {story_id}", video_id=video_id, story_id=story_id)
+            
+        except Exception as video_error:
+            error_msg = f"Video generation exception: {video_error}"
+            logger.error(f"   ❌ {error_msg}")
+            import traceback
+            logger.error(traceback.format_exc())
+            await log_step("generate_video", False, error=error_msg)
+            return
+        
+        # ✅ STEP 3: LOG SUCCESS
+        logger.info("=" * 70)
+        logger.info("✅ PIXABAY AUTOMATION COMPLETED SUCCESSFULLY!")
+        logger.info(f"   User: {user_id}")
+        logger.info(f"   Niche: {niche}")
+        logger.info(f"   Video: {video_url}")
+        logger.info("=" * 70)
+        
+        # Final success log
+        await database_manager.log_automation_post(user_id, {
+            "niche": niche,
+            "video_id": video_id,
+            "story_id": story_id,
+            "timestamp": datetime.now(),
+            "success": True,
+            "automation_type": "pixabay"
+        })
+        
+    except Exception as e:
+        logger.error(f"❌ PIXABAY AUTOMATION FAILED: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
+        await log_step("fatal_error", False, error=str(e))
+
+
+
+
+
+
+
+
 
 # ============================================================================
 # ALSO ADD THIS HELPER FUNCTION IF NOT PRESENT
