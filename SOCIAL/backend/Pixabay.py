@@ -2844,16 +2844,15 @@ async def generate_voice_vertex_ai(text: str, temp_dir: str) -> Optional[str]:
 # VOICE GENERATION WITH 3-TIER FALLBACK SYSTEM
 # ============================================================================
 
+# ============================================================================
+# VOICE GENERATION WITH 3-TIER FALLBACK SYSTEM
+# ============================================================================
+
 EDGE_MALE_VOICES_WEIGHTED = [
-    ("hi-IN-RaviNeural", 5),      # Most preferred (deep documentary)
-    ("hi-IN-PrabhatNeural", 3),   # Authority / news
+    ("hi-IN-RaviNeural", 5),      # Deep documentary
+    ("hi-IN-PrabhatNeural", 3),   # Authority/news
     ("hi-IN-MadhurNeural", 2)     # Safe fallback
 ]
-
-def weighted_voice_choice():
-    import random
-    voices, weights = zip(*EDGE_MALE_VOICES_WEIGHTED)
-    return random.choices(voices, weights=weights, k=1)[0]
 
 
 async def generate_voice_115x(text: str, voice_id: str, temp_dir: str) -> Optional[str]:
@@ -2861,10 +2860,7 @@ async def generate_voice_115x(text: str, voice_id: str, temp_dir: str) -> Option
     Generate voice with 3-tier fallback system:
     1. ElevenLabs (Primary)
     2. Vertex AI TTS (Fallback #1)
-    3. Edge TTS (Fallback #2)
-       - Weighted voice selection
-       - Retry with another voice on failure
-       - Emotion + pitch tuning
+    3. Edge TTS weighted + retry (Fallback #2)
     """
 
     # ========== TIER 1: ELEVENLABS (PRIMARY) ==========
@@ -2883,56 +2879,62 @@ async def generate_voice_115x(text: str, voice_id: str, temp_dir: str) -> Option
 
                 if resp.status_code == 200:
                     base = os.path.join(temp_dir, "voice_base.mp3")
-                    with open(base, 'wb') as f:
+                    with open(base, "wb") as f:
                         f.write(resp.content)
 
                     final = os.path.join(temp_dir, "voice.mp3")
+
                     if run_ffmpeg([
-                        "ffmpeg", "-i", base, "-filter:a", "atempo=1.2",
+                        "ffmpeg", "-i", base,
+                        "-filter:a", "atempo=1.2",
                         "-y", final
                     ], 30):
                         force_cleanup(base)
-                        logger.info(f"✅ ElevenLabs Voice (1.2x): {get_size_mb(final):.2f}MB")
+                        logger.info(f"✅ ElevenLabs Voice OK: {get_size_mb(final):.2f}MB")
                         return final
+
                     force_cleanup(base)
+
         except Exception as e:
             logger.warning(f"⚠️ ElevenLabs failed: {e}")
     else:
         logger.warning("⚠️ ElevenLabs API key not available")
 
-    # ========== TIER 2: VERTEX AI TTS (FALLBACK #1) ==========
+    # ========== TIER 2: VERTEX AI TTS ==========
     logger.info("🔄 Falling back to Vertex AI TTS...")
     vertex_voice = await generate_voice_vertex_ai(text, temp_dir)
     if vertex_voice:
         return vertex_voice
 
-    # ========== TIER 3: EDGE TTS (FALLBACK #2) ==========
+    # ========== TIER 3: EDGE TTS ==========
     logger.info("🔄 Falling back to Edge TTS...")
 
     try:
         import edge_tts
-        import random
+        
 
-        tried_voices = set()
-        max_retries = len(EDGE_MALE_VOICES_WEIGHTED)
+        voices, weights = zip(*EDGE_MALE_VOICES_WEIGHTED)
+        tried = set()
+        max_attempts = len(voices)
 
-        for attempt in range(max_retries):
-            selected_voice = weighted_voice_choice()
+        for attempt in range(max_attempts):
 
-            if selected_voice in tried_voices:
+            selected_voice = random.choices(voices, weights=weights, k=1)[0]
+
+            if selected_voice in tried:
                 continue
+            tried.add(selected_voice)
 
-            tried_voices.add(selected_voice)
-            logger.info(f"🎧 Edge TTS attempt {attempt+1} using voice: {selected_voice}")
+            logger.info(f"🎧 Edge attempt {attempt+1}: {selected_voice}")
 
             base = os.path.join(temp_dir, f"edge_base_{attempt}.mp3")
             final = os.path.join(temp_dir, "edge_voice.mp3")
 
-            # ---------- SSML with emotion + pitch ----------
+            # ---- Safe SSML (Edge auto-detects — no ssml flag needed) ----
             ssml_text = f"""
 <speak version="1.0" xml:lang="hi-IN">
   <voice name="{selected_voice}">
-    <prosody rate="+15%" pitch="+6%" volume="+10%">
+    <prosody rate="+12%" pitch="+4%">
       {text[:1500]}
     </prosody>
   </voice>
@@ -2940,26 +2942,25 @@ async def generate_voice_115x(text: str, voice_id: str, temp_dir: str) -> Option
 """
 
             try:
-                await edge_tts.Communicate(
-                    ssml_text,
-                    selected_voice,
-                    ssml=True
-                ).save(base)
+                communicate = edge_tts.Communicate(ssml_text, selected_voice)
+                await communicate.save(base)
 
                 if run_ffmpeg([
-                    "ffmpeg", "-i", base, "-filter:a", "atempo=1.2",
+                    "ffmpeg", "-i", base,
+                    "-filter:a", "atempo=1.15,asetrate=44100*0.93",
                     "-y", final
                 ], 30):
                     force_cleanup(base)
                     logger.info(
-                        f"✅ Edge TTS Voice (1.2x) [{selected_voice}]: {get_size_mb(final):.2f}MB"
+                        f"✅ Edge TTS success ({selected_voice}): "
+                        f"{get_size_mb(final):.2f}MB"
                     )
                     return final
 
                 force_cleanup(base)
 
             except Exception as voice_error:
-                logger.warning(f"⚠️ Edge voice failed ({selected_voice}): {voice_error}")
+                logger.warning(f"⚠️ Edge voice failed {selected_voice}: {voice_error}")
                 force_cleanup(base)
 
     except Exception as e:
@@ -2967,6 +2968,7 @@ async def generate_voice_115x(text: str, voice_id: str, temp_dir: str) -> Option
 
     logger.error("❌ All voice generation methods failed!")
     return None
+
 
 
 
