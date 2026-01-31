@@ -2858,8 +2858,8 @@ async def generate_voice_115x(text: str, voice_id: str, temp_dir: str) -> Option
         
         await edge_tts.Communicate(
             text[:1500],
-            # "hi-IN-MadhurNeural",
-            "hi-IN-RaviNeural",
+            "hi-IN-MadhurNeural",
+            # "hi-IN-RaviNeural",
             rate="+15%"
         ).save(base)
         
