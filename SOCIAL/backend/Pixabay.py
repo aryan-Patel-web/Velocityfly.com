@@ -2197,11 +2197,62 @@ CRITICAL REQUIREMENTS:
 5. Include hook + main story + conclusion
 6. Add CTA at end: "{cta}"
 
-SEO REQUIREMENTS:
-7. Eye-catching title in Hinglish (NOT full Hindi) - similar to: "Krishna Ki Sabse Rahasya Leela 🕉️ | Aapko Nahi Pata Hoga! #Shorts"
-8. Description in Hinglish with story summary + 15+ SEO keywords
-9. 5-7 relevant hashtags
-10. Keywords should include predicted searches users might type
+SEO REQUIREMENTS (VERY STRICT – FOLLOW EXACTLY):
+
+6. Generate a VIRAL Hinglish TITLE containing:
+   - 1–2 MAIN brand names
+   - Power words like: FASTEST, MEHENGI, SHOCKING, WORLD
+   - Example format:
+     "Bugatti vs Koenigsegg 🔥 | Duniya Ki Sabse FAST Hypercars! #Shorts"
+
+7. Write a Hinglish DESCRIPTION (2 short paragraphs) that:
+   - Clearly explains what the title promises
+   - Repeats ONLY title-related terms naturally
+   - NO unrelated keywords
+   - End description with: "Keywords: ..."
+
+8. Generate EXACTLY 15 SEO KEYWORDS:
+   - ALL keywords MUST be derived ONLY from:
+     a) Title words
+     b) Brands mentioned in description
+     c) Topic context (speed, price, comparison, luxury)
+   - Keywords MUST look like real YouTube search queries
+   - Example keyword style (DO NOT COPY, GENERATE NEW):
+     Bugatti Chiron Super Sport 300+
+     Koenigsegg Jesko Absolut
+     Bugatti vs Koenigsegg
+     fastest car in the world
+     hypercar speed facts
+     Bugatti top speed Hindi
+     Koenigsegg Jesko speed
+     world fastest supercar
+     luxury supercars Hindi
+     expensive cars in the world
+     supercar price in India
+     hypercar engine technology
+     luxury cars facts Hindi
+     supercar comparison shorts
+     rich lifestyle cars
+
+9. Generate 5–7 HASHTAGS ONLY:
+   - Hashtags MUST be DIRECTLY created from:
+     a) Title brands
+     b) Main topic words
+   - NO generic or unrelated hashtags
+   - Example style:
+     #Bugatti
+     #Koenigsegg
+     #SupercarFacts
+     #FastestCar
+     #LuxuryCars
+     #Hypercar
+     #Shorts
+
+10. IMPORTANT:
+   - Keywords & hashtags MUST MATCH title + description
+   - Do NOT invent extra topics
+   - Do NOT repeat keywords inside hashtags
+
 
 Previous story IDs to AVOID: {', '.join(previous_story_ids[:5]) if previous_story_ids else 'None'}
 
@@ -2234,11 +2285,53 @@ CRITICAL REQUIREMENTS:
 5. Include amazing facts
 6. Add CTA: "{cta}"
 
-SEO REQUIREMENTS (MOST IMPORTANT):
-7. Title in Hinglish like: "Space Ki Sabse Badi Mystery 🚀 | Aapko Nahi Pata Hoga Yeh Facts! #Shorts"
-8. Description in Hinglish with 15+ keywords: "space mystery, universe facts hindi, black hole secrets, galaxy hindi, cosmos ki kahani..."
-9. 5-7 hashtags: #space #universe #shorts #viral #trending #facts #hindi
-10. Keywords should match what users actually search
+SEO REQUIREMENTS (MOST IMPORTANT – STRICT):
+
+1. Title MUST be Hinglish, curiosity-driven, and include the MAIN space topic
+   Example style:
+   "Universe Ki Sabse Badi Mystery 🌌 | Scientists Bhi Hairaan! #Shorts"
+
+2. Description MUST:
+   - Start with a 2–3 line Hinglish summary based ONLY on the title topic
+   - Then include a section exactly like this:
+     "Keywords: keyword1, keyword2, keyword3..."
+
+3. KEYWORDS RULES (VERY STRICT):
+   - Generate EXACTLY 15–18 keywords
+   - Keywords MUST be derived ONLY from:
+     • Title words
+     • Description words
+     • Core topic (NO random keywords)
+   - Use real YouTube search-style phrases
+   - Mix English + Hindi searches
+   - Example keyword style:
+     - space mystery Hindi
+     - universe secrets
+     - black hole facts Hindi
+     - galaxy facts
+     - nasa space discovery
+     - cosmic mysteries shorts
+     - space facts Hindi
+     - universe explained Hindi
+     - astronomy facts
+     - dark matter mystery
+     - space science Hindi
+     - universe ka sach
+     - space exploration facts
+     - interstellar space
+     - alien life search
+
+4. HASHTAGS RULES:
+   - Generate 5–7 hashtags ONLY
+   - Hashtags MUST come from title + keywords
+   - NO generic or unrelated hashtags
+   - Example format:
+     #SpaceFacts #UniverseMystery #BlackHole #NASA #Shorts
+
+5. Hashtags MUST appear in the SAME description after keywords.
+
+6. DO NOT invent unrelated trending words.
+7. Keywords + hashtags must be HIGH-INTENT search terms users actually type.
 
 Previous topics (AVOID): {', '.join(previous_story_ids[:5]) if previous_story_ids else 'None'}
 
@@ -2277,11 +2370,55 @@ CRITICAL REQUIREMENTS:
 4. NO "pause" word
 5. Add CTA: "{cta}"
 
-SEO REQUIREMENTS:
-6. Viral title like: "Duniya Ki Sabse Mehengi {luxury_type.title()} 💎 | Price Sunke Shock Ho Jaoge! #Shorts"
-7. Hinglish description + 15+ keywords
-8. 5-7 hashtags for luxury niche
-9. Include brand names in keywords
+SEO REQUIREMENTS (MOST IMPORTANT – STRICT):
+
+1. Title MUST:
+   - Be Hinglish
+   - Include BRAND names if present
+   - Trigger curiosity + shock
+   Example:
+   "Bugatti vs Koenigsegg 🚗🔥 | Duniya Ki Sabse Fast Supercars! #Shorts"
+
+2. Description MUST:
+   - Begin with a Hinglish summary based ONLY on the title
+   - Then add:
+     "Keywords: keyword1, keyword2, keyword3..."
+
+3. KEYWORDS RULES (STRICT):
+   - Generate EXACTLY 15–18 keywords
+   - Keywords MUST be extracted ONLY from:
+     • Title
+     • Description
+     • Mentioned brands / models
+   - Use REAL search phrases people type
+   - Example keyword pattern:
+     - Bugatti Chiron Super Sport 300+
+     - Koenigsegg Jesko Absolut
+     - Bugatti vs Koenigsegg
+     - fastest car in the world
+     - hypercar speed facts
+     - Bugatti top speed Hindi
+     - Koenigsegg Jesko speed
+     - world fastest supercar
+     - luxury supercars Hindi
+     - expensive cars in the world
+     - supercar price in India
+     - hypercar engine technology
+     - luxury cars facts Hindi
+     - supercar comparison shorts
+     - rich lifestyle cars
+
+4. HASHTAGS RULES:
+   - Generate ONLY 5–7 hashtags
+   - Hashtags MUST be derived from keywords
+   - Brand hashtags allowed ONLY if brand appears in title/desc
+   - Example:
+     #Bugatti #Koenigsegg #SupercarFacts #FastestCar #LuxuryCars #Hypercar #Shorts
+
+5. Keywords + hashtags MUST be in the SAME description.
+6. NO unrelated luxury brands.
+7. NO generic filler tags.
+
 
 Previous content (AVOID): {', '.join(previous_story_ids[:5]) if previous_story_ids else 'None'}
 
@@ -3049,8 +3186,8 @@ async def generate_pixabay_video(
         # STEP 3: Calculate images needed
         script_duration = len(script_text.split()) / 2.75
         # Ensure video doesn't exceed 60 seconds
-        if script_duration > 60:
-            script_duration = 60
+        if script_duration > 70:
+            script_duration = 70
             logger.warning(f"⚠️ Script duration capped at 60s")
         
         num_images = max(MIN_IMAGES, min(int(script_duration / 3.5), MAX_IMAGES))

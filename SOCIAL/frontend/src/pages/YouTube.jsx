@@ -8704,7 +8704,7 @@ onClick={async () => {
           fontSize: '20px',
           fontWeight: '900'
         }}>2</span>
-        Set Video Duration (Max 60s)
+        Set Video Duration (Max 70s)
       </h3>
 
       <div style={{ marginBottom: '20px' }}>
@@ -9235,7 +9235,7 @@ onClick={async () => {
           '🆔 Story ID Deduplication (Prevents repeat content)',
           '🎵 16 Phonk Music Tracks (Luxury & Motivation niches)',
           '🚗 Dynamic Content Types (Cars/Jets/Yachts/Watches/Villas for luxury)',
-          '⏱️ Max 60s Duration (Perfect for YouTube Shorts)',
+          '⏱️ Max 70s Duration (Perfect for YouTube Shorts)',
           '🤖 AI Script Adaptation (Changes based on user input)',
           '🎙️ 3-Tier Voice Fallback (ElevenLabs → Vertex AI → Edge TTS)',
           '🖼️ HD Thumbnails with golden text (Spiritual niche)',
