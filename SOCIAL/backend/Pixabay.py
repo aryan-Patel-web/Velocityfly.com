@@ -15,7 +15,7 @@
 # ✅ Space niche with multiple music options (NEW)
 # ✅ 5 Professional transitions
 # ✅ HD thumbnails with golden text overlay
-# ✅ 1.15x voice speed
+# ✅ 1.2x voice speed
 # ✅ Custom duration (20-55s)
 # ✅ NEW: Vertex AI TTS as fallback when ElevenLabs fails
 # ✅ NEW: 3 Hindi voices (Kore Female, Iapetus Male, Achernar Female)
@@ -980,7 +980,7 @@
 #             },
 #             "audioConfig": {
 #                 "audioEncoding": "MP3",
-#                 "speakingRate": 1.15,  # 1.15x speed as required
+#                 "speakingRate": 1.2,  # 1.2x speed as required
 #                 "pitch": 0.0,
 #                 "volumeGainDb": 0.0
 #             }
@@ -1049,11 +1049,11 @@
                     
 #                     final = os.path.join(temp_dir, "voice.mp3")
 #                     if run_ffmpeg([
-#                         "ffmpeg", "-i", base, "-filter:a", "atempo=1.15",
+#                         "ffmpeg", "-i", base, "-filter:a", "atempo=1.2",
 #                         "-y", final
 #                     ], 30):
 #                         force_cleanup(base)
-#                         logger.info(f"✅ ElevenLabs Voice (1.15x): {get_size_mb(final):.2f}MB")
+#                         logger.info(f"✅ ElevenLabs Voice (1.2x): {get_size_mb(final):.2f}MB")
 #                         return final
 #                     force_cleanup(base)
 #         except Exception as e:
@@ -1082,11 +1082,11 @@
 #         ).save(base)
         
 #         if run_ffmpeg([
-#             "ffmpeg", "-i", base, "-filter:a", "atempo=1.15",
+#             "ffmpeg", "-i", base, "-filter:a", "atempo=1.2",
 #             "-y", final
 #         ], 30):
 #             force_cleanup(base)
-#             logger.info(f"✅ Edge TTS Voice (1.15x): {get_size_mb(final):.2f}MB")
+#             logger.info(f"✅ Edge TTS Voice (1.2x): {get_size_mb(final):.2f}MB")
 #             return final
 #         force_cleanup(base)
 #     except Exception as e:
@@ -1710,7 +1710,7 @@ pixabay_final_complete_WORKING.py - COMPLETE WORKING VERSION WITH ALL NEW FEATUR
 ✅ Space niche with multiple music options (NEW)
 ✅ 5 Professional transitions
 ✅ HD thumbnails with golden text overlay
-✅ 1.15x voice speed
+✅ 1.2x voice speed
 ✅ Custom duration (20-55s)
 ✅ NEW: Vertex AI TTS as fallback when ElevenLabs fails
 ✅ NEW: 3 Hindi voices (Kore Female, Iapetus Male, Achernar Female)
@@ -2802,7 +2802,7 @@ async def generate_voice_vertex_ai(text: str, temp_dir: str) -> Optional[str]:
             },
             "audioConfig": {
                 "audioEncoding": "MP3",
-                "speakingRate": 1.15,
+                "speakingRate": 1.2,
                 "pitch": 0.0,
                 "volumeGainDb": 0.0
             }
@@ -2840,14 +2840,33 @@ async def generate_voice_vertex_ai(text: str, temp_dir: str) -> Optional[str]:
 # VOICE GENERATION WITH 3-TIER FALLBACK SYSTEM
 # ============================================================================
 
+# ============================================================================
+# VOICE GENERATION WITH 3-TIER FALLBACK SYSTEM
+# ============================================================================
+
+EDGE_MALE_VOICES_WEIGHTED = [
+    ("hi-IN-RaviNeural", 5),      # Most preferred (deep documentary)
+    ("hi-IN-PrabhatNeural", 3),   # Authority / news
+    ("hi-IN-MadhurNeural", 2)     # Safe fallback
+]
+
+def weighted_voice_choice():
+    import random
+    voices, weights = zip(*EDGE_MALE_VOICES_WEIGHTED)
+    return random.choices(voices, weights=weights, k=1)[0]
+
+
 async def generate_voice_115x(text: str, voice_id: str, temp_dir: str) -> Optional[str]:
     """
     Generate voice with 3-tier fallback system:
     1. ElevenLabs (Primary)
-    2. Vertex AI TTS with 3 Hindi voices (Fallback #1)
+    2. Vertex AI TTS (Fallback #1)
     3. Edge TTS (Fallback #2)
+       - Weighted voice selection
+       - Retry with another voice on failure
+       - Emotion + pitch tuning
     """
-    
+
     # ========== TIER 1: ELEVENLABS (PRIMARY) ==========
     if ELEVENLABS_API_KEY and len(ELEVENLABS_API_KEY) > 20:
         try:
@@ -2861,59 +2880,98 @@ async def generate_voice_115x(text: str, voice_id: str, temp_dir: str) -> Option
                         "model_id": "eleven_multilingual_v2"
                     }
                 )
-                
+
                 if resp.status_code == 200:
                     base = os.path.join(temp_dir, "voice_base.mp3")
                     with open(base, 'wb') as f:
                         f.write(resp.content)
-                    
+
                     final = os.path.join(temp_dir, "voice.mp3")
                     if run_ffmpeg([
-                        "ffmpeg", "-i", base, "-filter:a", "atempo=1.15",
+                        "ffmpeg", "-i", base, "-filter:a", "atempo=1.2",
                         "-y", final
                     ], 30):
                         force_cleanup(base)
-                        logger.info(f"✅ ElevenLabs Voice (1.15x): {get_size_mb(final):.2f}MB")
+                        logger.info(f"✅ ElevenLabs Voice (1.2x): {get_size_mb(final):.2f}MB")
                         return final
                     force_cleanup(base)
         except Exception as e:
             logger.warning(f"⚠️ ElevenLabs failed: {e}")
     else:
         logger.warning("⚠️ ElevenLabs API key not available")
-    
+
     # ========== TIER 2: VERTEX AI TTS (FALLBACK #1) ==========
     logger.info("🔄 Falling back to Vertex AI TTS...")
     vertex_voice = await generate_voice_vertex_ai(text, temp_dir)
     if vertex_voice:
         return vertex_voice
-    
+
     # ========== TIER 3: EDGE TTS (FALLBACK #2) ==========
     logger.info("🔄 Falling back to Edge TTS...")
+
     try:
         import edge_tts
-        
-        base = os.path.join(temp_dir, "edge_base.mp3")
-        final = os.path.join(temp_dir, "edge_voice.mp3")
-        
-        await edge_tts.Communicate(
-            text[:1500],
-            "hi-IN-MadhurNeural",
-            rate="+15%"
-        ).save(base)
-        
-        if run_ffmpeg([
-            "ffmpeg", "-i", base, "-filter:a", "atempo=1.15",
-            "-y", final
-        ], 30):
-            force_cleanup(base)
-            logger.info(f"✅ Edge TTS Voice (1.15x): {get_size_mb(final):.2f}MB")
-            return final
-        force_cleanup(base)
+        import random
+
+        tried_voices = set()
+        max_retries = len(EDGE_MALE_VOICES_WEIGHTED)
+
+        for attempt in range(max_retries):
+            selected_voice = weighted_voice_choice()
+
+            if selected_voice in tried_voices:
+                continue
+
+            tried_voices.add(selected_voice)
+            logger.info(f"🎧 Edge TTS attempt {attempt+1} using voice: {selected_voice}")
+
+            base = os.path.join(temp_dir, f"edge_base_{attempt}.mp3")
+            final = os.path.join(temp_dir, "edge_voice.mp3")
+
+            # ---------- SSML with emotion + pitch ----------
+            ssml_text = f"""
+<speak version="1.0" xml:lang="hi-IN">
+  <voice name="{selected_voice}">
+    <prosody rate="+15%" pitch="+6%" volume="+10%">
+      {text[:1500]}
+    </prosody>
+  </voice>
+</speak>
+"""
+
+            try:
+                await edge_tts.Communicate(
+                    ssml_text,
+                    selected_voice,
+                    ssml=True
+                ).save(base)
+
+                if run_ffmpeg([
+                    "ffmpeg", "-i", base, "-filter:a", "atempo=1.2",
+                    "-y", final
+                ], 30):
+                    force_cleanup(base)
+                    logger.info(
+                        f"✅ Edge TTS Voice (1.2x) [{selected_voice}]: {get_size_mb(final):.2f}MB"
+                    )
+                    return final
+
+                force_cleanup(base)
+
+            except Exception as voice_error:
+                logger.warning(f"⚠️ Edge voice failed ({selected_voice}): {voice_error}")
+                force_cleanup(base)
+
     except Exception as e:
-        logger.error(f"❌ Edge TTS error: {e}")
-    
+        logger.error(f"❌ Edge TTS system error: {e}")
+
     logger.error("❌ All voice generation methods failed!")
     return None
+
+
+
+
+
 
 # ============================================================================
 # MUSIC DOWNLOAD & PROCESSING
