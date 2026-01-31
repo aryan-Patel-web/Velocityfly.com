@@ -2009,12 +2009,51 @@ NICHE_CONFIG = {
 # TRANSITIONS
 # ============================================================================
 
+# TRANSITIONS = [
+#     {"name": "zoom", "filter": "zoompan=z='if(lte(zoom,1.0),1.8,max(1.001,zoom-0.008))':d={frames}:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s={width}x{height}:fps={fps}"},
+#     {"name": "fade", "filter": "zoompan=z='if(lte(zoom,1.0),2.0,max(1.001,zoom-0.01))':d={frames}:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s={width}x{height}:fps={fps},fade=t=in:st=0:d=0.3"},
+#     {"name": "slide", "filter": "zoompan=z='1.5':d={frames}:x='iw/2-(iw/zoom/2)+((iw/zoom/2)*sin(on/{frames}*PI))':y='ih/2-(ih/zoom/2)':s={width}x{height}:fps={fps}"},
+#     {"name": "pan", "filter": "zoompan=z='1.3':d={frames}:x='iw/2-(iw/zoom/2)+(on/{frames}*100)':y='ih/2-(ih/zoom/2)':s={width}x{height}:fps={fps}"}
+# ]
+
+# ============================================================================
+# PREMIUM REEL TRANSITIONS (CANVA-STYLE • FREE)
+# ============================================================================
+
 TRANSITIONS = [
-    {"name": "zoom", "filter": "zoompan=z='if(lte(zoom,1.0),1.8,max(1.001,zoom-0.008))':d={frames}:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s={width}x{height}:fps={fps}"},
-    {"name": "fade", "filter": "zoompan=z='if(lte(zoom,1.0),2.0,max(1.001,zoom-0.01))':d={frames}:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s={width}x{height}:fps={fps},fade=t=in:st=0:d=0.3"},
-    {"name": "slide", "filter": "zoompan=z='1.5':d={frames}:x='iw/2-(iw/zoom/2)+((iw/zoom/2)*sin(on/{frames}*PI))':y='ih/2-(ih/zoom/2)':s={width}x{height}:fps={fps}"},
-    {"name": "pan", "filter": "zoompan=z='1.3':d={frames}:x='iw/2-(iw/zoom/2)+(on/{frames}*100)':y='ih/2-(ih/zoom/2)':s={width}x{height}:fps={fps}"}
+
+    # 1️⃣ Cinematic Slow Zoom (Luxury / Space / Motivation)
+    {
+        "name": "cinematic_zoom",
+        "filter": "zoompan=z='min(1.6,1.0+on*0.002)':d={frames}:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s={width}x{height}:fps={fps}"
+    },
+
+    # 2️⃣ Smooth Ease-In Zoom (No jerk, very premium)
+    {
+        "name": "ease_zoom",
+        "filter": "zoompan=z='1+0.3*(1-cos(on/{frames}*PI))/2':d={frames}:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s={width}x{height}:fps={fps}"
+    },
+
+    # 3️⃣ Parallax Drift (High-end Canva Pro feel)
+    {
+        "name": "parallax",
+        "filter": "zoompan=z='1.4':d={frames}:x='iw/2-(iw/zoom/2)+sin(on/18)*40':y='ih/2-(ih/zoom/2)+cos(on/22)*30':s={width}x{height}:fps={fps}"
+    },
+
+    # 4️⃣ Soft Fade Zoom (Most viral Shorts style)
+    {
+        "name": "soft_fade",
+        "filter": "zoompan=z='1+on*0.0018':d={frames}:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s={width}x{height}:fps={fps},fade=t=in:st=0:d=0.35,fade=t=out:st=({frames}/{fps}-0.35):d=0.35"
+    },
+
+    # 5️⃣ Cinematic Push (Netflix / Documentary style)
+    {
+        "name": "cinematic_push",
+        "filter": "zoompan=z='1.25':d={frames}:x='iw/2-(iw/zoom/2)+(on/{frames}*120)':y='ih/2-(ih/zoom/2)':s={width}x{height}:fps={fps}"
+    }
+
 ]
+
 
 # ============================================================================
 # UTILITIES
