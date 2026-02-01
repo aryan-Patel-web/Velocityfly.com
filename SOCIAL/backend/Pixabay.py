@@ -2253,6 +2253,53 @@ SEO REQUIREMENTS (VERY STRICT – FOLLOW EXACTLY):
    - Do NOT invent extra topics
    - Do NOT repeat keywords inside hashtags
 
+11 .SEO OUTPUT FORMAT (VERY STRICT — FOLLOW EXACTLY):
+
+12. Write Hinglish description first (2–4 lines) explaining the video topic based ONLY on the title.
+
+13. AFTER the description, directly write EXACTLY 15 SEO keywords in VERTICAL format:
+- One keyword per line
+- No commas
+- No numbering
+- No bullet points
+- No label like "Keywords:"
+- Each keyword must be a real YouTube search phrase
+- Keywords must be derived ONLY from title + description
+
+14. AFTER the 15 keywords, directly write EXACTLY 6 hashtags:
+- One hashtag per line
+- Derived from title/topic only
+- No generic unrelated tags
+
+15. Final description structure must look like this example format:
+
+Short Hinglish explanation line 1
+Short Hinglish explanation line 2
+
+keyword phrase one
+keyword phrase two
+keyword phrase three
+keyword phrase four
+keyword phrase five
+keyword phrase six
+keyword phrase seven
+keyword phrase eight
+keyword phrase nine
+keyword phrase ten
+keyword phrase eleven
+keyword phrase twelve
+keyword phrase thirteen
+keyword phrase fourteen
+keyword phrase fifteen
+
+#HashtagOne
+#HashtagTwo
+#HashtagThree
+#HashtagFour
+#HashtagFive
+#HashtagSix
+
+5. If keywords are comma-separated or labeled, output is INVALID.
 
 Previous story IDs to AVOID: {', '.join(previous_story_ids[:5]) if previous_story_ids else 'None'}
 
@@ -2287,16 +2334,16 @@ CRITICAL REQUIREMENTS:
 
 SEO REQUIREMENTS (MOST IMPORTANT – STRICT):
 
-1. Title MUST be Hinglish, curiosity-driven, and include the MAIN space topic
+7. Title MUST be Hinglish, curiosity-driven, and include the MAIN space topic
    Example style:
    "Universe Ki Sabse Badi Mystery 🌌 | Scientists Bhi Hairaan! #Shorts"
 
-2. Description MUST:
+8. Description MUST:
    - Start with a 2–3 line Hinglish summary based ONLY on the title topic
    - Then include a section exactly like this:
      "Keywords: keyword1, keyword2, keyword3..."
 
-3. KEYWORDS RULES (VERY STRICT):
+9. KEYWORDS RULES (VERY STRICT):
    - Generate EXACTLY 15–18 keywords
    - Keywords MUST be derived ONLY from:
      • Title words
@@ -2321,17 +2368,64 @@ SEO REQUIREMENTS (MOST IMPORTANT – STRICT):
      - interstellar space
      - alien life search
 
-4. HASHTAGS RULES:
+10. HASHTAGS RULES:
    - Generate 5–7 hashtags ONLY
    - Hashtags MUST come from title + keywords
    - NO generic or unrelated hashtags
    - Example format:
      #SpaceFacts #UniverseMystery #BlackHole #NASA #Shorts
 
-5. Hashtags MUST appear in the SAME description after keywords.
+11. Hashtags MUST appear in the SAME description after keywords.
 
-6. DO NOT invent unrelated trending words.
+12. DO NOT invent unrelated trending words.
 7. Keywords + hashtags must be HIGH-INTENT search terms users actually type.
+13. SEO OUTPUT FORMAT (VERY STRICT — FOLLOW EXACTLY):
+
+14. Write Hinglish description first (2–4 lines) explaining the video topic based ONLY on the title.
+
+15. AFTER the description, directly write EXACTLY 15 SEO keywords in VERTICAL format:
+- One keyword per line
+- No commas
+- No numbering
+- No bullet points
+- No label like "Keywords:"
+- Each keyword must be a real YouTube search phrase
+- Keywords must be derived ONLY from title + description
+
+16. AFTER the 15 keywords, directly write EXACTLY 6 hashtags:
+- One hashtag per line
+- Derived from title/topic only
+- No generic unrelated tags
+
+17. Final description structure must look like this example format:
+
+Short Hinglish explanation line 1
+Short Hinglish explanation line 2
+
+keyword phrase one
+keyword phrase two
+keyword phrase three
+keyword phrase four
+keyword phrase five
+keyword phrase six
+keyword phrase seven
+keyword phrase eight
+keyword phrase nine
+keyword phrase ten
+keyword phrase eleven
+keyword phrase twelve
+keyword phrase thirteen
+keyword phrase fourteen
+keyword phrase fifteen
+
+#HashtagOne
+#HashtagTwo
+#HashtagThree
+#HashtagFour
+#HashtagFive
+#HashtagSix
+
+17. If keywords are comma-separated or labeled, output is INVALID.
 
 Previous topics (AVOID): {', '.join(previous_story_ids[:5]) if previous_story_ids else 'None'}
 
@@ -2419,6 +2513,75 @@ SEO REQUIREMENTS (MOST IMPORTANT – STRICT):
 6. NO unrelated luxury brands.
 7. NO generic filler tags.
 
+9. SEO OUTPUT FORMAT (VERY STRICT — FOLLOW EXACTLY):
+
+10. Write Hinglish description first (2–4 lines) explaining the video topic based ONLY on the title.
+
+11. AFTER the description, directly write EXACTLY 15 SEO keywords in VERTICAL format:
+- One keyword per line
+- No commas
+- No numbering
+- No bullet points
+- No label like "Keywords:"
+- Each keyword must be a real YouTube search phrase
+- Keywords must be derived ONLY from title + description
+
+12. AFTER the 15 keywords, directly write EXACTLY 6 hashtags:
+- One hashtag per line
+- Derived from title/topic only
+- No generic unrelated tags
+
+
+13. If keywords are comma-separated or labeled, output is INVALID.
+
+14 . SEO OUTPUT FORMAT (VERY STRICT — FOLLOW EXACTLY):
+
+15. Write Hinglish description first (2–4 lines) explaining the video topic based ONLY on the title.
+
+16. AFTER the description, directly write EXACTLY 15 SEO keywords in VERTICAL format:
+- One keyword per line
+- No commas
+- No numbering
+- No bullet points
+- No label like "Keywords:"
+- Each keyword must be a real YouTube search phrase
+- Keywords must be derived ONLY from title + description
+
+17. AFTER the 15 keywords, directly write EXACTLY 6 hashtags:
+- One hashtag per line
+- Derived from title/topic only
+- No generic unrelated tags
+
+4. Final description structure must look like this example format:
+
+Short Hinglish explanation line 1
+Short Hinglish explanation line 2
+
+keyword phrase one
+keyword phrase two
+keyword phrase three
+keyword phrase four
+keyword phrase five
+keyword phrase six
+keyword phrase seven
+keyword phrase eight
+keyword phrase nine
+keyword phrase ten
+keyword phrase eleven
+keyword phrase twelve
+keyword phrase thirteen
+keyword phrase fourteen
+keyword phrase fifteen
+
+#HashtagOne
+#HashtagTwo
+#HashtagThree
+#HashtagFour
+#HashtagFive
+#HashtagSix
+
+5. If keywords are comma-separated or labeled, output is INVALID.
+
 
 Previous content (AVOID): {', '.join(previous_story_ids[:5]) if previous_story_ids else 'None'}
 
@@ -2447,6 +2610,54 @@ SEO REQUIREMENTS:
 5. Viral title: "Success Ka Raaz 💪 | Yeh Suno Aur Badal Jaoge! #Motivation #Shorts"
 6. Hinglish description + 15+ keywords
 7. 5-7 motivational hashtags
+8. SEO OUTPUT FORMAT (VERY STRICT — FOLLOW EXACTLY):
+
+8. Write Hinglish description first (2–4 lines) explaining the video topic based ONLY on the title.
+
+9. AFTER the description, directly write EXACTLY 15 SEO keywords in VERTICAL format:
+- One keyword per line
+- No commas
+- No numbering
+- No bullet points
+- No label like "Keywords:"
+- Each keyword must be a real YouTube search phrase
+- Keywords must be derived ONLY from title + description
+
+10. AFTER the 15 keywords, directly write EXACTLY 6 hashtags:
+- One hashtag per line
+- Derived from title/topic only
+- No generic unrelated tags
+
+11. Final description structure must look like this example format:
+
+Short Hinglish explanation line 1
+Short Hinglish explanation line 2
+
+keyword phrase one
+keyword phrase two
+keyword phrase three
+keyword phrase four
+keyword phrase five
+keyword phrase six
+keyword phrase seven
+keyword phrase eight
+keyword phrase nine
+keyword phrase ten
+keyword phrase eleven
+keyword phrase twelve
+keyword phrase thirteen
+keyword phrase fourteen
+keyword phrase fifteen
+
+#HashtagOne
+#HashtagTwo
+#HashtagThree
+#HashtagFour
+#HashtagFive
+#HashtagSix
+
+12. If keywords are comma-separated or labeled, output is INVALID.
+
 
 Generate in JSON:
 {{
