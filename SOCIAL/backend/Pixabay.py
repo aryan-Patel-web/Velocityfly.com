@@ -1964,7 +1964,7 @@ NICHE_CONFIG = {
             "https://raw.githubusercontent.com/aryan-Patel-web/audio-collections/main/Free%20DOOM%20Style%20Music%20-%20Knee%20Deep%20in%20the%20Dead%20%20No%20Copyright%20Music.mp3",
             "https://raw.githubusercontent.com/aryan-Patel-web/audio-collections/main/Free%20Horror%20Music%20-%20Killer%20from%20the%20Deep%20%20Copyright%20Free%20Music.mp3"
         ],
-        "voice_id": "oABbH1EqNQfpzYZZOAPR",
+        "voice_id": "alMSnmMfBQWEfTP8MRcX",
         "placeholder": "e.g., Black Holes, Neutron Stars, Galaxy Formation"
     },
     "horror": {
