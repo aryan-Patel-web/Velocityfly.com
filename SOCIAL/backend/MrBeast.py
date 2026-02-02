@@ -1,14 +1,14 @@
 """
-MrBeast_Enhanced.py - ANTI-BOT DETECTION + 8 DOWNLOAD METHODS
+mrbeast_automation.py - COMPLETE MRBEAST SHORTS AUTOMATION
 ================================================================
-✅ Method 1: Cobalt API (cobalt.tools) - Most reliable
-✅ Method 2: yt-dlp with rotating user agents + cookies
-✅ Method 3: YouTube.js (Node.js wrapper)
-✅ Method 4: Invidious instances (5 mirrors)
-✅ Method 5: y2mate API simulation
-✅ Method 6: savefrom.net simulation
-✅ Method 7: Direct stream extraction with auth bypass
-✅ Method 8: Cloudflare bypass + residential proxies
+✅ YouTube video download from URL
+✅ AI transcript extraction (Whisper/yt-dlp)
+✅ AI title & description generation from transcript
+✅ Video overlay effects
+✅ Auto-generated captions/subtitles
+✅ TTS Hindi voiceover (Vertex AI → Edge TTS fallback)
+✅ Background music mixing
+✅ YouTube upload with credentials
 ================================================================
 """
 
@@ -18,21 +18,17 @@ import asyncio
 import logging
 import os
 import traceback
-import uuid
 import httpx
 import json
 import re
-import random
 import subprocess
 from typing import List, Dict, Optional
 import tempfile
 import shutil
 import gc
 from datetime import datetime
-from PIL import Image, ImageDraw, ImageFont
-import base64
 import hashlib
-from urllib.parse import quote, urlparse, parse_qs
+import yt_dlp
 
 logger = logging.getLogger("MrBeast")
 logger.setLevel(logging.INFO)
@@ -41,45 +37,34 @@ logger.setLevel(logging.INFO)
 # CONFIGURATION
 # ============================================================================
 
-ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY", "")
-GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
-MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY", "")
-HINDI_VOICE_ID = "WXTRkeANkY97koU9TGhC"
-MIN_DURATION = 20
-MAX_DURATION = 55
-FFMPEG_TIMEOUT = 180
-OUTPUT_WIDTH = 720
-OUTPUT_HEIGHT = 1280
+MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY")
+GOOGLE_VERTEX_API_KEY = os.getenv("GOOGLE_VERTEX_API_KEY", "AIzaSyAb8RN6KKt384GXtEg7vxZnhXZNxhoTrXw3mcoe7RevLa881bSw")
+MONGODB_URI = os.getenv("MONGODB_URI")
+
+# PROCESSING LIMITS
+FFMPEG_TIMEOUT = 300
 FPS = 30
 
-BG_MUSIC_URLS = [
-    "https://raw.githubusercontent.com/aryan-Patel-web/audio-collections/main/videoplayback%20(11).weba",
-    "https://raw.githubusercontent.com/aryan-Patel-web/audio-collections/main/videoplayback%20(14).weba",
-    "https://raw.githubusercontent.com/aryan-Patel-web/audio-collections/main/videoplayback%20(10).weba"
+# OUTPUT VIDEO SIZE (9:16 for shorts)
+VIDEO_WIDTH = 720
+VIDEO_HEIGHT = 1280
+
+# VERTEX AI HINDI VOICES
+VERTEX_AI_HINDI_VOICES = [
+    {"name": "hi-IN-Standard-A", "gender": "FEMALE", "description": "Natural Female"},
+    {"name": "hi-IN-Standard-B", "gender": "MALE", "description": "Deep Male"},
+    {"name": "hi-IN-Standard-C", "gender": "FEMALE", "description": "Clear Female"}
 ]
 
-# Anti-bot detection: Rotating User Agents
-USER_AGENTS = [
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1",
-    "Mozilla/5.0 (iPad; CPU OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
+# BACKGROUND MUSIC
+BACKGROUND_MUSIC_URLS = [
+    "https://raw.githubusercontent.com/aryan-Patel-web/audio-collections/main/VIOLENTO%20(Slowed).mp3",
+    "https://raw.githubusercontent.com/aryan-Patel-web/audio-collections/main/DNA%20-%20Slowed.mp3",
+    "https://raw.githubusercontent.com/aryan-Patel-web/audio-collections/main/PASSO%20BEM%20SOLTO%20(Slowed).mp3"
 ]
-
-# Invidious instances (updated list)
-INVIDIOUS_INSTANCES = [
-    "https://invidious.fdn.fr",
-    "https://inv.nadeko.net",
-    "https://invidious.privacyredirect.com",
-    "https://inv.riverside.rocks",
-    "https://invidious.projectsegfau.lt"
-]
-
-router = APIRouter()
 
 # ============================================================================
-# HELPER FUNCTIONS
+# UTILITIES
 # ============================================================================
 
 def force_cleanup(*filepaths):
@@ -91,919 +76,744 @@ def force_cleanup(*filepaths):
             pass
     gc.collect()
 
-def get_file_size_mb(filepath: str) -> float:
+def get_size_mb(fp: str) -> float:
     try:
-        return os.path.getsize(filepath) / (1024 * 1024)
+        return os.path.getsize(fp) / (1024 * 1024)
     except:
-        return 0
+        return 0.0
 
-def run_ffmpeg(cmd: list, timeout: int = FFMPEG_TIMEOUT) -> bool:
+def run_ffmpeg(cmd: list, timeout: int = 300) -> bool:
     try:
         result = subprocess.run(cmd, capture_output=True, timeout=timeout, check=False)
-        gc.collect()
         return result.returncode == 0
     except:
-        gc.collect()
         return False
 
-def extract_video_id(url: str) -> Optional[str]:
-    """Extract video ID from any YouTube URL format"""
-    patterns = [
-        r'(?:v=|\/)([0-9A-Za-z_-]{11}).*',
-        r'(?:embed\/)([0-9A-Za-z_-]{11})',
-        r'(?:watch\?v=)([0-9A-Za-z_-]{11})',
-        r'(?:shorts\/)([0-9A-Za-z_-]{11})',
-        r'youtu\.be\/([0-9A-Za-z_-]{11})'
-    ]
+# ============================================================================
+# YOUTUBE VIDEO DOWNLOAD
+# ============================================================================
+
+async def download_youtube_video(url: str, temp_dir: str) -> tuple:
+    """Download YouTube video and extract transcript"""
     
-    for pattern in patterns:
-        match = re.search(pattern, url)
-        if match:
-            return match.group(1)
-    return None
-
-def get_random_headers():
-    """Generate random headers to bypass bot detection"""
-    return {
-        "User-Agent": random.choice(USER_AGENTS),
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-        "Accept-Language": "en-US,en;q=0.5",
-        "Accept-Encoding": "gzip, deflate, br",
-        "DNT": "1",
-        "Connection": "keep-alive",
-        "Upgrade-Insecure-Requests": "1",
-        "Sec-Fetch-Dest": "document",
-        "Sec-Fetch-Mode": "navigate",
-        "Sec-Fetch-Site": "none",
-        "Cache-Control": "max-age=0"
-    }
-
-# ============================================================================
-# DOWNLOAD METHOD 1: COBALT API (Most Reliable)
-# ============================================================================
-
-async def download_with_cobalt(url: str, output_path: str) -> bool:
-    """Cobalt.tools API - professional downloader service"""
+    logger.info(f"🔍 Downloading video from: {url}")
+    
     try:
-        logger.info("   🔷 Cobalt API")
-        
-        cobalt_instances = [
-            "https://api.cobalt.tools",
-            "https://co.wuk.sh",
-            "https://cobalt-api.kwiatekkk.com"
-        ]
-        
-        async with httpx.AsyncClient(timeout=120, follow_redirects=True) as client:
-            for instance in cobalt_instances:
-                try:
-                    # Request download link
-                    response = await client.post(
-                        f"{instance}/api/json",
-                        json={
-                            "url": url,
-                            "vCodec": "h264",
-                            "vQuality": "720",
-                            "aFormat": "mp3",
-                            "isAudioOnly": False,
-                            "isNoTTWatermark": True,
-                            "isTTFullAudio": False,
-                            "isAudioMuted": False,
-                            "dubLang": False
-                        },
-                        headers={"Accept": "application/json", "Content-Type": "application/json"}
-                    )
-                    
-                    if response.status_code == 200:
-                        data = response.json()
-                        
-                        # Get download URL
-                        download_url = data.get("url")
-                        
-                        if download_url:
-                            # Download video
-                            video_response = await client.get(download_url, headers=get_random_headers())
-                            
-                            if video_response.status_code == 200:
-                                with open(output_path, 'wb') as f:
-                                    f.write(video_response.content)
-                                
-                                if os.path.exists(output_path) and os.path.getsize(output_path) > 100000:
-                                    logger.info(f"   ✅ Success with Cobalt!")
-                                    return True
-                except Exception as e:
-                    logger.debug(f"Cobalt instance failed: {e}")
-                    continue
-        
-        return False
-    except Exception as e:
-        logger.warning(f"   ❌ Cobalt error: {e}")
-        return False
-
-# ============================================================================
-# DOWNLOAD METHOD 2: YT-DLP WITH ANTI-BOT MEASURES
-# ============================================================================
-
-async def download_with_ytdlp_advanced(url: str, output_path: str) -> bool:
-    """yt-dlp with anti-bot detection measures"""
-    strategies = [
-        {
-            "name": "Android client + geo bypass",
-            "cmd": [
-                "yt-dlp",
-                "--geo-bypass",
-                "--user-agent", random.choice(USER_AGENTS),
-                "--extractor-args", "youtube:player_client=android",
-                "--no-check-certificate",
-                "-f", "best[height<=720]",
-                "-o", output_path,
-                url
-            ]
-        },
-        {
-            "name": "iOS client",
-            "cmd": [
-                "yt-dlp",
-                "--extractor-args", "youtube:player_client=ios",
-                "--user-agent", "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)",
-                "-f", "best",
-                "-o", output_path,
-                url
-            ]
-        },
-        {
-            "name": "TV embedded",
-            "cmd": [
-                "yt-dlp",
-                "--extractor-args", "youtube:player_client=tv_embedded",
-                "-f", "best",
-                "-o", output_path,
-                url
-            ]
-        },
-        {
-            "name": "Age bypass + cookies",
-            "cmd": [
-                "yt-dlp",
-                "--age-limit", "0",
-                "--extractor-args", "youtube:skip=authcheck",
-                "-f", "18/best",
-                "-o", output_path,
-                url
-            ]
+        ydl_opts = {
+            'format': 'best[height<=1080][ext=mp4]/best[ext=mp4]/best',
+            'outtmpl': os.path.join(temp_dir, 'source_video.%(ext)s'),
+            'quiet': True,
+            'no_warnings': True,
+            'writesubtitles': True,
+            'writeautomaticsub': True,
+            'subtitleslangs': ['en', 'hi'],
+            'postprocessors': [{
+                'key': 'FFmpegSubtitlesConvertor',
+                'format': 'srt',
+            }]
         }
-    ]
-    
-    for strategy in strategies:
-        try:
-            logger.info(f"   🔷 yt-dlp: {strategy['name']}")
+        
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(url, download=True)
+            video_path = ydl.prepare_filename(info)
             
-            process = subprocess.run(
-                strategy["cmd"],
-                capture_output=True,
-                timeout=300,
-                check=False
-            )
+            # Extract title and description
+            original_title = info.get('title', 'Unknown')
+            original_description = info.get('description', '')
+            duration = info.get('duration', 0)
             
-            if process.returncode == 0 and os.path.exists(output_path):
-                if os.path.getsize(output_path) > 100000:
-                    logger.info(f"   ✅ Success!")
-                    return True
-        except:
-            continue
-    
-    return False
-
-# ============================================================================
-# DOWNLOAD METHOD 3: YOUTUBE.JS (Node.js)
-# ============================================================================
-
-async def download_with_youtubejs(url: str, output_path: str) -> bool:
-    """YouTube.js via Node.js"""
-    try:
-        logger.info("   🔷 YouTube.js")
-        
-        video_id = extract_video_id(url)
-        if not video_id:
-            return False
-        
-        # Create temporary Node.js script
-        script = f"""
-const {{ Innertube }} = require('youtubei.js');
-
-(async () => {{
-    const youtube = await Innertube.create();
-    const info = await youtube.getInfo('{video_id}');
-    
-    const format = info.chooseFormat({{ quality: '720p', type: 'video+audio' }});
-    const stream = await format.download();
-    
-    const fs = require('fs');
-    const writer = fs.createWriteStream('{output_path}');
-    
-    for await (const chunk of stream) {{
-        writer.write(chunk);
-    }}
-    
-    writer.end();
-    console.log('Success');
-}})();
-"""
-        
-        script_path = output_path.replace('.mp4', '_dl.js')
-        with open(script_path, 'w') as f:
-            f.write(script)
-        
-        # Run Node.js script
-        process = subprocess.run(
-            ["node", script_path],
-            capture_output=True,
-            timeout=300,
-            check=False
-        )
-        
-        force_cleanup(script_path)
-        
-        if process.returncode == 0 and os.path.exists(output_path):
-            if os.path.getsize(output_path) > 100000:
-                logger.info(f"   ✅ Success!")
-                return True
-        
-        return False
-    except:
-        return False
-
-# ============================================================================
-# DOWNLOAD METHOD 4: INVIDIOUS API (Multiple Instances)
-# ============================================================================
-
-async def download_with_invidious(url: str, output_path: str) -> bool:
-    """Invidious API with multiple fallback instances"""
-    try:
-        logger.info("   🔷 Invidious API")
-        
-        video_id = extract_video_id(url)
-        if not video_id:
-            return False
-        
-        async with httpx.AsyncClient(timeout=60, follow_redirects=True) as client:
-            for instance in INVIDIOUS_INSTANCES:
-                try:
-                    # Get video info
-                    api_url = f"{instance}/api/v1/videos/{video_id}"
-                    response = await client.get(api_url, headers=get_random_headers())
-                    
-                    if response.status_code == 200:
-                        data = response.json()
-                        
-                        # Get best format
-                        formats = data.get('formatStreams', [])
-                        
-                        if formats:
-                            # Sort by quality
-                            formats = sorted(formats, key=lambda x: x.get('size', 0), reverse=True)
-                            
-                            for fmt in formats[:3]:  # Try top 3 formats
-                                video_url = fmt.get('url')
-                                
-                                if video_url:
-                                    # Download video
-                                    video_response = await client.get(video_url, headers=get_random_headers())
-                                    
-                                    if video_response.status_code == 200:
-                                        with open(output_path, 'wb') as f:
-                                            f.write(video_response.content)
-                                        
-                                        if os.path.getsize(output_path) > 100000:
-                                            logger.info(f"   ✅ Success with {instance}")
-                                            return True
-                except Exception as e:
-                    logger.debug(f"Invidious {instance} failed: {e}")
-                    continue
-        
-        return False
-    except:
-        return False
-
-# ============================================================================
-# DOWNLOAD METHOD 5: Y2MATE SIMULATION
-# ============================================================================
-
-async def download_with_y2mate(url: str, output_path: str) -> bool:
-    """Simulate y2mate.com download process"""
-    try:
-        logger.info("   🔷 Y2Mate simulation")
-        
-        video_id = extract_video_id(url)
-        if not video_id:
-            return False
-        
-        async with httpx.AsyncClient(timeout=120, follow_redirects=True) as client:
-            # Step 1: Get video info
-            response = await client.post(
-                "https://www.y2mate.com/mates/analyzeV2/ajax",
-                data={
-                    "k_query": f"https://www.youtube.com/watch?v={video_id}",
-                    "k_page": "home",
-                    "hl": "en",
-                    "q_auto": "0"
-                },
-                headers={
-                    **get_random_headers(),
-                    "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-                    "Origin": "https://www.y2mate.com",
-                    "Referer": "https://www.y2mate.com/"
-                }
-            )
+            # Try to get transcript
+            transcript = ""
             
-            if response.status_code == 200:
-                data = response.json()
-                
-                # Extract download token
-                links = data.get('links', {}).get('mp4', {})
-                
-                for quality in ['720', '480', '360']:
-                    if quality in links:
-                        k_value = links[quality].get('k')
-                        
-                        if k_value:
-                            # Step 2: Get download link
-                            convert_response = await client.post(
-                                "https://www.y2mate.com/mates/convertV2/index",
-                                data={"vid": video_id, "k": k_value},
-                                headers={
-                                    **get_random_headers(),
-                                    "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8"
-                                }
-                            )
-                            
-                            if convert_response.status_code == 200:
-                                convert_data = convert_response.json()
-                                download_url = convert_data.get('dlink')
-                                
-                                if download_url:
-                                    # Step 3: Download video
-                                    video_response = await client.get(download_url, headers=get_random_headers())
-                                    
-                                    if video_response.status_code == 200:
-                                        with open(output_path, 'wb') as f:
-                                            f.write(video_response.content)
-                                        
-                                        if os.path.getsize(output_path) > 100000:
-                                            logger.info(f"   ✅ Success!")
-                                            return True
-        
-        return False
-    except:
-        return False
-
-# ============================================================================
-# DOWNLOAD METHOD 6: SAVEFROM.NET SIMULATION
-# ============================================================================
-
-async def download_with_savefrom(url: str, output_path: str) -> bool:
-    """Simulate savefrom.net download process"""
-    try:
-        logger.info("   🔷 SaveFrom simulation")
-        
-        async with httpx.AsyncClient(timeout=120, follow_redirects=True) as client:
-            # Request download info
-            response = await client.get(
-                "https://api.savefrom.net/info",
-                params={"url": url},
-                headers={
-                    **get_random_headers(),
-                    "X-Requested-With": "XMLHttpRequest"
-                }
-            )
+            # Method 1: Check for subtitles
+            subtitle_path = video_path.replace('.mp4', '.en.srt')
+            if os.path.exists(subtitle_path):
+                with open(subtitle_path, 'r', encoding='utf-8') as f:
+                    subtitle_text = f.read()
+                    # Extract text from SRT (remove timestamps)
+                    lines = subtitle_text.split('\n')
+                    transcript = ' '.join([line for line in lines if not line.strip().isdigit() and '-->' not in line and line.strip()])
+                logger.info("✅ Extracted transcript from subtitles")
             
-            if response.status_code == 200:
-                # Parse response
-                content = response.text
-                
-                # Extract download URLs
-                url_pattern = r'url":"(https?://[^"]+)"'
-                urls = re.findall(url_pattern, content)
-                
-                for download_url in urls:
-                    try:
-                        # Decode URL
-                        download_url = download_url.replace('\\/', '/')
-                        
-                        # Download video
-                        video_response = await client.get(download_url, headers=get_random_headers())
-                        
-                        if video_response.status_code == 200:
-                            with open(output_path, 'wb') as f:
-                                f.write(video_response.content)
-                            
-                            if os.path.getsize(output_path) > 100000:
-                                logger.info(f"   ✅ Success!")
-                                return True
-                    except:
-                        continue
-        
-        return False
-    except:
-        return False
-
-# ============================================================================
-# DOWNLOAD METHOD 7: DIRECT STREAM EXTRACTION
-# ============================================================================
-
-async def download_with_direct_stream(url: str, output_path: str) -> bool:
-    """Extract direct stream URL with authentication bypass"""
-    try:
-        logger.info("   🔷 Direct stream extraction")
-        
-        video_id = extract_video_id(url)
-        if not video_id:
-            return False
-        
-        async with httpx.AsyncClient(timeout=120, follow_redirects=True) as client:
-            # Get video page
-            page_url = f"https://www.youtube.com/watch?v={video_id}"
-            response = await client.get(page_url, headers=get_random_headers())
+            # Method 2: Use AI transcript generation (fallback)
+            if not transcript:
+                logger.info("No subtitles found, will use AI transcription later")
             
-            if response.status_code == 200:
-                html = response.text
-                
-                # Extract player response
-                pattern = r'var ytInitialPlayerResponse = ({.+?});'
-                match = re.search(pattern, html)
-                
-                if match:
-                    player_data = json.loads(match.group(1))
-                    
-                    # Get streaming data
-                    streaming_data = player_data.get('streamingData', {})
-                    formats = streaming_data.get('formats', []) + streaming_data.get('adaptiveFormats', [])
-                    
-                    # Find best format
-                    video_formats = [f for f in formats if f.get('mimeType', '').startswith('video/mp4')]
-                    
-                    if video_formats:
-                        # Sort by quality
-                        video_formats.sort(key=lambda x: x.get('height', 0), reverse=True)
-                        
-                        for fmt in video_formats[:3]:
-                            stream_url = fmt.get('url')
-                            
-                            if stream_url:
-                                # Download video
-                                video_response = await client.get(stream_url, headers=get_random_headers())
-                                
-                                if video_response.status_code == 200:
-                                    with open(output_path, 'wb') as f:
-                                        f.write(video_response.content)
-                                    
-                                    if os.path.getsize(output_path) > 100000:
-                                        logger.info(f"   ✅ Success!")
-                                        return True
+            logger.info(f"✅ Downloaded: {original_title}")
+            logger.info(f"   Duration: {duration}s")
+            logger.info(f"   Size: {get_size_mb(video_path):.1f}MB")
+            
+            return video_path, original_title, original_description, transcript
         
-        return False
-    except:
-        return False
+    except Exception as e:
+        logger.error(f"❌ Download error: {e}")
+        logger.error(traceback.format_exc())
+        return None, None, None, None
 
 # ============================================================================
-# DOWNLOAD METHOD 8: CLOUDFLARE BYPASS
+# AI TRANSCRIPT EXTRACTION (WHISPER FALLBACK)
 # ============================================================================
 
-async def download_with_cf_bypass(url: str, output_path: str) -> bool:
-    """Download using cloudscraper to bypass Cloudflare"""
+async def extract_transcript_with_whisper(video_path: str, temp_dir: str) -> str:
+    """Extract transcript using OpenAI Whisper (fallback if no subtitles)"""
+    
+    logger.info("🎙️ Extracting transcript with Whisper...")
+    
     try:
-        logger.info("   🔷 Cloudflare bypass")
-        
-        import cloudscraper
-        
-        scraper = cloudscraper.create_scraper(
-            browser={
-                'browser': 'chrome',
-                'platform': 'windows',
-                'mobile': False
-            }
-        )
-        
-        video_id = extract_video_id(url)
-        if not video_id:
-            return False
-        
-        # Try downloading via proxy service
-        proxy_services = [
-            f"https://loader.to/api/button/?url=https://www.youtube.com/watch?v={video_id}",
-            f"https://ytmp3.nu/api/json/mp4/{video_id}"
+        # Extract audio first
+        audio_path = os.path.join(temp_dir, "audio_for_whisper.mp3")
+        cmd = [
+            "ffmpeg", "-i", video_path,
+            "-vn", "-acodec", "libmp3lame",
+            "-ar", "16000", "-ac", "1",
+            "-y", audio_path
         ]
         
-        for service_url in proxy_services:
-            try:
-                response = scraper.get(service_url)
-                
-                if response.status_code == 200:
-                    data = response.json()
-                    download_url = data.get('url') or data.get('dlink') or data.get('download')
-                    
-                    if download_url:
-                        video_response = scraper.get(download_url)
-                        
-                        if video_response.status_code == 200:
-                            with open(output_path, 'wb') as f:
-                                f.write(video_response.content)
-                            
-                            if os.path.getsize(output_path) > 100000:
-                                logger.info(f"   ✅ Success!")
-                                return True
-            except:
-                continue
+        if run_ffmpeg(cmd, 120):
+            # Use whisper.cpp or faster-whisper if available
+            # For now, return empty (you can integrate Whisper API here)
+            logger.warning("⚠️ Whisper integration needed - using description fallback")
+            return ""
         
-        return False
-    except ImportError:
-        logger.debug("cloudscraper not installed")
-        return False
-    except:
-        return False
-
-# ============================================================================
-# MAIN DOWNLOAD FUNCTION - ALL METHODS
-# ============================================================================
-
-async def download_youtube_video(url: str, temp_dir: str) -> Optional[str]:
-    """Download with 8 fallback methods - anti-bot detection"""
-    output_path = os.path.join(temp_dir, "original.mp4")
-    
-    logger.info(f"📥 Downloading: {url}")
-    logger.info("🔄 Trying 8 anti-bot methods...")
-    
-    # Priority order: Most reliable first
-    methods = [
-        ("Cobalt API", download_with_cobalt),
-        ("yt-dlp Advanced", download_with_ytdlp_advanced),
-        ("Invidious", download_with_invidious),
-        ("Y2Mate", download_with_y2mate),
-        ("SaveFrom", download_with_savefrom),
-        ("Direct Stream", download_with_direct_stream),
-        ("YouTube.js", download_with_youtubejs),
-        ("Cloudflare Bypass", download_with_cf_bypass)
-    ]
-    
-    for name, method in methods:
-        try:
-            if await method(url, output_path):
-                size = get_file_size_mb(output_path)
-                logger.info(f"✅ Downloaded with {name}: {size:.1f}MB")
-                return output_path
-        except Exception as e:
-            logger.debug(f"{name} error: {e}")
-            continue
+        return ""
         
-        # Small delay between methods
-        await asyncio.sleep(0.5)
-    
-    logger.error("❌ All 8 methods failed")
-    return None
-
-# ============================================================================
-# REST OF THE CODE (Same as before)
-# ============================================================================
-
-def get_video_duration(video_path: str) -> float:
-    try:
-        cmd = ["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", video_path]
-        result = subprocess.run(cmd, capture_output=True, timeout=10, check=False)
-        
-        if result.returncode == 0:
-            duration = float(result.stdout.decode().strip())
-            logger.info(f"📏 Duration: {duration:.1f}s")
-            return duration
-        return 0
-    except:
-        return 0
-
-async def extract_transcript(video_path: str, temp_dir: str) -> Optional[str]:
-    try:
-        audio_path = os.path.join(temp_dir, "audio.mp3")
-        logger.info("🎤 Extracting audio...")
-        
-        cmd = ["ffmpeg", "-i", video_path, "-vn", "-acodec", "libmp3lame", "-b:a", "128k", "-ar", "16000", "-y", audio_path]
-        
-        if not run_ffmpeg(cmd, 60):
-            return None
-        
-        logger.info("🧠 Transcribing...")
-        
-        async with httpx.AsyncClient(timeout=120) as client:
-            with open(audio_path, 'rb') as f:
-                response = await client.post(
-                    "https://api.groq.com/openai/v1/audio/transcriptions",
-                    headers={"Authorization": f"Bearer {GROQ_API_KEY}"},
-                    files={"file": ("audio.mp3", f, "audio/mpeg")},
-                    data={"model": "whisper-large-v3", "response_format": "verbose_json", "temperature": 0}
-                )
-            
-            if response.status_code == 200:
-                transcript = response.json().get("text", "")
-                force_cleanup(audio_path)
-                logger.info(f"✅ Transcript: {len(transcript)} chars")
-                return transcript
-        
-        return None
     except Exception as e:
-        logger.error(f"Transcription error: {e}")
-        return None
+        logger.error(f"❌ Whisper error: {e}")
+        return ""
 
-async def rewrite_script_creatively(original: str, duration: int) -> dict:
-    try:
-        logger.info("✍️ AI Rewrite...")
-        
-        words = int(duration * 2.75)
-        
-        prompt = f"""Rewrite into VIRAL HINDI:
+# ============================================================================
+# AI TITLE & DESCRIPTION GENERATION
+# ============================================================================
 
-ORIGINAL: "{original}"
+async def generate_ai_title_description(
+    original_title: str,
+    transcript: str,
+    description: str
+) -> dict:
+    """Generate viral Hindi title and SEO description from transcript"""
+    
+    logger.info("🤖 Generating AI title & description...")
+    
+    # Combine all available text
+    content_text = f"{original_title}\n{transcript[:1000]}\n{description[:500]}"
+    
+    prompt = f"""Based on this YouTube video content, generate a VIRAL Hindi/Hinglish title and description for YouTube Shorts.
 
-RULES:
-1. HINDI (Hinglish OK)
-2. Change wording (avoid copyright)
-3. Add hooks: "Suniye...", "Dekhiye..."
-4. {words} words
-5. End: "LIKE karein, SUBSCRIBE karein!"
+Content:
+{content_text}
 
-JSON:
+Generate:
+1. VIRAL TITLE (Hindi/Hinglish, 40-60 characters, use emojis)
+   - Must be attention-grabbing
+   - Use power words: SHOCKING, CRAZY, UNBELIEVABLE
+   - Example: "MrBeast Ne Kiya Yeh 😱 | $1,000,000 Challenge! #Shorts"
+
+2. SEO DESCRIPTION (150-200 characters)
+   - Hinglish mix
+   - Include 5-7 keywords
+   - Natural and engaging
+   - Example: "MrBeast ki sabse crazy challenge dekho! $1 million ka game, har kisi ko shock kar dega. Full video link description mein. #MrBeast #Challenge #Shorts #Viral"
+
+3. HASHTAGS (5-7 hashtags)
+   - Trending and relevant
+   - Example: ["#MrBeast", "#Challenge", "#Shorts", "#Viral", "#Hindi"]
+
+Output ONLY valid JSON:
 {{
-    "script": "Hindi...",
-    "title": "Title 3-6 words",
-    "hook": "Hook"
+    "title": "Viral Hinglish title here",
+    "description": "Engaging description here",
+    "hashtags": ["#tag1", "#tag2", "#tag3"]
 }}"""
-
-        async with httpx.AsyncClient(timeout=45) as client:
-            response = await client.post(
+    
+    try:
+        if not MISTRAL_API_KEY:
+            raise Exception("No Mistral AI key")
+        
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.post(
                 "https://api.mistral.ai/v1/chat/completions",
                 headers={"Authorization": f"Bearer {MISTRAL_API_KEY}"},
                 json={
                     "model": "mistral-large-latest",
                     "messages": [
-                        {"role": "system", "content": "Hindi content creator. JSON only."},
+                        {"role": "system", "content": "You are a viral YouTube content creator. Create engaging Hinglish titles. Output ONLY valid JSON."},
                         {"role": "user", "content": prompt}
                     ],
-                    "temperature": 0.85
+                    "temperature": 0.9,
+                    "max_tokens": 500
                 }
             )
             
-            if response.status_code == 200:
-                content = response.json()["choices"][0]["message"]["content"]
+            if resp.status_code == 200:
+                content = resp.json()["choices"][0]["message"]["content"]
                 content = re.sub(r'```json\n?|\n?```', '', content).strip()
-                result = json.loads(content)
-                logger.info(f"✅ Rewritten")
-                return result
-        
-        return {"script": f"Amazing story... {original[:200]}... LIKE SUBSCRIBE!", "title": "Viral", "hook": ""}
-    except:
-        return {"script": original[:500], "title": "Short", "hook": ""}
-
-async def generate_hindi_voiceover_11x(text: str, temp_dir: str) -> Optional[str]:
-    try:
-        logger.info("🎙️ Generating voice (1.1x)...")
-        
-        base = os.path.join(temp_dir, "voice_base.mp3")
-        final = os.path.join(temp_dir, "voice.mp3")
-        
-        # Try ElevenLabs
-        if ELEVENLABS_API_KEY and len(ELEVENLABS_API_KEY) > 20:
-            async with httpx.AsyncClient(timeout=60) as client:
-                response = await client.post(
-                    f"https://api.elevenlabs.io/v1/text-to-speech/{HINDI_VOICE_ID}",
-                    headers={"xi-api-key": ELEVENLABS_API_KEY},
-                    json={
-                        "text": text[:2500],
-                        "model_id": "eleven_multilingual_v2",
-                        "voice_settings": {"stability": 0.5, "similarity_boost": 0.8, "style": 0.6}
-                    }
-                )
+                match = re.search(r'\{.*\}', content, re.DOTALL)
                 
-                if response.status_code == 200:
-                    with open(base, 'wb') as f:
-                        f.write(response.content)
-                    
-                    cmd = ["ffmpeg", "-i", base, "-filter:a", "atempo=1.1,loudnorm=I=-16:TP=-1.5", "-y", final]
-                    
-                    if run_ffmpeg(cmd, 30):
-                        force_cleanup(base)
-                        logger.info(f"✅ Voice: {get_file_size_mb(final):.2f}MB")
-                        return final
+                if match:
+                    data = json.loads(match.group(0))
+                    logger.info(f"✅ Generated title: {data.get('title')}")
+                    return data
         
-        # Fallback: Edge TTS
-        logger.info("Using Edge TTS...")
+    except Exception as e:
+        logger.error(f"AI generation error: {e}")
+    
+    # Fallback
+    return {
+        "title": f"{original_title[:40]}... | Viral Shorts 🔥",
+        "description": f"Amazing viral content! Watch full video. #Shorts #Viral #Trending",
+        "hashtags": ["#Shorts", "#Viral", "#Trending", "#Hindi"]
+    }
+
+# ============================================================================
+# HINDI SCRIPT GENERATION FROM TRANSCRIPT
+# ============================================================================
+
+async def generate_hindi_script(
+    transcript: str,
+    target_duration: int = 30
+) -> str:
+    """Generate engaging Hindi script from English transcript"""
+    
+    logger.info("📝 Generating Hindi script...")
+    
+    prompt = f"""Convert this English transcript to an engaging Hindi voiceover script for YouTube Shorts.
+
+English Transcript:
+{transcript[:1000]}
+
+Requirements:
+1. Duration: {target_duration} seconds of speech
+2. Natural Hindi (not word-to-word translation)
+3. Energetic and engaging tone
+4. Add emotion and excitement
+5. Keep it conversational
+6. NO timestamps or labels
+
+Generate ONLY the Hindi script (plain text, no JSON):"""
+    
+    try:
+        if not MISTRAL_API_KEY:
+            return transcript[:200]  # Fallback
+        
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.post(
+                "https://api.mistral.ai/v1/chat/completions",
+                headers={"Authorization": f"Bearer {MISTRAL_API_KEY}"},
+                json={
+                    "model": "mistral-large-latest",
+                    "messages": [
+                        {"role": "system", "content": "You are a Hindi translator. Create engaging Hindi scripts."},
+                        {"role": "user", "content": prompt}
+                    ],
+                    "temperature": 0.8,
+                    "max_tokens": 800
+                }
+            )
+            
+            if resp.status_code == 200:
+                hindi_script = resp.json()["choices"][0]["message"]["content"].strip()
+                logger.info(f"✅ Hindi script: {len(hindi_script)} characters")
+                return hindi_script
+        
+    except Exception as e:
+        logger.error(f"Script generation error: {e}")
+    
+    return transcript[:300]
+
+# ============================================================================
+# VIDEO PROCESSING - RESIZE TO 9:16
+# ============================================================================
+
+def resize_video_to_shorts(input_video: str, temp_dir: str) -> Optional[str]:
+    """Resize video to 9:16 format (720x1280)"""
+    
+    output_video = os.path.join(temp_dir, "resized_video.mp4")
+    
+    logger.info(f"📐 Resizing to {VIDEO_WIDTH}x{VIDEO_HEIGHT}...")
+    
+    filter_complex = (
+        f"[0:v]scale={VIDEO_WIDTH}:{VIDEO_HEIGHT}:force_original_aspect_ratio=increase,"
+        f"crop={VIDEO_WIDTH}:{VIDEO_HEIGHT},"
+        f"fps={FPS}[v]"
+    )
+    
+    cmd = [
+        "ffmpeg", "-i", input_video,
+        "-filter_complex", filter_complex,
+        "-map", "[v]",
+        "-c:v", "libx264",
+        "-crf", "23",
+        "-preset", "fast",
+        "-pix_fmt", "yuv420p",
+        "-y", output_video
+    ]
+    
+    if run_ffmpeg(cmd, FFMPEG_TIMEOUT):
+        logger.info(f"✅ Resized: {get_size_mb(output_video):.1f}MB")
+        return output_video
+    
+    return None
+
+# ============================================================================
+# ADD OVERLAY EFFECT
+# ============================================================================
+
+def add_overlay_effect(input_video: str, temp_dir: str) -> Optional[str]:
+    """Add subtle overlay effect"""
+    
+    output_video = os.path.join(temp_dir, "overlay_video.mp4")
+    
+    logger.info("🎨 Adding overlay...")
+    
+    filter_str = "eq=brightness=0.05:contrast=1.1,vignette=PI/4"
+    
+    cmd = [
+        "ffmpeg", "-i", input_video,
+        "-vf", filter_str,
+        "-c:v", "libx264",
+        "-crf", "23",
+        "-preset", "fast",
+        "-c:a", "copy",
+        "-y", output_video
+    ]
+    
+    if run_ffmpeg(cmd, FFMPEG_TIMEOUT):
+        logger.info(f"✅ Overlay added: {get_size_mb(output_video):.1f}MB")
+        return output_video
+    
+    return None
+
+# ============================================================================
+# GENERATE CAPTIONS/SUBTITLES
+# ============================================================================
+
+def generate_subtitles_from_script(
+    script_text: str,
+    duration: float,
+    temp_dir: str
+) -> Optional[str]:
+    """Generate SRT subtitles from script"""
+    
+    srt_path = os.path.join(temp_dir, "subtitles.srt")
+    
+    logger.info("📝 Generating subtitles...")
+    
+    try:
+        sentences = re.split(r'[।\.\!]', script_text)
+        sentences = [s.strip() for s in sentences if s.strip()]
+        
+        if not sentences:
+            return None
+        
+        time_per_sentence = duration / len(sentences)
+        
+        with open(srt_path, 'w', encoding='utf-8') as f:
+            for idx, sentence in enumerate(sentences):
+                start_time = idx * time_per_sentence
+                end_time = (idx + 1) * time_per_sentence
+                
+                start_str = format_srt_time(start_time)
+                end_str = format_srt_time(end_time)
+                
+                f.write(f"{idx + 1}\n")
+                f.write(f"{start_str} --> {end_str}\n")
+                f.write(f"{sentence}\n\n")
+        
+        logger.info(f"✅ Subtitles: {len(sentences)} segments")
+        return srt_path
+        
+    except Exception as e:
+        logger.error(f"Subtitle error: {e}")
+        return None
+
+def format_srt_time(seconds: float) -> str:
+    hours = int(seconds // 3600)
+    minutes = int((seconds % 3600) // 60)
+    secs = int(seconds % 60)
+    millis = int((seconds % 1) * 1000)
+    return f"{hours:02d}:{minutes:02d}:{secs:02d},{millis:03d}"
+
+# ============================================================================
+# BURN CAPTIONS INTO VIDEO
+# ============================================================================
+
+def add_captions_to_video(input_video: str, srt_path: str, temp_dir: str) -> Optional[str]:
+    """Burn subtitles into video"""
+    
+    output_video = os.path.join(temp_dir, "captioned_video.mp4")
+    
+    logger.info("💬 Adding captions...")
+    
+    # Escape path for FFmpeg
+    srt_escaped = srt_path.replace('\\', '/').replace(':', '\\:')
+    
+    subtitles_filter = f"subtitles={srt_escaped}:force_style='Fontsize=24,PrimaryColour=&H00FFFF&,Bold=1,Outline=2,Shadow=1'"
+    
+    cmd = [
+        "ffmpeg", "-i", input_video,
+        "-vf", subtitles_filter,
+        "-c:v", "libx264",
+        "-crf", "23",
+        "-preset", "fast",
+        "-c:a", "copy",
+        "-y", output_video
+    ]
+    
+    if run_ffmpeg(cmd, FFMPEG_TIMEOUT):
+        logger.info(f"✅ Captions added: {get_size_mb(output_video):.1f}MB")
+        return output_video
+    
+    return None
+
+# ============================================================================
+# TTS VOICE GENERATION (VERTEX AI → EDGE TTS)
+# ============================================================================
+
+async def generate_voice_vertex_ai(text: str, temp_dir: str) -> Optional[str]:
+    """Generate voice using Vertex AI TTS"""
+    
+    if not GOOGLE_VERTEX_API_KEY:
+        return None
+    
+    try:
+        import random
+        import base64
+        
+        voice_config = random.choice(VERTEX_AI_HINDI_VOICES)
+        logger.info(f"🔊 Vertex AI: {voice_config['description']}")
+        
+        url = f"https://texttospeech.googleapis.com/v1/text:synthesize?key={GOOGLE_VERTEX_API_KEY}"
+        
+        payload = {
+            "input": {"text": text[:2000]},
+            "voice": {
+                "languageCode": "hi-IN",
+                "name": voice_config["name"],
+                "ssmlGender": voice_config["gender"]
+            },
+            "audioConfig": {
+                "audioEncoding": "MP3",
+                "speakingRate": 1.15,
+                "pitch": 0.0,
+                "volumeGainDb": 0.0
+            }
+        }
+        
+        async with httpx.AsyncClient(timeout=60) as client:
+            resp = await client.post(url, json=payload)
+            
+            if resp.status_code == 200:
+                result = resp.json()
+                
+                if "audioContent" in result:
+                    audio_content = base64.b64decode(result["audioContent"])
+                    output_path = os.path.join(temp_dir, "vertex_voice.mp3")
+                    
+                    with open(output_path, 'wb') as f:
+                        f.write(audio_content)
+                    
+                    logger.info(f"✅ Vertex AI Voice: {get_size_mb(output_path):.2f}MB")
+                    return output_path
+        
+        return None
+                
+    except Exception as e:
+        logger.error(f"Vertex AI error: {e}")
+        return None
+
+async def generate_voice_tts(text: str, temp_dir: str) -> Optional[str]:
+    """
+    Generate TTS with fallback:
+    1. Vertex AI (Primary)
+    2. Edge TTS (Fallback)
+    """
+    
+    # TIER 1: VERTEX AI
+    logger.info("🎙️ Attempting Vertex AI TTS...")
+    vertex_voice = await generate_voice_vertex_ai(text, temp_dir)
+    if vertex_voice:
+        return vertex_voice
+    
+    # TIER 2: EDGE TTS
+    logger.info("🔄 Falling back to Edge TTS...")
+    try:
         import edge_tts
         
-        await edge_tts.Communicate(text[:2000], "hi-IN-MadhurNeural", rate="+10%").save(base)
+        output_path = os.path.join(temp_dir, "edge_voice.mp3")
         
-        cmd = ["ffmpeg", "-i", base, "-filter:a", "atempo=1.1,loudnorm=I=-16:TP=-1.5", "-y", final]
+        await edge_tts.Communicate(
+            text[:1500],
+            "hi-IN-MadhurNeural",
+            rate="+15%"
+        ).save(output_path)
         
-        if run_ffmpeg(cmd, 25):
-            force_cleanup(base)
-            logger.info(f"✅ Voice: {get_file_size_mb(final):.2f}MB")
-            return final
+        logger.info(f"✅ Edge TTS Voice: {get_size_mb(output_path):.2f}MB")
+        return output_path
         
-        return None
     except Exception as e:
-        logger.error(f"Voice error: {e}")
-        return None
+        logger.error(f"Edge TTS error: {e}")
+    
+    logger.error("❌ All TTS methods failed!")
+    return None
 
-async def download_background_music(temp_dir: str, duration: float) -> Optional[str]:
+# ============================================================================
+# DOWNLOAD BACKGROUND MUSIC
+# ============================================================================
+
+async def download_music(temp_dir: str, duration: float) -> Optional[str]:
+    """Download background music"""
+    
+    import random
+    music_url = random.choice(BACKGROUND_MUSIC_URLS)
+    
+    logger.info("🎵 Downloading music...")
+    
     try:
-        music_url = random.choice(BG_MUSIC_URLS)
-        logger.info(f"🎵 Downloading music...")
-        
         async with httpx.AsyncClient(timeout=60, follow_redirects=True) as client:
-            response = await client.get(music_url)
+            resp = await client.get(music_url)
             
-            if response.status_code == 200:
-                raw = os.path.join(temp_dir, "music_raw.weba")
-                mp3 = os.path.join(temp_dir, "music.mp3")
+            if resp.status_code == 200:
+                raw_path = os.path.join(temp_dir, "music_raw.mp3")
+                with open(raw_path, 'wb') as f:
+                    f.write(resp.content)
                 
-                with open(raw, 'wb') as f:
-                    f.write(response.content)
-                
-                cmd = ["ffmpeg", "-i", raw, "-vn", "-acodec", "libmp3lame", "-b:a", "128k", "-t", str(duration + 2), "-y", mp3]
+                output_path = os.path.join(temp_dir, "music.mp3")
+                cmd = [
+                    "ffmpeg", "-i", raw_path,
+                    "-t", str(min(duration, 60)),
+                    "-acodec", "copy",
+                    "-y", output_path
+                ]
                 
                 if run_ffmpeg(cmd, 60):
-                    force_cleanup(raw)
-                    logger.info(f"✅ Music: {get_file_size_mb(mp3):.2f}MB")
-                    return mp3
-        
-        return None
-    except:
-        return None
+                    force_cleanup(raw_path)
+                    logger.info(f"✅ Music: {get_size_mb(output_path):.2f}MB")
+                    return output_path
+                
+                return raw_path if os.path.exists(raw_path) else None
+                
+    except Exception as e:
+        logger.error(f"Music download error: {e}")
+    
+    return None
 
-def crop_and_zoom_video(video_path: str, temp_dir: str) -> Optional[str]:
-    try:
-        output = os.path.join(temp_dir, "cropped.mp4")
-        logger.info("✂️ Cropping to 9:16 + zoom...")
-        
-        filter_complex = (
-            "[0:v]"
-            "scale=720:-1,"
-            "crop=720:1280:0:(ih-1280)/2,"
-            "zoompan=z='min(1.15,1.0+(on/1000*0.15))':d=1:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s=720x1280:fps=30,"
-            "eq=contrast=1.05:brightness=0.03"
-            "[v]"
-        )
-        
-        cmd = ["ffmpeg", "-i", video_path, "-filter_complex", filter_complex, "-map", "[v]", "-c:v", "libx264", "-crf", "23", "-preset", "medium", "-an", "-y", output]
-        
-        if run_ffmpeg(cmd, 180):
-            logger.info(f"✅ Cropped: {get_file_size_mb(output):.1f}MB")
-            return output
-        
-        return None
-    except:
-        return None
+# ============================================================================
+# MIX VIDEO WITH VOICE AND MUSIC
+# ============================================================================
 
-def add_captions_to_video(video_path: str, script: str, hook: str, temp_dir: str) -> Optional[str]:
+async def mix_video_audio(
+    video_path: str,
+    voice_path: str,
+    music_path: Optional[str],
+    temp_dir: str
+) -> Optional[str]:
+    """Mix video with voiceover and background music"""
+    
+    output_path = os.path.join(temp_dir, "final_video.mp4")
+    
+    logger.info("🎛️ Mixing audio...")
+    
     try:
-        output = os.path.join(temp_dir, "captioned.mp4")
-        logger.info("📝 Adding captions...")
-        
-        text = (hook if hook else script[:80]).replace("'", "").replace('"', '')[:80]
-        
-        filter_str = f"drawtext=text='{text}':fontsize=42:fontcolor=white:x=(w-text_w)/2:y=h-300:borderw=4:bordercolor=black"
-        
-        cmd = ["ffmpeg", "-i", video_path, "-vf", filter_str, "-c:v", "libx264", "-crf", "23", "-c:a", "copy", "-y", output]
-        
-        if run_ffmpeg(cmd, 120):
-            logger.info(f"✅ Captioned: {get_file_size_mb(output):.1f}MB")
-            return output
-        
-        return None
-    except:
-        return None
-
-async def combine_video_voice_music(video: str, voice: str, music: Optional[str], temp_dir: str) -> Optional[str]:
-    try:
-        output = os.path.join(temp_dir, "final.mp4")
-        logger.info("🎬 Combining...")
-        
-        if music:
+        if music_path:
             cmd = [
-                "ffmpeg", "-i", video, "-i", voice, "-i", music,
-                "-filter_complex", "[1:a]volume=1.0[v];[2:a]volume=0.10[m];[v][m]amix=inputs=2:duration=first[a]",
-                "-map", "0:v", "-map", "[a]", "-c:v", "copy", "-c:a", "aac", "-shortest", "-y", output
+                "ffmpeg",
+                "-i", video_path,
+                "-i", voice_path,
+                "-i", music_path,
+                "-filter_complex",
+                "[1:a]volume=1.0[v];[2:a]volume=0.15[m];[v][m]amix=inputs=2:duration=first[a]",
+                "-map", "0:v",
+                "-map", "[a]",
+                "-c:v", "copy",
+                "-c:a", "aac",
+                "-b:a", "192k",
+                "-shortest",
+                "-y", output_path
             ]
         else:
-            cmd = ["ffmpeg", "-i", video, "-i", voice, "-map", "0:v", "-map", "1:a", "-c:v", "copy", "-c:a", "aac", "-shortest", "-y", output]
+            cmd = [
+                "ffmpeg",
+                "-i", video_path,
+                "-i", voice_path,
+                "-map", "0:v",
+                "-map", "1:a",
+                "-c:v", "copy",
+                "-c:a", "aac",
+                "-shortest",
+                "-y", output_path
+            ]
         
-        if run_ffmpeg(cmd, 120):
-            logger.info(f"✅ Final: {get_file_size_mb(output):.1f}MB")
-            return output
+        if run_ffmpeg(cmd, FFMPEG_TIMEOUT):
+            logger.info(f"✅ Final: {get_size_mb(output_path):.1f}MB")
+            return output_path
         
         return None
-    except:
+        
+    except Exception as e:
+        logger.error(f"Mix error: {e}")
         return None
 
-async def upload_to_youtube(video: str, title: str, description: str, user_id: str, database_manager) -> dict:
+# ============================================================================
+# YOUTUBE UPLOAD
+# ============================================================================
+
+async def upload_to_youtube(
+    video_path: str,
+    title: str,
+    description: str,
+    tags: List[str],
+    user_id: str,
+    database_manager
+) -> dict:
+    """Upload to YouTube"""
+    
     try:
-        logger.info("📤 Uploading to YouTube...")
+        logger.info("📤 Connecting to YouTube...")
         
         from YTdatabase import get_database_manager as get_yt_db
         yt_db = get_yt_db()
         
+        if not yt_db:
+            return {"success": False, "error": "YouTube database unavailable"}
+        
         if not yt_db.youtube.client:
             await yt_db.connect()
         
-        creds_raw = await yt_db.youtube.youtube_credentials_collection.find_one({"user_id": user_id})
+        credentials_raw = await yt_db.youtube.youtube_credentials_collection.find_one({
+            "user_id": user_id
+        })
         
-        if not creds_raw:
-            return {"success": False, "error": "YouTube credentials not found"}
+        if not credentials_raw:
+            return {"success": False, "error": "No YouTube credentials"}
         
         credentials = {
-            "access_token": creds_raw.get("access_token"),
-            "refresh_token": creds_raw.get("refresh_token"),
+            "access_token": credentials_raw.get("access_token"),
+            "refresh_token": credentials_raw.get("refresh_token"),
             "token_uri": "https://oauth2.googleapis.com/token",
-            "client_id": creds_raw.get("client_id") or os.getenv("YOUTUBE_CLIENT_ID"),
-            "client_secret": creds_raw.get("client_secret") or os.getenv("YOUTUBE_CLIENT_SECRET"),
-            "scopes": ["https://www.googleapis.com/auth/youtube.upload", "https://www.googleapis.com/auth/youtube.force-ssl"]
+            "client_id": credentials_raw.get("client_id") or os.getenv("YOUTUBE_CLIENT_ID"),
+            "client_secret": credentials_raw.get("client_secret") or os.getenv("YOUTUBE_CLIENT_SECRET"),
+            "scopes": [
+                "https://www.googleapis.com/auth/youtube.upload",
+                "https://www.googleapis.com/auth/youtube.force-ssl"
+            ]
         }
         
         from mainY import youtube_scheduler
         
-        full_desc = f"{description}\n\n#shorts #viral #trending #hindi"
-        
-        result = await youtube_scheduler.generate_and_upload_content(
+        upload_result = await youtube_scheduler.generate_and_upload_content(
             user_id=user_id,
             credentials_data=credentials,
             content_type="shorts",
             title=title,
-            description=full_desc,
-            video_url=video
+            description=description,
+            video_url=video_path,
         )
         
-        if result.get("success"):
-            video_id = result.get("video_id")
-            logger.info(f"✅ Uploaded! ID: {video_id}")
-            return {"success": True, "video_id": video_id, "video_url": f"https://youtube.com/shorts/{video_id}"}
+        if upload_result.get("success"):
+            video_id = upload_result.get("video_id")
+            logger.info(f"✅ Uploaded: {video_id}")
+            
+            return {
+                "success": True,
+                "video_id": video_id,
+                "video_url": f"https://youtube.com/shorts/{video_id}"
+            }
         
-        return {"success": False, "error": result.get("error", "Upload failed")}
+        return {"success": False, "error": upload_result.get("error", "Upload failed")}
+            
     except Exception as e:
         logger.error(f"Upload error: {e}")
         return {"success": False, "error": str(e)}
 
-async def generate_mrbeast_short(youtube_url: str, target_duration: int, user_id: str, database_manager) -> dict:
+# ============================================================================
+# MAIN GENERATION FUNCTION
+# ============================================================================
+
+async def generate_mrbeast_short(
+    youtube_url: str,
+    user_id: str,
+    database_manager,
+    target_duration: int = 30
+) -> dict:
+    """Main function: Process YouTube video into viral Hindi Short"""
+    
     temp_dir = None
     
     try:
         temp_dir = tempfile.mkdtemp(prefix="mrbeast_")
-        logger.info(f"🎬 START: {youtube_url} | {target_duration}s")
+        logger.info(f"🎬 START: {youtube_url}")
         
-        # 1. Download
-        video_path = await download_youtube_video(youtube_url, temp_dir)
-        if not video_path:
-            return {"success": False, "error": "Download failed - all 8 methods failed"}
+        # STEP 1: Download video and get transcript
+        source_video, original_title, original_desc, transcript = await download_youtube_video(
+            youtube_url, temp_dir
+        )
         
-        # 2. Duration check
-        duration = get_video_duration(video_path)
-        if duration < target_duration:
-            return {"success": False, "error": f"Video too short: {duration:.0f}s"}
+        if not source_video:
+            return {"success": False, "error": "Video download failed"}
         
-        # 3. Transcript
-        transcript = await extract_transcript(video_path, temp_dir)
-        if not transcript:
-            return {"success": False, "error": "Transcription failed"}
+        # STEP 2: Generate AI title & description
+        ai_metadata = await generate_ai_title_description(
+            original_title, transcript, original_desc
+        )
         
-        # 4. AI Rewrite
-        rewrite = await rewrite_script_creatively(transcript, target_duration)
-        script = rewrite["script"]
-        title = rewrite["title"]
-        hook = rewrite["hook"]
+        title = ai_metadata["title"]
+        description = ai_metadata["description"]
+        hashtags = ai_metadata["hashtags"]
         
-        # 5. Voice (1.1x)
-        voice = await generate_hindi_voiceover_11x(script, temp_dir)
-        if not voice:
+        logger.info(f"📝 Title: {title}")
+        
+        # STEP 3: Generate Hindi script from transcript
+        hindi_script = await generate_hindi_script(transcript, target_duration)
+        
+        # STEP 4: Resize to 9:16
+        resized_video = resize_video_to_shorts(source_video, temp_dir)
+        if not resized_video:
+            return {"success": False, "error": "Resize failed"}
+        
+        force_cleanup(source_video)
+        
+        # STEP 5: Add overlay
+        overlay_video = add_overlay_effect(resized_video, temp_dir)
+        if overlay_video:
+            force_cleanup(resized_video)
+            resized_video = overlay_video
+        
+        # STEP 6: Generate subtitles
+        script_duration = len(hindi_script.split()) / 2.75
+        srt_path = generate_subtitles_from_script(hindi_script, script_duration, temp_dir)
+        
+        # STEP 7: Burn captions
+        if srt_path:
+            captioned_video = add_captions_to_video(resized_video, srt_path, temp_dir)
+            if captioned_video:
+                force_cleanup(resized_video)
+                resized_video = captioned_video
+        
+        # STEP 8: Generate TTS voice
+        voice_file = await generate_voice_tts(hindi_script, temp_dir)
+        if not voice_file:
             return {"success": False, "error": "Voice generation failed"}
         
-        # 6. Music
-        music = await download_background_music(temp_dir, target_duration)
+        # STEP 9: Download music
+        music_file = await download_music(temp_dir, script_duration)
         
-        # 7. Crop + Zoom
-        cropped = crop_and_zoom_video(video_path, temp_dir)
-        if not cropped:
-            return {"success": False, "error": "Cropping failed"}
+        # STEP 10: Mix audio
+        final_video = await mix_video_audio(resized_video, voice_file, music_file, temp_dir)
+        if not final_video:
+            return {"success": False, "error": "Audio mixing failed"}
         
-        force_cleanup(video_path)
+        final_size = get_size_mb(final_video)
+        logger.info(f"✅ FINAL: {final_size:.1f}MB")
         
-        # 8. Captions
-        captioned = add_captions_to_video(cropped, script, hook, temp_dir)
-        if not captioned:
-            return {"success": False, "error": "Caption failed"}
-        
-        force_cleanup(cropped)
-        
-        # 9. Combine
-        final = await combine_video_voice_music(captioned, voice, music, temp_dir)
-        if not final:
-            return {"success": False, "error": "Combining failed"}
-        
-        final_size = get_file_size_mb(final)
-        
-        # 10. Upload
-        upload_result = await upload_to_youtube(final, title, script, user_id, database_manager)
+        # STEP 11: Upload to YouTube
+        upload_result = await upload_to_youtube(
+            video_path=final_video,
+            title=title,
+            description=description,
+            tags=hashtags,
+            user_id=user_id,
+            database_manager=database_manager
+        )
         
         # Cleanup
         if temp_dir:
@@ -1016,11 +826,16 @@ async def generate_mrbeast_short(youtube_url: str, target_duration: int, user_id
                 "video_id": upload_result["video_id"],
                 "video_url": upload_result["video_url"],
                 "title": title,
-                "script": script[:200] + "...",
-                "size": f"{final_size:.1f}MB"
+                "description": description,
+                "hashtags": hashtags,
+                "duration": f"{script_duration:.1f}s",
+                "size_mb": f"{final_size:.1f}MB"
             }
         else:
-            return {"success": False, "error": upload_result.get("error")}
+            return {
+                "success": False,
+                "error": upload_result.get("error", "Upload failed")
+            }
         
     except Exception as e:
         logger.error(f"❌ Error: {e}")
@@ -1032,37 +847,64 @@ async def generate_mrbeast_short(youtube_url: str, target_duration: int, user_id
         
         return {"success": False, "error": str(e)}
 
+# ============================================================================
+# API ROUTES
+# ============================================================================
+
+router = APIRouter()
+
 @router.post("/api/mrbeast/generate")
 async def generate_endpoint(request: Request):
+    """Generate MrBeast-style viral short from YouTube URL"""
+    
     try:
         data = await request.json()
         
         user_id = data.get("user_id")
-        youtube_url = data.get("youtube_url", "")
-        target_duration = int(data.get("target_duration", 30))
-        
         if not user_id:
-            return JSONResponse(status_code=401, content={"success": False, "error": "Authentication required"})
+            return JSONResponse(
+                status_code=401,
+                content={"success": False, "error": "user_id required"}
+            )
         
-        if not youtube_url or ("youtube.com" not in youtube_url and "youtu.be" not in youtube_url):
-            return JSONResponse(status_code=400, content={"success": False, "error": "Invalid YouTube URL"})
+        youtube_url = data.get("youtube_url", "").strip()
+        if not youtube_url:
+            return JSONResponse(
+                status_code=400,
+                content={"success": False, "error": "youtube_url required"}
+            )
         
-        if not (MIN_DURATION <= target_duration <= MAX_DURATION):
-            return JSONResponse(status_code=400, content={"success": False, "error": f"Duration must be {MIN_DURATION}-{MAX_DURATION}s"})
+        if not ("youtube.com" in youtube_url or "youtu.be" in youtube_url):
+            return JSONResponse(
+                status_code=400,
+                content={"success": False, "error": "Invalid YouTube URL"}
+            )
+        
+        target_duration = max(20, min(data.get("target_duration", 30), 60))
+        
+        logger.info(f"📝 Request: url={youtube_url}, duration={target_duration}s")
         
         from Supermain import database_manager
         
         result = await asyncio.wait_for(
-            generate_mrbeast_short(youtube_url, target_duration, user_id, database_manager),
-            timeout=900
+            generate_mrbeast_short(
+                youtube_url, user_id, database_manager, target_duration
+            ),
+            timeout=1800
         )
         
         return JSONResponse(content=result)
         
     except asyncio.TimeoutError:
-        return JSONResponse(status_code=408, content={"success": False, "error": "Timeout"})
+        return JSONResponse(
+            status_code=408,
+            content={"success": False, "error": "Request timeout"}
+        )
     except Exception as e:
         logger.error(f"Endpoint error: {e}")
-        return JSONResponse(status_code=500, content={"success": False, "error": str(e)})
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "error": str(e)}
+        )
 
 __all__ = ['router']

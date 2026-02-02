@@ -1812,7 +1812,7 @@ LUXURY_MOTIVATION_MUSIC_URLS = [
     "https://raw.githubusercontent.com/aryan-Patel-web/audio-collections/main/LXNGVX%20-%20Habibi%20Ta'a%20(Bila%20Hamm).mp3",
     "https://raw.githubusercontent.com/aryan-Patel-web/audio-collections/main/GLXXMSTRIDER%20-%20DON'T%20STOP%20-%20Slowed.mp3",
     "https://raw.githubusercontent.com/aryan-Patel-web/audio-collections/main/CANTO%20DE%20LUNA%20(ULTRA%20SLOWED).mp3",
-    "https://raw.githubusercontent.com/aryan-Patel-web/audio-collections/main/Eternxlkz%20-%20SLAY!%20(Official%20Audio).mp3",
+  
     "https://raw.githubusercontent.com/aryan-Patel-web/audio-collections/main/AGUS%20FUNK%20(ULTRA%20SLOWED).mp3",
     "https://raw.githubusercontent.com/aryan-Patel-web/audio-collections/main/DNA%20-%20Slowed.mp3",
     "https://raw.githubusercontent.com/aryan-Patel-web/audio-collections/main/Jujutsu%20Kaisen%20Phonk%20HD.mp3",
