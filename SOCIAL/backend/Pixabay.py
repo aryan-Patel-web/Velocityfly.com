@@ -1805,8 +1805,7 @@ VERTEX_AI_HINDI_VOICES = [
 # ============================================================================
 
 LUXURY_MOTIVATION_MUSIC_URLS = [
-    # "https://raw.githubusercontent.com/aryan-Patel-web/audio-collections/main/hypnotic%20(super%20slowed).mp3",
-    # "https://raw.githubusercontent.com/aryan-Patel-web/audio-collections/main/X-TALI%20(SLOWED).mp3",
+
     "https://raw.githubusercontent.com/aryan-Patel-web/audio-collections/main/VIOLENTO%20(Slowed).mp3",
     "https://raw.githubusercontent.com/aryan-Patel-web/audio-collections/main/PASSO%20BEM%20SOLTO%20(Slowed).mp3",
     "https://raw.githubusercontent.com/aryan-Patel-web/audio-collections/main/M%F0%9D%9A%8A%F0%9D%9A%9D%F0%9D%9A%9E%F0%9D%9A%9C%F0%9D%9A%91%F0%9D%9A%94%F0%9D%9A%8A%20%20U%F0%9D%9A%95%F0%9D%9A%9D%F0%9D%9A%9B%F0%9D%9A%8A%F0%9D%9A%8F%F0%9D%9A%9E%F0%9D%9A%97%F0%9D%9A%94.mp3",
@@ -2000,7 +1999,7 @@ NICHE_CONFIG = {
     "luxury": {
         "thumbnail_text": "Luxury Lifestyle",
         "music_urls": LUXURY_MOTIVATION_MUSIC_URLS,
-        "voice_id": "G0yjIg3xY8gEJZkHpjVm",
+        "voice_id": "hr8Jn6R7mrb0ncJHDryQ",
         "placeholder": "e.g., BMW M5, Lamborghini Aventador, Private Jet, Superyacht, Luxury Watch"
     }
 }
