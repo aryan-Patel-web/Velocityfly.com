@@ -56,8 +56,8 @@ MONGODB_URI       = os.getenv("MONGODB_URI",
 
 # Google Drive PUBLIC folder ID  →  extracted from the shared link
 # https://drive.google.com/drive/folders/1kocgFg0rzsMCtXsrWiOH_oditWshBpbV
-GDRIVE_FOLDER_ID = "1VRLvWMspv3DMM-MuWkxvZfCepTe0Wp8p"
-
+GDRIVE_FOLDER_ID = "1kocgFg0rzsMCtXsrWiOH_oditWshBpbV"
+# https://drive.google.com/drive/folders/
 # Edge TTS voices (random pick each video)
 EDGE_TTS_VOICES = [
     "hi-IN-RaviNeural",
