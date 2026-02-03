@@ -450,6 +450,7 @@ class SlideshowGenerator:
                 del img, draw
                 gc.collect()
                 
+                
             except Exception as e:
                 logger.error(f"      ❌ Overlay {idx+1} failed: {e}")
                 import traceback

@@ -21,6 +21,7 @@ const YouTubeAutomation = () => {
     videos_per_week: 2
   });
   
+  
   const [contentData, setContentData] = useState({
     content_type: 'shorts',
     topic: '',
