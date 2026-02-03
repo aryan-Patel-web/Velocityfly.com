@@ -19,6 +19,7 @@ This module extracts the file-ID, downloads the video, and runs:
 A second endpoint lets the frontend upload any saved reel to YouTube.
 
 NO folder listing.  NO Drive API key.  NO ElevenLabs.
+YouTube upload credentials copied from working Pixabay code.
 """
 
 from fastapi import APIRouter, Request
@@ -37,7 +38,7 @@ logger.setLevel(logging.INFO)
 # ──────────────────────────────────────────────────────────────────────────────
 MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY")
 
-EDGE_TTS_VOICES = ["hi-IN-RaviNeural", "hi-IN-MadhurNeural", "hi-IN-KunalNeural"]
+EDGE_TTS_VOICES = ["hi-IN-MadhurNeural", "hi-IN-SwaraNeural", "hi-IN-RaviNeural"]
 
 STORY_BGM_URLS = [
     "https://raw.githubusercontent.com/aryan-Patel-web/audio-collections/main/Sitar%20-%20Dholak%20-Indian%20Instrumental%20Music%20_%20(No%20Copyright)%20-%20Background%20Music%20for%20Poet%20-%20Meditation.mp3",
@@ -445,49 +446,88 @@ async def composite(silent_video: str, voiceover: str, srt_path: str,
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# YOUTUBE UPLOAD  (same helper pattern as pixabay)
+# YOUTUBE UPLOAD (EXACT PIXABAY WORKING LOGIC)
 # ──────────────────────────────────────────────────────────────────────────────
 
 async def upload_youtube(video_path: str, title: str, description: str,
                          keywords: List[str], tags: List[str],
                          user_id: str, db) -> dict:
+    """Upload to YouTube using Viral Pixel's exact working logic - COPIED FROM PIXABAY"""
     try:
+        logger.info("📤 Connecting to YouTube database...")
+        
+        # EXACT IMPORT FROM PIXABAY
         from YTdatabase import get_database_manager as get_yt_db
         yt_db = get_yt_db()
+        
         if not yt_db:
-            return {"success": False, "error": "YouTube DB unavailable"}
+            return {"success": False, "error": "YouTube database not available"}
+        
         if not yt_db.youtube.client:
             await yt_db.connect()
-
-        creds_raw = await yt_db.youtube.youtube_credentials_collection.find_one({"user_id": user_id})
-        if not creds_raw:
+        
+        logger.info(f"📤 Fetching YouTube credentials for user: {user_id}")
+        
+        # EXACT CREDENTIAL FETCH FROM PIXABAY
+        credentials_raw = await yt_db.youtube.youtube_credentials_collection.find_one({
+            "user_id": user_id
+        })
+        
+        if not credentials_raw:
             return {"success": False, "error": "YouTube credentials not found"}
-
+        
+        # EXACT CREDENTIAL STRUCTURE FROM PIXABAY
         credentials = {
-            "access_token":  creds_raw.get("access_token"),
-            "refresh_token": creds_raw.get("refresh_token"),
-            "token_uri":     "https://oauth2.googleapis.com/token",
-            "client_id":     creds_raw.get("client_id")     or os.getenv("YOUTUBE_CLIENT_ID"),
-            "client_secret": creds_raw.get("client_secret") or os.getenv("YOUTUBE_CLIENT_SECRET"),
-            "scopes": ["https://www.googleapis.com/auth/youtube.upload",
-                       "https://www.googleapis.com/auth/youtube.force-ssl"]
+            "access_token": credentials_raw.get("access_token"),
+            "refresh_token": credentials_raw.get("refresh_token"),
+            "token_uri": "https://oauth2.googleapis.com/token",
+            "client_id": credentials_raw.get("client_id") or os.getenv("YOUTUBE_CLIENT_ID"),
+            "client_secret": credentials_raw.get("client_secret") or os.getenv("YOUTUBE_CLIENT_SECRET"),
+            "scopes": [
+                "https://www.googleapis.com/auth/youtube.upload",
+                "https://www.googleapis.com/auth/youtube.force-ssl"
+            ]
         }
-
+        
+        # Build full description with keywords and tags
         full_desc = description + "\n\n" + "\n".join(keywords) + "\n\n" + "\n".join(tags)
-
+        
+        logger.info("📤 Uploading to YouTube...")
+        
+        # EXACT UPLOAD CALL FROM PIXABAY
         from mainY import youtube_scheduler
-        result = await youtube_scheduler.generate_and_upload_content(
-            user_id=user_id, credentials_data=credentials,
-            content_type="shorts", title=title,
-            description=full_desc, video_url=video_path,
+        
+        upload_result = await youtube_scheduler.generate_and_upload_content(
+            user_id=user_id,
+            credentials_data=credentials,
+            content_type="shorts",
+            title=title,
+            description=full_desc,
+            video_url=video_path,
         )
-        if result.get("success"):
-            vid = result.get("video_id")
-            logger.info(f"📤 Uploaded video_id={vid}")
-            return {"success": True, "video_id": vid, "video_url": f"https://youtube.com/shorts/{vid}"}
-        return {"success": False, "error": result.get("error", "Upload failed")}
+        
+        if upload_result.get("success"):
+            video_id = upload_result.get("video_id")
+            video_url = f"https://youtube.com/shorts/{video_id}"
+            
+            logger.info(f"✅ Video uploaded successfully!")
+            logger.info(f"   Video ID: {video_id}")
+            logger.info(f"   URL: {video_url}")
+            
+            return {
+                "success": True,
+                "video_id": video_id,
+                "video_url": video_url
+            }
+        
+        return {
+            "success": False,
+            "error": upload_result.get("error", "Upload failed")
+        }
+            
     except Exception as e:
-        logger.error(f"upload_youtube: {e}\n{traceback.format_exc()}")
+        logger.error(f"❌ YouTube upload error: {e}")
+        logger.error(traceback.format_exc())
         return {"success": False, "error": str(e)}
 
 
@@ -622,7 +662,7 @@ async def reprocess_and_upload(serial: int, doc: dict, user_id: str, db) -> dict
         if not await composite(silent, voiceover, srt_path, bgm, final):
             return {"success": False, "error": "Composite failed on re-process."}
 
-        # Upload
+        # Upload (using exact Pixabay credentials logic)
         up = await upload_youtube(final, title, desc, keywords, tags, user_id, db)
         if not up.get("success"):
             return {"success": False, "error": up.get("error", "Upload failed")}
