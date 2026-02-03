@@ -98,6 +98,18 @@ except ImportError as e:
     pixabay_enhanced_router = None
 
 
+
+# ===========================================================================
+# GDRIVE REELS MODULE IMPORT
+# ===========================================================================
+try:
+    from gdrive_reels import router as gdrive_reels_router
+    logger.info("✅ gdrive_reels module imported successfully")
+except ImportError as e:
+    logger.error(f"❌ Failed to import gdrive_reels: {e}")
+    gdrive_reels_router = None
+
+
 # ✅ ADD THIS LINE (around line 50-60, near other imports)
 try:
     from MrBeast import router as mrbeast_router
@@ -1864,6 +1876,26 @@ try:
         
 except Exception as e:
     logger.error(f"❌ Pixabay Enhanced routes registration failed: {e}")
+    logger.error(traceback.format_exc())
+
+
+# ===========================================================================
+# ✅ GDRIVE REELS ROUTES (DRIVE VIDEO RE-VOICER & YOUTUBE UPLOADER)
+# ===========================================================================
+try:
+    if gdrive_reels_router is not None:
+        app.include_router(gdrive_reels_router, tags=["gdrive-reels"])
+
+        logger.info("✅ GDrive Reels routes registered successfully!")
+        logger.info("   📍 Available endpoints:")
+        logger.info("      - GET  /api/gdrive-reels/status")
+        logger.info("      - POST /api/gdrive-reels/process")
+        logger.info("      - POST /api/gdrive-reels/upload")
+    else:
+        logger.warning("⚠️ GDrive Reels router not available - routes not registered")
+
+except Exception as e:
+    logger.error(f"❌ GDrive Reels routes registration failed: {e}")
     logger.error(traceback.format_exc())
 
 # ===========================================================================
