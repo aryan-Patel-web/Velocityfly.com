@@ -2009,30 +2009,30 @@ useEffect(() => {
 
           {/* Drop this button right next to the Pixabay tab button */}
 
- <button
-       onClick={() => setActiveTab('gdrive-reels')}
-       style={{
-         padding: '12px 24px',
-         background: activeTab === 'gdrive-reels'
-           ? 'linear-gradient(135deg, #43e97b, #38f9d7)'
-           : 'white',
-         color: activeTab === 'gdrive-reels' ? 'white' : '#333',
-         border: activeTab === 'gdrive-reels' ? 'none' : '2px solid #e0e0e0',
-         borderRadius: '12px',
-         fontWeight: '600',
-         cursor: 'pointer',
-         transition: 'all 0.3s',
-         display: 'flex',
-         alignItems: 'center',
-         gap: '8px',
-         boxShadow: activeTab === 'gdrive-reels'
-           ? '0 4px 15px rgba(67,233,123,0.4)'
-           : '0 2px 8px rgba(0,0,0,0.1)'
-       }}
-     >
-       <span style={{ fontSize: '20px' }}>🎬</span>
-       Drive Re-Voicer
-     </button>
+<button 
+  onClick={() => setActiveTab('gdrive_reels')}
+  style={{
+    padding: '12px 24px',
+    background: activeTab === 'gdrive_reels' 
+      ? 'linear-gradient(135deg, #43e97b, #38f9d7)' 
+      : 'white',
+    color: activeTab === 'gdrive_reels' ? 'white' : '#333',
+    border: activeTab === 'gdrive_reels' ? 'none' : '2px solid #e0e0e0',
+    borderRadius: '12px',
+    fontWeight: '600',
+    cursor: 'pointer',
+    transition: 'all 0.3s',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    boxShadow: activeTab === 'gdrive_reels' 
+      ? '0 4px 15px rgba(67,233,123,0.4)' 
+      : '0 2px 8px rgba(0,0,0,0.1)'
+  }}
+>
+  <span style={{ fontSize: '20px' }}>🎬</span>
+  Drive Reels
+</button>
 
 <button 
   onClick={() => setActiveTab('pixabay')}
@@ -9314,6 +9314,7 @@ onClick={async () => {
     to { transform: rotate(360deg); }
   }
 `}</style>
+
 
 
 
