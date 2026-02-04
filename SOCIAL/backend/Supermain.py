@@ -1,7 +1,3 @@
-
-
-
-
 """
 Supermain.py - COMPLETE PRODUCTION VERSION - MULTI-USER READY
 ✅ Dynamic Reddit usernames for multiple users
@@ -103,11 +99,16 @@ except ImportError as e:
 # GDRIVE REELS MODULE IMPORT
 # ===========================================================================
 try:
-    from gdrive_reels import router as gdrive_reels_router
-    logger.info("✅ gdrive_reels module imported successfully")
+    from gdrive_reels import (
+        router as gdrive_reels_router, 
+        initialize as gdrive_reels_initialize
+    )
+    logger.info("✅ gdrive_reels_optimized module imported successfully")
 except ImportError as e:
-    logger.error(f"❌ Failed to import gdrive_reels: {e}")
+    logger.error(f"❌ Failed to import gdrive_reels_optimized: {e}")
     gdrive_reels_router = None
+    gdrive_reels_initialize = None
+
 
 
 # ✅ ADD THIS LINE (around line 50-60, near other imports)
@@ -5199,6 +5200,64 @@ async def get_next_product_url(user_id: str) -> str:
 #     """Start automation checker on app startup"""
 #     asyncio.create_task(run_product_automation_tasks())
 #     logger.info("✅ Product automation background task started")
+# ===========================================================================
+# STARTUP EVENT - COMBINES ALL INITIALIZATION
+# ===========================================================================
+@app.on_event("startup")
+async def startup():
+    """
+    Main startup event - initialize all services
+    """
+    logger.info("=" * 80)
+    logger.info("🚀 SERVER STARTUP - INITIALIZING SERVICES")
+    logger.info("=" * 80)
+    
+    # ─────────────────────────────────────────────────────────────────────
+    # YOUR EXISTING STARTUP CODE
+    # ─────────────────────────────────────────────────────────────────────
+    # Example: Initialize database
+    try:
+        logger.info("📦 Connecting to MongoDB...")
+        # await database_manager.connect()
+        logger.info("✅ MongoDB connected")
+    except Exception as e:
+        logger.error(f"❌ MongoDB connection failed: {e}")
+    
+    # Example: Initialize other services
+    try:
+        logger.info("🎬 Initializing YouTube scheduler...")
+        # await youtube_scheduler.initialize()
+        logger.info("✅ YouTube scheduler ready")
+    except Exception as e:
+        logger.error(f"❌ YouTube scheduler failed: {e}")
+    
+    # ... add your other existing startup code here ...
+    
+    # ─────────────────────────────────────────────────────────────────────
+    # GDRIVE REELS INITIALIZATION (NEW - ADD THIS)
+    # ─────────────────────────────────────────────────────────────────────
+    if gdrive_reels_initialize is not None:
+        try:
+            logger.info("🎙️  Initializing GDrive Reels service...")
+            logger.info("   (Loading Whisper model - this may take 10-15 seconds)")
+            
+            await gdrive_reels_initialize()
+            
+            logger.info("✅ GDrive Reels service ready!")
+            
+        except Exception as e:
+            logger.error(f"❌ GDrive Reels initialization failed: {e}")
+            logger.error(traceback.format_exc())
+            logger.error("   ⚠️  GDrive Reels will not work properly!")
+    else:
+        logger.warning("⚠️ GDrive Reels initialize function not available")
+    
+    # ─────────────────────────────────────────────────────────────────────
+    # STARTUP COMPLETE
+    # ─────────────────────────────────────────────────────────────────────
+    logger.info("=" * 80)
+    logger.info("✅ ALL SERVICES INITIALIZED - SERVER READY")
+    logger.info("=" * 80)
 
     
 # ============================================================================
