@@ -18,7 +18,7 @@ pixabay_final_complete_WORKING.py - COMPLETE WORKING VERSION WITH ALL NEW FEATUR
 ✅ NEW: 3 Hindi voices (Kore Female, Iapetus Male, Achernar Female)
 ✅ NEW: Edge TTS as final fallback
 ✅ NEW: Eye-catching Hinglish titles (like viral videos)
-✅ NEW: SEO-optimized descriptions with 15+ keywords
+✅ NEW: SEO-optimized descriptions with 25+ keywords
 ✅ NEW: Dynamic hashtags (5-7 per video)
 ✅ NEW: User input placeholders for custom content
 ✅ NEW: AI-based image keyword generation (no hardcoded keywords)
@@ -512,7 +512,7 @@ SEO REQUIREMENTS (VERY STRICT – FOLLOW EXACTLY):
    - NO unrelated keywords
    - End description with: "Keywords: ..."
 
-8. Generate EXACTLY 15 SEO KEYWORDS:
+8. Generate EXACTLY 35  SEO KEYWORDS:
    - ALL keywords MUST be derived ONLY from:
      a) Title words
      b) Brands mentioned in description
@@ -558,7 +558,7 @@ SEO REQUIREMENTS (VERY STRICT – FOLLOW EXACTLY):
 
 12. Write Hinglish description first (2–4 lines) explaining the video topic based ONLY on the title.
 
-13. AFTER the description, directly write EXACTLY 15 SEO keywords in VERTICAL format:
+13. AFTER the description, directly write EXACTLY  35 SEO keywords in VERTICAL format:
 - One keyword per line
 - No commas
 - No numbering
@@ -567,7 +567,7 @@ SEO REQUIREMENTS (VERY STRICT – FOLLOW EXACTLY):
 - Each keyword must be a real YouTube search phrase
 - Keywords must be derived ONLY from title + description
 
-14. AFTER the 15 keywords, directly write EXACTLY 6 hashtags:
+14. AFTER the 35 keywords, directly write EXACTLY 6 hashtags:
 - One hashtag per line
 - Derived from title/topic only
 - No generic unrelated tags
@@ -608,7 +608,7 @@ Generate in JSON format:
 {{
     "script": "Hindi narration here...",
     "title": "Eye-catching Hinglish title (use emojis, create curiosity)",
-    "description": "Hinglish description with story summary. Keywords: keyword1, keyword2, keyword3... (15+ keywords related to spiritual, deity name, story theme)",
+    "description": "Hinglish description with story summary. Keywords: keyword1, keyword2, keyword3... (35+ keywords related to spiritual, deity name, story theme)",
     "hashtags": ["#spiritual", "#krishna", "#shorts", "#viral", "#trending"],
     "story_id": "unique-id-based-on-content"
 }}"""
@@ -645,7 +645,7 @@ SEO REQUIREMENTS (MOST IMPORTANT – STRICT):
      "Keywords: keyword1, keyword2, keyword3..."
 
 9. KEYWORDS RULES (VERY STRICT):
-   - Generate EXACTLY 15–18 keywords
+   - Generate EXACTLY 35-40  keywords
    - Keywords MUST be derived ONLY from:
      • Title words
      • Description words
@@ -684,7 +684,7 @@ SEO REQUIREMENTS (MOST IMPORTANT – STRICT):
 
 14. Write Hinglish description first (2–4 lines) explaining the video topic based ONLY on the title.
 
-15. AFTER the description, directly write EXACTLY 15 SEO keywords in VERTICAL format:
+15. AFTER the description, directly write EXACTLY 35 SEO keywords in VERTICAL format:
 - One keyword per line
 - No commas
 - No numbering
@@ -693,7 +693,7 @@ SEO REQUIREMENTS (MOST IMPORTANT – STRICT):
 - Each keyword must be a real YouTube search phrase
 - Keywords must be derived ONLY from title + description
 
-16. AFTER the 15 keywords, directly write EXACTLY 6 hashtags:
+16. AFTER the 35 keywords, directly write EXACTLY 6 hashtags:
 - One hashtag per line
 - Derived from title/topic only
 - No generic unrelated tags
@@ -780,7 +780,7 @@ SEO REQUIREMENTS (MOST IMPORTANT – STRICT):
      "Keywords: keyword1, keyword2, keyword3..."
 
 3. KEYWORDS RULES (STRICT):
-   - Generate EXACTLY 15–18 keywords
+   - Generate EXACTLY 35-40 keywords
    - Keywords MUST be extracted ONLY from:
      • Title
      • Description
@@ -818,7 +818,7 @@ SEO REQUIREMENTS (MOST IMPORTANT – STRICT):
 
 10. Write Hinglish description first (2–4 lines) explaining the video topic based ONLY on the title.
 
-11. AFTER the description, directly write EXACTLY 15 SEO keywords in VERTICAL format:
+11. AFTER the description, directly write EXACTLY 35 SEO keywords in VERTICAL format:
 - One keyword per line
 - No commas
 - No numbering
@@ -827,7 +827,7 @@ SEO REQUIREMENTS (MOST IMPORTANT – STRICT):
 - Each keyword must be a real YouTube search phrase
 - Keywords must be derived ONLY from title + description
 
-12. AFTER the 15 keywords, directly write EXACTLY 6 hashtags:
+12. AFTER the 35 keywords, directly write EXACTLY 6 hashtags:
 - One hashtag per line
 - Derived from title/topic only
 - No generic unrelated tags
@@ -839,7 +839,7 @@ SEO REQUIREMENTS (MOST IMPORTANT – STRICT):
 
 15. Write Hinglish description first (2–4 lines) explaining the video topic based ONLY on the title.
 
-16. AFTER the description, directly write EXACTLY 15 SEO keywords in VERTICAL format:
+16. AFTER the description, directly write EXACTLY 35 SEO keywords in VERTICAL format:
 - One keyword per line
 - No commas
 - No numbering
@@ -848,7 +848,7 @@ SEO REQUIREMENTS (MOST IMPORTANT – STRICT):
 - Each keyword must be a real YouTube search phrase
 - Keywords must be derived ONLY from title + description
 
-17. AFTER the 15 keywords, directly write EXACTLY 6 hashtags:
+17. AFTER the 35 keywords, directly write EXACTLY 6 hashtags:
 - One hashtag per line
 - Derived from title/topic only
 - No generic unrelated tags
@@ -909,13 +909,13 @@ CRITICAL REQUIREMENTS:
 
 SEO REQUIREMENTS:
 5. Viral title: "Success Ka Raaz 💪 | Yeh Suno Aur Badal Jaoge! #Motivation #Shorts"
-6. Hinglish description + 15+ keywords
+6. Hinglish description + 35+ keywords
 7. 5-7 motivational hashtags
 8. SEO OUTPUT FORMAT (VERY STRICT — FOLLOW EXACTLY):
 
 8. Write Hinglish description first (2–4 lines) explaining the video topic based ONLY on the title.
 
-9. AFTER the description, directly write EXACTLY 15 SEO keywords in VERTICAL format:
+9. AFTER the description, directly write EXACTLY 35 SEO keywords in VERTICAL format:
 - One keyword per line
 - No commas
 - No numbering
@@ -924,7 +924,7 @@ SEO REQUIREMENTS:
 - Each keyword must be a real YouTube search phrase
 - Keywords must be derived ONLY from title + description
 
-10. AFTER the 15 keywords, directly write EXACTLY 6 hashtags:
+10. AFTER the 35 keywords, directly write EXACTLY 6 hashtags:
 - One hashtag per line
 - Derived from title/topic only
 - No generic unrelated tags
@@ -976,7 +976,7 @@ Generate in JSON:
 Duration: {target_duration} seconds
 {f'Focus: {user_input}' if user_input else ''}
 
-Create engaging unique content with viral Hinglish title, SEO description with 15+ keywords, and 5-7 hashtags.
+Create engaging unique content with viral Hinglish title, SEO description with 35 keywords, and 5-7 hashtags.
 Add CTA: "{cta}"
 
 Generate in JSON format with: script, title, description, hashtags, story_id"""
