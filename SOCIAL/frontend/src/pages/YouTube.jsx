@@ -111,14 +111,11 @@ const [gitaProgress, setGitaProgress] = useState({
 
 
 // GDrive Reels states
+
 const [gdriveUrl, setGdriveUrl] = useState("");
 const [gdriveProcessing, setGdriveProcessing] = useState(false);
 const [gdriveProgress, setGdriveProgress] = useState(0);
 const [gdriveResult, setGdriveResult] = useState(null);
-const [gdriveHistory, setGdriveHistory] = useState([]);
-const [gdriveNextSerial, setGdriveNextSerial] = useState(1);
-const [gdriveUploadingSerial, setGdriveUploadingSerial] = useState(null);
-
 
 // MrBeast Viral Shorts Generator State
 const [mrBeastConfig, setMrBeastConfig] = useState({
@@ -1457,22 +1454,19 @@ useEffect(() => {
 
 // Fetch GDrive status when tab becomes active
 useEffect(() => {
-  if (activeTab === "gdrive-reels" && user?.user_id) {
-    fetch(`${API_BASE}/api/gdrive-reels/status?user_id=${user.user_id}`, {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    })
-      .then(r => r.json())
+  if (activeTab === 'gdrive-reels' && status?.youtube_connected) {
+    // Check if service is healthy
+    fetch(`${API_BASE}/api/gdrive-reels/health`)
+      .then(res => res.json())
       .then(data => {
-        if (data.success) {
-          setGdriveNextSerial(data.next_serial);
-          setGdriveHistory(data.history || []);
+        console.log('GDrive Reels Health:', data);
+        if (!data.groq_configured) {
+          console.warn('⚠️  GROQ_SPEECH_API not configured');
         }
       })
-      .catch(err => console.error("GDrive status error:", err));
+      .catch(err => console.error('Health check failed:', err));
   }
-}, [activeTab, user?.user_id, token]);
+}, [activeTab, status?.youtube_connected]);
 // ============================================================================
 // PIXABAY TAB - useEffect TO FETCH NICHE INFO (Paste with other useEffect)
 // ============================================================================
@@ -9321,7 +9315,6 @@ onClick={async () => {
     to { transform: rotate(360deg); }
   }
 `}</style>
-
 {activeTab === 'gdrive-reels' && status?.youtube_connected && (
   <div style={{ 
     background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', 
@@ -9358,7 +9351,7 @@ onClick={async () => {
           margin: 0,
           textShadow: '1px 1px 2px rgba(0,0,0,0.2)'
         }}>
-          Paste Drive URL • AI Transcribe • Mistral Rephrase • Edge TTS • Golden Captions • Upload Later
+          Paste Drive URL • AI Transcribe • Rephrase • Voiceover • Captions • Direct YouTube Upload 🚀
         </p>
       </div>
       <div style={{
@@ -9369,7 +9362,7 @@ onClick={async () => {
         border: '2px solid rgba(255,255,255,0.3)'
       }}>
         <div style={{ color: 'white', fontSize: '14px', fontWeight: '700' }}>
-          🔢 Next Serial: #{gdriveNextSerial}
+          ⚡ Direct Upload Mode
         </div>
       </div>
     </div>
@@ -9387,10 +9380,10 @@ onClick={async () => {
         { icon: '⬇️', label: 'Download' },
         { icon: '📝', label: 'Transcribe' },
         { icon: '🤖', label: 'AI Rephrase' },
-        { icon: '🎙️', label: 'Edge TTS' },
+        { icon: '🎙️', label: 'Voiceover' },
         { icon: '✨', label: 'Captions' },
         { icon: '🎵', label: 'BGM Mix' },
-        { icon: '🗄️', label: 'MongoDB' },
+        { icon: '📤', label: 'YouTube' },
       ].map((step, i) => (
         <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
           <div style={{
@@ -9402,9 +9395,11 @@ onClick={async () => {
             minWidth: '72px'
           }}>
             <div style={{ fontSize: '18px' }}>{step.icon}</div>
-            <div style={{ fontSize: '10px', fontWeight: '600', color: '#555', marginTop: '2px' }}>{step.label}</div>
+            <div style={{ fontSize: '10px', fontWeight: '600', color: '#555', marginTop: '2px' }}>
+              {step.label}
+            </div>
           </div>
-          {i < 6 && <span style={{ color: '#aaa', fontSize: '14px' }}>→</span>}
+          {i < 6 && <span style={{ color: 'rgba(255,255,255,0.7)', fontSize: '14px' }}>→</span>}
         </div>
       ))}
     </div>
@@ -9441,9 +9436,16 @@ onClick={async () => {
         Paste Google Drive Video URL
       </h3>
 
-      <label style={{ display: 'block', fontWeight: '600', color: '#333', marginBottom: '8px', fontSize: '14px' }}>
+      <label style={{ 
+        display: 'block', 
+        fontWeight: '600', 
+        color: '#333', 
+        marginBottom: '8px', 
+        fontSize: '14px' 
+      }}>
         📎 Public Drive Link
       </label>
+      
       <input
         type="text"
         value={gdriveUrl}
@@ -9452,22 +9454,50 @@ onClick={async () => {
         disabled={gdriveProcessing}
         style={{
           width: '100%',
-          padding: '12px 16px',
-          borderRadius: '10px',
+          padding: '14px 18px',
+          borderRadius: '12px',
           border: '2px solid #e0e0e0',
           fontSize: '14px',
           outline: 'none',
           boxSizing: 'border-box',
-          transition: 'border-color 0.2s',
+          transition: 'all 0.2s',
           background: gdriveProcessing ? '#f5f5f5' : 'white',
-          fontFamily: 'monospace'
+          fontFamily: 'monospace',
+          color: '#333'
         }}
-        onFocus={e => e.target.style.borderColor = '#43e97b'}
+        onFocus={e => e.target.style.borderColor = '#667eea'}
         onBlur={e => e.target.style.borderColor = '#e0e0e0'}
       />
-      <p style={{ margin: '8px 0 0', fontSize: '12px', color: '#999' }}>
-        ✅ Share settings must be: "Anyone with the link can view"
-      </p>
+      
+      <div style={{ 
+        marginTop: '12px', 
+        display: 'flex', 
+        gap: '20px',
+        flexWrap: 'wrap' 
+      }}>
+        <p style={{ 
+          margin: 0, 
+          fontSize: '12px', 
+          color: '#4caf50',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '6px'
+        }}>
+          <span>✅</span>
+          <span>Share settings: "Anyone with the link can view"</span>
+        </p>
+        <p style={{ 
+          margin: 0, 
+          fontSize: '12px', 
+          color: '#ff9800',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '6px'
+        }}>
+          <span>⚡</span>
+          <span>Direct upload to YouTube (no save to database)</span>
+        </p>
+      </div>
     </div>
 
     {/* PROCESS BUTTON */}
@@ -9499,18 +9529,20 @@ onClick={async () => {
           fontSize: '20px',
           fontWeight: '900'
         }}>2</span>
-        Process & Save to MongoDB
+        Process & Upload to YouTube
       </h3>
 
       <button
         onClick={async () => {
           const trimmedUrl = gdriveUrl.trim();
+          
+          // Validation
           if (!trimmedUrl) {
             alert("❌ Please paste a Google Drive URL first!");
             return;
           }
           if (!trimmedUrl.includes("drive.google.com")) {
-            alert("❌ URL must be a Google Drive link!");
+            alert("❌ URL must be a Google Drive link!\n\nExample:\nhttps://drive.google.com/file/d/FILE_ID/view");
             return;
           }
           
@@ -9518,18 +9550,18 @@ onClick={async () => {
           setGdriveProgress(0);
           setGdriveResult(null);
 
-          // Simulate progress
-          const steps = [10, 22, 35, 48, 60, 72, 85, 95];
-          let tick = 0;
-          const interval = setInterval(() => {
-            if (tick < steps.length) {
-              setGdriveProgress(steps[tick]);
-              tick++;
+          // Simulate progress for UX
+          const progressSteps = [5, 15, 25, 38, 52, 65, 78, 88, 95];
+          let stepIndex = 0;
+          const progressInterval = setInterval(() => {
+            if (stepIndex < progressSteps.length) {
+              setGdriveProgress(progressSteps[stepIndex]);
+              stepIndex++;
             }
-          }, 3500);
+          }, 4000); // Update every 4 seconds
 
           try {
-            console.log('🎬 Starting GDrive processing...', { 
+            console.log('🎬 Processing Google Drive video...', { 
               user_id: user.user_id, 
               drive_url: trimmedUrl 
             });
@@ -9546,30 +9578,43 @@ onClick={async () => {
               })
             });
             
+            clearInterval(progressInterval);
+            
             const data = await res.json();
-            clearInterval(interval);
+            console.log('Response:', data);
+            
             setGdriveProgress(100);
 
             if (data.success) {
               setGdriveResult(data);
-              setGdriveHistory(prev => [data, ...prev]);
-              setGdriveNextSerial(prev => prev + 1);
               setGdriveUrl("");
               
+              // Success alert with YouTube link
               setTimeout(() => {
-                alert(`✅ SUCCESS!\n\nSerial #${data.serial} processed & saved to MongoDB!\n\nTitle: ${data.title}\n\nClick "Upload to YT" in history when ready.`);
+                const youtubeUrl = data.video_url;
+                const confirmOpen = window.confirm(
+                  `✅ SUCCESS!\n\n` +
+                  `Title: ${data.title}\n\n` +
+                  `Video uploaded to YouTube!\n\n` +
+                  `📺 ${youtubeUrl}\n\n` +
+                  `Click OK to open YouTube in new tab.`
+                );
+                
+                if (confirmOpen) {
+                  window.open(youtubeUrl, '_blank');
+                }
               }, 500);
             } else {
               console.error('❌ Failed:', data.error);
-              alert(`❌ FAILED\n\n${data.error}`);
+              alert(`❌ PROCESSING FAILED\n\n${data.error}\n\nPlease check:\n1. Link is public\n2. Video has Hindi audio\n3. File size < 100MB`);
             }
           } catch (err) {
-            clearInterval(interval);
+            clearInterval(progressInterval);
             console.error('❌ Error:', err);
-            alert(`❌ ERROR\n\n${err.message}`);
+            alert(`❌ NETWORK ERROR\n\n${err.message}\n\nPlease check your internet connection.`);
           } finally {
             setGdriveProcessing(false);
-            setTimeout(() => setGdriveProgress(0), 2000);
+            setTimeout(() => setGdriveProgress(0), 3000);
           }
         }}
         disabled={gdriveProcessing || !gdriveUrl.trim()}
@@ -9578,21 +9623,41 @@ onClick={async () => {
           padding: '24px',
           background: gdriveProcessing || !gdriveUrl.trim()
             ? 'linear-gradient(135deg, #95a5a6, #7f8c8d)' 
-            : 'linear-gradient(135deg, #43e97b, #38f9d7)',
+            : 'linear-gradient(135deg, #667eea, #764ba2)',
           color: 'white',
           border: 'none',
           borderRadius: '15px',
           fontSize: '22px',
           fontWeight: '900',
           cursor: (gdriveProcessing || !gdriveUrl.trim()) ? 'not-allowed' : 'pointer',
-          boxShadow: '0 8px 32px rgba(67,233,123,0.4)',
+          boxShadow: (gdriveProcessing || !gdriveUrl.trim()) 
+            ? 'none'
+            : '0 8px 32px rgba(102,126,234,0.4)',
           opacity: (gdriveProcessing || !gdriveUrl.trim()) ? 0.7 : 1,
           transition: 'all 0.3s',
-          textTransform: 'uppercase'
+          textTransform: 'uppercase',
+          letterSpacing: '1px'
+        }}
+        onMouseEnter={e => {
+          if (!gdriveProcessing && gdriveUrl.trim()) {
+            e.target.style.transform = 'translateY(-2px)';
+            e.target.style.boxShadow = '0 12px 40px rgba(102,126,234,0.5)';
+          }
+        }}
+        onMouseLeave={e => {
+          e.target.style.transform = 'translateY(0)';
+          e.target.style.boxShadow = (gdriveProcessing || !gdriveUrl.trim()) 
+            ? 'none'
+            : '0 8px 32px rgba(102,126,234,0.4)';
         }}
       >
         {gdriveProcessing ? (
-          <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '15px' }}>
+          <span style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center', 
+            gap: '15px' 
+          }}>
             <span style={{ 
               display: 'inline-block', 
               width: '24px', 
@@ -9605,104 +9670,150 @@ onClick={async () => {
             PROCESSING...
           </span>
         ) : (
-          '⚙️ PROCESS VIDEO'
+          '⚙️ PROCESS & UPLOAD TO YOUTUBE'
         )}
       </button>
 
+      {/* PROGRESS BAR */}
       {gdriveProcessing && (
         <div style={{ marginTop: '25px' }}>
           <div style={{
             width: '100%',
-            height: '40px',
+            height: '45px',
             background: '#e0e0e0',
-            borderRadius: '20px',
+            borderRadius: '25px',
             overflow: 'hidden',
-            position: 'relative'
+            position: 'relative',
+            boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.1)'
           }}>
             <div style={{
               width: `${gdriveProgress}%`,
               height: '100%',
-              background: 'linear-gradient(90deg, #43e97b, #38f9d7)',
-              transition: 'width 0.5s',
+              background: 'linear-gradient(90deg, #667eea, #764ba2)',
+              transition: 'width 0.5s ease',
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'center'
+              justifyContent: 'center',
+              position: 'relative'
             }}>
               <span style={{
                 color: 'white',
                 fontWeight: '800',
-                fontSize: '16px'
+                fontSize: '18px',
+                textShadow: '1px 1px 2px rgba(0,0,0,0.3)'
               }}>
                 {gdriveProgress}%
               </span>
             </div>
           </div>
+          
           <p style={{ 
             textAlign: 'center', 
-            marginTop: '15px', 
+            marginTop: '18px', 
             color: '#666',
-            fontSize: '14px',
-            lineHeight: '1.6'
+            fontSize: '15px',
+            lineHeight: '1.6',
+            fontWeight: '600'
           }}>
-            {gdriveProgress < 20  ? "⬇️ Downloading video from Drive..." :
-             gdriveProgress < 40  ? "📝 Transcribing audio with Whisper..." :
-             gdriveProgress < 55  ? "🤖 AI rephrasing script with Mistral..." :
+            {gdriveProgress < 15  ? "⬇️ Downloading video from Google Drive..." :
+             gdriveProgress < 30  ? "📝 Transcribing audio with Groq Whisper..." :
+             gdriveProgress < 50  ? "🤖 AI rephrasing script with Groq Llama..." :
              gdriveProgress < 70  ? "🎙️ Generating Hindi voiceover (Edge TTS)..." :
-             gdriveProgress < 88  ? "✨ Burning golden captions + mixing BGM..." :
-                                    "🗄️ Saving to MongoDB..."}
+             gdriveProgress < 90  ? "✨ Burning golden captions + mixing BGM..." :
+                                    "📤 Uploading directly to YouTube..."}
           </p>
         </div>
       )}
 
-      {gdriveResult && gdriveResult.success && (
+      {/* SUCCESS RESULT */}
+      {gdriveResult && gdriveResult.success && !gdriveProcessing && (
         <div style={{
           marginTop: '25px',
           padding: '25px',
           background: 'linear-gradient(135deg, #e8f5e9, #c8e6c9)',
           borderRadius: '15px',
-          border: '3px solid #4caf50'
+          border: '3px solid #4caf50',
+          animation: 'fadeIn 0.5s ease'
         }}>
           <h4 style={{ 
             color: '#2e7d32', 
             marginBottom: '18px', 
-            fontSize: '20px', 
-            fontWeight: '800'
+            fontSize: '22px', 
+            fontWeight: '800',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px'
           }}>
-            ✅ Serial #{gdriveResult.serial} — Processed & Saved!
+            <span style={{ fontSize: '28px' }}>🎉</span>
+            Successfully Uploaded to YouTube!
           </h4>
           
           <div style={{
-            padding: '15px',
+            padding: '18px',
             background: 'white',
-            borderRadius: '10px',
-            marginBottom: '15px'
+            borderRadius: '12px',
+            marginBottom: '18px'
           }}>
-            <div style={{ fontSize: '13px', color: '#666', marginBottom: '8px', fontWeight: '600' }}>
-              📝 VIRAL TITLE:
+            <div style={{ 
+              fontSize: '13px', 
+              color: '#666', 
+              marginBottom: '8px', 
+              fontWeight: '600',
+              textTransform: 'uppercase',
+              letterSpacing: '0.5px'
+            }}>
+              📝 Video Title
             </div>
-            <div style={{ fontSize: '16px', fontWeight: '700', color: '#1a1a2e', marginBottom: '12px' }}>
+            <div style={{ 
+              fontSize: '18px', 
+              fontWeight: '700', 
+              color: '#1a1a2e', 
+              marginBottom: '15px',
+              lineHeight: '1.4'
+            }}>
               {gdriveResult.title}
             </div>
             
-            <div style={{ fontSize: '13px', color: '#666', marginBottom: '8px', fontWeight: '600' }}>
-              📄 DESCRIPTION:
+            <div style={{ 
+              fontSize: '13px', 
+              color: '#666', 
+              marginBottom: '8px', 
+              fontWeight: '600',
+              textTransform: 'uppercase',
+              letterSpacing: '0.5px'
+            }}>
+              📄 Description
             </div>
-            <div style={{ fontSize: '13px', color: '#555', lineHeight: '1.6', marginBottom: '12px' }}>
-              {gdriveResult.description?.substring(0, 150)}...
+            <div style={{ 
+              fontSize: '14px', 
+              color: '#555', 
+              lineHeight: '1.6', 
+              marginBottom: '15px' 
+            }}>
+              {gdriveResult.description?.substring(0, 200)}
+              {gdriveResult.description?.length > 200 && '...'}
             </div>
             
-            <div style={{ fontSize: '13px', color: '#666', marginBottom: '8px', fontWeight: '600' }}>
-              🏷️ HASHTAGS:
+            <div style={{ 
+              fontSize: '13px', 
+              color: '#666', 
+              marginBottom: '8px', 
+              fontWeight: '600',
+              textTransform: 'uppercase',
+              letterSpacing: '0.5px'
+            }}>
+              🏷️ Hashtags
             </div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
               {gdriveResult.tags?.map((tag, idx) => (
                 <span key={idx} style={{
-                  background: '#e3f2fd',
-                  color: '#1976d2',
-                  padding: '4px 10px',
-                  borderRadius: '12px',
+                  background: 'linear-gradient(135deg, #e3f2fd, #bbdefb)',
+                  color: '#1565c0',
+                  padding: '6px 12px',
+                  borderRadius: '15px',
                   fontSize: '12px',
-                  fontWeight: '600'
+                  fontWeight: '700',
+                  border: '1px solid #90caf9'
                 }}>
                   {tag}
                 </span>
@@ -9710,216 +9821,114 @@ onClick={async () => {
             </div>
           </div>
           
+          {/* Stats Grid */}
           <div style={{ 
             display: 'grid', 
             gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', 
-            gap: '12px'
+            gap: '12px',
+            marginBottom: '18px'
           }}>
-            <div style={{ background: 'white', padding: '12px', borderRadius: '8px' }}>
-              <div style={{ fontSize: '11px', color: '#666', marginBottom: '4px' }}>SERIAL</div>
-              <div style={{ fontSize: '13px', fontWeight: '700' }}>#{gdriveResult.serial}</div>
+            <div style={{ 
+              background: 'white', 
+              padding: '14px', 
+              borderRadius: '10px',
+              border: '1px solid #e0e0e0'
+            }}>
+              <div style={{ 
+                fontSize: '11px', 
+                color: '#999', 
+                marginBottom: '6px',
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px'
+              }}>
+                Duration
+              </div>
+              <div style={{ fontSize: '18px', fontWeight: '800', color: '#333' }}>
+                {gdriveResult.duration}s
+              </div>
             </div>
-            <div style={{ background: 'white', padding: '12px', borderRadius: '8px' }}>
-              <div style={{ fontSize: '11px', color: '#666', marginBottom: '4px' }}>DURATION</div>
-              <div style={{ fontSize: '13px', fontWeight: '700' }}>{gdriveResult.duration}s</div>
+            
+            <div style={{ 
+              background: 'white', 
+              padding: '14px', 
+              borderRadius: '10px',
+              border: '1px solid #e0e0e0'
+            }}>
+              <div style={{ 
+                fontSize: '11px', 
+                color: '#999', 
+                marginBottom: '6px',
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px'
+              }}>
+                Processing Time
+              </div>
+              <div style={{ fontSize: '18px', fontWeight: '800', color: '#333' }}>
+                {gdriveResult.processing_time}s
+              </div>
             </div>
-            <div style={{ background: 'white', padding: '12px', borderRadius: '8px' }}>
-              <div style={{ fontSize: '11px', color: '#666', marginBottom: '4px' }}>STATUS</div>
-              <div style={{ fontSize: '13px', fontWeight: '700', color: '#f9a825' }}>🟡 Saved</div>
+            
+            <div style={{ 
+              background: 'white', 
+              padding: '14px', 
+              borderRadius: '10px',
+              border: '1px solid #e0e0e0'
+            }}>
+              <div style={{ 
+                fontSize: '11px', 
+                color: '#999', 
+                marginBottom: '6px',
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px'
+              }}>
+                Status
+              </div>
+              <div style={{ 
+                fontSize: '14px', 
+                fontWeight: '800', 
+                color: '#4caf50',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}>
+                <span style={{ fontSize: '18px' }}>🟢</span>
+                LIVE
+              </div>
             </div>
           </div>
-        </div>
-      )}
-    </div>
-
-    {/* HISTORY TABLE */}
-    <div style={{
-      background: 'rgba(255,255,255,0.98)',
-      borderRadius: '18px',
-      padding: '35px',
-      marginBottom: '30px',
-      boxShadow: '0 8px 32px rgba(0,0,0,0.1)'
-    }}>
-      <h3 style={{ 
-        color: '#1a1a2e', 
-        marginBottom: '25px', 
-        fontSize: '26px', 
-        fontWeight: '800',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '12px'
-      }}>
-        <span style={{ 
-          background: 'linear-gradient(135deg, #667eea, #764ba2)',
-          color: 'white',
-          borderRadius: '12px',
-          width: '42px',
-          height: '42px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontSize: '20px',
-          fontWeight: '900'
-        }}>3</span>
-        Processed Reels History
-      </h3>
-
-      {gdriveHistory.length === 0 ? (
-        <p style={{ 
-          color: '#999', 
-          fontSize: '14px', 
-          textAlign: 'center', 
-          padding: '20px 0', 
-          margin: 0 
-        }}>
-          No reels processed yet. Paste a Drive URL above and click Process.
-        </p>
-      ) : (
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ 
-            width: '100%', 
-            borderCollapse: 'collapse', 
-            fontSize: '13px' 
-          }}>
-            <thead>
-              <tr style={{ borderBottom: '2px solid #eee' }}>
-                {['#', 'Title', 'Duration', 'Status', 'Action'].map(h => (
-                  <th key={h} style={{ 
-                    textAlign: 'left', 
-                    padding: '10px 8px', 
-                    color: '#888', 
-                    fontWeight: '600', 
-                    fontSize: '11px', 
-                    textTransform: 'uppercase' 
-                  }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {gdriveHistory.map((row, i) => (
-                <tr key={row.serial || i} style={{ 
-                  borderBottom: '1px solid #f0f0f0', 
-                  background: i % 2 === 0 ? '#fafafa' : 'white' 
-                }}>
-                  <td style={{ 
-                    padding: '10px 8px', 
-                    fontWeight: '700', 
-                    color: '#43e97b' 
-                  }}>
-                    #{row.serial}
-                  </td>
-                  <td style={{ 
-                    padding: '10px 8px', 
-                    color: '#333', 
-                    maxWidth: '220px', 
-                    overflow: 'hidden', 
-                    textOverflow: 'ellipsis', 
-                    whiteSpace: 'nowrap' 
-                  }}>
-                    {row.title || '—'}
-                  </td>
-                  <td style={{ padding: '10px 8px', color: '#666' }}>
-                    {row.duration ? `${row.duration}s` : '—'}
-                  </td>
-                  <td style={{ padding: '10px 8px' }}>
-                    {row.uploaded && row.video_url ? (
-                      <a 
-                        href={row.video_url} 
-                        target="_blank" 
-                        rel="noreferrer"
-                        style={{ 
-                          color: '#e53935', 
-                          fontWeight: '600', 
-                          textDecoration: 'none' 
-                        }}
-                      >
-                        🟢 Live
-                      </a>
-                    ) : (
-                      <span style={{ color: '#f9a825', fontWeight: '600' }}>
-                        🟡 Saved
-                      </span>
-                    )}
-                  </td>
-                  <td style={{ padding: '10px 8px' }}>
-                    {row.uploaded ? (
-                      <span style={{ color: '#aaa', fontSize: '12px' }}>
-                        Uploaded ✓
-                      </span>
-                    ) : (
-                      <button
-                        onClick={async () => {
-                          setGdriveUploadingSerial(row.serial);
-                          try {
-                            console.log('📤 Uploading serial:', row.serial);
-                            
-                            const res = await fetch(`${API_BASE}/api/gdrive-reels/upload-to-youtube`, {
-                              method: "POST",
-                              headers: { 
-                                "Content-Type": "application/json",
-                                "Authorization": `Bearer ${token}`
-                              },
-                              body: JSON.stringify({ 
-                                user_id: user.user_id, 
-                                serial: row.serial 
-                              })
-                            });
-                            
-                            const data = await res.json();
-                            
-                            if (data.success) {
-                              setGdriveHistory(prev =>
-                                prev.map(h =>
-                                  h.serial === row.serial
-                                    ? { 
-                                        ...h, 
-                                        uploaded: true, 
-                                        video_id: data.video_id, 
-                                        video_url: data.video_url 
-                                      }
-                                    : h
-                                )
-                              );
-                              
-                              setTimeout(() => {
-                                alert(`✅ UPLOADED!\n\nSerial #${row.serial}\n\n📺 ${data.video_url}`);
-                              }, 300);
-                            } else {
-                              alert(`❌ Upload failed:\n\n${data.error || "Unknown error"}`);
-                            }
-                          } catch (err) {
-                            console.error('Upload error:', err);
-                            alert(`❌ Network error:\n\n${err.message}`);
-                          } finally {
-                            setGdriveUploadingSerial(null);
-                          }
-                        }}
-                        disabled={gdriveUploadingSerial === row.serial}
-                        style={{
-                          padding: '6px 14px',
-                          borderRadius: '8px',
-                          border: 'none',
-                          background: gdriveUploadingSerial === row.serial 
-                            ? '#ccc' 
-                            : 'linear-gradient(135deg, #e53935, #ff5252)',
-                          color: 'white',
-                          fontSize: '12px',
-                          fontWeight: '600',
-                          cursor: gdriveUploadingSerial === row.serial 
-                            ? 'not-allowed' 
-                            : 'pointer',
-                        }}
-                      >
-                        {gdriveUploadingSerial === row.serial 
-                          ? '⏳ Uploading…' 
-                          : '📤 Upload to YT'}
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          
+          {/* YouTube Link Button */}
+          <a
+            href={gdriveResult.video_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              display: 'block',
+              width: '100%',
+              padding: '16px',
+              background: 'linear-gradient(135deg, #e53935, #ff5252)',
+              color: 'white',
+              textAlign: 'center',
+              borderRadius: '12px',
+              fontSize: '16px',
+              fontWeight: '800',
+              textDecoration: 'none',
+              boxShadow: '0 4px 12px rgba(229,57,53,0.3)',
+              transition: 'all 0.3s',
+              textTransform: 'uppercase',
+              letterSpacing: '1px'
+            }}
+            onMouseEnter={e => {
+              e.target.style.transform = 'translateY(-2px)';
+              e.target.style.boxShadow = '0 6px 20px rgba(229,57,53,0.4)';
+            }}
+            onMouseLeave={e => {
+              e.target.style.transform = 'translateY(0)';
+              e.target.style.boxShadow = '0 4px 12px rgba(229,57,53,0.3)';
+            }}
+          >
+            📺 WATCH ON YOUTUBE
+          </a>
         </div>
       )}
     </div>
@@ -9933,34 +9942,66 @@ onClick={async () => {
       backdropFilter: 'blur(10px)',
       border: '2px solid rgba(255,255,255,0.2)'
     }}>
-      <h3 style={{ marginBottom: '20px', fontSize: '24px', fontWeight: '800' }}>
-        ✨ How It Works
+      <h3 style={{ 
+        marginBottom: '20px', 
+        fontSize: '24px', 
+        fontWeight: '800',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '12px'
+      }}>
+        <span style={{ fontSize: '28px' }}>✨</span>
+        How It Works
       </h3>
-      <div style={{ display: 'grid', gap: '10px' }}>
+      
+      <div style={{ display: 'grid', gap: '12px' }}>
         {[
-          '📎 Paste any PUBLIC Google Drive video link (share settings: "Anyone with link can view")',
-          '⬇️ Backend downloads video directly (no API key needed)',
-          '📝 Whisper CLI transcribes audio → Google STT as fallback',
-          '🤖 Mistral AI rephrases (~20% changes) + generates viral Hinglish title',
-          '🔍 Creates 15 SEO keywords + 6 hashtags automatically',
-          '🎙️ Edge TTS generates Hindi voiceover (random voice, 1.15x speed)',
-          '✨ Burns golden captions (SRT) onto video',
-          '🎵 Mixes voiceover + BGM at 8% volume (clear voice)',
-          '🗄️ Saves to MongoDB with auto-incrementing serial number',
-          '📤 Upload to YouTube LATER whenever ready (uses Pixabay credentials logic)',
-          '🔄 Re-processes video on upload (fresh generation each time)',
-          '🎯 NO folder listing, NO Drive API, NO ElevenLabs needed'
+          'Paste any PUBLIC Google Drive video link',
+          'Backend downloads video directly (no Drive API needed)',
+          'Groq Whisper transcribes audio to Hindi text',
+          'Groq Llama AI rephrases into viral script (~20% changes)',
+          'Creates viral Hinglish title + SEO keywords + hashtags',
+          'Edge TTS generates natural Hindi voiceover (1.15x speed)',
+          'Burns golden captions (dark gold color with outline)',
+          'Mixes voiceover + royalty-free BGM (8% volume)',
+          'Uploads DIRECTLY to your YouTube channel',
+          'Video goes LIVE immediately - no database save!',
+          'Perfect for viral Hindi Shorts in 30-90 seconds'
         ].map((feature, idx) => (
           <div key={idx} style={{
             display: 'flex',
-            gap: '12px',
-            alignItems: 'center',
+            gap: '14px',
+            alignItems: 'flex-start',
             background: 'rgba(255,255,255,0.1)',
-            padding: '12px',
-            borderRadius: '8px'
-          }}>
-            <span style={{ fontSize: '20px' }}>✓</span>
-            <span style={{ fontSize: '14px' }}>{feature}</span>
+            padding: '14px 16px',
+            borderRadius: '10px',
+            backdropFilter: 'blur(5px)',
+            border: '1px solid rgba(255,255,255,0.1)',
+            transition: 'all 0.2s'
+          }}
+          onMouseEnter={e => {
+            e.currentTarget.style.background = 'rgba(255,255,255,0.15)';
+            e.currentTarget.style.transform = 'translateX(5px)';
+          }}
+          onMouseLeave={e => {
+            e.currentTarget.style.background = 'rgba(255,255,255,0.1)';
+            e.currentTarget.style.transform = 'translateX(0)';
+          }}
+          >
+            <span style={{ 
+              fontSize: '20px', 
+              flexShrink: 0,
+              marginTop: '2px'
+            }}>
+              ✓
+            </span>
+            <span style={{ 
+              fontSize: '14px', 
+              lineHeight: '1.6',
+              fontWeight: '500'
+            }}>
+              {feature}
+            </span>
           </div>
         ))}
       </div>
@@ -9970,12 +10011,25 @@ onClick={async () => {
     <style>{`
       @keyframes spin {
         from { transform: rotate(0deg); }
-        to   { transform: rotate(360deg); }
+        to { transform: rotate(360deg); }
+      }
+      
+      @keyframes fadeIn {
+        from { 
+          opacity: 0; 
+          transform: translateY(20px); 
+        }
+        to { 
+          opacity: 1; 
+          transform: translateY(0); 
+        }
       }
     `}</style>
 
   </div>
 )}
+
+{/* -------------------------------- GDRIVE REELS CODE END -------------------------------- */}
 
 {/* --------------------------------GDRIVE REELS CODE END---------------------------------------------------- */}
 

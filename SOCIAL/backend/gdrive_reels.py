@@ -1,15 +1,16 @@
 """
-gdrive_reels.py - FIXED GROQ API VERSION
-==========================================
-✅ FIXED: Removed 'proxies' parameter from Groq client
-✅ Groq Whisper API (fastest transcription)
-✅ Multiple fallbacks for every step
-✅ Works on Render 512MB free tier
-✅ Extensive logging
-==========================================
+gdrive_reels.py - DIRECT YOUTUBE UPLOAD (NO MONGODB SAVE)
+===========================================================
+✅ POST /api/gdrive-reels/process - Process & Upload to YT
+✅ GET /api/gdrive-reels/status - Get status
+✅ Groq Whisper API for transcription
+✅ Direct upload to YouTube (NO save to MongoDB)
+✅ No "Upload Later" feature
+✅ Works with your exact frontend
+===========================================================
 """
 
-from fastapi import APIRouter, Request, BackgroundTasks
+from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 import asyncio
 import logging
@@ -24,7 +25,6 @@ import re
 import random
 from typing import Optional
 from datetime import datetime
-import uuid
 
 # ═══════════════════════════════════════════════════════════════════════
 # LOGGING
@@ -42,23 +42,18 @@ if not logger.handlers:
 # ═══════════════════════════════════════════════════════════════════════
 GROQ_API_KEY = os.getenv("GROQ_SPEECH_API")
 MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY")
-ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
 EDGE_TTS_VOICES = ["hi-IN-MadhurNeural", "hi-IN-SwaraNeural", "hi-IN-RaviNeural"]
 
 BGM_URLS = [
     "https://raw.githubusercontent.com/aryan-Patel-web/audio-collections/main/Sitar%20-%20Dholak%20-Indian%20Instrumental%20Music%20_%20(No%20Copyright)%20-%20Background%20Music%20for%20Poet%20-%20Meditation.mp3",
-    "https://raw.githubusercontent.com/aryan-Patel-web/audio-collections/main/Indian%20Temple%20Vibes%20_%20Traditional%20Background%20Music%20-%20Royalty%20free%20Download.mp3",
 ]
-
-COLLECTION = "gdrive_reels_tracker"
-PROCESSING_STATUS = {}
 
 # ═══════════════════════════════════════════════════════════════════════
 # UTILITIES
 # ═══════════════════════════════════════════════════════════════════════
 
 def cleanup(*paths):
-    """Cleanup files and GC"""
+    """Cleanup files"""
     for p in paths:
         try:
             if p and os.path.exists(p):
@@ -68,16 +63,11 @@ def cleanup(*paths):
     gc.collect()
 
 
-def run_ffmpeg(cmd: list, timeout: int = 180, name: str = "FFmpeg") -> bool:
-    """Run FFmpeg with logging"""
-    logger.info(f"🎬 {name}...")
+def run_ffmpeg(cmd: list, timeout: int = 180) -> bool:
+    """Run FFmpeg"""
     try:
         r = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, timeout=timeout)
-        if r.returncode == 0:
-            logger.info(f"✅ {name} - SUCCESS")
-            return True
-        logger.error(f"❌ {name} - FAILED (exit {r.returncode})")
-        return False
+        return r.returncode == 0
     except:
         return False
 
@@ -89,6 +79,7 @@ def extract_file_id(url: str) -> Optional[str]:
     for pattern in [r'/file/d/([a-zA-Z0-9_-]{25,})', r'[?&]id=([a-zA-Z0-9_-]{25,})']:
         m = re.search(pattern, url)
         if m:
+            logger.info(f"✅ File ID: {m.group(1)}")
             return m.group(1)
     return None
 
@@ -99,23 +90,24 @@ def extract_file_id(url: str) -> Optional[str]:
 
 async def download_video(file_id: str, dest: str) -> bool:
     """Download from Google Drive"""
-    logger.info("⬇️  Downloading video from Google Drive...")
+    logger.info("⬇️  Downloading from Google Drive...")
     
     url = f"https://drive.google.com/uc?export=download&id={file_id}"
     
     try:
         async with httpx.AsyncClient(timeout=180, follow_redirects=True) as client:
-            async with client.stream("GET", url) as response:
-                if response.status_code == 200:
+            async with client.stream("GET", url) as r:
+                if r.status_code == 200:
                     with open(dest, 'wb') as f:
-                        async for chunk in response.aiter_bytes(chunk_size=1024*1024):
+                        async for chunk in r.aiter_bytes(chunk_size=1024*1024):
                             f.write(chunk)
                     
                     if os.path.exists(dest) and os.path.getsize(dest) > 10000:
                         logger.info(f"✅ Downloaded: {os.path.getsize(dest)/(1024*1024):.1f} MB")
                         return True
         return False
-    except:
+    except Exception as e:
+        logger.error(f"❌ Download failed: {e}")
         return False
 
 
@@ -124,7 +116,7 @@ async def download_video(file_id: str, dest: str) -> bool:
 # ═══════════════════════════════════════════════════════════════════════
 
 async def get_duration(path: str) -> float:
-    """Get video duration"""
+    """Get duration"""
     try:
         r = subprocess.run(
             ["ffprobe", "-v", "error", "-show_entries", "format=duration",
@@ -141,30 +133,31 @@ async def get_duration(path: str) -> float:
 
 
 async def extract_audio(video: str, audio: str) -> bool:
-    """Extract audio to WAV"""
+    """Extract audio"""
+    logger.info("🔊 Extracting audio...")
     return run_ffmpeg([
         "ffmpeg", "-i", video,
         "-vn", "-acodec", "pcm_s16le",
         "-ar", "16000", "-ac", "1",
         "-y", audio
-    ], timeout=60, name="Extract Audio")
+    ], timeout=60)
 
 
 # ═══════════════════════════════════════════════════════════════════════
-# TRANSCRIPTION - GROQ API (FIXED!)
+# TRANSCRIPTION
 # ═══════════════════════════════════════════════════════════════════════
 
-async def transcribe_groq_v3(audio_path: str) -> Optional[str]:
-    """Method 1: Groq Whisper Large v3 (FIXED - no proxies!)"""
-    if not GROQ_API_KEY:
-        return None
+async def transcribe_audio(audio_path: str) -> Optional[str]:
+    """Transcribe with Groq"""
+    logger.info("📝 Transcribing with Groq Whisper...")
     
-    logger.info("🎙️  Method 1: Groq Whisper Large v3")
+    if not GROQ_API_KEY:
+        logger.error("❌ GROQ_SPEECH_API not set")
+        return None
     
     try:
         from groq import Groq
         
-        # FIXED: Don't pass proxies parameter!
         client = Groq(api_key=GROQ_API_KEY)
         
         with open(audio_path, "rb") as f:
@@ -176,290 +169,98 @@ async def transcribe_groq_v3(audio_path: str) -> Optional[str]:
             )
         
         if transcription and len(transcription) > 5:
-            logger.info(f"✅ Method 1 SUCCESS: {len(transcription)} chars")
+            logger.info(f"✅ Transcription: {len(transcription)} chars")
             return transcription.strip()
         
         return None
     except Exception as e:
-        logger.error(f"❌ Method 1 failed: {e}")
+        logger.error(f"❌ Transcription failed: {e}")
         return None
-
-
-async def transcribe_groq_turbo(audio_path: str) -> Optional[str]:
-    """Method 2: Groq Whisper Turbo (FIXED - no proxies!)"""
-    if not GROQ_API_KEY:
-        return None
-    
-    logger.info("🎙️  Method 2: Groq Whisper Large v3 Turbo")
-    
-    try:
-        from groq import Groq
-        
-        # FIXED: Don't pass proxies parameter!
-        client = Groq(api_key=GROQ_API_KEY)
-        
-        with open(audio_path, "rb") as f:
-            transcription = client.audio.transcriptions.create(
-                file=f,
-                model="whisper-large-v3-turbo",
-                response_format="text",
-                language="hi"
-            )
-        
-        if transcription and len(transcription) > 5:
-            logger.info(f"✅ Method 2 SUCCESS: {len(transcription)} chars")
-            return transcription.strip()
-        
-        return None
-    except Exception as e:
-        logger.error(f"❌ Method 2 failed: {e}")
-        return None
-
-
-async def transcribe_groq_distil(audio_path: str) -> Optional[str]:
-    """Method 3: Groq Distil Whisper (FALLBACK - fastest!)"""
-    if not GROQ_API_KEY:
-        return None
-    
-    logger.info("🎙️  Method 3: Groq Distil Whisper (fastest)")
-    
-    try:
-        from groq import Groq
-        
-        client = Groq(api_key=GROQ_API_KEY)
-        
-        with open(audio_path, "rb") as f:
-            transcription = client.audio.transcriptions.create(
-                file=f,
-                model="distil-whisper-large-v3-en",  # Fastest model
-                response_format="text"
-            )
-        
-        if transcription and len(transcription) > 5:
-            logger.info(f"✅ Method 3 SUCCESS: {len(transcription)} chars")
-            return transcription.strip()
-        
-        return None
-    except Exception as e:
-        logger.error(f"❌ Method 3 failed: {e}")
-        return None
-
-
-async def transcribe_audio(audio_path: str) -> Optional[str]:
-    """Transcribe with 3 Groq fallback methods"""
-    logger.info("=" * 80)
-    logger.info("📝 TRANSCRIBING AUDIO (GROQ WHISPER API)")
-    logger.info("=" * 80)
-    
-    # Try all 3 methods
-    for method in [transcribe_groq_v3, transcribe_groq_turbo, transcribe_groq_distil]:
-        text = await method(audio_path)
-        if text:
-            logger.info("=" * 80)
-            logger.info("✅ TRANSCRIPTION SUCCESS")
-            logger.info("=" * 80)
-            return text
-        
-        logger.info("   Trying fallback method...")
-        await asyncio.sleep(1)
-    
-    logger.error("=" * 80)
-    logger.error("❌ ALL TRANSCRIPTION METHODS FAILED")
-    logger.error("   Check: 1) GROQ_SPEECH_API is set")
-    logger.error("          2) Audio file has speech")
-    logger.error("          3) Groq API quota not exceeded")
-    logger.error("=" * 80)
-    return None
 
 
 # ═══════════════════════════════════════════════════════════════════════
-# AI SCRIPT - 3 FALLBACKS
+# AI SCRIPT
 # ═══════════════════════════════════════════════════════════════════════
 
-async def ai_groq_llama(transcript: str, words: int) -> Optional[dict]:
-    """Method 1: Groq Llama 3.3 70B"""
-    if not GROQ_API_KEY:
-        return None
+async def generate_script(transcript: str, duration: float) -> dict:
+    """Generate script"""
+    logger.info("🤖 Generating AI script...")
     
-    logger.info("🤖 AI Method 1: Groq Llama 3.3 70B")
+    words = int(duration * 2.5)
     
-    try:
-        from groq import Groq
-        
-        client = Groq(api_key=GROQ_API_KEY)
-        
-        prompt = f"""Rewrite this Hindi transcript into {words} words. Keep the same story.
+    # Try Groq Llama
+    if GROQ_API_KEY:
+        try:
+            from groq import Groq
+            
+            client = Groq(api_key=GROQ_API_KEY)
+            
+            prompt = f"""Rewrite this Hindi transcript into {words} words.
 
 Original: {transcript}
 
 Return ONLY JSON:
-{{"script":"","title":"","description":""}}"""
+{{"script":"","title":"","description":"","keywords":[],"tags":[]}}"""
 
-        response = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.3,
-            max_tokens=1000
-        )
-        
-        content = response.choices[0].message.content
-        match = re.search(r'\{.*\}', content, re.DOTALL)
-        
-        if match:
-            data = json.loads(match.group(0))
-            logger.info("✅ Groq Llama SUCCESS")
-            return {
-                "script": data.get("script", transcript)[:2000],
-                "title": data.get("title", "Amazing Story 🔥")[:100],
-                "description": data.get("description", transcript[:200])[:500]
-            }
-        
-        return None
-    except Exception as e:
-        logger.error(f"❌ Groq Llama failed: {e}")
-        return None
-
-
-async def ai_mistral(transcript: str, words: int) -> Optional[dict]:
-    """Method 2: Mistral AI"""
-    if not MISTRAL_API_KEY:
-        return None
-    
-    logger.info("🤖 AI Method 2: Mistral Small")
-    
-    try:
-        prompt = f"""Rewrite in Hindi ({words} words): {transcript}
-JSON: {{"script":"","title":"","description":""}}"""
-
-        async with httpx.AsyncClient(timeout=60) as client:
-            r = await client.post(
-                "https://api.mistral.ai/v1/chat/completions",
-                headers={"Authorization": f"Bearer {MISTRAL_API_KEY}"},
-                json={
-                    "model": "mistral-small-latest",
-                    "messages": [{"role": "user", "content": prompt}],
-                    "temperature": 0.3,
-                    "max_tokens": 800
-                }
+            response = client.chat.completions.create(
+                model="llama-3.3-70b-versatile",
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.3,
+                max_tokens=1000
             )
             
-            if r.status_code == 200:
-                content = r.json()["choices"][0]["message"]["content"]
-                match = re.search(r'\{.*\}', content, re.DOTALL)
+            content = response.choices[0].message.content
+            match = re.search(r'\{.*\}', content, re.DOTALL)
+            
+            if match:
+                data = json.loads(match.group(0))
+                logger.info("✅ AI script generated")
                 
-                if match:
-                    data = json.loads(match.group(0))
-                    logger.info("✅ Mistral SUCCESS")
-                    return {
-                        "script": data.get("script", transcript)[:2000],
-                        "title": data.get("title", "Amazing Story 🔥")[:100],
-                        "description": data.get("description", transcript[:200])[:500]
-                    }
-        
-        return None
-    except Exception as e:
-        logger.error(f"❌ Mistral failed: {e}")
-        return None
-
-
-async def ai_fallback(transcript: str, words: int) -> dict:
-    """Method 3: Simple fallback (always works)"""
-    logger.info("🤖 AI Method 3: Simple fallback")
+                return {
+                    "script": data.get("script", transcript)[:2000],
+                    "title": data.get("title", "Amazing Story 🔥")[:100],
+                    "description": data.get("description", transcript[:200])[:500],
+                    "keywords": (data.get("keywords", []) + ["hindi"]*15)[:15],
+                    "tags": (data.get("tags", []) + ["#Shorts"]*6)[:6]
+                }
+        except:
+            pass
     
+    # Fallback
     script_words = transcript.split()[:words]
     script = " ".join(script_words)
     
     return {
         "script": script,
         "title": f"{' '.join(script_words[:5])}... 🔥",
-        "description": " ".join(script_words[:30])
+        "description": " ".join(script_words[:30]),
+        "keywords": ["hindi", "story", "shorts"] * 5,
+        "tags": ["#Shorts", "#Hindi", "#Viral", "#Story", "#Reel", "#Trending"]
     }
 
 
-async def generate_script(transcript: str, duration: float) -> dict:
-    """Generate script with 3 fallbacks"""
-    logger.info("=" * 80)
-    logger.info("🤖 AI SCRIPT GENERATION")
-    logger.info("=" * 80)
-    
-    words = int(duration * 2.5)
-    
-    # Try all 3 methods
-    for method in [ai_groq_llama, ai_mistral, ai_fallback]:
-        result = await method(transcript, words)
-        if result:
-            logger.info("=" * 80)
-            logger.info("✅ SCRIPT GENERATION COMPLETE")
-            logger.info("=" * 80)
-            return result
-        
-        await asyncio.sleep(0.5)
-    
-    # Should never reach here
-    return await ai_fallback(transcript, words)
-
-
 # ═══════════════════════════════════════════════════════════════════════
-# VOICEOVER - 2 FALLBACKS
+# VOICEOVER
 # ═══════════════════════════════════════════════════════════════════════
 
-async def voiceover_edge_tts(script: str, output: str) -> bool:
-    """Method 1: Edge TTS"""
-    logger.info("🎙️  Voiceover Method 1: Edge TTS")
+async def generate_voiceover(script: str, output: str) -> bool:
+    """Generate voiceover"""
+    logger.info("🎙️  Generating voiceover...")
     
     try:
         import edge_tts
         
         voice = random.choice(EDGE_TTS_VOICES)
-        await edge_tts.Communicate(script[:2000], voice, rate="+5%").save(output)
+        await edge_tts.Communicate(script[:2000], voice, rate="+15%").save(output)
         
         if os.path.exists(output) and os.path.getsize(output) > 1000:
-            logger.info("✅ Edge TTS SUCCESS")
+            logger.info("✅ Voiceover generated")
             return True
         
         return False
     except Exception as e:
-        logger.error(f"❌ Edge TTS failed: {e}")
+        logger.error(f"❌ Voiceover failed: {e}")
         return False
-
-
-async def voiceover_gtts(script: str, output: str) -> bool:
-    """Method 2: gTTS fallback"""
-    logger.info("🎙️  Voiceover Method 2: gTTS")
-    
-    try:
-        from gtts import gTTS
-        
-        tts = gTTS(text=script[:2000], lang='hi', slow=False)
-        tts.save(output)
-        
-        if os.path.exists(output) and os.path.getsize(output) > 1000:
-            logger.info("✅ gTTS SUCCESS")
-            return True
-        
-        return False
-    except Exception as e:
-        logger.error(f"❌ gTTS failed: {e}")
-        return False
-
-
-async def generate_voiceover(script: str, output: str) -> bool:
-    """Generate voiceover with 2 fallbacks"""
-    logger.info("=" * 80)
-    logger.info("🎙️  VOICEOVER GENERATION")
-    logger.info("=" * 80)
-    
-    for method in [voiceover_edge_tts, voiceover_gtts]:
-        if await method(script, output):
-            logger.info("=" * 80)
-            logger.info("✅ VOICEOVER COMPLETE")
-            logger.info("=" * 80)
-            return True
-        
-        await asyncio.sleep(0.5)
-    
-    logger.error("❌ ALL VOICEOVER METHODS FAILED")
-    return False
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -467,7 +268,7 @@ async def generate_voiceover(script: str, output: str) -> bool:
 # ═══════════════════════════════════════════════════════════════════════
 
 def generate_srt(script: str, duration: float) -> str:
-    """Generate SRT captions"""
+    """Generate SRT"""
     words = script.split()
     phrases = [" ".join(words[i:i+4]) for i in range(0, len(words), 4) if words[i:i+4]]
     
@@ -493,13 +294,14 @@ def generate_srt(script: str, duration: float) -> str:
 
 
 async def remove_audio(vin: str, vout: str) -> bool:
-    """Remove audio from video"""
+    """Remove audio"""
+    logger.info("🔇 Removing audio...")
     return run_ffmpeg([
         "ffmpeg", "-i", vin, "-c:v", "copy", "-an", "-y", vout
-    ], timeout=60, name="Remove Original Audio")
+    ], timeout=60)
 
 
-async def download_bgm(output: str) -> bool:
+async def download_bgm(output: str, duration: float) -> bool:
     """Download BGM"""
     logger.info("🎵 Downloading BGM...")
     
@@ -509,12 +311,19 @@ async def download_bgm(output: str) -> bool:
         async with httpx.AsyncClient(timeout=60, follow_redirects=True) as client:
             async with client.stream("GET", url) as r:
                 if r.status_code == 200:
-                    with open(output, 'wb') as f:
+                    raw = output.replace(".mp3", "_raw.mp3")
+                    
+                    with open(raw, 'wb') as f:
                         async for chunk in r.aiter_bytes(chunk_size=1024*1024):
                             f.write(chunk)
                     
-                    logger.info("✅ BGM downloaded")
-                    return True
+                    if run_ffmpeg([
+                        "ffmpeg", "-i", raw, "-t", str(duration + 2),
+                        "-acodec", "copy", "-y", output
+                    ], timeout=45):
+                        cleanup(raw)
+                        logger.info("✅ BGM ready")
+                        return True
         
         return False
     except:
@@ -523,48 +332,42 @@ async def download_bgm(output: str) -> bool:
 
 async def create_final(silent: str, voice: str, srt: str, bgm: Optional[str], output: str) -> bool:
     """Create final video"""
-    logger.info("=" * 80)
-    logger.info("✨ CREATING FINAL VIDEO")
-    logger.info("=" * 80)
+    logger.info("✨ Creating final video...")
     
     captioned = output.replace(".mp4", "_cap.mp4")
     srt_esc = srt.replace("\\", "\\\\").replace(":", "\\:")
     
-    logger.info("   Step 1/2: Burning captions...")
     if not run_ffmpeg([
         "ffmpeg", "-i", silent,
-        "-vf", f"subtitles={srt_esc}:force_style='FontName=Arial Black,FontSize=28,PrimaryColour=&H00FFFF00,Bold=1,Outline=2,Alignment=2,MarginV=60'",
+        "-vf", f"subtitles={srt_esc}:force_style='FontName=Arial Black,FontSize=28,PrimaryColour=&H000B86B8,OutlineColour=&H00000000,Bold=1,Outline=2,Alignment=2,MarginV=60'",
         "-c:v", "libx264", "-crf", "23", "-preset", "fast",
         "-y", captioned
-    ], timeout=180, name="Burn Captions"):
+    ], timeout=180):
         return False
     
     cleanup(silent)
     
-    logger.info("   Step 2/2: Mixing audio...")
     if bgm and os.path.exists(bgm):
         success = run_ffmpeg([
             "ffmpeg",
             "-i", captioned, "-i", voice, "-i", bgm,
-            "-filter_complex", "[1:a]volume=1.0[v];[2:a]volume=0.06[m];[v][m]amix=inputs=2:duration=first[a]",
+            "-filter_complex", "[1:a]volume=1.0[v];[2:a]volume=0.08[m];[v][m]amix=inputs=2:duration=first[a]",
             "-map", "0:v", "-map", "[a]",
             "-c:v", "copy", "-c:a", "aac", "-b:a", "96k",
             "-shortest", "-y", output
-        ], timeout=120, name="Mix Audio")
+        ], timeout=120)
     else:
         success = run_ffmpeg([
             "ffmpeg",
             "-i", captioned, "-i", voice,
             "-c:v", "copy", "-c:a", "aac", "-b:a", "96k",
             "-shortest", "-y", output
-        ], timeout=90, name="Add Voiceover")
+        ], timeout=90)
     
     cleanup(captioned)
     
     if success:
-        logger.info("=" * 80)
-        logger.info(f"✅ FINAL VIDEO READY: {os.path.getsize(output)/(1024*1024):.1f} MB")
-        logger.info("=" * 80)
+        logger.info(f"✅ Final video: {os.path.getsize(output)/(1024*1024):.1f} MB")
     
     return success
 
@@ -573,11 +376,9 @@ async def create_final(silent: str, voice: str, srt: str, bgm: Optional[str], ou
 # YOUTUBE UPLOAD
 # ═══════════════════════════════════════════════════════════════════════
 
-async def upload_youtube(video: str, title: str, desc: str, user_id: str) -> dict:
+async def upload_to_youtube(video: str, title: str, desc: str, keywords: list, tags: list, user_id: str) -> dict:
     """Upload to YouTube"""
-    logger.info("=" * 80)
-    logger.info("📤 UPLOADING TO YOUTUBE")
-    logger.info("=" * 80)
+    logger.info("📤 Uploading to YouTube...")
     
     try:
         from YTdatabase import get_database_manager as get_yt_db
@@ -605,20 +406,20 @@ async def upload_youtube(video: str, title: str, desc: str, user_id: str) -> dic
         
         from mainY import youtube_scheduler
         
+        full_desc = f"{desc}\n\n{' '.join(keywords)}\n\n{' '.join(tags)}"
+        
         result = await youtube_scheduler.generate_and_upload_content(
             user_id=user_id,
             credentials_data=credentials,
             content_type="shorts",
             title=title,
-            description=f"{desc}\n\n#Shorts #Viral #Hindi",
+            description=full_desc,
             video_url=video
         )
         
         if result.get("success"):
             video_id = result.get("video_id")
-            logger.info("=" * 80)
-            logger.info(f"✅ UPLOADED: https://youtube.com/shorts/{video_id}")
-            logger.info("=" * 80)
+            logger.info(f"✅ Uploaded: {video_id}")
             return {
                 "success": True,
                 "video_id": video_id,
@@ -636,147 +437,121 @@ async def upload_youtube(video: str, title: str, desc: str, user_id: str) -> dic
 # MAIN PIPELINE
 # ═══════════════════════════════════════════════════════════════════════
 
-async def process_video(drive_url: str, user_id: str, task_id: str):
-    """Main processing pipeline"""
+async def process_and_upload(drive_url: str, user_id: str) -> dict:
+    """Process video and upload directly to YouTube"""
     temp_dir = None
     start = datetime.now()
     
-    PROCESSING_STATUS[task_id] = {
-        "status": "processing",
-        "progress": 0,
-        "message": "Starting..."
-    }
-    
-    def update(progress: int, msg: str):
-        PROCESSING_STATUS[task_id]["progress"] = progress
-        PROCESSING_STATUS[task_id]["message"] = msg
-        logger.info(f"[{progress}%] {msg}")
-    
     try:
         temp_dir = tempfile.mkdtemp(prefix="gdrive_reel_")
-        logger.info(f"📁 Temp dir: {temp_dir}")
+        logger.info("=" * 80)
+        logger.info("🎬 PROCESSING START (Direct YouTube Upload)")
+        logger.info("=" * 80)
         
         # Extract file ID
-        update(5, "Extracting file ID...")
         file_id = extract_file_id(drive_url)
         if not file_id:
-            raise ValueError("Invalid Google Drive URL")
-        logger.info(f"   File ID: {file_id}")
+            return {"success": False, "error": "Invalid Google Drive URL. Make sure URL contains file ID."}
         
         # Download
-        update(10, "Downloading video from Google Drive...")
         video = os.path.join(temp_dir, "video.mp4")
         if not await download_video(file_id, video):
-            raise Exception("Download failed")
+            return {"success": False, "error": "Download failed. Make sure:\n1. Link is public (Share > Anyone with link)\n2. File is a video\n3. File size < 100MB"}
         
         # Get duration
-        update(20, "Analyzing video...")
         duration = await get_duration(video)
-        if duration <= 0:
-            raise ValueError("Invalid video")
+        if duration <= 0 or duration > 180:
+            return {"success": False, "error": f"Invalid duration: {duration}s (must be 1-180s)"}
         
         # Extract audio
-        update(25, "Extracting audio...")
         audio = os.path.join(temp_dir, "audio.wav")
         if not await extract_audio(video, audio):
-            raise Exception("Audio extraction failed")
+            return {"success": False, "error": "Audio extraction failed"}
         
         # Transcribe
-        update(30, "Transcribing audio with Groq Whisper API (10-20s)...")
         transcript = await transcribe_audio(audio)
         cleanup(audio)
         
         if not transcript:
-            raise Exception("Transcription failed - no speech detected in video")
-        
-        logger.info(f"   Transcript: {transcript[:100]}...")
+            return {"success": False, "error": "Transcription failed. Video must have clear Hindi speech."}
         
         # Generate script
-        update(50, "Generating viral script...")
         meta = await generate_script(transcript, duration)
-        logger.info(f"   Title: {meta['title']}")
         
         # Voiceover
-        update(60, "Generating voiceover...")
         voice = os.path.join(temp_dir, "voice.mp3")
         if not await generate_voiceover(meta["script"], voice):
-            raise Exception("Voiceover failed")
+            return {"success": False, "error": "Voiceover generation failed"}
         
         # Remove audio
-        update(70, "Removing original audio...")
         silent = os.path.join(temp_dir, "silent.mp4")
         if not await remove_audio(video, silent):
-            raise Exception("Remove audio failed")
+            return {"success": False, "error": "Audio removal failed"}
         cleanup(video)
         
         # Captions
-        update(75, "Creating captions...")
         srt_path = os.path.join(temp_dir, "subs.srt")
         with open(srt_path, 'w', encoding='utf-8') as f:
             f.write(generate_srt(meta["script"], duration))
         
         # BGM
-        update(80, "Downloading background music...")
         bgm = os.path.join(temp_dir, "bgm.mp3")
-        bgm_ok = await download_bgm(bgm)
+        bgm_ok = await download_bgm(bgm, duration)
         
         # Final video
-        update(85, "Creating final video...")
         final = os.path.join(temp_dir, "final.mp4")
         if not await create_final(silent, voice, srt_path, bgm if bgm_ok else None, final):
-            raise Exception("Final video creation failed")
+            return {"success": False, "error": "Final video creation failed"}
         
         cleanup(voice, srt_path, bgm)
         
-        # Upload
-        update(90, "Uploading to YouTube...")
-        result = await upload_youtube(final, meta["title"], meta["description"], user_id)
+        # Upload to YouTube
+        logger.info("📤 Uploading directly to YouTube (NO MongoDB save)...")
+        upload_result = await upload_to_youtube(
+            final,
+            meta["title"],
+            meta["description"],
+            meta["keywords"],
+            meta["tags"],
+            user_id
+        )
         
-        if not result.get("success"):
-            raise Exception(result.get("error", "Upload failed"))
+        if not upload_result.get("success"):
+            return {"success": False, "error": upload_result.get("error", "YouTube upload failed")}
         
         # Success
         elapsed = (datetime.now() - start).total_seconds()
         
         logger.info("=" * 80)
-        logger.info("✅ PROCESSING COMPLETE!")
+        logger.info("✅ SUCCESS!")
         logger.info(f"   Time: {elapsed:.1f}s")
-        logger.info(f"   URL: {result['video_url']}")
+        logger.info(f"   URL: {upload_result['video_url']}")
         logger.info("=" * 80)
         
-        PROCESSING_STATUS[task_id] = {
-            "status": "completed",
-            "progress": 100,
-            "message": "Successfully uploaded!",
-            "result": {
-                "success": True,
-                "title": meta["title"],
-                "description": meta["description"],
-                "video_id": result["video_id"],
-                "video_url": result["video_url"],
-                "processing_time": round(elapsed, 1),
-                "transcript": transcript[:200]
-            }
+        return {
+            "success": True,
+            "title": meta["title"],
+            "description": meta["description"],
+            "keywords": meta["keywords"],
+            "tags": meta["tags"],
+            "duration": round(duration, 2),
+            "video_id": upload_result["video_id"],
+            "video_url": upload_result["video_url"],
+            "processing_time": round(elapsed, 1),
+            "note": "Video uploaded directly to YouTube (not saved to MongoDB)"
         }
         
     except Exception as e:
-        logger.error("=" * 80)
-        logger.error(f"❌ PROCESSING FAILED: {e}")
-        logger.error("=" * 80)
-        
-        PROCESSING_STATUS[task_id] = {
-            "status": "failed",
-            "progress": 0,
-            "message": str(e),
-            "error": str(e)
-        }
+        logger.error(f"❌ ERROR: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
+        return {"success": False, "error": str(e)}
     
     finally:
         if temp_dir:
-            logger.info("🧹 Cleaning up temp directory...")
+            logger.info("🧹 Cleanup...")
             try:
                 shutil.rmtree(temp_dir, ignore_errors=True)
-                logger.info("✅ Cleanup complete")
             except:
                 pass
         gc.collect()
@@ -790,8 +565,28 @@ router = APIRouter()
 
 
 @router.post("/api/gdrive-reels/process")
-async def process_endpoint(request: Request, background_tasks: BackgroundTasks):
-    """Process Google Drive video"""
+async def process_endpoint(request: Request):
+    """
+    Process Google Drive video and upload directly to YouTube
+    
+    Frontend sends:
+    {
+        "user_id": "user123",
+        "drive_url": "https://drive.google.com/file/d/FILE_ID/view"
+    }
+    
+    Returns:
+    {
+        "success": true,
+        "title": "...",
+        "description": "...",
+        "keywords": [...],
+        "tags": [...],
+        "duration": 28.5,
+        "video_id": "xyz123",
+        "video_url": "https://youtube.com/shorts/xyz123"
+    }
+    """
     logger.info("🌐 API REQUEST: /api/gdrive-reels/process")
     
     try:
@@ -800,38 +595,82 @@ async def process_endpoint(request: Request, background_tasks: BackgroundTasks):
         user_id = data.get("user_id")
         drive_url = (data.get("drive_url") or "").strip()
         
+        logger.info(f"   User: {user_id}")
+        logger.info(f"   URL: {drive_url[:80]}...")
+        
         if not user_id:
-            return JSONResponse(status_code=400, content={"success": False, "error": "user_id required"})
+            return JSONResponse(
+                status_code=400,
+                content={"success": False, "error": "user_id is required"}
+            )
         
         if not drive_url or "drive.google.com" not in drive_url:
-            return JSONResponse(status_code=400, content={"success": False, "error": "Valid Google Drive URL required"})
+            return JSONResponse(
+                status_code=400,
+                content={"success": False, "error": "Valid Google Drive URL is required"}
+            )
         
-        task_id = str(uuid.uuid4())
+        # Process and upload (async, will take 30-60s)
+        result = await asyncio.wait_for(
+            process_and_upload(drive_url, user_id),
+            timeout=600  # 10 min max
+        )
         
-        background_tasks.add_task(process_video, drive_url, user_id, task_id)
+        return JSONResponse(content=result)
         
-        logger.info(f"✅ Task started: {task_id}")
+    except asyncio.TimeoutError:
+        logger.error("⏱️  Timeout")
+        return JSONResponse(
+            status_code=408,
+            content={"success": False, "error": "Processing timeout (10 minutes)"}
+        )
+    except Exception as e:
+        logger.error(f"❌ API error: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "error": str(e)}
+        )
+
+
+@router.get("/api/gdrive-reels/status")
+async def status_endpoint(request: Request):
+    """
+    Get status (for compatibility with frontend)
+    
+    Frontend expects:
+    {
+        "success": true,
+        "next_serial": 1,
+        "total_processed": 0,
+        "history": []
+    }
+    """
+    try:
+        user_id = request.query_params.get("user_id")
         
+        if not user_id:
+            return JSONResponse(
+                status_code=400,
+                content={"success": False, "error": "user_id required"}
+            )
+        
+        # Since we don't save to MongoDB, return empty
         return JSONResponse(content={
             "success": True,
-            "task_id": task_id,
-            "message": "Processing started"
+            "next_serial": 1,
+            "total_processed": 0,
+            "history": [],
+            "note": "Direct YouTube upload - no history saved"
         })
         
     except Exception as e:
-        logger.error(f"❌ API ERROR: {e}")
-        return JSONResponse(status_code=500, content={"success": False, "error": str(e)})
-
-
-@router.get("/api/gdrive-reels/status/{task_id}")
-async def status_endpoint(task_id: str):
-    """Check status"""
-    status = PROCESSING_STATUS.get(task_id)
-    
-    if not status:
-        return JSONResponse(status_code=404, content={"success": False, "error": "Task not found"})
-    
-    return JSONResponse(content=status)
+        logger.error(f"Status error: {e}")
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "error": str(e)}
+        )
 
 
 @router.get("/api/gdrive-reels/health")
@@ -840,7 +679,8 @@ async def health_endpoint():
     return JSONResponse(content={
         "status": "ok",
         "groq_configured": bool(GROQ_API_KEY),
-        "method": "Groq Whisper API (no local model)"
+        "mode": "Direct YouTube upload (no MongoDB save)",
+        "method": "Groq Whisper API"
     })
 
 
