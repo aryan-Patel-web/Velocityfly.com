@@ -1,12 +1,12 @@
 """
-gdrive_reels_optimized.py - PRODUCTION READY FOR RENDER FREE TIER
-==================================================================
-✅ Reliable faster-whisper STT (always works)
-✅ No video uploads to MongoDB (saves bandwidth)
-✅ Aggressive memory management (512MB safe)
-✅ Simple flow: GDrive URL → Process → YouTube Upload
-✅ Proper cleanup after each step
-==================================================================
+gdrive_reels_optimized.py - GROQ WHISPER API VERSION
+=====================================================
+✅ Groq Whisper API (primary) - FASTEST & FREE
+✅ Fallback to Whisper Large v3 Turbo
+✅ No local model = No RAM issues
+✅ Perfect for Render free tier
+✅ No startup delay
+=====================================================
 """
 
 from fastapi import APIRouter, Request, BackgroundTasks
@@ -38,67 +38,9 @@ if not logger.handlers:
     logger.addHandler(handler)
 
 # ═══════════════════════════════════════════════════════════════════════
-# GLOBAL WHISPER MODEL (CRITICAL - PRELOAD AT STARTUP)
-# ═══════════════════════════════════════════════════════════════════════
-_WHISPER_MODEL = None
-_MODEL_LOCK = asyncio.Lock()
-
-async def preload_whisper_model():
-    """Load Whisper model at startup - MUST BE CALLED IN main.py startup event"""
-    global _WHISPER_MODEL
-    
-    if _WHISPER_MODEL is not None:
-        logger.info("✅ Whisper model already loaded")
-        return True
-    
-    async with _MODEL_LOCK:
-        if _WHISPER_MODEL is not None:
-            return True
-        
-        try:
-            logger.info("=" * 80)
-            logger.info("🚀 LOADING WHISPER MODEL (RENDER FREE TIER OPTIMIZED)")
-            logger.info("=" * 80)
-            
-            from faster_whisper import WhisperModel
-            
-            cache_dir = os.getenv("HF_HOME", "/tmp/whisper_cache")
-            os.makedirs(cache_dir, exist_ok=True)
-            
-            logger.info("   Model: tiny (39MB)")
-            logger.info("   Device: CPU")
-            logger.info("   Compute: int8")
-            logger.info(f"   Cache: {cache_dir}")
-            
-            _WHISPER_MODEL = WhisperModel(
-                "tiny",
-                device="cpu",
-                compute_type="int8",
-                download_root=cache_dir,
-                num_workers=1
-            )
-            
-            logger.info("✅ WHISPER MODEL LOADED SUCCESSFULLY")
-            logger.info("=" * 80)
-            return True
-            
-        except Exception as e:
-            logger.error(f"❌ FAILED TO LOAD WHISPER MODEL: {e}")
-            logger.error("   This is critical - STT will not work!")
-            return False
-
-
-def get_whisper_model():
-    """Get the preloaded model (thread-safe)"""
-    if _WHISPER_MODEL is None:
-        logger.error("❌ Model not loaded! Call preload_whisper_model() at startup")
-        return None
-    return _WHISPER_MODEL
-
-
-# ═══════════════════════════════════════════════════════════════════════
 # CONFIG
 # ═══════════════════════════════════════════════════════════════════════
+GROQ_API_KEY = os.getenv("GROQ_SPEECH_API")  # Your existing env var
 MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY")
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
 EDGE_TTS_VOICES = ["hi-IN-MadhurNeural", "hi-IN-SwaraNeural"]
@@ -125,7 +67,6 @@ def aggressive_cleanup(*paths):
         except Exception as e:
             logger.debug(f"   ⚠️  Failed to delete {path}: {e}")
     
-    # Force garbage collection
     gc.collect()
     logger.debug("   🧹 Garbage collected")
 
@@ -253,64 +194,132 @@ async def extract_audio_from_video(video_path: str, audio_path: str) -> bool:
         "ffmpeg", "-i", video_path,
         "-vn",  # No video
         "-acodec", "pcm_s16le",  # PCM 16-bit
-        "-ar", "16000",  # 16kHz (Whisper requirement)
+        "-ar", "16000",  # 16kHz
         "-ac", "1",  # Mono
         "-y", audio_path
     ], timeout=60, step="Extract Audio")
 
 
 # ═══════════════════════════════════════════════════════════════════════
-# TRANSCRIPTION (RELIABLE STT)
+# TRANSCRIPTION - GROQ WHISPER API (PRIMARY + FALLBACK)
 # ═══════════════════════════════════════════════════════════════════════
+
+async def transcribe_with_groq_primary(audio_path: str) -> Optional[str]:
+    """
+    Primary: Groq Whisper Large v3 (BEST QUALITY)
+    
+    ✅ Most accurate
+    ✅ Better Hindi support
+    ✅ Free tier: ~25-30 mins/day
+    """
+    if not GROQ_API_KEY:
+        logger.warning("   GROQ_SPEECH_API not set")
+        return None
+    
+    logger.info("🎙️  Method 1: Groq Whisper Large v3")
+    
+    try:
+        from groq import Groq
+        
+        client = Groq(api_key=GROQ_API_KEY)
+        
+        with open(audio_path, "rb") as audio_file:
+            transcription = client.audio.transcriptions.create(
+                file=audio_file,
+                model="whisper-large-v3",  # Best quality
+                response_format="text",
+                language="hi"  # Hindi
+            )
+        
+        if transcription and len(transcription) > 5:
+            logger.info(f"✅ Method 1 SUCCESS: {len(transcription)} chars")
+            logger.info(f"   Preview: {transcription[:100]}...")
+            return transcription.strip()
+        
+        return None
+        
+    except Exception as e:
+        logger.error(f"❌ Method 1 failed: {e}")
+        return None
+
+
+async def transcribe_with_groq_fallback(audio_path: str) -> Optional[str]:
+    """
+    Fallback: Groq Whisper Large v3 Turbo (FASTER)
+    
+    ✅ 8x faster than large-v3
+    ✅ Still very accurate
+    ✅ Better for longer videos
+    """
+    if not GROQ_API_KEY:
+        return None
+    
+    logger.info("🎙️  Method 2: Groq Whisper Large v3 Turbo")
+    
+    try:
+        from groq import Groq
+        
+        client = Groq(api_key=GROQ_API_KEY)
+        
+        with open(audio_path, "rb") as audio_file:
+            transcription = client.audio.transcriptions.create(
+                file=audio_file,
+                model="whisper-large-v3-turbo",  # Faster
+                response_format="text",
+                language="hi"
+            )
+        
+        if transcription and len(transcription) > 5:
+            logger.info(f"✅ Method 2 SUCCESS: {len(transcription)} chars")
+            logger.info(f"   Preview: {transcription[:100]}...")
+            return transcription.strip()
+        
+        return None
+        
+    except Exception as e:
+        logger.error(f"❌ Method 2 failed: {e}")
+        return None
+
 
 async def transcribe_audio(audio_path: str) -> Optional[str]:
     """
-    Transcribe audio using preloaded faster-whisper model
+    Transcribe audio with 2 fallback methods
     
-    This is the RELIABLE method that works on Render free tier
+    Method 1: Groq Whisper Large v3 (best quality)
+    Method 2: Groq Whisper Large v3 Turbo (faster)
+    
+    Both are FREE and work perfectly on Render!
     """
-    logger.info("🎙️  Transcribing audio with faster-whisper...")
+    logger.info("=" * 80)
+    logger.info("📝 TRANSCRIBING AUDIO (GROQ WHISPER API)")
+    logger.info("=" * 80)
     
-    model = get_whisper_model()
-    if model is None:
-        logger.error("❌ Whisper model not loaded!")
-        return None
+    # Try Method 1: Large v3 (best quality)
+    text = await transcribe_with_groq_primary(audio_path)
+    if text:
+        logger.info("=" * 80)
+        logger.info("✅ TRANSCRIPTION SUCCESS (Whisper Large v3)")
+        logger.info("=" * 80)
+        return text
     
-    try:
-        # Run transcription in thread pool (blocking operation)
-        def _transcribe():
-            segments, info = model.transcribe(
-                audio_path,
-                language="hi",  # Hindi
-                beam_size=1,  # Faster, less accurate (fine for free tier)
-                vad_filter=True,  # Remove silence
-                word_timestamps=False  # Don't need word-level timing
-            )
-            
-            logger.info(f"   Language detected: {info.language} (confidence: {info.language_probability:.2f})")
-            
-            # Combine all segments
-            text_parts = []
-            for segment in segments:
-                text_parts.append(segment.text)
-            
-            return " ".join(text_parts).strip()
-        
-        # Run in executor to avoid blocking
-        loop = asyncio.get_event_loop()
-        transcript = await loop.run_in_executor(None, _transcribe)
-        
-        if transcript and len(transcript) > 5:
-            logger.info(f"✅ Transcription complete: {len(transcript)} chars")
-            logger.info(f"   Preview: {transcript[:100]}...")
-            return transcript
-        else:
-            logger.error("❌ Transcription returned empty text")
-            return None
-            
-    except Exception as e:
-        logger.error(f"❌ Transcription failed: {e}")
-        return None
+    logger.info("   Trying fallback method...")
+    await asyncio.sleep(1)
+    
+    # Try Method 2: Large v3 Turbo (faster)
+    text = await transcribe_with_groq_fallback(audio_path)
+    if text:
+        logger.info("=" * 80)
+        logger.info("✅ TRANSCRIPTION SUCCESS (Whisper Large v3 Turbo)")
+        logger.info("=" * 80)
+        return text
+    
+    logger.error("=" * 80)
+    logger.error("❌ ALL TRANSCRIPTION METHODS FAILED")
+    logger.error("   Check: 1) GROQ_SPEECH_API is set")
+    logger.error("          2) Audio file has speech")
+    logger.error("          3) Groq API quota not exceeded")
+    logger.error("=" * 80)
+    return None
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -321,7 +330,7 @@ async def generate_ai_script(transcript: str, duration: float) -> dict:
     """Generate viral reel script using AI (with fallback)"""
     logger.info("🤖 Generating AI script...")
     
-    target_words = int(duration * 2.5)  # ~2.5 words per second
+    target_words = int(duration * 2.5)
     
     # Try Claude first
     if ANTHROPIC_API_KEY:
@@ -427,11 +436,10 @@ async def generate_voiceover(script: str, output_path: str) -> bool:
         voice = random.choice(EDGE_TTS_VOICES)
         logger.info(f"   Voice: {voice}")
         
-        # Generate speech
         communicate = edge_tts.Communicate(
-            script[:2000],  # Edge TTS limit
+            script[:2000],
             voice,
-            rate="+5%"  # Slightly faster
+            rate="+5%"
         )
         
         await communicate.save(output_path)
@@ -456,7 +464,6 @@ def generate_srt_captions(script: str, duration: float) -> str:
     """Generate SRT captions for the script"""
     words = script.split()
     
-    # Group into 3-4 word phrases
     phrases = []
     for i in range(0, len(words), 4):
         phrase = " ".join(words[i:i+4])
@@ -466,7 +473,6 @@ def generate_srt_captions(script: str, duration: float) -> str:
     if not phrases:
         return ""
     
-    # Calculate timing
     time_per_phrase = duration / len(phrases)
     
     srt_blocks = []
@@ -500,8 +506,8 @@ async def remove_original_audio(video_in: str, video_out: str) -> bool:
     """Remove original audio from video"""
     return run_ffmpeg([
         "ffmpeg", "-i", video_in,
-        "-c:v", "copy",  # Copy video stream
-        "-an",  # No audio
+        "-c:v", "copy",
+        "-an",
         "-y", video_out
     ], timeout=60, step="Remove Original Audio")
 
@@ -535,7 +541,6 @@ async def create_final_video(silent_video: str, voiceover: str, srt_file: str,
     """Create final video with captions, voiceover, and BGM"""
     logger.info("✨ Creating final video...")
     
-    # Step 1: Burn captions into video
     captioned_video = output.replace(".mp4", "_captioned.mp4")
     srt_escaped = srt_file.replace("\\", "\\\\").replace(":", "\\:")
     
@@ -549,12 +554,9 @@ async def create_final_video(silent_video: str, voiceover: str, srt_file: str,
     ], timeout=180, step="Burn Captions"):
         return False
     
-    # Clean up silent video immediately
     aggressive_cleanup(silent_video)
     
-    # Step 2: Mix audio (voiceover + BGM)
     if bgm and os.path.exists(bgm):
-        # Mix voiceover + BGM
         success = run_ffmpeg([
             "ffmpeg",
             "-i", captioned_video,
@@ -570,7 +572,6 @@ async def create_final_video(silent_video: str, voiceover: str, srt_file: str,
             "-y", output
         ], timeout=120, step="Mix Audio (Voice + BGM)")
     else:
-        # Just add voiceover
         success = run_ffmpeg([
             "ffmpeg",
             "-i", captioned_video,
@@ -582,7 +583,6 @@ async def create_final_video(silent_video: str, voiceover: str, srt_file: str,
             "-y", output
         ], timeout=90, step="Add Voiceover")
     
-    # Clean up temporary files
     aggressive_cleanup(captioned_video)
     
     return success
@@ -597,21 +597,17 @@ async def upload_to_youtube(video_path: str, title: str, description: str, user_
     logger.info("📤 Uploading to YouTube...")
     
     try:
-        # Import YouTube modules
         from YTdatabase import get_database_manager as get_yt_db
         yt_db = get_yt_db()
         
-        # Connect if needed
         if not yt_db.youtube.client:
             await yt_db.connect()
         
-        # Get user credentials
         creds = await yt_db.youtube.youtube_credentials_collection.find_one({"user_id": user_id})
         
         if not creds:
             return {"success": False, "error": "YouTube credentials not found for user"}
         
-        # Prepare credentials
         credentials = {
             "access_token": creds.get("access_token"),
             "refresh_token": creds.get("refresh_token"),
@@ -624,7 +620,6 @@ async def upload_to_youtube(video_path: str, title: str, description: str, user_
             ]
         }
         
-        # Upload using existing YouTube scheduler
         from mainY import youtube_scheduler
         
         result = await youtube_scheduler.generate_and_upload_content(
@@ -633,7 +628,7 @@ async def upload_to_youtube(video_path: str, title: str, description: str, user_
             content_type="shorts",
             title=title,
             description=f"{description}\n\n#Shorts #Viral #Hindi #Reels",
-            video_url=video_path  # Local file path
+            video_url=video_path
         )
         
         if result.get("success"):
@@ -657,25 +652,10 @@ async def upload_to_youtube(video_path: str, title: str, description: str, user_
 # ═══════════════════════════════════════════════════════════════════════
 
 async def process_gdrive_reel(drive_url: str, user_id: str, task_id: str):
-    """
-    Main processing pipeline
-    
-    Flow:
-    1. Download video from GDrive
-    2. Extract audio
-    3. Transcribe with faster-whisper
-    4. Generate AI script
-    5. Generate voiceover
-    6. Remove original audio
-    7. Add captions
-    8. Add BGM
-    9. Upload to YouTube
-    10. Clean up everything
-    """
+    """Main processing pipeline"""
     temp_dir = None
     start_time = datetime.now()
     
-    # Initialize status
     PROCESSING_STATUS[task_id] = {
         "status": "processing",
         "progress": 0,
@@ -684,59 +664,46 @@ async def process_gdrive_reel(drive_url: str, user_id: str, task_id: str):
     }
     
     def update_status(progress: int, message: str):
-        """Update processing status"""
         PROCESSING_STATUS[task_id]["progress"] = progress
         PROCESSING_STATUS[task_id]["message"] = message
         logger.info(f"[{progress}%] {message}")
     
     try:
-        # Create temp directory
         temp_dir = tempfile.mkdtemp(prefix="gdrive_reel_")
         logger.info(f"📁 Temp dir: {temp_dir}")
         
-        # ─────────────────────────────────────────────────────────────────
-        # STEP 1: Extract file ID
-        # ─────────────────────────────────────────────────────────────────
+        # Extract file ID
         update_status(5, "Extracting file ID...")
         file_id = extract_gdrive_file_id(drive_url)
         if not file_id:
             raise ValueError("Invalid Google Drive URL")
         logger.info(f"   File ID: {file_id}")
         
-        # ─────────────────────────────────────────────────────────────────
-        # STEP 2: Download video
-        # ─────────────────────────────────────────────────────────────────
+        # Download video
         update_status(10, "Downloading video from Google Drive...")
         video_path = os.path.join(temp_dir, "original.mp4")
         
         if not await download_video_from_gdrive(file_id, video_path):
             raise Exception("Failed to download video from Google Drive")
         
-        # ─────────────────────────────────────────────────────────────────
-        # STEP 3: Get video info
-        # ─────────────────────────────────────────────────────────────────
+        # Get video info
         update_status(20, "Analyzing video...")
         duration = await get_video_duration(video_path)
         
         if duration <= 0 or duration > 180:
             raise ValueError(f"Invalid video duration: {duration}s (must be 1-180s)")
         
-        # ─────────────────────────────────────────────────────────────────
-        # STEP 4: Extract audio
-        # ─────────────────────────────────────────────────────────────────
+        # Extract audio
         update_status(25, "Extracting audio...")
         audio_path = os.path.join(temp_dir, "audio.wav")
         
         if not await extract_audio_from_video(video_path, audio_path):
             raise Exception("Failed to extract audio")
         
-        # ─────────────────────────────────────────────────────────────────
-        # STEP 5: Transcribe audio (CRITICAL)
-        # ─────────────────────────────────────────────────────────────────
-        update_status(30, "Transcribing audio (this may take 30-60s)...")
+        # Transcribe audio (GROQ API - FAST & RELIABLE!)
+        update_status(30, "Transcribing audio with Groq Whisper API (10-20s)...")
         transcript = await transcribe_audio(audio_path)
         
-        # Clean up audio file immediately
         aggressive_cleanup(audio_path)
         
         if not transcript or len(transcript) < 5:
@@ -744,39 +711,30 @@ async def process_gdrive_reel(drive_url: str, user_id: str, task_id: str):
         
         logger.info(f"   Transcript: {transcript[:100]}...")
         
-        # ─────────────────────────────────────────────────────────────────
-        # STEP 6: Generate AI script
-        # ─────────────────────────────────────────────────────────────────
+        # Generate AI script
         update_status(50, "Generating viral script...")
         metadata = await generate_ai_script(transcript, duration)
         
         logger.info(f"   Title: {metadata['title']}")
         logger.info(f"   Script: {metadata['script'][:100]}...")
         
-        # ─────────────────────────────────────────────────────────────────
-        # STEP 7: Generate voiceover
-        # ─────────────────────────────────────────────────────────────────
+        # Generate voiceover
         update_status(60, "Generating voiceover...")
         voiceover_path = os.path.join(temp_dir, "voiceover.mp3")
         
         if not await generate_voiceover(metadata["script"], voiceover_path):
             raise Exception("Failed to generate voiceover")
         
-        # ─────────────────────────────────────────────────────────────────
-        # STEP 8: Remove original audio
-        # ─────────────────────────────────────────────────────────────────
+        # Remove original audio
         update_status(70, "Removing original audio...")
         silent_video = os.path.join(temp_dir, "silent.mp4")
         
         if not await remove_original_audio(video_path, silent_video):
             raise Exception("Failed to remove original audio")
         
-        # Clean up original video
         aggressive_cleanup(video_path)
         
-        # ─────────────────────────────────────────────────────────────────
-        # STEP 9: Generate captions
-        # ─────────────────────────────────────────────────────────────────
+        # Generate captions
         update_status(75, "Creating captions...")
         srt_path = os.path.join(temp_dir, "captions.srt")
         
@@ -784,9 +742,7 @@ async def process_gdrive_reel(drive_url: str, user_id: str, task_id: str):
         with open(srt_path, 'w', encoding='utf-8') as f:
             f.write(srt_content)
         
-        # ─────────────────────────────────────────────────────────────────
-        # STEP 10: Download BGM
-        # ─────────────────────────────────────────────────────────────────
+        # Download BGM
         update_status(80, "Downloading background music...")
         bgm_path = os.path.join(temp_dir, "bgm.mp3")
         
@@ -795,28 +751,22 @@ async def process_gdrive_reel(drive_url: str, user_id: str, task_id: str):
             logger.warning("   BGM download failed, continuing without BGM")
             bgm_path = None
         
-        # ─────────────────────────────────────────────────────────────────
-        # STEP 11: Create final video
-        # ─────────────────────────────────────────────────────────────────
+        # Create final video
         update_status(85, "Creating final video...")
         final_video = os.path.join(temp_dir, "final.mp4")
         
         if not await create_final_video(silent_video, voiceover_path, srt_path, bgm_path, final_video):
             raise Exception("Failed to create final video")
         
-        # Clean up intermediate files
         aggressive_cleanup(voiceover_path, srt_path, bgm_path)
         
-        # Verify final video exists
         if not os.path.exists(final_video) or os.path.getsize(final_video) < 10000:
             raise Exception("Final video is invalid or missing")
         
         final_size_mb = os.path.getsize(final_video) / (1024 * 1024)
         logger.info(f"   Final video: {final_size_mb:.1f} MB")
         
-        # ─────────────────────────────────────────────────────────────────
-        # STEP 12: Upload to YouTube
-        # ─────────────────────────────────────────────────────────────────
+        # Upload to YouTube
         update_status(90, "Uploading to YouTube...")
         
         upload_result = await upload_to_youtube(
@@ -829,9 +779,7 @@ async def process_gdrive_reel(drive_url: str, user_id: str, task_id: str):
         if not upload_result.get("success"):
             raise Exception(upload_result.get("error", "YouTube upload failed"))
         
-        # ─────────────────────────────────────────────────────────────────
         # SUCCESS!
-        # ─────────────────────────────────────────────────────────────────
         elapsed = (datetime.now() - start_time).total_seconds()
         
         logger.info("=" * 80)
@@ -871,7 +819,6 @@ async def process_gdrive_reel(drive_url: str, user_id: str, task_id: str):
         }
     
     finally:
-        # CRITICAL: Clean up temp directory
         if temp_dir and os.path.exists(temp_dir):
             logger.info("🧹 Cleaning up temp directory...")
             try:
@@ -880,7 +827,6 @@ async def process_gdrive_reel(drive_url: str, user_id: str, task_id: str):
             except Exception as e:
                 logger.error(f"⚠️  Cleanup failed: {e}")
         
-        # Force garbage collection
         gc.collect()
 
 
@@ -893,12 +839,7 @@ router = APIRouter()
 
 @router.post("/api/gdrive-reels/process")
 async def process_endpoint(request: Request, background_tasks: BackgroundTasks):
-    """
-    Start processing a Google Drive video
-    
-    POST /api/gdrive-reels/process
-    Body: {"user_id": "...", "drive_url": "https://drive.google.com/..."}
-    """
+    """Start processing a Google Drive video"""
     logger.info("🌐 API REQUEST: /api/gdrive-reels/process")
     
     try:
@@ -907,7 +848,6 @@ async def process_endpoint(request: Request, background_tasks: BackgroundTasks):
         user_id = data.get("user_id")
         drive_url = (data.get("drive_url") or "").strip()
         
-        # Validate inputs
         if not user_id:
             return JSONResponse(
                 status_code=400,
@@ -920,10 +860,8 @@ async def process_endpoint(request: Request, background_tasks: BackgroundTasks):
                 content={"success": False, "error": "Valid Google Drive URL is required"}
             )
         
-        # Generate task ID
         task_id = str(uuid.uuid4())
         
-        # Start background processing
         background_tasks.add_task(
             process_gdrive_reel,
             drive_url,
@@ -949,11 +887,7 @@ async def process_endpoint(request: Request, background_tasks: BackgroundTasks):
 
 @router.get("/api/gdrive-reels/status/{task_id}")
 async def status_endpoint(task_id: str):
-    """
-    Check processing status
-    
-    GET /api/gdrive-reels/status/{task_id}
-    """
+    """Check processing status"""
     status = PROCESSING_STATUS.get(task_id)
     
     if not status:
@@ -968,11 +902,12 @@ async def status_endpoint(task_id: str):
 @router.get("/api/gdrive-reels/health")
 async def health_endpoint():
     """Check if service is ready"""
-    model = get_whisper_model()
+    groq_ready = bool(GROQ_API_KEY)
     
     return JSONResponse(content={
         "status": "ok",
-        "whisper_model_loaded": model is not None,
+        "groq_api_configured": groq_ready,
+        "stt_method": "Groq Whisper API (no local model)",
         "active_tasks": len([s for s in PROCESSING_STATUS.values() if s["status"] == "processing"])
     })
 
@@ -983,21 +918,29 @@ async def health_endpoint():
 
 async def initialize():
     """
-    CRITICAL: Call this in your main.py startup event!
+    Initialize service (no model loading needed!)
     
-    Example in main.py:
+    Add to your main.py:
     
     @app.on_event("startup")
     async def startup():
         from gdrive_reels_optimized import initialize
         await initialize()
     """
-    logger.info("🚀 Initializing GDrive Reels service...")
+    logger.info("=" * 80)
+    logger.info("🚀 INITIALIZING GDRIVE REELS SERVICE (GROQ API)")
+    logger.info("=" * 80)
     
-    # Preload Whisper model (critical for STT)
-    await preload_whisper_model()
+    if not GROQ_API_KEY:
+        logger.error("❌ GROQ_SPEECH_API environment variable not set!")
+        logger.error("   Service will not work without it!")
+    else:
+        logger.info("✅ Groq API key configured")
+        logger.info("   STT: Groq Whisper Large v3 + Turbo fallback")
+        logger.info("   No local model needed!")
+        logger.info("   Ready to process videos!")
     
-    logger.info("✅ GDrive Reels service ready!")
+    logger.info("=" * 80)
 
 
 __all__ = ["router", "initialize"]
