@@ -423,48 +423,60 @@ async def download_bgm(output: str) -> bool:
     
     return success
 
-async def create_final_video(silent: str, voice: str, srt: str, bgm: Optional[str], output: str) -> tuple[bool, str]:
+async def create_final_video(
+    silent: str,
+    voice: str,
+    srt: str,
+    bgm: Optional[str],
+    output: str
+) -> tuple[bool, str]:
     """Create final video"""
+
     logger.info("✨ Final Video...")
     log_memory("before-final")
-    
+
     captioned = output.replace(".mp4", "_cap.mp4")
     srt_esc = srt.replace("\\", "\\\\").replace(":", "\\:")
-    
+
     # Burn captions
     if not run_ffmpeg([
         "ffmpeg", "-i", silent,
-        "-vf", f"subtitles={srt_esc}:force_style='FontName=Arial,FontSize=24,PrimaryColour=&H00FFFF00,Bold=1,Outline=2,Alignment=2,MarginV=50'",
+        "-vf", (
+            f"subtitles={srt_esc}:"
+            "force_style='FontName=Arial,FontSize=24,"
+            "PrimaryColour=&H00FFFF00,Bold=1,Outline=2,"
+            "Alignment=2,MarginV=50'"
+        ),
         "-c:v", "libx264", "-crf", "26", "-preset", "ultrafast",
         "-y", captioned
     ], 180, "Captions"):
         return False, "Caption failed"
-    
+
     cleanup(silent, srt)
-    
+
     # Mix audio
     if bgm and os.path.exists(bgm):
         success = run_ffmpeg([
             "ffmpeg", "-i", captioned, "-i", voice, "-i", bgm,
-            "-filter_complex", "[1:a]volume=1.0[v];[2:a]volume=0.06[m];[v][m]amix=inputs=2:duration=first[a]",
+            "-filter_complex",
+            "[1:a]volume=1.0[v];[2:a]volume=0.06[m];"
+            "[v][m]amix=inputs=2:duration=first[a]",
             "-map", "0:v", "-map", "[a]",
             "-c:v", "copy", "-c:a", "aac", "-b:a", "96k",
             "-shortest", "-y", output
-        ], 120, "Mix Audio"):
-            pass
+        ], 120, "Mix Audio")
     else:
         success = run_ffmpeg([
             "ffmpeg", "-i", captioned, "-i", voice,
             "-c:v", "copy", "-c:a", "aac", "-b:a", "96k",
             "-shortest", "-y", output
-        ], 90, "Add Voice"):
-            pass
-    
+        ], 90, "Add Voice")
+
     cleanup(captioned, voice, bgm)
-    
+
     if not success:
         return False, "Mix failed"
-    
+
     log_memory("after-final")
     return True, ""
 
