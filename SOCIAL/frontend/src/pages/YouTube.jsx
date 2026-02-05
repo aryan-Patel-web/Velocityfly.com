@@ -9576,48 +9576,56 @@ onClick={async () => {
               drive_url: trimmedUrl 
             });
 
-            const res = await fetch(`${API_BASE}/api/gdrive-reels/process`, {
-              method: "POST",
-              headers: { 
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${token}`
-              },
-              body: JSON.stringify({ 
-                user_id: user.user_id, 
-                drive_url: trimmedUrl 
-              })
-            });
-            
-            clearInterval(progressInterval);
-            
-            const data = await res.json();
-            console.log('Response:', data);
-            
-            setGdriveProgress(100);
+// UPDATED FRONTEND CODE - MATCHES BACKEND PERFECTLY
+// Replace your existing fetch call with this:
 
-            if (data.success) {
-              setGdriveResult(data);
-              setGdriveUrl("");
-              
-              // Success alert with YouTube link
-              setTimeout(() => {
-                const youtubeUrl = data.video_url;
-                const confirmOpen = window.confirm(
-                  `✅ SUCCESS!\n\n` +
-                  `Title: ${data.title}\n\n` +
-                  `Video uploaded to YouTube!\n\n` +
-                  `📺 ${youtubeUrl}\n\n` +
-                  `Click OK to open YouTube in new tab.`
-                );
-                
-                if (confirmOpen) {
-                  window.open(youtubeUrl, '_blank');
-                }
-              }, 500);
-            } else {
-              console.error('❌ Failed:', data.error);
-              alert(`❌ PROCESSING FAILED\n\n${data.error}\n\nPlease check:\n1. Link is public\n2. Video has Hindi audio\n3. File size < 100MB`);
-            }
+const res = await fetch(`${API_BASE}/api/gdrive-reels/process`, {
+  method: "POST",
+  headers: { 
+    "Content-Type": "application/json",
+    "Authorization": `Bearer ${token}`
+  },
+  body: JSON.stringify({ 
+    user_id: user.user_id, 
+    drive_url: trimmedUrl,
+    wait: true  // ← ADD THIS: Backend will wait and return final result
+  })
+});
+
+clearInterval(progressInterval);
+
+const data = await res.json();
+console.log('Response:', data);
+
+setGdriveProgress(100);
+
+// Backend now returns the result directly
+if (data.success) {
+  setGdriveResult(data);  // data already has all fields at top level
+  setGdriveUrl("");
+  
+  // Success alert with YouTube link
+  setTimeout(() => {
+    const youtubeUrl = data.video_url;
+    const confirmOpen = window.confirm(
+      `✅ SUCCESS!\n\n` +
+      `Title: ${data.title}\n\n` +
+      `Video uploaded to YouTube!\n\n` +
+      `📺 ${youtubeUrl}\n\n` +
+      `Click OK to open YouTube in new tab.`
+    );
+    
+    if (confirmOpen) {
+      window.open(youtubeUrl, '_blank');
+    }
+  }, 500);
+} else {
+  console.error('❌ Failed:', data.error);
+  alert(`❌ PROCESSING FAILED\n\n${data.error}\n\nPlease check:\n1. Link is public\n2. Video has Hindi audio\n3. File size < 100MB`);
+}
+
+
+
           } catch (err) {
             clearInterval(progressInterval);
             console.error('❌ Error:', err);
