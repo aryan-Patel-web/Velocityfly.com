@@ -9321,9 +9321,7 @@ onClick={async () => {
 
 
 {/* --------------------------------Google grive reel CODE START---------------------------------------------------- */}
-
-
-
+{/* --------------------------------Google Drive Reel CODE START---------------------------------------------------- */}
 
 {activeTab === 'gdrive-reels' && status?.youtube_connected && (
   <div style={{ 
@@ -9568,7 +9566,7 @@ onClick={async () => {
               setGdriveProgress(progressSteps[stepIndex]);
               stepIndex++;
             }
-          }, 4000); // Update every 4 seconds
+          }, 4000);
 
           try {
             console.log('🎬 Processing Google Drive video...', { 
@@ -9576,56 +9574,50 @@ onClick={async () => {
               drive_url: trimmedUrl 
             });
 
-// UPDATED FRONTEND CODE - MATCHES BACKEND PERFECTLY
-// Replace your existing fetch call with this:
+            // CORRECTED API CALL
+            const res = await fetch(`${API_BASE}/api/gdrive-reels/process`, {
+              method: "POST",
+              headers: { 
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${token}`
+              },
+              body: JSON.stringify({ 
+                user_id: user.user_id, 
+                drive_url: trimmedUrl,
+                wait: true  // Backend will wait and return final result
+              })
+            });
+            
+            clearInterval(progressInterval);
+            
+            const data = await res.json();
+            console.log('Response:', data);
+            
+            setGdriveProgress(100);
 
-const res = await fetch(`${API_BASE}/api/gdrive-reels/process`, {
-  method: "POST",
-  headers: { 
-    "Content-Type": "application/json",
-    "Authorization": `Bearer ${token}`
-  },
-  body: JSON.stringify({ 
-    user_id: user.user_id, 
-    drive_url: trimmedUrl,
-    wait: true  // ← ADD THIS: Backend will wait and return final result
-  })
-});
-
-clearInterval(progressInterval);
-
-const data = await res.json();
-console.log('Response:', data);
-
-setGdriveProgress(100);
-
-// Backend now returns the result directly
-if (data.success) {
-  setGdriveResult(data);  // data already has all fields at top level
-  setGdriveUrl("");
-  
-  // Success alert with YouTube link
-  setTimeout(() => {
-    const youtubeUrl = data.video_url;
-    const confirmOpen = window.confirm(
-      `✅ SUCCESS!\n\n` +
-      `Title: ${data.title}\n\n` +
-      `Video uploaded to YouTube!\n\n` +
-      `📺 ${youtubeUrl}\n\n` +
-      `Click OK to open YouTube in new tab.`
-    );
-    
-    if (confirmOpen) {
-      window.open(youtubeUrl, '_blank');
-    }
-  }, 500);
-} else {
-  console.error('❌ Failed:', data.error);
-  alert(`❌ PROCESSING FAILED\n\n${data.error}\n\nPlease check:\n1. Link is public\n2. Video has Hindi audio\n3. File size < 100MB`);
-}
-
-
-
+            if (data.success) {
+              setGdriveResult(data);
+              setGdriveUrl("");
+              
+              // Success alert with YouTube link
+              setTimeout(() => {
+                const youtubeUrl = data.video_url;
+                const confirmOpen = window.confirm(
+                  `✅ SUCCESS!\n\n` +
+                  `Title: ${data.title}\n\n` +
+                  `Video uploaded to YouTube!\n\n` +
+                  `📺 ${youtubeUrl}\n\n` +
+                  `Click OK to open YouTube in new tab.`
+                );
+                
+                if (confirmOpen) {
+                  window.open(youtubeUrl, '_blank');
+                }
+              }, 500);
+            } else {
+              console.error('❌ Failed:', data.error);
+              alert(`❌ PROCESSING FAILED\n\n${data.error || 'Unknown error'}\n\nPlease check:\n1. Link is public\n2. Video has Hindi audio\n3. File size < 100MB`);
+            }
           } catch (err) {
             clearInterval(progressInterval);
             console.error('❌ Error:', err);
@@ -9735,7 +9727,7 @@ if (data.success) {
           }}>
             {gdriveProgress < 15  ? "⬇️ Downloading video from Google Drive..." :
              gdriveProgress < 30  ? "📝 Transcribing audio with Groq Whisper..." :
-             gdriveProgress < 50  ? "🤖 AI rephrasing script with Groq Llama..." :
+             gdriveProgress < 50  ? "🤖 AI rephrasing script with Claude AI..." :
              gdriveProgress < 70  ? "🎙️ Generating Hindi voiceover (Edge TTS)..." :
              gdriveProgress < 90  ? "✨ Burning golden captions + mixing BGM..." :
                                     "📤 Uploading directly to YouTube..."}
@@ -9976,12 +9968,12 @@ if (data.success) {
         {[
           'Paste any PUBLIC Google Drive video link',
           'Backend downloads video directly (no Drive API needed)',
-          'Groq Whisper transcribes audio to Hindi text',
-          'Groq Llama AI rephrases into viral script (~20% changes)',
+          'Groq Whisper Large v3 transcribes audio to Hindi text',
+          'Claude AI rephrases into viral script (~20% improvements)',
           'Creates viral Hinglish title + SEO keywords + hashtags',
-          'Edge TTS generates natural Hindi voiceover (1.15x speed)',
+          'Edge TTS generates natural Hindi voiceover',
           'Burns golden captions (dark gold color with outline)',
-          'Mixes voiceover + royalty-free BGM (8% volume)',
+          'Mixes voiceover + royalty-free BGM (6% volume)',
           'Uploads DIRECTLY to your YouTube channel',
           'Video goes LIVE immediately - no database save!',
           'Perfect for viral Hindi Shorts in 30-90 seconds'
@@ -10047,6 +10039,7 @@ if (data.success) {
   </div>
 )}
 
+{/* -------------------------------- GDRIVE REELS CODE END -------------------------------- */}
 {/* -------------------------------- GDRIVE REELS CODE END -------------------------------- */}
 
 {/* --------------------------------GDRIVE REELS CODE END---------------------------------------------------- */}
