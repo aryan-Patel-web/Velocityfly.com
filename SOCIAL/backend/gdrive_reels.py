@@ -2,10 +2,15 @@
 gdrive_reels_optimized.py - PRODUCTION READY WITH FALLBACKS
 ============================================================
 ✅ Multiple Google Drive download methods (3 fallbacks)
-✅ Groq Whisper API for transcription
+✅ Groq Whisper API for transcription (3 methods)
 ✅ Detailed error messages for frontend
 ✅ Handles all URL formats (including ?usp=drive_link)
 ✅ Memory optimized for Render free tier
+
+DEPENDENCIES:
+pip install groq>=0.4.1 edge-tts httpx --break-system-packages
+
+IMPORTANT: Use groq>=0.4.1 to avoid proxy-related errors
 ============================================================
 """
 
@@ -309,28 +314,23 @@ async def extract_audio_from_video(video_path: str, audio_path: str) -> bool:
 
 
 # ═══════════════════════════════════════════════════════════════════════
-# TRANSCRIPTION - GROQ WHISPER API
+# TRANSCRIPTION - GROQ WHISPER API WITH FALLBACKS
 # ═══════════════════════════════════════════════════════════════════════
 
-async def transcribe_audio(audio_path: str) -> tuple[Optional[str], str]:
+async def transcribe_with_groq_large_v3(audio_path: str) -> tuple[Optional[str], str]:
     """
-    Transcribe audio using Groq Whisper API
-    
-    Returns: (transcript: str, error_message: str)
+    Method 1: Groq Whisper Large v3 (Best Quality)
     """
-    logger.info("📝 TRANSCRIBING AUDIO (GROQ WHISPER API)")
-    
     if not GROQ_API_KEY:
-        error_msg = "GROQ_SPEECH_API key not configured on server"
-        logger.error(f"❌ {error_msg}")
-        return None, error_msg
+        return None, "GROQ_SPEECH_API not configured"
+    
+    logger.info("   Method 1: Groq Whisper Large v3")
     
     try:
         from groq import Groq
         
+        # Initialize client WITHOUT proxies
         client = Groq(api_key=GROQ_API_KEY)
-        
-        logger.info("   Using: Groq Whisper Large v3")
         
         with open(audio_path, "rb") as audio_file:
             transcription = client.audio.transcriptions.create(
@@ -341,18 +341,129 @@ async def transcribe_audio(audio_path: str) -> tuple[Optional[str], str]:
             )
         
         if transcription and len(transcription) > 5:
-            logger.info(f"✅ Transcription SUCCESS: {len(transcription)} chars")
-            logger.info(f"   Preview: {transcription[:100]}...")
+            logger.info(f"   ✅ Method 1 SUCCESS: {len(transcription)} chars")
             return transcription.strip(), ""
-        else:
-            error_msg = "Transcription returned empty text - video may not have Hindi audio"
-            logger.error(f"❌ {error_msg}")
-            return None, error_msg
+        
+        return None, "Empty transcription"
         
     except Exception as e:
-        error_msg = f"Transcription failed: {str(e)}"
+        logger.error(f"   ❌ Method 1 failed: {e}")
+        return None, str(e)
+
+
+async def transcribe_with_groq_turbo(audio_path: str) -> tuple[Optional[str], str]:
+    """
+    Method 2: Groq Whisper Large v3 Turbo (Faster)
+    """
+    if not GROQ_API_KEY:
+        return None, "GROQ_SPEECH_API not configured"
+    
+    logger.info("   Method 2: Groq Whisper Large v3 Turbo")
+    
+    try:
+        from groq import Groq
+        
+        client = Groq(api_key=GROQ_API_KEY)
+        
+        with open(audio_path, "rb") as audio_file:
+            transcription = client.audio.transcriptions.create(
+                file=audio_file,
+                model="whisper-large-v3-turbo",
+                response_format="text",
+                language="hi"
+            )
+        
+        if transcription and len(transcription) > 5:
+            logger.info(f"   ✅ Method 2 SUCCESS: {len(transcription)} chars")
+            return transcription.strip(), ""
+        
+        return None, "Empty transcription"
+        
+    except Exception as e:
+        logger.error(f"   ❌ Method 2 failed: {e}")
+        return None, str(e)
+
+
+async def transcribe_with_groq_api_direct(audio_path: str) -> tuple[Optional[str], str]:
+    """
+    Method 3: Direct Groq API call (fallback if SDK fails)
+    """
+    if not GROQ_API_KEY:
+        return None, "GROQ_SPEECH_API not configured"
+    
+    logger.info("   Method 3: Direct Groq API (HTTP)")
+    
+    try:
+        async with httpx.AsyncClient(timeout=60) as client:
+            with open(audio_path, "rb") as audio_file:
+                files = {"file": ("audio.wav", audio_file, "audio/wav")}
+                data = {
+                    "model": "whisper-large-v3",
+                    "language": "hi",
+                    "response_format": "text"
+                }
+                
+                response = await client.post(
+                    "https://api.groq.com/openai/v1/audio/transcriptions",
+                    headers={"Authorization": f"Bearer {GROQ_API_KEY}"},
+                    files=files,
+                    data=data
+                )
+                
+                if response.status_code == 200:
+                    transcription = response.text.strip()
+                    if len(transcription) > 5:
+                        logger.info(f"   ✅ Method 3 SUCCESS: {len(transcription)} chars")
+                        return transcription, ""
+        
+        return None, "API returned empty response"
+        
+    except Exception as e:
+        logger.error(f"   ❌ Method 3 failed: {e}")
+        return None, str(e)
+
+
+async def transcribe_audio(audio_path: str) -> tuple[Optional[str], str]:
+    """
+    Transcribe audio with 3 fallback methods
+    
+    Returns: (transcript: str or None, error_message: str)
+    """
+    logger.info("📝 TRANSCRIBING AUDIO (GROQ WHISPER API - 3 METHODS)")
+    
+    if not GROQ_API_KEY:
+        error_msg = "GROQ_SPEECH_API key not configured on server"
         logger.error(f"❌ {error_msg}")
         return None, error_msg
+    
+    # Try all 3 methods
+    methods = [
+        transcribe_with_groq_large_v3,
+        transcribe_with_groq_turbo,
+        transcribe_with_groq_api_direct,
+    ]
+    
+    for idx, method in enumerate(methods, 1):
+        logger.info(f"🎙️  Trying transcription method {idx}/3...")
+        
+        try:
+            transcript, error = await method(audio_path)
+            
+            if transcript:
+                logger.info(f"✅ TRANSCRIPTION SUCCESS using method {idx}")
+                logger.info(f"   Preview: {transcript[:100]}...")
+                return transcript, ""
+        
+        except Exception as e:
+            logger.error(f"   Exception in method {idx}: {e}")
+        
+        if idx < len(methods):
+            logger.info("   Trying next method...")
+            await asyncio.sleep(1)
+    
+    error_msg = "All transcription methods failed. Video may not have Hindi audio, or Groq API is down."
+    logger.error(f"❌ {error_msg}")
+    return None, error_msg
 
 
 # ═══════════════════════════════════════════════════════════════════════
