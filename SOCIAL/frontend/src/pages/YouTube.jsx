@@ -9315,6 +9315,16 @@ onClick={async () => {
     to { transform: rotate(360deg); }
   }
 `}</style>
+
+
+
+
+
+{/* --------------------------------Google grive reel CODE START---------------------------------------------------- */}
+
+
+
+
 {activeTab === 'gdrive-reels' && status?.youtube_connected && (
   <div style={{ 
     background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', 

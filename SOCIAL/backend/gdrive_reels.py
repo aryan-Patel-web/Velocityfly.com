@@ -1,13 +1,11 @@
 """
-gdrive_reels.py - DIRECT YOUTUBE UPLOAD (NO MONGODB SAVE)
-===========================================================
-✅ POST /api/gdrive-reels/process - Process & Upload to YT
-✅ GET /api/gdrive-reels/status - Get status
-✅ Groq Whisper API for transcription
-✅ Direct upload to YouTube (NO save to MongoDB)
-✅ No "Upload Later" feature
-✅ Works with your exact frontend
-===========================================================
+gdrive_reels.py - FIXED ERROR HANDLING
+========================================
+✅ Proper error messages (no "undefined")
+✅ Better validation
+✅ Detailed logging
+✅ Direct YouTube upload
+========================================
 """
 
 from fastapi import APIRouter, Request
@@ -25,6 +23,7 @@ import re
 import random
 from typing import Optional
 from datetime import datetime
+import traceback
 
 # ═══════════════════════════════════════════════════════════════════════
 # LOGGING
@@ -68,19 +67,33 @@ def run_ffmpeg(cmd: list, timeout: int = 180) -> bool:
     try:
         r = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, timeout=timeout)
         return r.returncode == 0
-    except:
+    except Exception as e:
+        logger.error(f"FFmpeg error: {e}")
         return False
 
 
 def extract_file_id(url: str) -> Optional[str]:
     """Extract Google Drive file ID"""
     if not url:
+        logger.error("Empty URL provided")
         return None
-    for pattern in [r'/file/d/([a-zA-Z0-9_-]{25,})', r'[?&]id=([a-zA-Z0-9_-]{25,})']:
+    
+    logger.info(f"Extracting file ID from: {url[:100]}...")
+    
+    patterns = [
+        r'/file/d/([a-zA-Z0-9_-]{25,})',
+        r'[?&]id=([a-zA-Z0-9_-]{25,})',
+        r'/open\?id=([a-zA-Z0-9_-]{25,})'
+    ]
+    
+    for pattern in patterns:
         m = re.search(pattern, url)
         if m:
-            logger.info(f"✅ File ID: {m.group(1)}")
-            return m.group(1)
+            file_id = m.group(1)
+            logger.info(f"✅ File ID extracted: {file_id}")
+            return file_id
+    
+    logger.error("Could not extract file ID from URL")
     return None
 
 
@@ -96,18 +109,35 @@ async def download_video(file_id: str, dest: str) -> bool:
     
     try:
         async with httpx.AsyncClient(timeout=180, follow_redirects=True) as client:
+            logger.info("   Making HTTP request...")
             async with client.stream("GET", url) as r:
-                if r.status_code == 200:
-                    with open(dest, 'wb') as f:
-                        async for chunk in r.aiter_bytes(chunk_size=1024*1024):
-                            f.write(chunk)
+                logger.info(f"   Status: {r.status_code}")
+                
+                if r.status_code != 200:
+                    logger.error(f"   HTTP error: {r.status_code}")
+                    return False
+                
+                with open(dest, 'wb') as f:
+                    async for chunk in r.aiter_bytes(chunk_size=1024*1024):
+                        f.write(chunk)
+                
+                if os.path.exists(dest):
+                    size = os.path.getsize(dest)
+                    size_mb = size / (1024 * 1024)
+                    logger.info(f"✅ Downloaded: {size_mb:.1f} MB")
                     
-                    if os.path.exists(dest) and os.path.getsize(dest) > 10000:
-                        logger.info(f"✅ Downloaded: {os.path.getsize(dest)/(1024*1024):.1f} MB")
-                        return True
-        return False
+                    if size < 10000:
+                        logger.error("File too small (< 10KB)")
+                        return False
+                    
+                    return True
+                else:
+                    logger.error("Downloaded file not found")
+                    return False
+                    
     except Exception as e:
         logger.error(f"❌ Download failed: {e}")
+        logger.error(traceback.format_exc())
         return False
 
 
@@ -127,20 +157,30 @@ async def get_duration(path: str) -> float:
             duration = float(r.stdout.strip())
             logger.info(f"⏱️  Duration: {duration:.1f}s")
             return duration
-        return 0.0
-    except:
+        else:
+            logger.error(f"ffprobe failed: {r.stderr}")
+            return 0.0
+    except Exception as e:
+        logger.error(f"Duration check failed: {e}")
         return 0.0
 
 
 async def extract_audio(video: str, audio: str) -> bool:
     """Extract audio"""
     logger.info("🔊 Extracting audio...")
-    return run_ffmpeg([
+    success = run_ffmpeg([
         "ffmpeg", "-i", video,
         "-vn", "-acodec", "pcm_s16le",
         "-ar", "16000", "-ac", "1",
         "-y", audio
     ], timeout=60)
+    
+    if success and os.path.exists(audio):
+        logger.info("✅ Audio extracted")
+        return True
+    else:
+        logger.error("❌ Audio extraction failed")
+        return False
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -152,14 +192,16 @@ async def transcribe_audio(audio_path: str) -> Optional[str]:
     logger.info("📝 Transcribing with Groq Whisper...")
     
     if not GROQ_API_KEY:
-        logger.error("❌ GROQ_SPEECH_API not set")
+        logger.error("❌ GROQ_SPEECH_API environment variable not set")
         return None
     
     try:
         from groq import Groq
         
+        logger.info("   Initializing Groq client...")
         client = Groq(api_key=GROQ_API_KEY)
         
+        logger.info("   Sending audio to Groq API...")
         with open(audio_path, "rb") as f:
             transcription = client.audio.transcriptions.create(
                 file=f,
@@ -170,11 +212,18 @@ async def transcribe_audio(audio_path: str) -> Optional[str]:
         
         if transcription and len(transcription) > 5:
             logger.info(f"✅ Transcription: {len(transcription)} chars")
+            logger.info(f"   Preview: {transcription[:100]}...")
             return transcription.strip()
+        else:
+            logger.error("❌ Transcription returned empty or too short")
+            return None
         
+    except ImportError:
+        logger.error("❌ groq library not installed. Run: pip install groq")
         return None
     except Exception as e:
         logger.error(f"❌ Transcription failed: {e}")
+        logger.error(traceback.format_exc())
         return None
 
 
@@ -223,10 +272,11 @@ Return ONLY JSON:
                     "keywords": (data.get("keywords", []) + ["hindi"]*15)[:15],
                     "tags": (data.get("tags", []) + ["#Shorts"]*6)[:6]
                 }
-        except:
-            pass
+        except Exception as e:
+            logger.warning(f"Groq Llama failed: {e}")
     
     # Fallback
+    logger.info("Using fallback script generation")
     script_words = transcript.split()[:words]
     script = " ".join(script_words)
     
@@ -251,15 +301,23 @@ async def generate_voiceover(script: str, output: str) -> bool:
         import edge_tts
         
         voice = random.choice(EDGE_TTS_VOICES)
+        logger.info(f"   Voice: {voice}")
+        
         await edge_tts.Communicate(script[:2000], voice, rate="+15%").save(output)
         
         if os.path.exists(output) and os.path.getsize(output) > 1000:
             logger.info("✅ Voiceover generated")
             return True
+        else:
+            logger.error("Voiceover file missing or too small")
+            return False
         
+    except ImportError:
+        logger.error("edge_tts not installed. Run: pip install edge-tts")
         return False
     except Exception as e:
         logger.error(f"❌ Voiceover failed: {e}")
+        logger.error(traceback.format_exc())
         return False
 
 
@@ -326,7 +384,8 @@ async def download_bgm(output: str, duration: float) -> bool:
                         return True
         
         return False
-    except:
+    except Exception as e:
+        logger.warning(f"BGM download failed: {e}")
         return False
 
 
@@ -337,16 +396,19 @@ async def create_final(silent: str, voice: str, srt: str, bgm: Optional[str], ou
     captioned = output.replace(".mp4", "_cap.mp4")
     srt_esc = srt.replace("\\", "\\\\").replace(":", "\\:")
     
+    logger.info("   Burning captions...")
     if not run_ffmpeg([
         "ffmpeg", "-i", silent,
         "-vf", f"subtitles={srt_esc}:force_style='FontName=Arial Black,FontSize=28,PrimaryColour=&H000B86B8,OutlineColour=&H00000000,Bold=1,Outline=2,Alignment=2,MarginV=60'",
         "-c:v", "libx264", "-crf", "23", "-preset", "fast",
         "-y", captioned
     ], timeout=180):
+        logger.error("Caption burning failed")
         return False
     
     cleanup(silent)
     
+    logger.info("   Mixing audio...")
     if bgm and os.path.exists(bgm):
         success = run_ffmpeg([
             "ffmpeg",
@@ -368,6 +430,8 @@ async def create_final(silent: str, voice: str, srt: str, bgm: Optional[str], ou
     
     if success:
         logger.info(f"✅ Final video: {os.path.getsize(output)/(1024*1024):.1f} MB")
+    else:
+        logger.error("Final video creation failed")
     
     return success
 
@@ -390,7 +454,8 @@ async def upload_to_youtube(video: str, title: str, desc: str, keywords: list, t
         creds = await yt_db.youtube.youtube_credentials_collection.find_one({"user_id": user_id})
         
         if not creds:
-            return {"success": False, "error": "YouTube credentials not found"}
+            logger.error("YouTube credentials not found")
+            return {"success": False, "error": "YouTube credentials not found. Please connect your YouTube account first."}
         
         credentials = {
             "access_token": creds.get("access_token"),
@@ -408,6 +473,7 @@ async def upload_to_youtube(video: str, title: str, desc: str, keywords: list, t
         
         full_desc = f"{desc}\n\n{' '.join(keywords)}\n\n{' '.join(tags)}"
         
+        logger.info("   Calling YouTube upload service...")
         result = await youtube_scheduler.generate_and_upload_content(
             user_id=user_id,
             credentials_data=credentials,
@@ -425,11 +491,17 @@ async def upload_to_youtube(video: str, title: str, desc: str, keywords: list, t
                 "video_id": video_id,
                 "video_url": f"https://youtube.com/shorts/{video_id}"
             }
+        else:
+            error_msg = result.get("error", "Upload failed")
+            logger.error(f"Upload failed: {error_msg}")
+            return {"success": False, "error": error_msg}
         
-        return {"success": False, "error": result.get("error", "Upload failed")}
-        
+    except ImportError as e:
+        logger.error(f"Import error: {e}")
+        return {"success": False, "error": "YouTube upload module not available"}
     except Exception as e:
         logger.error(f"❌ Upload failed: {e}")
+        logger.error(traceback.format_exc())
         return {"success": False, "error": str(e)}
 
 
@@ -445,48 +517,70 @@ async def process_and_upload(drive_url: str, user_id: str) -> dict:
     try:
         temp_dir = tempfile.mkdtemp(prefix="gdrive_reel_")
         logger.info("=" * 80)
-        logger.info("🎬 PROCESSING START (Direct YouTube Upload)")
+        logger.info("🎬 PROCESSING START")
         logger.info("=" * 80)
+        logger.info(f"   User: {user_id}")
+        logger.info(f"   URL: {drive_url[:80]}...")
+        logger.info(f"   Temp: {temp_dir}")
         
         # Extract file ID
+        logger.info("\n[STEP 1/9] Extracting file ID...")
         file_id = extract_file_id(drive_url)
         if not file_id:
-            return {"success": False, "error": "Invalid Google Drive URL. Make sure URL contains file ID."}
+            return {
+                "success": False, 
+                "error": "Invalid Google Drive URL. Make sure URL is in format: https://drive.google.com/file/d/FILE_ID/view"
+            }
         
         # Download
+        logger.info("\n[STEP 2/9] Downloading video...")
         video = os.path.join(temp_dir, "video.mp4")
         if not await download_video(file_id, video):
-            return {"success": False, "error": "Download failed. Make sure:\n1. Link is public (Share > Anyone with link)\n2. File is a video\n3. File size < 100MB"}
+            return {
+                "success": False, 
+                "error": "Download failed. Please check:\n1. Link is public (Share > Anyone with link can view)\n2. File is a video\n3. File size < 100MB"
+            }
         
         # Get duration
+        logger.info("\n[STEP 3/9] Getting video info...")
         duration = await get_duration(video)
-        if duration <= 0 or duration > 180:
-            return {"success": False, "error": f"Invalid duration: {duration}s (must be 1-180s)"}
+        if duration <= 0:
+            return {"success": False, "error": "Could not read video file. File may be corrupted."}
+        if duration > 180:
+            return {"success": False, "error": f"Video too long ({duration:.0f}s). Maximum is 180s (3 minutes)."}
         
         # Extract audio
+        logger.info("\n[STEP 4/9] Extracting audio...")
         audio = os.path.join(temp_dir, "audio.wav")
         if not await extract_audio(video, audio):
-            return {"success": False, "error": "Audio extraction failed"}
+            return {"success": False, "error": "Audio extraction failed. Video may not have audio track."}
         
         # Transcribe
+        logger.info("\n[STEP 5/9] Transcribing audio...")
         transcript = await transcribe_audio(audio)
         cleanup(audio)
         
         if not transcript:
-            return {"success": False, "error": "Transcription failed. Video must have clear Hindi speech."}
+            return {
+                "success": False, 
+                "error": "Transcription failed. Video must have clear Hindi speech. Please check:\n1. Video has Hindi audio\n2. Audio is not too quiet\n3. Speech is clear"
+            }
         
         # Generate script
+        logger.info("\n[STEP 6/9] Generating AI script...")
         meta = await generate_script(transcript, duration)
         
         # Voiceover
+        logger.info("\n[STEP 7/9] Generating voiceover...")
         voice = os.path.join(temp_dir, "voice.mp3")
         if not await generate_voiceover(meta["script"], voice):
-            return {"success": False, "error": "Voiceover generation failed"}
+            return {"success": False, "error": "Voiceover generation failed. Please try again."}
         
         # Remove audio
+        logger.info("\n[STEP 8/9] Processing video...")
         silent = os.path.join(temp_dir, "silent.mp4")
         if not await remove_audio(video, silent):
-            return {"success": False, "error": "Audio removal failed"}
+            return {"success": False, "error": "Video processing failed."}
         cleanup(video)
         
         # Captions
@@ -501,12 +595,12 @@ async def process_and_upload(drive_url: str, user_id: str) -> dict:
         # Final video
         final = os.path.join(temp_dir, "final.mp4")
         if not await create_final(silent, voice, srt_path, bgm if bgm_ok else None, final):
-            return {"success": False, "error": "Final video creation failed"}
+            return {"success": False, "error": "Final video creation failed."}
         
         cleanup(voice, srt_path, bgm)
         
         # Upload to YouTube
-        logger.info("📤 Uploading directly to YouTube (NO MongoDB save)...")
+        logger.info("\n[STEP 9/9] Uploading to YouTube...")
         upload_result = await upload_to_youtube(
             final,
             meta["title"],
@@ -517,14 +611,16 @@ async def process_and_upload(drive_url: str, user_id: str) -> dict:
         )
         
         if not upload_result.get("success"):
-            return {"success": False, "error": upload_result.get("error", "YouTube upload failed")}
+            error_msg = upload_result.get("error", "YouTube upload failed")
+            return {"success": False, "error": error_msg}
         
         # Success
         elapsed = (datetime.now() - start).total_seconds()
         
-        logger.info("=" * 80)
+        logger.info("\n" + "=" * 80)
         logger.info("✅ SUCCESS!")
         logger.info(f"   Time: {elapsed:.1f}s")
+        logger.info(f"   Video ID: {upload_result['video_id']}")
         logger.info(f"   URL: {upload_result['video_url']}")
         logger.info("=" * 80)
         
@@ -537,21 +633,20 @@ async def process_and_upload(drive_url: str, user_id: str) -> dict:
             "duration": round(duration, 2),
             "video_id": upload_result["video_id"],
             "video_url": upload_result["video_url"],
-            "processing_time": round(elapsed, 1),
-            "note": "Video uploaded directly to YouTube (not saved to MongoDB)"
+            "processing_time": round(elapsed, 1)
         }
         
     except Exception as e:
-        logger.error(f"❌ ERROR: {e}")
-        import traceback
+        logger.error(f"\n❌ FATAL ERROR: {e}")
         logger.error(traceback.format_exc())
-        return {"success": False, "error": str(e)}
+        return {"success": False, "error": f"Processing error: {str(e)}"}
     
     finally:
         if temp_dir:
-            logger.info("🧹 Cleanup...")
+            logger.info("\n🧹 Cleanup...")
             try:
                 shutil.rmtree(temp_dir, ignore_errors=True)
+                logger.info("   ✅ Temp files deleted")
             except:
                 pass
         gc.collect()
@@ -567,27 +662,11 @@ router = APIRouter()
 @router.post("/api/gdrive-reels/process")
 async def process_endpoint(request: Request):
     """
-    Process Google Drive video and upload directly to YouTube
-    
-    Frontend sends:
-    {
-        "user_id": "user123",
-        "drive_url": "https://drive.google.com/file/d/FILE_ID/view"
-    }
-    
-    Returns:
-    {
-        "success": true,
-        "title": "...",
-        "description": "...",
-        "keywords": [...],
-        "tags": [...],
-        "duration": 28.5,
-        "video_id": "xyz123",
-        "video_url": "https://youtube.com/shorts/xyz123"
-    }
+    Process Google Drive video and upload to YouTube
     """
-    logger.info("🌐 API REQUEST: /api/gdrive-reels/process")
+    logger.info("\n" + "🌐" * 40)
+    logger.info("API REQUEST: /api/gdrive-reels/process")
+    logger.info("🌐" * 40)
     
     try:
         data = await request.json()
@@ -595,58 +674,58 @@ async def process_endpoint(request: Request):
         user_id = data.get("user_id")
         drive_url = (data.get("drive_url") or "").strip()
         
-        logger.info(f"   User: {user_id}")
-        logger.info(f"   URL: {drive_url[:80]}...")
+        logger.info(f"User ID: {user_id}")
+        logger.info(f"Drive URL: {drive_url[:100]}...")
         
+        # Validation
         if not user_id:
+            logger.error("Missing user_id")
             return JSONResponse(
                 status_code=400,
                 content={"success": False, "error": "user_id is required"}
             )
         
-        if not drive_url or "drive.google.com" not in drive_url:
+        if not drive_url:
+            logger.error("Missing drive_url")
             return JSONResponse(
                 status_code=400,
-                content={"success": False, "error": "Valid Google Drive URL is required"}
+                content={"success": False, "error": "drive_url is required"}
             )
         
-        # Process and upload (async, will take 30-60s)
+        if "drive.google.com" not in drive_url:
+            logger.error("Invalid URL")
+            return JSONResponse(
+                status_code=400,
+                content={"success": False, "error": "URL must be a Google Drive link"}
+            )
+        
+        # Process with timeout
         result = await asyncio.wait_for(
             process_and_upload(drive_url, user_id),
             timeout=600  # 10 min max
         )
         
+        logger.info(f"Result: success={result.get('success')}")
         return JSONResponse(content=result)
         
     except asyncio.TimeoutError:
-        logger.error("⏱️  Timeout")
+        logger.error("⏱️  Request timeout (10 minutes)")
         return JSONResponse(
             status_code=408,
-            content={"success": False, "error": "Processing timeout (10 minutes)"}
+            content={"success": False, "error": "Processing timeout. Video may be too long or complex."}
         )
     except Exception as e:
         logger.error(f"❌ API error: {e}")
-        import traceback
         logger.error(traceback.format_exc())
         return JSONResponse(
             status_code=500,
-            content={"success": False, "error": str(e)}
+            content={"success": False, "error": f"Server error: {str(e)}"}
         )
 
 
 @router.get("/api/gdrive-reels/status")
 async def status_endpoint(request: Request):
-    """
-    Get status (for compatibility with frontend)
-    
-    Frontend expects:
-    {
-        "success": true,
-        "next_serial": 1,
-        "total_processed": 0,
-        "history": []
-    }
-    """
+    """Get status"""
     try:
         user_id = request.query_params.get("user_id")
         
@@ -656,12 +735,8 @@ async def status_endpoint(request: Request):
                 content={"success": False, "error": "user_id required"}
             )
         
-        # Since we don't save to MongoDB, return empty
         return JSONResponse(content={
             "success": True,
-            "next_serial": 1,
-            "total_processed": 0,
-            "history": [],
             "note": "Direct YouTube upload - no history saved"
         })
         
@@ -676,11 +751,14 @@ async def status_endpoint(request: Request):
 @router.get("/api/gdrive-reels/health")
 async def health_endpoint():
     """Health check"""
+    groq_ok = bool(GROQ_API_KEY)
+    
     return JSONResponse(content={
         "status": "ok",
-        "groq_configured": bool(GROQ_API_KEY),
-        "mode": "Direct YouTube upload (no MongoDB save)",
-        "method": "Groq Whisper API"
+        "groq_configured": groq_ok,
+        "mode": "Direct YouTube upload",
+        "method": "Groq Whisper API",
+        "warning": None if groq_ok else "GROQ_SPEECH_API not configured"
     })
 
 
