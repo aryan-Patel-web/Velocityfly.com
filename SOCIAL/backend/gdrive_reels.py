@@ -1360,6 +1360,7 @@ Generate in JSON format:
 # VOICEOVER WITH 1.5X SPEED - ELEVENLABS PRIORITY + EDGE TTS FALLBACK
 # ═══════════════════════════════════════════════════════════════════════
 
+\
 async def generate_voiceover_12x(script: str, output: str) -> tuple[bool, str]:
     """
     Generate voiceover at 1.5x speed with priority system:
