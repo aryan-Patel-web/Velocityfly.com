@@ -117,6 +117,18 @@ const [gdriveProcessing, setGdriveProcessing] = useState(false);
 const [gdriveProgress, setGdriveProgress] = useState(0);
 const [gdriveResult, setGdriveResult] = useState(null);
 
+
+
+// ==========food hack ai ADD THIS TO YOUR STATE VARIABLES (top of component) ==========
+
+const [foodHackUrl, setFoodHackUrl] = useState("");
+const [foodHackProcessing, setFoodHackProcessing] = useState(false);
+const [foodHackProgress, setFoodHackProgress] = useState(0);
+const [foodHackResult, setFoodHackResult] = useState(null);
+
+
+
+
 // MrBeast Viral Shorts Generator State
 const [mrBeastConfig, setMrBeastConfig] = useState({
   youtube_url: '',
@@ -1299,6 +1311,21 @@ useEffect(() => {
 }, [user, token]);
 
 
+
+// ========== ADD THIS useEffect FOR CLEANUP (near other useEffects) ==========
+useEffect(() => {
+  // Cleanup when component unmounts or tab changes
+  return () => {
+    if (activeTab !== 'food-hack-ai') {
+      setFoodHackUrl("");
+      setFoodHackProcessing(false);
+      setFoodHackProgress(0);
+      setFoodHackResult(null);
+    }
+  };
+}, [activeTab]);
+
+
 // ✅ VIRAL PIXEL useEffect (Add this with your other useEffects)
 useEffect(() => {
   // Load available niches from backend (optional - if your API supports it)
@@ -2033,7 +2060,31 @@ useEffect(() => {
 
 
 
-
+{/* / ========== ADD THIS TAB BUTTON TO YOUR TAB NAVIGATION ========== */}
+<button
+  onClick={() => setActiveTab('food-hack-ai')}
+  style={{
+    padding: '12px 24px',
+    background: activeTab === 'food-hack-ai'
+      ? 'linear-gradient(135deg, #FF6B6B, #FFA726)'
+      : 'white',
+    color: activeTab === 'food-hack-ai' ? 'white' : '#333',
+    border: activeTab === 'food-hack-ai' ? 'none' : '2px solid #e0e0e0',
+    borderRadius: '12px',
+    fontWeight: '600',
+    cursor: 'pointer',
+    transition: 'all 0.3s',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    boxShadow: activeTab === 'food-hack-ai'
+      ? '0 4px 15px rgba(255,107,107,0.4)'
+      : '0 2px 8px rgba(0,0,0,0.1)'
+  }}
+>
+  <span style={{ fontSize: '20px' }}>🍕</span>
+  Food-Hack-AI
+</button>
 
 <button 
   onClick={() => setActiveTab('pixabay')}
@@ -9320,8 +9371,8 @@ onClick={async () => {
 
 
 
-{/* --------------------------------Google grive reel CODE START---------------------------------------------------- */}
-{/* --------------------------------Google Drive Reel CODE START---------------------------------------------------- */}
+{/* --------------------------------Google grive ai story reel CODE START---------------------------------------------------- */}
+{/* --------------------------------Google Drive ai story Reel CODE START---------------------------------------------------- */}
 
 {activeTab === 'gdrive-reels' && status?.youtube_connected && (
   <div style={{ 
@@ -10039,10 +10090,790 @@ onClick={async () => {
   </div>
 )}
 
-{/* -------------------------------- GDRIVE REELS CODE END -------------------------------- */}
-{/* -------------------------------- GDRIVE REELS CODE END -------------------------------- */}
 
-{/* --------------------------------GDRIVE REELS CODE END---------------------------------------------------- */}
+{/* ------------------------------google drive ai story reels code end ---------------------------*/}
+
+
+
+
+
+{/* -------------------------start code of AI food Hack -----------------------------------------  */}
+
+{/* / ========== MAIN TAB CONTENT (paste this where other tab contents are) ========== */}
+{activeTab === 'food-hack-ai' && status?.youtube_connected && (
+  <div style={{ 
+    background: 'linear-gradient(135deg, #FF6B6B 0%, #FFA726 100%)', 
+    borderRadius: '20px', 
+    padding: '40px', 
+    boxShadow: '0 12px 40px rgba(0, 0, 0, 0.4)',
+    minHeight: '700px'
+  }}>
+    {/* HEADER */}
+    <div style={{ 
+      display: 'flex', 
+      justifyContent: 'space-between', 
+      alignItems: 'center', 
+      marginBottom: '35px',
+      flexWrap: 'wrap',
+      gap: '20px'
+    }}>
+      <div>
+        <h2 style={{ 
+          color: 'white', 
+          marginBottom: '12px', 
+          fontSize: '38px', 
+          fontWeight: '900',
+          textShadow: '3px 3px 6px rgba(0,0,0,0.4)',
+          margin: 0,
+          letterSpacing: '-0.5px'
+        }}>
+          🍕 Food Hack AI Pro
+        </h2>
+        <p style={{ 
+          color: 'rgba(255,255,255,0.95)', 
+          fontSize: '17px',
+          fontWeight: '500',
+          margin: 0,
+          textShadow: '1px 1px 2px rgba(0,0,0,0.2)'
+        }}>
+          Multi-Character AI Voices • Live Captions • Video Enhancement • Direct YouTube Upload 🚀
+        </p>
+      </div>
+      <div style={{
+        background: 'rgba(255,255,255,0.2)',
+        padding: '12px 20px',
+        borderRadius: '25px',
+        backdropFilter: 'blur(10px)',
+        border: '2px solid rgba(255,255,255,0.3)'
+      }}>
+        <div style={{ color: 'white', fontSize: '14px', fontWeight: '700' }}>
+          ⚡ AI-Powered Mode
+        </div>
+      </div>
+    </div>
+
+    {/* FEATURE FLOW BAR */}
+    <div style={{
+      display: 'flex',
+      justifyContent: 'center',
+      alignItems: 'center',
+      flexWrap: 'wrap',
+      gap: '4px',
+      marginBottom: '24px'
+    }}>
+      {[
+        { icon: '⬇️', label: 'Download' },
+        { icon: '📝', label: 'Transcribe' },
+        { icon: '🤖', label: 'Smart AI' },
+        { icon: '🎭', label: 'Multi-Voice' },
+        { icon: '🎨', label: 'Enhance' },
+        { icon: '✨', label: 'Captions' },
+        { icon: '🎵', label: 'Kids BGM' },
+        { icon: '📤', label: 'YouTube' },
+      ].map((step, i) => (
+        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <div style={{
+            background: 'white',
+            borderRadius: '12px',
+            padding: '8px 10px',
+            textAlign: 'center',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+            minWidth: '72px'
+          }}>
+            <div style={{ fontSize: '18px' }}>{step.icon}</div>
+            <div style={{ fontSize: '10px', fontWeight: '600', color: '#555', marginTop: '2px' }}>
+              {step.label}
+            </div>
+          </div>
+          {i < 7 && <span style={{ color: 'rgba(255,255,255,0.7)', fontSize: '14px' }}>→</span>}
+        </div>
+      ))}
+    </div>
+
+    {/* URL INPUT BOX */}
+    <div style={{
+      background: 'rgba(255,255,255,0.98)',
+      borderRadius: '18px',
+      padding: '35px',
+      marginBottom: '30px',
+      boxShadow: '0 8px 32px rgba(0,0,0,0.1)'
+    }}>
+      <h3 style={{ 
+        color: '#1a1a2e', 
+        marginBottom: '25px', 
+        fontSize: '26px', 
+        fontWeight: '800',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '12px'
+      }}>
+        <span style={{ 
+          background: 'linear-gradient(135deg, #FF6B6B, #FFA726)',
+          color: 'white',
+          borderRadius: '12px',
+          width: '42px',
+          height: '42px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: '20px',
+          fontWeight: '900'
+        }}>1</span>
+        Paste Google Drive Video URL
+      </h3>
+
+      <label style={{ 
+        display: 'block', 
+        fontWeight: '600', 
+        color: '#333', 
+        marginBottom: '8px', 
+        fontSize: '14px' 
+      }}>
+        📎 Public Drive Link (Food Video)
+      </label>
+      
+      <input
+        type="text"
+        value={foodHackUrl}
+        onChange={e => setFoodHackUrl(e.target.value)}
+        placeholder="https://drive.google.com/file/d/XXXXX/view?usp=drive_link"
+        disabled={foodHackProcessing}
+        style={{
+          width: '100%',
+          padding: '14px 18px',
+          borderRadius: '12px',
+          border: '2px solid #e0e0e0',
+          fontSize: '14px',
+          outline: 'none',
+          boxSizing: 'border-box',
+          transition: 'all 0.2s',
+          background: foodHackProcessing ? '#f5f5f5' : 'white',
+          fontFamily: 'monospace',
+          color: '#333'
+        }}
+        onFocus={e => e.target.style.borderColor = '#FF6B6B'}
+        onBlur={e => e.target.style.borderColor = '#e0e0e0'}
+      />
+      
+      <div style={{ 
+        marginTop: '12px', 
+        display: 'flex', 
+        gap: '20px',
+        flexWrap: 'wrap' 
+      }}>
+        <p style={{ 
+          margin: 0, 
+          fontSize: '12px', 
+          color: '#4caf50',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '6px'
+        }}>
+          <span>✅</span>
+          <span>Share settings: "Anyone with the link can view"</span>
+        </p>
+        <p style={{ 
+          margin: 0, 
+          fontSize: '12px', 
+          color: '#ff9800',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '6px'
+        }}>
+          <span>🎭</span>
+          <span>Multi-character AI voices + Video enhancements</span>
+        </p>
+      </div>
+    </div>
+
+    {/* PROCESS BUTTON */}
+    <div style={{
+      background: 'rgba(255,255,255,0.98)',
+      borderRadius: '18px',
+      padding: '35px',
+      marginBottom: '30px',
+      boxShadow: '0 8px 32px rgba(0,0,0,0.1)'
+    }}>
+      <h3 style={{ 
+        color: '#1a1a2e', 
+        marginBottom: '25px', 
+        fontSize: '26px', 
+        fontWeight: '800',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '12px'
+      }}>
+        <span style={{ 
+          background: 'linear-gradient(135deg, #FF6B6B, #FFA726)',
+          color: 'white',
+          borderRadius: '12px',
+          width: '42px',
+          height: '42px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: '20px',
+          fontWeight: '900'
+        }}>2</span>
+        Process with AI & Upload to YouTube
+      </h3>
+
+      <button
+        onClick={async () => {
+          const trimmedUrl = foodHackUrl.trim();
+          
+          // Validation
+          if (!trimmedUrl) {
+            alert("❌ Please paste a Google Drive URL first!");
+            return;
+          }
+          if (!trimmedUrl.includes("drive.google.com")) {
+            alert("❌ URL must be a Google Drive link!\n\nExample:\nhttps://drive.google.com/file/d/FILE_ID/view");
+            return;
+          }
+          
+          setFoodHackProcessing(true);
+          setFoodHackProgress(0);
+          setFoodHackResult(null);
+
+          // Simulate progress for UX
+          const progressSteps = [5, 15, 25, 35, 50, 65, 75, 88, 95];
+          let stepIndex = 0;
+          const progressInterval = setInterval(() => {
+            if (stepIndex < progressSteps.length) {
+              setFoodHackProgress(progressSteps[stepIndex]);
+              stepIndex++;
+            }
+          }, 4000);
+
+          try {
+            console.log('🍕 Processing Food Hack video...', { 
+              user_id: user.user_id, 
+              drive_url: trimmedUrl 
+            });
+
+            // API CALL
+            const res = await fetch(`${API_BASE}/api/food-hack-ai/process`, {
+              method: "POST",
+              headers: { 
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${token}`
+              },
+              body: JSON.stringify({ 
+                user_id: user.user_id, 
+                drive_url: trimmedUrl,
+                wait: true
+              })
+            });
+            
+            clearInterval(progressInterval);
+            
+            const data = await res.json();
+            console.log('Response:', data);
+            
+            setFoodHackProgress(100);
+
+            if (data.success) {
+              setFoodHackResult(data);
+              setFoodHackUrl("");
+              
+              // Success alert with YouTube link
+              setTimeout(() => {
+                const youtubeUrl = data.video_url;
+                const confirmOpen = window.confirm(
+                  `✅ SUCCESS!\n\n` +
+                  `Title: ${data.title}\n\n` +
+                  `Characters: ${data.num_characters}\n\n` +
+                  `Video uploaded to YouTube!\n\n` +
+                  `📺 ${youtubeUrl}\n\n` +
+                  `Click OK to open YouTube in new tab.`
+                );
+                
+                if (confirmOpen) {
+                  window.open(youtubeUrl, '_blank');
+                }
+              }, 500);
+            } else {
+              console.error('❌ Failed:', data.error);
+              alert(`❌ PROCESSING FAILED\n\n${data.error || 'Unknown error'}\n\nPlease check:\n1. Link is public\n2. Video has Hindi audio\n3. File size < 100MB`);
+            }
+          } catch (err) {
+            clearInterval(progressInterval);
+            console.error('❌ Error:', err);
+            alert(`❌ NETWORK ERROR\n\n${err.message}\n\nPlease check your internet connection.`);
+          } finally {
+            setFoodHackProcessing(false);
+            setTimeout(() => setFoodHackProgress(0), 3000);
+          }
+        }}
+        disabled={foodHackProcessing || !foodHackUrl.trim()}
+        style={{
+          width: '100%',
+          padding: '24px',
+          background: foodHackProcessing || !foodHackUrl.trim()
+            ? 'linear-gradient(135deg, #95a5a6, #7f8c8d)' 
+            : 'linear-gradient(135deg, #FF6B6B, #FFA726)',
+          color: 'white',
+          border: 'none',
+          borderRadius: '15px',
+          fontSize: '22px',
+          fontWeight: '900',
+          cursor: (foodHackProcessing || !foodHackUrl.trim()) ? 'not-allowed' : 'pointer',
+          boxShadow: (foodHackProcessing || !foodHackUrl.trim()) 
+            ? 'none'
+            : '0 8px 32px rgba(255,107,107,0.4)',
+          opacity: (foodHackProcessing || !foodHackUrl.trim()) ? 0.7 : 1,
+          transition: 'all 0.3s',
+          textTransform: 'uppercase',
+          letterSpacing: '1px'
+        }}
+        onMouseEnter={e => {
+          if (!foodHackProcessing && foodHackUrl.trim()) {
+            e.target.style.transform = 'translateY(-2px)';
+            e.target.style.boxShadow = '0 12px 40px rgba(255,107,107,0.5)';
+          }
+        }}
+        onMouseLeave={e => {
+          e.target.style.transform = 'translateY(0)';
+          e.target.style.boxShadow = (foodHackProcessing || !foodHackUrl.trim()) 
+            ? 'none'
+            : '0 8px 32px rgba(255,107,107,0.4)';
+        }}
+      >
+        {foodHackProcessing ? (
+          <span style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center', 
+            gap: '15px' 
+          }}>
+            <span style={{ 
+              display: 'inline-block', 
+              width: '24px', 
+              height: '24px', 
+              border: '3px solid rgba(255,255,255,0.3)',
+              borderTop: '3px solid white',
+              borderRadius: '50%',
+              animation: 'spin 1s linear infinite'
+            }}/>
+            PROCESSING WITH AI...
+          </span>
+        ) : (
+          '🎭 PROCESS & UPLOAD TO YOUTUBE'
+        )}
+      </button>
+
+      {/* PROGRESS BAR */}
+      {foodHackProcessing && (
+        <div style={{ marginTop: '25px' }}>
+          <div style={{
+            width: '100%',
+            height: '45px',
+            background: '#e0e0e0',
+            borderRadius: '25px',
+            overflow: 'hidden',
+            position: 'relative',
+            boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.1)'
+          }}>
+            <div style={{
+              width: `${foodHackProgress}%`,
+              height: '100%',
+              background: 'linear-gradient(90deg, #FF6B6B, #FFA726)',
+              transition: 'width 0.5s ease',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              position: 'relative'
+            }}>
+              <span style={{
+                color: 'white',
+                fontWeight: '800',
+                fontSize: '18px',
+                textShadow: '1px 1px 2px rgba(0,0,0,0.3)'
+              }}>
+                {foodHackProgress}%
+              </span>
+            </div>
+          </div>
+          
+          <p style={{ 
+            textAlign: 'center', 
+            marginTop: '18px', 
+            color: '#666',
+            fontSize: '15px',
+            lineHeight: '1.6',
+            fontWeight: '600'
+          }}>
+            {foodHackProgress < 15  ? "⬇️ Downloading video from Google Drive..." :
+             foodHackProgress < 30  ? "📝 Transcribing audio with Groq Whisper..." :
+             foodHackProgress < 45  ? "🤖 Smart AI script generation (minimal changes)..." :
+             foodHackProgress < 60  ? "🎭 Multi-character voiceover (ElevenLabs 1.3x)..." :
+             foodHackProgress < 75  ? "🎨 Enhancing video (saturation, contrast, vibrance)..." :
+             foodHackProgress < 90  ? "✨ Live captions + Kids BGM mixing (15%)..." :
+                                      "📤 Uploading to YouTube with SEO..."}
+          </p>
+        </div>
+      )}
+
+      {/* SUCCESS RESULT */}
+      {foodHackResult && foodHackResult.success && !foodHackProcessing && (
+        <div style={{
+          marginTop: '25px',
+          padding: '25px',
+          background: 'linear-gradient(135deg, #e8f5e9, #c8e6c9)',
+          borderRadius: '15px',
+          border: '3px solid #4caf50',
+          animation: 'fadeIn 0.5s ease'
+        }}>
+          <h4 style={{ 
+            color: '#2e7d32', 
+            marginBottom: '18px', 
+            fontSize: '22px', 
+            fontWeight: '800',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px'
+          }}>
+            <span style={{ fontSize: '28px' }}>🎉</span>
+            Successfully Uploaded to YouTube!
+          </h4>
+          
+          <div style={{
+            padding: '18px',
+            background: 'white',
+            borderRadius: '12px',
+            marginBottom: '18px'
+          }}>
+            <div style={{ 
+              fontSize: '13px', 
+              color: '#666', 
+              marginBottom: '8px', 
+              fontWeight: '600',
+              textTransform: 'uppercase',
+              letterSpacing: '0.5px'
+            }}>
+              📝 Video Title
+            </div>
+            <div style={{ 
+              fontSize: '18px', 
+              fontWeight: '700', 
+              color: '#1a1a2e', 
+              marginBottom: '15px',
+              lineHeight: '1.4'
+            }}>
+              {foodHackResult.title}
+            </div>
+            
+            <div style={{ 
+              fontSize: '13px', 
+              color: '#666', 
+              marginBottom: '8px', 
+              fontWeight: '600',
+              textTransform: 'uppercase',
+              letterSpacing: '0.5px'
+            }}>
+              📄 Description Preview
+            </div>
+            <div style={{ 
+              fontSize: '14px', 
+              color: '#555', 
+              lineHeight: '1.6', 
+              marginBottom: '15px' 
+            }}>
+              {foodHackResult.description?.substring(0, 200)}
+              {foodHackResult.description?.length > 200 && '...'}
+            </div>
+            
+            <div style={{ 
+              fontSize: '13px', 
+              color: '#666', 
+              marginBottom: '8px', 
+              fontWeight: '600',
+              textTransform: 'uppercase',
+              letterSpacing: '0.5px'
+            }}>
+              🏷️ Hashtags
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+              {foodHackResult.hashtags?.map((tag, idx) => (
+                <span key={idx} style={{
+                  background: 'linear-gradient(135deg, #FFE0B2, #FFCC80)',
+                  color: '#E65100',
+                  padding: '6px 12px',
+                  borderRadius: '15px',
+                  fontSize: '12px',
+                  fontWeight: '700',
+                  border: '1px solid #FFB74D'
+                }}>
+                  {tag}
+                </span>
+              ))}
+            </div>
+          </div>
+          
+          {/* Stats Grid */}
+          <div style={{ 
+            display: 'grid', 
+            gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', 
+            gap: '12px',
+            marginBottom: '18px'
+          }}>
+            <div style={{ 
+              background: 'white', 
+              padding: '14px', 
+              borderRadius: '10px',
+              border: '1px solid #e0e0e0'
+            }}>
+              <div style={{ 
+                fontSize: '11px', 
+                color: '#999', 
+                marginBottom: '6px',
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px'
+              }}>
+                Characters
+              </div>
+              <div style={{ fontSize: '18px', fontWeight: '800', color: '#333' }}>
+                {foodHackResult.num_characters} Voices
+              </div>
+            </div>
+            
+            <div style={{ 
+              background: 'white', 
+              padding: '14px', 
+              borderRadius: '10px',
+              border: '1px solid #e0e0e0'
+            }}>
+              <div style={{ 
+                fontSize: '11px', 
+                color: '#999', 
+                marginBottom: '6px',
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px'
+              }}>
+                Duration
+              </div>
+              <div style={{ fontSize: '18px', fontWeight: '800', color: '#333' }}>
+                {foodHackResult.duration}s
+              </div>
+            </div>
+            
+            <div style={{ 
+              background: 'white', 
+              padding: '14px', 
+              borderRadius: '10px',
+              border: '1px solid #e0e0e0'
+            }}>
+              <div style={{ 
+                fontSize: '11px', 
+                color: '#999', 
+                marginBottom: '6px',
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px'
+              }}>
+                Processing
+              </div>
+              <div style={{ fontSize: '18px', fontWeight: '800', color: '#333' }}>
+                {foodHackResult.processing_time}s
+              </div>
+            </div>
+            
+            <div style={{ 
+              background: 'white', 
+              padding: '14px', 
+              borderRadius: '10px',
+              border: '1px solid #e0e0e0'
+            }}>
+              <div style={{ 
+                fontSize: '11px', 
+                color: '#999', 
+                marginBottom: '6px',
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px'
+              }}>
+                Status
+              </div>
+              <div style={{ 
+                fontSize: '14px', 
+                fontWeight: '800', 
+                color: '#4caf50',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}>
+                <span style={{ fontSize: '18px' }}>🟢</span>
+                LIVE
+              </div>
+            </div>
+          </div>
+          
+          {/* YouTube Link Button */}
+          <a
+            href={foodHackResult.video_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              display: 'block',
+              width: '100%',
+              padding: '16px',
+              background: 'linear-gradient(135deg, #e53935, #ff5252)',
+              color: 'white',
+              textAlign: 'center',
+              borderRadius: '12px',
+              fontSize: '16px',
+              fontWeight: '800',
+              textDecoration: 'none',
+              boxShadow: '0 4px 12px rgba(229,57,53,0.3)',
+              transition: 'all 0.3s',
+              textTransform: 'uppercase',
+              letterSpacing: '1px'
+            }}
+            onMouseEnter={e => {
+              e.target.style.transform = 'translateY(-2px)';
+              e.target.style.boxShadow = '0 6px 20px rgba(229,57,53,0.4)';
+            }}
+            onMouseLeave={e => {
+              e.target.style.transform = 'translateY(0)';
+              e.target.style.boxShadow = '0 4px 12px rgba(229,57,53,0.3)';
+            }}
+          >
+            📺 WATCH ON YOUTUBE
+          </a>
+        </div>
+      )}
+    </div>
+
+    {/* INFO FOOTER */}
+    <div style={{
+      padding: '30px',
+      background: 'linear-gradient(135deg, rgba(255,255,255,0.15), rgba(255,255,255,0.1))',
+      borderRadius: '18px',
+      color: 'white',
+      backdropFilter: 'blur(10px)',
+      border: '2px solid rgba(255,255,255,0.2)'
+    }}>
+      <h3 style={{ 
+        marginBottom: '20px', 
+        fontSize: '24px', 
+        fontWeight: '800',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '12px'
+      }}>
+        <span style={{ fontSize: '28px' }}>✨</span>
+        AI-Powered Features
+      </h3>
+      
+      <div style={{ display: 'grid', gap: '12px' }}>
+        {[
+          '🎭 Multi-character AI voices (up to 4 ElevenLabs voices)',
+          '🤖 Smart AI script: minimal changes to transcript (time-synced)',
+          '💬 Emotional ending: "Bye bye mere dosto!" in every video',
+          '⚡ 1.3x voiceover speed for all TTS platforms',
+          '🎨 Video enhancements: +30% saturation, +20% contrast, +5% brightness',
+          '✨ Vibrance boost (0.4) + sharpness for crisp quality',
+          '📝 Live captions with multiple fallback libraries',
+          '🎵 Kids BGM (ringtone style) at 15% volume',
+          '🔍 SEO optimization: 35-45 keywords + 7-9 hashtags',
+          '🏷️ 2-3 hashtags in video title for discoverability',
+          '📤 Direct YouTube upload with all metadata',
+          '🍕 Perfect for viral food hack shorts!'
+        ].map((feature, idx) => (
+          <div key={idx} style={{
+            display: 'flex',
+            gap: '14px',
+            alignItems: 'flex-start',
+            background: 'rgba(255,255,255,0.1)',
+            padding: '14px 16px',
+            borderRadius: '10px',
+            backdropFilter: 'blur(5px)',
+            border: '1px solid rgba(255,255,255,0.1)',
+            transition: 'all 0.2s'
+          }}
+          onMouseEnter={e => {
+            e.currentTarget.style.background = 'rgba(255,255,255,0.15)';
+            e.currentTarget.style.transform = 'translateX(5px)';
+          }}
+          onMouseLeave={e => {
+            e.currentTarget.style.background = 'rgba(255,255,255,0.1)';
+            e.currentTarget.style.transform = 'translateX(0)';
+          }}
+          >
+            <span style={{ 
+              fontSize: '20px', 
+              flexShrink: 0,
+              marginTop: '2px'
+            }}>
+              ✓
+            </span>
+            <span style={{ 
+              fontSize: '14px', 
+              lineHeight: '1.6',
+              fontWeight: '500'
+            }}>
+              {feature}
+            </span>
+          </div>
+        ))}
+      </div>
+      
+      {/* Video Enhancement Settings */}
+      <div style={{
+        marginTop: '20px',
+        padding: '20px',
+        background: 'rgba(255,255,255,0.08)',
+        borderRadius: '12px',
+        border: '1px solid rgba(255,255,255,0.15)'
+      }}>
+        <h4 style={{ 
+          fontSize: '18px', 
+          fontWeight: '700', 
+          marginBottom: '12px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px'
+        }}>
+          <span>💡</span>
+          Video Enhancement Settings
+        </h4>
+        <div style={{ fontSize: '13px', lineHeight: '1.8', opacity: 0.9 }}>
+          <div>• <strong>Saturation +30%</strong> → Makes food colors pop (vivid)</div>
+          <div>• <strong>Contrast +20%</strong> → Better text/character clarity</div>
+          <div>• <strong>Brightness +5%</strong> → Slight visibility boost</div>
+          <div>• <strong>Vibrance 0.4</strong> → Smart color enhancement (natural)</div>
+          <div>• <strong>Sharpness</strong> → Crisp details without grain</div>
+          <div style={{ marginTop: '8px', fontStyle: 'italic', opacity: 0.8 }}>
+            ℹ️ Suggestions: If too bright → decrease brightness to 0 | If too vivid → decrease saturation to 1.2
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {/* SPINNER ANIMATION */}
+    <style>{`
+      @keyframes spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+      }
+      
+      @keyframes fadeIn {
+        from { 
+          opacity: 0; 
+          transform: translateY(20px); 
+        }
+        to { 
+          opacity: 1; 
+          transform: translateY(0); 
+        }
+      }
+    `}</style>
+
+  </div>
+)}
+
+{/*------------------------------   AI Food Hack code end  ---------------------------    */}
+
+
 
 
 

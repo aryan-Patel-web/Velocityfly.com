@@ -109,7 +109,19 @@ except ImportError as e:
     gdrive_reels_router = None
     gdrive_reels_initialize = None
 
-
+# ===========================================================================
+# FOOD HACK AI MODULE IMPORT
+# ===========================================================================
+try:
+    from gdrive_food_hack_ENHANCED import (
+        router as food_hack_router,
+        initialize as food_hack_initialize
+    )
+    logger.info("✅ gdrive_food_hack_ENHANCED module imported successfully")
+except ImportError as e:
+    logger.error(f"❌ Failed to import gdrive_food_hack_ENHANCED: {e}")
+    food_hack_router = None
+    food_hack_initialize = None
 
 # ✅ ADD THIS LINE (around line 50-60, near other imports)
 try:
@@ -1899,6 +1911,44 @@ except Exception as e:
     logger.error(f"❌ GDrive Reels routes registration failed: {e}")
     logger.error(traceback.format_exc())
 
+
+# ───────────────────────────────────────────────────────────────────────
+# FOOD HACK AI INITIALIZATION
+# ───────────────────────────────────────────────────────────────────────
+if food_hack_initialize is not None:
+    try:
+        logger.info("🍕 Initializing Food Hack AI service...")
+        logger.info("   (Checking API keys and dependencies...)")
+        await food_hack_initialize()
+        logger.info("✅ Food Hack AI service ready!")
+    except Exception as e:
+        logger.error(f"❌ Food Hack AI initialization failed: {e}")
+        logger.error(traceback.format_exc())
+        logger.error("   ⚠️ Food Hack AI will not work properly!")
+else:
+    logger.warning("⚠️ Food Hack AI initialize function not available")
+
+# ===========================================================================
+# ✅ FOOD HACK AI ROUTES (AI VIDEO PROCESSOR & YOUTUBE UPLOADER)
+# ===========================================================================
+try:
+    if food_hack_router is not None:
+        app.include_router(food_hack_router, tags=["food-hack-ai"])
+        logger.info("✅ Food Hack AI routes registered successfully!")
+        logger.info("   📍 Available endpoints:")
+        logger.info("      - GET  /api/food-hack-ai/health")
+        logger.info("      - POST /api/food-hack-ai/process")
+        logger.info("      - GET  /api/food-hack-ai/status/{task_id}")
+        logger.info("      - GET  /api/food-hack-ai/bgm-list")
+    else:
+        logger.warning("⚠️ Food Hack AI router not available - routes not registered")
+except Exception as e:
+    logger.error(f"❌ Food Hack AI routes registration failed: {e}")
+    logger.error(traceback.format_exc())
+
+
+
+    
 # ===========================================================================
 # MRBEAST VIRAL SHORTS ROUTES
 # ============================================================================
