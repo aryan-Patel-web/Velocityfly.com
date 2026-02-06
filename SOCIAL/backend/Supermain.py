@@ -1912,21 +1912,6 @@ except Exception as e:
     logger.error(traceback.format_exc())
 
 
-# ───────────────────────────────────────────────────────────────────────
-# FOOD HACK AI INITIALIZATION
-# ───────────────────────────────────────────────────────────────────────
-if food_hack_initialize is not None:
-    try:
-        logger.info("🍕 Initializing Food Hack AI service...")
-        logger.info("   (Checking API keys and dependencies...)")
-        await food_hack_initialize()
-        logger.info("✅ Food Hack AI service ready!")
-    except Exception as e:
-        logger.error(f"❌ Food Hack AI initialization failed: {e}")
-        logger.error(traceback.format_exc())
-        logger.error("   ⚠️ Food Hack AI will not work properly!")
-else:
-    logger.warning("⚠️ Food Hack AI initialize function not available")
 
 # ===========================================================================
 # ✅ FOOD HACK AI ROUTES (AI VIDEO PROCESSOR & YOUTUBE UPLOADER)
@@ -1947,8 +1932,6 @@ except Exception as e:
     logger.error(traceback.format_exc())
 
 
-
-    
 # ===========================================================================
 # MRBEAST VIRAL SHORTS ROUTES
 # ============================================================================
@@ -5281,7 +5264,7 @@ async def startup():
     except Exception as e:
         logger.error(f"❌ YouTube scheduler failed: {e}")
     
-    # ... add your other existing startup code here ...
+
     
     # ─────────────────────────────────────────────────────────────────────
     # GDRIVE REELS INITIALIZATION (NEW - ADD THIS)
