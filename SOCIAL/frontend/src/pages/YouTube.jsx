@@ -80,7 +80,11 @@ const [chinaUrl, setChinaUrl] = useState('');
 const [chinaProcessing, setChinaProcessing] = useState(false);
 const [chinaProgress, setChinaProgress] = useState(0);
 const [chinaResult, setChinaResult] = useState(null);
-// ============================================================================
+
+// NEW: Manual upload states (RENAMED to avoid conflicts)
+const [chinaInputMode, setChinaInputMode] = useState('url'); // 'url' or 'file' - RENAMED from uploadMode
+const [selectedFile, setSelectedFile] = useState(null);
+const [filePreview, setFilePreview] = useState(null);
 // PIXABAY TAB - STATE MANAGEMENT (Paste at top with other useState)
 // ============================================================================
 
@@ -786,6 +790,190 @@ const replyToComment = useCallback(async (commentId, replyText) => {
 
 
 
+// ========== FILE UPLOAD HANDLER ==========
+const handleFileSelect = (e) => {
+  const file = e.target.files[0];
+  
+  if (!file) return;
+  
+  // Validate file type
+  if (!file.type.startsWith('video/')) {
+    alert('❌ Please select a valid video file!');
+    return;
+  }
+  
+  // Validate file size (max 100MB)
+  const maxSize = 100 * 1024 * 1024; // 100MB
+  if (file.size > maxSize) {
+    alert('❌ File too large! Maximum size is 100MB.\n\nYour file: ' + (file.size / (1024 * 1024)).toFixed(1) + 'MB');
+    return;
+  }
+  
+  // Set file and create preview
+  setSelectedFile(file);
+  
+  // Create video preview
+  const videoUrl = URL.createObjectURL(file);
+  setFilePreview(videoUrl);
+  
+  console.log('✅ File selected:', file.name, (file.size / (1024 * 1024)).toFixed(2) + 'MB');
+};
+
+// ========== PROCESS VIDEO FUNCTION (REPLACES YOUR EXISTING BUTTON onClick) ==========
+const processVideo = async () => {
+  // Validation based on mode
+  if (chinaInputMode === 'url') {
+    const trimmedUrl = chinaUrl.trim();
+    
+    if (!trimmedUrl) {
+      alert("❌ Please paste a Douyin/TikTok URL first!");
+      return;
+    }
+    if (!trimmedUrl.includes("douyin.com") && !trimmedUrl.includes("tiktok.com")) {
+      alert("❌ URL must be from Douyin or TikTok!\n\nExamples:\nhttps://www.douyin.com/video/...\nhttps://www.tiktok.com/@user/video/...");
+      return;
+    }
+  } else {
+    // File mode validation
+    if (!selectedFile) {
+      alert("❌ Please select a video file first!");
+      return;
+    }
+  }
+  
+  setChinaProcessing(true);
+  setChinaProgress(0);
+  setChinaResult(null);
+
+  // Simulate progress for UX
+  const progressSteps = [5, 15, 30, 50, 65, 80, 90, 95];
+  let stepIndex = 0;
+  const progressInterval = setInterval(() => {
+    if (stepIndex < progressSteps.length) {
+      setChinaProgress(progressSteps[stepIndex]);
+      stepIndex++;
+    }
+  }, 5000);
+
+  try {
+    let res, data;
+    
+    if (chinaInputMode === 'url') {
+      // URL MODE - Original logic
+      console.log('🇨🇳 Processing China Short (URL)...', { 
+        user_id: user.user_id, 
+        china_url: chinaUrl.trim() 
+      });
+
+      res = await fetch(`${API_BASE}/api/china-shorts/process`, {
+        method: "POST",
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify({ 
+          user_id: user.user_id, 
+          china_url: chinaUrl.trim()
+        })
+      });
+      
+      data = await res.json();
+      
+    } else {
+      // FILE MODE - Upload file
+      console.log('📤 Processing China Short (File Upload)...', {
+        user_id: user.user_id,
+        file: selectedFile.name,
+        size: (selectedFile.size / (1024 * 1024)).toFixed(2) + 'MB'
+      });
+
+      const formData = new FormData();
+      formData.append('user_id', user.user_id);
+      formData.append('video_file', selectedFile);
+
+      res = await fetch(`${API_BASE}/api/china-shorts/process-upload`, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${token}`
+        },
+        body: formData
+      });
+      
+      data = await res.json();
+    }
+    
+    clearInterval(progressInterval);
+    console.log('Response:', data);
+    
+    setChinaProgress(100);
+
+    if (data.success) {
+      setChinaResult(data);
+      setChinaUrl("");
+      setSelectedFile(null);
+      if (filePreview) {
+        URL.revokeObjectURL(filePreview);
+        setFilePreview(null);
+      }
+      
+      // Success alert with YouTube link
+      setTimeout(() => {
+        const youtubeUrl = data.video_url;
+        const confirmOpen = window.confirm(
+          `✅ SUCCESS!\n\n` +
+          `Title: ${data.title}\n\n` +
+          `Video uploaded to YouTube!\n\n` +
+          `📺 ${youtubeUrl}\n\n` +
+          `Click OK to open YouTube in new tab.`
+        );
+        
+        if (confirmOpen) {
+          window.open(youtubeUrl, '_blank');
+        }
+      }, 500);
+    } else {
+      console.error('❌ Failed:', data.error);
+      alert(`❌ PROCESSING FAILED\n\n${data.error || 'Unknown error'}\n\nPlease check:\n1. ${chinaInputMode === 'url' ? 'URL is valid Douyin/TikTok link' : 'Video file is valid'}\n2. Video is accessible\n3. File size < 100MB`);
+    }
+  } catch (err) {
+    clearInterval(progressInterval);
+    console.error('❌ Error:', err);
+    alert(`❌ NETWORK ERROR\n\n${err.message}\n\nPlease check your internet connection.`);
+  } finally {
+    setChinaProcessing(false);
+    setTimeout(() => setChinaProgress(0), 3000);
+  }
+};
+
+
+
+
+
+
+// Cleanup preview URL when component unmounts or file changes
+useEffect(() => {
+  return () => {
+    if (filePreview) {
+      URL.revokeObjectURL(filePreview);
+    }
+  };
+}, [filePreview]);
+
+// Cleanup on unmount
+useEffect(() => {
+  return () => {
+    setChinaUrl('');
+    setChinaProcessing(false);
+    setChinaProgress(0);
+    setChinaResult(null);
+    setChinaInputMode('url');
+    setSelectedFile(null);
+    if (filePreview) {
+      URL.revokeObjectURL(filePreview);
+      setFilePreview(null);
+    }
+  };
+}, []);
 
 // Add this useEffect to load niches when component mounts:
 useEffect(() => {
@@ -1301,6 +1489,11 @@ useEffect(() => {
   
   loadAutomationConfig();
 }, [user, token]);
+
+
+
+
+
 
 
 
@@ -11417,8 +11610,6 @@ onClick={async () => {
 {/* CHINA MULTI-NICHE AUTOMATION TAB */}
 {/* ============================================ */}
 
-
-{/* ========== CHINA SHORTS TAB CONTENT ========== */}
 {activeTab === 'china-shorts' && status?.youtube_connected && (
   <div style={{ 
     background: 'linear-gradient(135deg, #FF4757 0%, #FF6348 100%)', 
@@ -11427,7 +11618,7 @@ onClick={async () => {
     boxShadow: '0 12px 40px rgba(0, 0, 0, 0.4)',
     minHeight: '700px'
   }}>
-    {/* HEADER */}
+    {/* HEADER - Same as before */}
     <div style={{ 
       display: 'flex', 
       justifyContent: 'space-between', 
@@ -11455,7 +11646,7 @@ onClick={async () => {
           margin: 0,
           textShadow: '1px 1px 2px rgba(0,0,0,0.2)'
         }}>
-          Douyin/TikTok URL → Remove Audio → Add BGM → Apply Filters → Golden Captions → YouTube 🚀
+          Douyin/TikTok URL OR Upload Video → Process → YouTube 🚀
         </p>
       </div>
       <div style={{
@@ -11471,7 +11662,7 @@ onClick={async () => {
       </div>
     </div>
 
-    {/* STEP FLOW BAR */}
+    {/* STEP FLOW BAR - Same as before */}
     <div style={{
       display: 'flex',
       justifyContent: 'center',
@@ -11481,7 +11672,7 @@ onClick={async () => {
       marginBottom: '24px'
     }}>
       {[
-        { icon: '⬇️', label: 'Download' },
+        { icon: '⬇️', label: 'Input' },
         { icon: '🎨', label: 'Filters' },
         { icon: '🔇', label: 'Remove Audio' },
         { icon: '🎵', label: 'Add BGM' },
@@ -11507,114 +11698,378 @@ onClick={async () => {
       ))}
     </div>
 
-    {/* URL INPUT BOX */}
+    {/* NEW: MODE SELECTOR (URL vs FILE UPLOAD) */}
     <div style={{
       background: 'rgba(255,255,255,0.98)',
       borderRadius: '18px',
-      padding: '35px',
+      padding: '25px',
       marginBottom: '30px',
       boxShadow: '0 8px 32px rgba(0,0,0,0.1)'
     }}>
       <h3 style={{ 
         color: '#1a1a2e', 
-        marginBottom: '25px', 
-        fontSize: '26px', 
+        marginBottom: '20px', 
+        fontSize: '20px', 
         fontWeight: '800',
         display: 'flex',
         alignItems: 'center',
-        gap: '12px'
+        gap: '10px'
       }}>
-        <span style={{ 
-          background: 'linear-gradient(135deg, #FF4757, #FF6348)',
-          color: 'white',
-          borderRadius: '12px',
-          width: '42px',
-          height: '42px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontSize: '20px',
-          fontWeight: '900'
-        }}>1</span>
-        Paste Douyin/TikTok Video URL
+        <span style={{ fontSize: '24px' }}>🎯</span>
+        Choose Input Method
       </h3>
 
-      <label style={{ 
-        display: 'block', 
-        fontWeight: '600', 
-        color: '#333', 
-        marginBottom: '8px', 
-        fontSize: '14px' 
-      }}>
-        🔗 Video Link (Douyin or TikTok)
-      </label>
-      
-      <input
-        type="text"
-        value={chinaUrl}
-        onChange={e => setChinaUrl(e.target.value)}
-        placeholder="https://www.douyin.com/video/... OR https://www.tiktok.com/@username/video/..."
-        disabled={chinaProcessing}
-        style={{
-          width: '100%',
-          padding: '14px 18px',
-          borderRadius: '12px',
-          border: '2px solid #e0e0e0',
-          fontSize: '14px',
-          outline: 'none',
-          boxSizing: 'border-box',
-          transition: 'all 0.2s',
-          background: chinaProcessing ? '#f5f5f5' : 'white',
-          fontFamily: 'monospace',
-          color: '#333'
-        }}
-        onFocus={e => e.target.style.borderColor = '#FF4757'}
-        onBlur={e => e.target.style.borderColor = '#e0e0e0'}
-      />
-      
-      <div style={{ 
-        marginTop: '12px', 
-        display: 'flex', 
-        gap: '20px',
-        flexWrap: 'wrap' 
-      }}>
-        <p style={{ 
-          margin: 0, 
-          fontSize: '12px', 
-          color: '#4caf50',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '6px'
-        }}>
-          <span>✅</span>
-          <span>Supports Douyin & TikTok URLs</span>
-        </p>
-        <p style={{ 
-          margin: 0, 
-          fontSize: '12px', 
-          color: '#ff9800',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '6px'
-        }}>
-          <span>🎨</span>
-          <span>Filters applied to avoid copyright detection</span>
-        </p>
-        <p style={{ 
-          margin: 0, 
-          fontSize: '12px', 
-          color: '#2196f3',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '6px'
-        }}>
-          <span>✨</span>
-          <span>Golden captions with emojis</span>
-        </p>
+      <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap' }}>
+        {/* URL Mode Button */}
+        <button
+          onClick={() => {
+            setChinaInputMode('url');
+            setSelectedFile(null);
+            if (filePreview) {
+              URL.revokeObjectURL(filePreview);
+              setFilePreview(null);
+            }
+          }}
+          disabled={chinaProcessing}
+          style={{
+            flex: 1,
+            minWidth: '200px',
+            padding: '18px 24px',
+            background: chinaInputMode === 'url' 
+              ? 'linear-gradient(135deg, #FF4757, #FF6348)' 
+              : 'white',
+            color: chinaInputMode === 'url' ? 'white' : '#333',
+            border: chinaInputMode === 'url' ? 'none' : '2px solid #e0e0e0',
+            borderRadius: '12px',
+            fontSize: '16px',
+            fontWeight: '700',
+            cursor: chinaProcessing ? 'not-allowed' : 'pointer',
+            transition: 'all 0.3s',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '10px',
+            boxShadow: chinaInputMode === 'url' 
+              ? '0 4px 15px rgba(255,71,87,0.4)' 
+              : '0 2px 8px rgba(0,0,0,0.1)',
+            opacity: chinaProcessing ? 0.6 : 1
+          }}
+        >
+          <span style={{ fontSize: '24px' }}>🔗</span>
+          <span>Paste URL</span>
+        </button>
+
+        {/* File Upload Mode Button */}
+        <button
+          onClick={() => {
+            setChinaInputMode('file');
+            setChinaUrl('');
+          }}
+          disabled={chinaProcessing}
+          style={{
+            flex: 1,
+            minWidth: '200px',
+            padding: '18px 24px',
+            background: chinaInputMode === 'file' 
+              ? 'linear-gradient(135deg, #FF4757, #FF6348)' 
+              : 'white',
+            color: chinaInputMode === 'file' ? 'white' : '#333',
+            border: chinaInputMode === 'file' ? 'none' : '2px solid #e0e0e0',
+            borderRadius: '12px',
+            fontSize: '16px',
+            fontWeight: '700',
+            cursor: chinaProcessing ? 'not-allowed' : 'pointer',
+            transition: 'all 0.3s',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '10px',
+            boxShadow: chinaInputMode === 'file' 
+              ? '0 4px 15px rgba(255,71,87,0.4)' 
+              : '0 2px 8px rgba(0,0,0,0.1)',
+            opacity: chinaProcessing ? 0.6 : 1
+          }}
+        >
+          <span style={{ fontSize: '24px' }}>📁</span>
+          <span>Upload File</span>
+        </button>
       </div>
     </div>
 
-    {/* PROCESS BUTTON */}
+    {/* CONDITIONAL INPUT BOX */}
+    {chinaInputMode === 'url' ? (
+      /* URL INPUT BOX - Original */
+      <div style={{
+        background: 'rgba(255,255,255,0.98)',
+        borderRadius: '18px',
+        padding: '35px',
+        marginBottom: '30px',
+        boxShadow: '0 8px 32px rgba(0,0,0,0.1)'
+      }}>
+        <h3 style={{ 
+          color: '#1a1a2e', 
+          marginBottom: '25px', 
+          fontSize: '26px', 
+          fontWeight: '800',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px'
+        }}>
+          <span style={{ 
+            background: 'linear-gradient(135deg, #FF4757, #FF6348)',
+            color: 'white',
+            borderRadius: '12px',
+            width: '42px',
+            height: '42px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '20px',
+            fontWeight: '900'
+          }}>1</span>
+          Paste Douyin/TikTok Video URL
+        </h3>
+
+        <label style={{ 
+          display: 'block', 
+          fontWeight: '600', 
+          color: '#333', 
+          marginBottom: '8px', 
+          fontSize: '14px' 
+        }}>
+          🔗 Video Link (Douyin or TikTok)
+        </label>
+        
+        <input
+          type="text"
+          value={chinaUrl}
+          onChange={e => setChinaUrl(e.target.value)}
+          placeholder="https://www.douyin.com/video/... OR https://www.tiktok.com/@username/video/..."
+          disabled={chinaProcessing}
+          style={{
+            width: '100%',
+            padding: '14px 18px',
+            borderRadius: '12px',
+            border: '2px solid #e0e0e0',
+            fontSize: '14px',
+            outline: 'none',
+            boxSizing: 'border-box',
+            transition: 'all 0.2s',
+            background: chinaProcessing ? '#f5f5f5' : 'white',
+            fontFamily: 'monospace',
+            color: '#333'
+          }}
+          onFocus={e => e.target.style.borderColor = '#FF4757'}
+          onBlur={e => e.target.style.borderColor = '#e0e0e0'}
+        />
+        
+        <div style={{ 
+          marginTop: '12px', 
+          display: 'flex', 
+          gap: '20px',
+          flexWrap: 'wrap' 
+        }}>
+          <p style={{ 
+            margin: 0, 
+            fontSize: '12px', 
+            color: '#4caf50',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px'
+          }}>
+            <span>✅</span>
+            <span>Supports Douyin & TikTok URLs</span>
+          </p>
+          <p style={{ 
+            margin: 0, 
+            fontSize: '12px', 
+            color: '#ff9800',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px'
+          }}>
+            <span>🎨</span>
+            <span>Filters applied automatically</span>
+          </p>
+        </div>
+      </div>
+    ) : (
+      /* FILE UPLOAD BOX - NEW */
+      <div style={{
+        background: 'rgba(255,255,255,0.98)',
+        borderRadius: '18px',
+        padding: '35px',
+        marginBottom: '30px',
+        boxShadow: '0 8px 32px rgba(0,0,0,0.1)'
+      }}>
+        <h3 style={{ 
+          color: '#1a1a2e', 
+          marginBottom: '25px', 
+          fontSize: '26px', 
+          fontWeight: '800',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px'
+        }}>
+          <span style={{ 
+            background: 'linear-gradient(135deg, #FF4757, #FF6348)',
+            color: 'white',
+            borderRadius: '12px',
+            width: '42px',
+            height: '42px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '20px',
+            fontWeight: '900'
+          }}>1</span>
+          Upload Your Video File
+        </h3>
+
+        {/* File Upload Area */}
+        <div style={{
+          border: '3px dashed ' + (selectedFile ? '#4caf50' : '#e0e0e0'),
+          borderRadius: '12px',
+          padding: '40px 20px',
+          textAlign: 'center',
+          background: selectedFile ? '#f1f8f4' : '#fafafa',
+          transition: 'all 0.3s',
+          cursor: chinaProcessing ? 'not-allowed' : 'pointer',
+          position: 'relative'
+        }}>
+          <input
+            type="file"
+            accept="video/*"
+            onChange={handleFileSelect}
+            disabled={chinaProcessing}
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: '100%',
+              opacity: 0,
+              cursor: chinaProcessing ? 'not-allowed' : 'pointer'
+            }}
+            id="video-file-input"
+          />
+          
+          {!selectedFile ? (
+            <div>
+              <div style={{ fontSize: '64px', marginBottom: '15px' }}>📁</div>
+              <div style={{ fontSize: '18px', fontWeight: '700', color: '#333', marginBottom: '10px' }}>
+                Click to Upload Video
+              </div>
+              <div style={{ fontSize: '14px', color: '#666', marginBottom: '15px' }}>
+                or drag and drop your video file here
+              </div>
+              <div style={{ fontSize: '12px', color: '#999' }}>
+                Supported formats: MP4, MOV, AVI, MKV, etc. • Max size: 100MB
+              </div>
+            </div>
+          ) : (
+            <div>
+              <div style={{ fontSize: '64px', marginBottom: '15px' }}>✅</div>
+              <div style={{ fontSize: '18px', fontWeight: '700', color: '#4caf50', marginBottom: '10px' }}>
+                File Selected!
+              </div>
+              <div style={{ fontSize: '14px', color: '#333', marginBottom: '8px', fontWeight: '600' }}>
+                {selectedFile.name}
+              </div>
+              <div style={{ fontSize: '13px', color: '#666', marginBottom: '15px' }}>
+                Size: {(selectedFile.size / (1024 * 1024)).toFixed(2)} MB
+              </div>
+              
+              {/* Video Preview */}
+              {filePreview && (
+                <div style={{ marginTop: '20px' }}>
+                  <video
+                    src={filePreview}
+                    controls
+                    style={{
+                      maxWidth: '100%',
+                      maxHeight: '300px',
+                      borderRadius: '10px',
+                      boxShadow: '0 4px 12px rgba(0,0,0,0.2)'
+                    }}
+                  />
+                </div>
+              )}
+              
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSelectedFile(null);
+                  if (filePreview) {
+                    URL.revokeObjectURL(filePreview);
+                    setFilePreview(null);
+                  }
+                  document.getElementById('video-file-input').value = '';
+                }}
+                disabled={chinaProcessing}
+                style={{
+                  marginTop: '15px',
+                  padding: '10px 20px',
+                  background: '#ff5252',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  cursor: chinaProcessing ? 'not-allowed' : 'pointer',
+                  transition: 'all 0.3s'
+                }}
+              >
+                🗑️ Remove File
+              </button>
+            </div>
+          )}
+        </div>
+
+        <div style={{ 
+          marginTop: '15px', 
+          display: 'flex', 
+          gap: '20px',
+          flexWrap: 'wrap' 
+        }}>
+          <p style={{ 
+            margin: 0, 
+            fontSize: '12px', 
+            color: '#4caf50',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px'
+          }}>
+            <span>✅</span>
+            <span>Direct file upload supported</span>
+          </p>
+          <p style={{ 
+            margin: 0, 
+            fontSize: '12px', 
+            color: '#ff9800',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px'
+          }}>
+            <span>🎨</span>
+            <span>Same filters and processing</span>
+          </p>
+          <p style={{ 
+            margin: 0, 
+            fontSize: '12px', 
+            color: '#2196f3',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px'
+          }}>
+            <span>✨</span>
+            <span>Golden captions added automatically</span>
+          </p>
+        </div>
+      </div>
+    )}
+
+    {/* PROCESS BUTTON - Updated */}
     <div style={{
       background: 'rgba(255,255,255,0.98)',
       borderRadius: '18px',
@@ -11646,96 +12101,19 @@ onClick={async () => {
         Process & Upload to YouTube
       </h3>
 
+
+
+
+
+
+
       <button
-        onClick={async () => {
-          const trimmedUrl = chinaUrl.trim();
-          
-          // Validation
-          if (!trimmedUrl) {
-            alert("❌ Please paste a Douyin/TikTok URL first!");
-            return;
-          }
-          if (!trimmedUrl.includes("douyin.com") && !trimmedUrl.includes("tiktok.com")) {
-            alert("❌ URL must be from Douyin or TikTok!\n\nExamples:\nhttps://www.douyin.com/video/...\nhttps://www.tiktok.com/@user/video/...");
-            return;
-          }
-          
-          setChinaProcessing(true);
-          setChinaProgress(0);
-          setChinaResult(null);
-
-          // Simulate progress for UX
-          const progressSteps = [5, 15, 30, 50, 65, 80, 90, 95];
-          let stepIndex = 0;
-          const progressInterval = setInterval(() => {
-            if (stepIndex < progressSteps.length) {
-              setChinaProgress(progressSteps[stepIndex]);
-              stepIndex++;
-            }
-          }, 5000);
-
-          try {
-            console.log('🇨🇳 Processing China Short...', { 
-              user_id: user.user_id, 
-              china_url: trimmedUrl 
-            });
-
-            const res = await fetch(`${API_BASE}/api/china-shorts/process`, {
-              method: "POST",
-              headers: { 
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${token}`
-              },
-              body: JSON.stringify({ 
-                user_id: user.user_id, 
-                china_url: trimmedUrl
-              })
-            });
-            
-            clearInterval(progressInterval);
-            
-            const data = await res.json();
-            console.log('Response:', data);
-            
-            setChinaProgress(100);
-
-            if (data.success) {
-              setChinaResult(data);
-              setChinaUrl("");
-              
-              // Success alert with YouTube link
-              setTimeout(() => {
-                const youtubeUrl = data.video_url;
-                const confirmOpen = window.confirm(
-                  `✅ SUCCESS!\n\n` +
-                  `Title: ${data.title}\n\n` +
-                  `Video uploaded to YouTube!\n\n` +
-                  `📺 ${youtubeUrl}\n\n` +
-                  `Click OK to open YouTube in new tab.`
-                );
-                
-                if (confirmOpen) {
-                  window.open(youtubeUrl, '_blank');
-                }
-              }, 500);
-            } else {
-              console.error('❌ Failed:', data.error);
-              alert(`❌ PROCESSING FAILED\n\n${data.error || 'Unknown error'}\n\nPlease check:\n1. URL is valid Douyin/TikTok link\n2. Video is accessible\n3. File size < 100MB`);
-            }
-          } catch (err) {
-            clearInterval(progressInterval);
-            console.error('❌ Error:', err);
-            alert(`❌ NETWORK ERROR\n\n${err.message}\n\nPlease check your internet connection.`);
-          } finally {
-            setChinaProcessing(false);
-            setTimeout(() => setChinaProgress(0), 3000);
-          }
-        }}
-        disabled={chinaProcessing || !chinaUrl.trim()}
+        onClick={processVideo}
+        disabled={chinaProcessing || (chinaInputMode === 'url' ? !chinaUrl.trim() : !selectedFile)}
         style={{
           width: '100%',
           padding: '24px',
-          background: chinaProcessing || !chinaUrl.trim()
+          background: (chinaProcessing || (chinaInputMode === 'url' ? !chinaUrl.trim() : !selectedFile))
             ? 'linear-gradient(135deg, #95a5a6, #7f8c8d)' 
             : 'linear-gradient(135deg, #FF4757, #FF6348)',
           color: 'white',
@@ -11743,24 +12121,24 @@ onClick={async () => {
           borderRadius: '15px',
           fontSize: '22px',
           fontWeight: '900',
-          cursor: (chinaProcessing || !chinaUrl.trim()) ? 'not-allowed' : 'pointer',
-          boxShadow: (chinaProcessing || !chinaUrl.trim()) 
+          cursor: (chinaProcessing || (chinaInputMode === 'url' ? !chinaUrl.trim() : !selectedFile)) ? 'not-allowed' : 'pointer',
+          boxShadow: (chinaProcessing || (chinaInputMode === 'url' ? !chinaUrl.trim() : !selectedFile)) 
             ? 'none'
             : '0 8px 32px rgba(255,71,87,0.4)',
-          opacity: (chinaProcessing || !chinaUrl.trim()) ? 0.7 : 1,
+          opacity: (chinaProcessing || (chinaInputMode === 'url' ? !chinaUrl.trim() : !selectedFile)) ? 0.7 : 1,
           transition: 'all 0.3s',
           textTransform: 'uppercase',
           letterSpacing: '1px'
         }}
         onMouseEnter={e => {
-          if (!chinaProcessing && chinaUrl.trim()) {
+          if (!chinaProcessing && (chinaInputMode === 'url' ? chinaUrl.trim() : selectedFile)) {
             e.target.style.transform = 'translateY(-2px)';
             e.target.style.boxShadow = '0 12px 40px rgba(255,71,87,0.5)';
           }
         }}
         onMouseLeave={e => {
           e.target.style.transform = 'translateY(0)';
-          e.target.style.boxShadow = (chinaProcessing || !chinaUrl.trim()) 
+          e.target.style.boxShadow = (chinaProcessing || (chinaInputMode === 'url' ? !chinaUrl.trim() : !selectedFile)) 
             ? 'none'
             : '0 8px 32px rgba(255,71,87,0.4)';
         }}
@@ -11781,14 +12159,19 @@ onClick={async () => {
               borderRadius: '50%',
               animation: 'spin 1s linear infinite'
             }}/>
-            PROCESSING...
+            PROCESSING {chinaInputMode === 'file' ? 'UPLOADED VIDEO' : 'FROM URL'}...
           </span>
         ) : (
-          '⚙️ PROCESS & UPLOAD TO YOUTUBE'
+          `⚙️ PROCESS & UPLOAD TO YOUTUBE`
         )}
       </button>
 
-      {/* PROGRESS BAR */}
+
+
+
+
+
+      {/* PROGRESS BAR - Same as before */}
       {chinaProcessing && (
         <div style={{ marginTop: '25px' }}>
           <div style={{
@@ -11829,7 +12212,7 @@ onClick={async () => {
             lineHeight: '1.6',
             fontWeight: '600'
           }}>
-            {chinaProgress < 20  ? "⬇️ Downloading video from Douyin/TikTok..." :
+            {chinaProgress < 20  ? (chinaInputMode === 'file' ? "📤 Uploading your video to server..." : "⬇️ Downloading video from Douyin/TikTok...") :
              chinaProgress < 40  ? "🎨 Applying copyright-avoidance filters..." :
              chinaProgress < 60  ? "🔇 Removing original audio..." :
              chinaProgress < 75  ? "✨ Adding golden captions with emojis..." :
@@ -11839,7 +12222,7 @@ onClick={async () => {
         </div>
       )}
 
-      {/* SUCCESS RESULT */}
+      {/* SUCCESS RESULT - Same as before */}
       {chinaResult && chinaResult.success && !chinaProcessing && (
         <div style={{
           marginTop: '25px',
@@ -11986,7 +12369,7 @@ onClick={async () => {
           </div>
           
           {/* YouTube Link Button */}
-          
+          <a
             href={chinaResult.video_url}
             target="_blank"
             rel="noopener noreferrer"
@@ -12014,14 +12397,14 @@ onClick={async () => {
               e.target.style.transform = 'translateY(0)';
               e.target.style.boxShadow = '0 4px 12px rgba(229,57,53,0.3)';
             }}
-          <a>
+          >
             📺 WATCH ON YOUTUBE
           </a>
         </div>
       )}
     </div>
 
-    {/* INFO FOOTER */}
+    {/* INFO FOOTER - Updated */}
     <div style={{
       padding: '30px',
       background: 'linear-gradient(135deg, rgba(255,255,255,0.15), rgba(255,255,255,0.1))',
@@ -12044,8 +12427,9 @@ onClick={async () => {
       
       <div style={{ display: 'grid', gap: '12px' }}>
         {[
-          'Paste Douyin or TikTok video URL',
-          'Backend downloads video using yt-dlp (multiple fallback methods)',
+          'Choose input: Paste Douyin/TikTok URL OR upload your own video',
+          'URL Mode: Downloads using 5 fallback methods (Douyin API, Mobile API, yt-dlp, M3U8, TikTok)',
+          'File Mode: Direct upload to server (max 100MB)',
           'Applies copyright-avoidance filters: Saturation +25%, Brightness +10%, Contrast +15%',
           'Removes original audio completely',
           'Adds royalty-free BGM at 20% volume',
@@ -12095,7 +12479,7 @@ onClick={async () => {
       </div>
     </div>
 
-    {/* SPINNER ANIMATION */}
+    {/* ANIMATIONS */}
     <style>{`
       @keyframes spin {
         from { transform: rotate(0deg); }
