@@ -1,7 +1,7 @@
 """
 china_shorts.py - CHINA SHORTS VIDEO PROCESSOR (DOUYIN/TIKTOK TO YOUTUBE)
 ===================================================================
-✅ Download from Douyin/TikTok URLs (multiple fallback methods)
+✅ Download from Douyin/TikTok URLs (4 FALLBACK METHODS)
 ✅ Remove original audio
 ✅ Add custom BGM (royalty-free music)
 ✅ Apply video filters: saturation, brightness, contrast (copyright avoidance)
@@ -27,6 +27,7 @@ import random
 from typing import Optional, List
 from datetime import datetime
 import uuid
+from bs4 import BeautifulSoup
 
 try:
     import psutil
@@ -76,6 +77,13 @@ PROCESSING_STATUS = {}
 # Caption emojis (90% chance) vs text (10% chance)
 CAPTION_EMOJIS = ["😂", "🤣", "😱", "😮", "🤔", "😍", "🔥", "✨", "💯", "👀", "🎉", "❤️", "🙌", "💪", "🤯"]
 CAPTION_TEXT = ["LOL", "OMG", "WOW", "HAHA", "NICE", "EPIC", "COOL", "FIRE"]
+
+# User agents for web scraping
+USER_AGENTS = [
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
+]
 
 # ═══════════════════════════════════════════════════════════════════════
 # CLEANUP
@@ -135,128 +143,404 @@ def run_ffmpeg(cmd: list, timeout: int = 180, step: str = "FFmpeg") -> bool:
         return False
 
 # ═══════════════════════════════════════════════════════════════════════
-# URL NORMALIZATION (DOUYIN/TIKTOK)
+# URL EXTRACTION & NORMALIZATION
 # ═══════════════════════════════════════════════════════════════════════
 
-def normalize_china_url(url: str) -> str:
-    """
-    Normalize Douyin/TikTok URLs with MULTIPLE FALLBACK formats
-    Handles: douyin.com, tiktok.com, vm.tiktok.com, vt.tiktok.com, etc.
-    """
-    url = url.strip()
-    
-    # Method 1: Extract video ID from Douyin URL
-    douyin_patterns = [
+def extract_video_id(url: str) -> Optional[str]:
+    """Extract video ID from Douyin/TikTok URL"""
+    patterns = [
         r'douyin\.com/video/(\d+)',
         r'modal_id=(\d+)',
         r'vid=(\d+)',
         r'/(\d{19})',  # 19-digit video ID
-    ]
-    
-    for pattern in douyin_patterns:
-        match = re.search(pattern, url)
-        if match:
-            video_id = match.group(1)
-            logger.info(f"   Extracted Douyin ID: {video_id}")
-            return f"https://www.douyin.com/video/{video_id}"
-    
-    # Method 2: TikTok URL formats
-    tiktok_patterns = [
         r'tiktok\.com/@[^/]+/video/(\d+)',
+        r'v\.douyin\.com/([A-Za-z0-9]+)',
         r'vm\.tiktok\.com/([A-Za-z0-9]+)',
         r'vt\.tiktok\.com/([A-Za-z0-9]+)',
     ]
     
-    for pattern in tiktok_patterns:
+    for pattern in patterns:
         match = re.search(pattern, url)
         if match:
-            logger.info(f"   TikTok URL detected")
-            return url  # Return as-is for yt-dlp
+            return match.group(1)
     
-    # Method 3: Return original if already formatted
-    if "douyin.com" in url or "tiktok.com" in url:
-        return url
+    return None
+
+def normalize_china_url(url: str) -> str:
+    """Normalize Douyin/TikTok URLs"""
+    url = url.strip()
     
-    logger.warning(f"   Could not normalize URL: {url}")
+    video_id = extract_video_id(url)
+    if video_id and len(video_id) >= 10:
+        logger.info(f"   Extracted Video ID: {video_id}")
+        
+        # Prefer Douyin format for longer IDs
+        if len(video_id) >= 15:
+            return f"https://www.douyin.com/video/{video_id}"
+        else:
+            return url
+    
     return url
 
 # ═══════════════════════════════════════════════════════════════════════
-# VIDEO DOWNLOAD (YT-DLP WITH MULTIPLE FALLBACKS)
+# DOWNLOAD METHOD 1: YT-DLP (Original)
 # ═══════════════════════════════════════════════════════════════════════
 
-async def download_china_video(url: str, output: str) -> tuple[bool, str]:
-    """
-    Download video from Douyin/TikTok with COMPREHENSIVE FALLBACK
-    Method 1: yt-dlp with best quality
-    Method 2: yt-dlp with format fallback
-    Method 3: yt-dlp with cookies (if available)
-    """
-    logger.info("⬇️ Downloading China video...")
-    log_memory("download-start")
+async def download_ytdlp(url: str, output: str) -> bool:
+    """Method 1: yt-dlp download"""
+    logger.info("   📥 Method 1: yt-dlp (best quality)")
     
-    normalized_url = normalize_china_url(url)
-    
-    # METHOD 1: Standard yt-dlp (best quality)
-    logger.info("   Method 1: yt-dlp (best quality)")
     try:
         result = subprocess.run([
             "yt-dlp",
             "-f", "best[ext=mp4]/best",
             "--no-playlist",
             "--no-warnings",
+            "--no-check-certificate",
             "-o", output,
-            normalized_url
+            url
         ], capture_output=True, timeout=180, text=True)
         
         if result.returncode == 0 and os.path.exists(output) and os.path.getsize(output) > 10000:
             size = os.path.getsize(output) / (1024 * 1024)
-            logger.info(f"✅ Downloaded: {size:.1f}MB")
-            log_memory("download-done")
-            return True, ""
+            logger.info(f"   ✅ Method 1 SUCCESS: {size:.1f}MB")
+            return True
+        
+        logger.warning(f"   ❌ Method 1 FAILED: {result.stderr[-200:] if result.stderr else 'Unknown error'}")
+        return False
     except Exception as e:
-        logger.warning(f"   Method 1 failed: {e}")
+        logger.warning(f"   ❌ Method 1 ERROR: {e}")
+        return False
+
+# ═══════════════════════════════════════════════════════════════════════
+# DOWNLOAD METHOD 2: SAVETIK.CO WEB SCRAPING
+# ═══════════════════════════════════════════════════════════════════════
+
+async def download_savetik(url: str, output: str) -> bool:
+    """Method 2: SaveTik.co web scraper"""
+    logger.info("   📥 Method 2: SaveTik.co scraper")
     
-    # METHOD 2: Format fallback (lower quality)
-    logger.info("   Method 2: yt-dlp (format fallback)")
     try:
-        result = subprocess.run([
-            "yt-dlp",
-            "-f", "worst[ext=mp4]/worst",
-            "--no-playlist",
-            "--no-warnings",
-            "-o", output,
-            normalized_url
-        ], capture_output=True, timeout=180, text=True)
-        
-        if result.returncode == 0 and os.path.exists(output) and os.path.getsize(output) > 10000:
-            size = os.path.getsize(output) / (1024 * 1024)
-            logger.info(f"✅ Downloaded (fallback): {size:.1f}MB")
-            log_memory("download-done")
-            return True, ""
+        async with httpx.AsyncClient(timeout=60, follow_redirects=True) as client:
+            # Step 1: Get SaveTik.co page
+            headers = {
+                "User-Agent": random.choice(USER_AGENTS),
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                "Accept-Language": "en-US,en;q=0.5",
+                "Referer": "https://savetik.co/",
+            }
+            
+            logger.info("   → Accessing SaveTik.co...")
+            response = await client.get("https://savetik.co/en2", headers=headers)
+            
+            if response.status_code != 200:
+                logger.warning(f"   ❌ SaveTik page error: {response.status_code}")
+                return False
+            
+            # Step 2: Parse page to find API endpoint
+            soup = BeautifulSoup(response.text, 'html.parser')
+            
+            # Look for download API endpoint (usually in JavaScript or form)
+            # SaveTik typically uses a POST endpoint
+            
+            # Step 3: Call API with video URL
+            logger.info("   → Calling SaveTik API...")
+            api_headers = {
+                **headers,
+                "Content-Type": "application/x-www-form-urlencoded",
+                "X-Requested-With": "XMLHttpRequest",
+            }
+            
+            api_data = {
+                "url": url,
+                "lang": "en"
+            }
+            
+            # Try common API endpoints
+            api_endpoints = [
+                "https://savetik.co/api/ajaxSearch",
+                "https://savetik.co/api/download",
+                "https://savetik.co/download",
+            ]
+            
+            download_url = None
+            
+            for endpoint in api_endpoints:
+                try:
+                    api_response = await client.post(endpoint, headers=api_headers, data=api_data, timeout=30)
+                    
+                    if api_response.status_code == 200:
+                        result = api_response.json()
+                        
+                        # Parse response to find video download URL
+                        # SaveTik returns HTML with download links
+                        if isinstance(result, dict):
+                            if "data" in result:
+                                html_data = result["data"]
+                                soup = BeautifulSoup(html_data, 'html.parser')
+                                
+                                # Find download links
+                                download_links = soup.find_all("a", href=True)
+                                
+                                for link in download_links:
+                                    href = link.get("href", "")
+                                    # Look for MP4 download link (HD or SD)
+                                    if "download" in href.lower() or ".mp4" in href:
+                                        download_url = href
+                                        logger.info(f"   → Found download URL")
+                                        break
+                        
+                        if download_url:
+                            break
+                
+                except Exception as e:
+                    logger.warning(f"   → Endpoint {endpoint} failed: {e}")
+                    continue
+            
+            if not download_url:
+                logger.warning("   ❌ No download URL found in SaveTik response")
+                return False
+            
+            # Step 4: Download video from extracted URL
+            logger.info("   → Downloading video...")
+            
+            download_headers = {
+                "User-Agent": random.choice(USER_AGENTS),
+                "Referer": "https://savetik.co/",
+            }
+            
+            async with client.stream("GET", download_url, headers=download_headers, timeout=180) as stream:
+                if stream.status_code != 200:
+                    logger.warning(f"   ❌ Download failed: {stream.status_code}")
+                    return False
+                
+                total = 0
+                with open(output, 'wb') as f:
+                    async for chunk in stream.aiter_bytes(1024*1024):
+                        f.write(chunk)
+                        total += len(chunk)
+                
+                if total > 10000:
+                    size = total / (1024 * 1024)
+                    logger.info(f"   ✅ Method 2 SUCCESS: {size:.1f}MB")
+                    return True
+            
+            return False
+            
     except Exception as e:
-        logger.warning(f"   Method 2 failed: {e}")
+        logger.warning(f"   ❌ Method 2 ERROR: {e}")
+        return False
+
+# ═══════════════════════════════════════════════════════════════════════
+# DOWNLOAD METHOD 3: DIRECT HTTP WITH MOBILE HEADERS
+# ═══════════════════════════════════════════════════════════════════════
+
+async def download_direct_http(url: str, output: str) -> bool:
+    """Method 3: Direct HTTP download with mobile headers"""
+    logger.info("   📥 Method 3: Direct HTTP (mobile headers)")
     
-    # METHOD 3: Try original URL without normalization
-    logger.info("   Method 3: yt-dlp (original URL)")
     try:
-        result = subprocess.run([
-            "yt-dlp",
-            "-f", "best",
-            "--no-playlist",
-            "--no-warnings",
-            "-o", output,
-            url  # Use original URL
-        ], capture_output=True, timeout=180, text=True)
+        video_id = extract_video_id(url)
+        if not video_id:
+            logger.warning("   ❌ No video ID found")
+            return False
         
-        if result.returncode == 0 and os.path.exists(output) and os.path.getsize(output) > 10000:
-            size = os.path.getsize(output) / (1024 * 1024)
-            logger.info(f"✅ Downloaded (original URL): {size:.1f}MB")
-            log_memory("download-done")
-            return True, ""
+        # Construct direct video URLs
+        possible_urls = [
+            f"https://www.douyin.com/aweme/v1/play/?video_id={video_id}",
+            f"https://aweme.snssdk.com/aweme/v1/play/?video_id={video_id}",
+            url  # Original URL
+        ]
+        
+        async with httpx.AsyncClient(timeout=180, follow_redirects=True) as client:
+            for test_url in possible_urls:
+                try:
+                    headers = {
+                        "User-Agent": "Mozilla/5.0 (Linux; Android 11; SM-G991B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36",
+                        "Accept": "*/*",
+                        "Referer": "https://www.douyin.com/",
+                    }
+                    
+                    logger.info(f"   → Trying: {test_url[:60]}...")
+                    
+                    async with client.stream("GET", test_url, headers=headers) as response:
+                        if response.status_code == 200:
+                            content_type = response.headers.get("content-type", "")
+                            
+                            if "video" in content_type or "octet-stream" in content_type:
+                                total = 0
+                                with open(output, 'wb') as f:
+                                    async for chunk in response.aiter_bytes(1024*1024):
+                                        f.write(chunk)
+                                        total += len(chunk)
+                                
+                                if total > 10000:
+                                    size = total / (1024 * 1024)
+                                    logger.info(f"   ✅ Method 3 SUCCESS: {size:.1f}MB")
+                                    return True
+                
+                except Exception as e:
+                    logger.warning(f"   → URL failed: {e}")
+                    continue
+        
+        logger.warning("   ❌ Method 3 FAILED: No working URL")
+        return False
+        
     except Exception as e:
-        logger.warning(f"   Method 3 failed: {e}")
+        logger.warning(f"   ❌ Method 3 ERROR: {e}")
+        return False
+
+# ═══════════════════════════════════════════════════════════════════════
+# DOWNLOAD METHOD 4: SNAPTIK.APP ALTERNATIVE
+# ═══════════════════════════════════════════════════════════════════════
+
+async def download_snaptik(url: str, output: str) -> bool:
+    """Method 4: SnapTik.app alternative downloader"""
+    logger.info("   📥 Method 4: SnapTik.app scraper")
     
-    return False, "All download methods failed"
+    try:
+        async with httpx.AsyncClient(timeout=60, follow_redirects=True) as client:
+            headers = {
+                "User-Agent": random.choice(USER_AGENTS),
+                "Accept": "application/json, text/plain, */*",
+                "Content-Type": "application/x-www-form-urlencoded",
+                "Origin": "https://snaptik.app",
+                "Referer": "https://snaptik.app/",
+            }
+            
+            # SnapTik API endpoint
+            api_url = "https://snaptik.app/abc2.php"
+            
+            logger.info("   → Calling SnapTik API...")
+            
+            data = {
+                "url": url,
+                "lang": "en"
+            }
+            
+            response = await client.post(api_url, headers=headers, data=data, timeout=30)
+            
+            if response.status_code == 200:
+                html = response.text
+                soup = BeautifulSoup(html, 'html.parser')
+                
+                # Find download links
+                download_links = soup.find_all("a", class_="download-link")
+                
+                if not download_links:
+                    download_links = soup.find_all("a", href=True)
+                
+                download_url = None
+                
+                for link in download_links:
+                    href = link.get("href", "")
+                    if ".mp4" in href or "download" in href:
+                        download_url = href
+                        break
+                
+                if not download_url:
+                    logger.warning("   ❌ No download URL in SnapTik response")
+                    return False
+                
+                # Download video
+                logger.info("   → Downloading from SnapTik...")
+                
+                download_headers = {
+                    "User-Agent": random.choice(USER_AGENTS),
+                    "Referer": "https://snaptik.app/",
+                }
+                
+                async with client.stream("GET", download_url, headers=download_headers, timeout=180) as stream:
+                    if stream.status_code == 200:
+                        total = 0
+                        with open(output, 'wb') as f:
+                            async for chunk in stream.aiter_bytes(1024*1024):
+                                f.write(chunk)
+                                total += len(chunk)
+                        
+                        if total > 10000:
+                            size = total / (1024 * 1024)
+                            logger.info(f"   ✅ Method 4 SUCCESS: {size:.1f}MB")
+                            return True
+            
+            logger.warning("   ❌ Method 4 FAILED")
+            return False
+            
+    except Exception as e:
+        logger.warning(f"   ❌ Method 4 ERROR: {e}")
+        return False
+
+# ═══════════════════════════════════════════════════════════════════════
+# MASTER DOWNLOAD FUNCTION (4 FALLBACKS)
+# ═══════════════════════════════════════════════════════════════════════
+
+async def download_china_video(url: str, output: str) -> tuple[bool, str]:
+    """
+    Download video with 4 COMPREHENSIVE FALLBACK METHODS:
+    1. yt-dlp (original)
+    2. SaveTik.co web scraper
+    3. Direct HTTP with mobile headers
+    4. SnapTik.app alternative
+    """
+    logger.info("⬇️ Downloading China video...")
+    logger.info(f"   Original URL: {url[:80]}...")
+    log_memory("download-start")
+    
+    normalized_url = normalize_china_url(url)
+    logger.info(f"   Normalized: {normalized_url[:80]}...")
+    
+    # Try all 4 methods in sequence
+    methods = [
+        ("yt-dlp", download_ytdlp),
+        ("SaveTik.co", download_savetik),
+        ("Direct HTTP", download_direct_http),
+        ("SnapTik", download_snaptik),
+    ]
+    
+    for method_name, method_func in methods:
+        logger.info(f"\n{'='*60}")
+        logger.info(f"   TRYING: {method_name}")
+        logger.info(f"{'='*60}")
+        
+        try:
+            # Try normalized URL first
+            success = await method_func(normalized_url, output)
+            
+            if success and os.path.exists(output) and os.path.getsize(output) > 10000:
+                size = os.path.getsize(output) / (1024 * 1024)
+                logger.info(f"\n✅ DOWNLOAD SUCCESS ({method_name}): {size:.1f}MB")
+                log_memory("download-done")
+                return True, ""
+            
+            # If normalized failed, try original URL
+            if normalized_url != url:
+                logger.info(f"   → Retrying with original URL...")
+                success = await method_func(url, output)
+                
+                if success and os.path.exists(output) and os.path.getsize(output) > 10000:
+                    size = os.path.getsize(output) / (1024 * 1024)
+                    logger.info(f"\n✅ DOWNLOAD SUCCESS ({method_name}): {size:.1f}MB")
+                    log_memory("download-done")
+                    return True, ""
+            
+            logger.warning(f"   ❌ {method_name} failed, trying next method...")
+            
+            # Clean up failed attempt
+            if os.path.exists(output):
+                os.remove(output)
+        
+        except Exception as e:
+            logger.error(f"   ❌ {method_name} critical error: {e}")
+            if os.path.exists(output):
+                os.remove(output)
+            continue
+    
+    # All methods failed
+    logger.error("\n" + "="*60)
+    logger.error("❌ ALL 4 DOWNLOAD METHODS FAILED")
+    logger.error("="*60)
+    
+    return False, "All download methods failed (yt-dlp, SaveTik, Direct HTTP, SnapTik)"
 
 # ═══════════════════════════════════════════════════════════════════════
 # VIDEO INFO
@@ -283,17 +567,11 @@ async def get_duration(video_path: str) -> float:
 # ═══════════════════════════════════════════════════════════════════════
 
 async def apply_copyright_filters(input_path: str, output_path: str) -> tuple[bool, str]:
-    """
-    Apply video filters to avoid copyright detection
-    Filters: Saturation +25%, Brightness +10%, Contrast +15%
-    FALLBACK: If fails, use original video
-    """
+    """Apply video filters to avoid copyright detection"""
     logger.info("🎨 Applying copyright-avoidance filters...")
     log_memory("filter-start")
     
-    # METHOD 1: Full filter chain
     filter_complex = "eq=saturation=1.25:brightness=0.10:contrast=1.15"
-    
     logger.info("   Applying: Saturation +25%, Brightness +10%, Contrast +15%")
     
     success = run_ffmpeg([
@@ -310,7 +588,6 @@ async def apply_copyright_filters(input_path: str, output_path: str) -> tuple[bo
         log_memory("filter-done")
         return True, ""
     
-    # FALLBACK: Use original video
     logger.warning("⚠️ Filters failed, using original video")
     cleanup(output_path)
     
@@ -329,7 +606,7 @@ async def apply_copyright_filters(input_path: str, output_path: str) -> tuple[bo
 
 def generate_srt_with_emojis(duration: float) -> str:
     """Generate SRT with emojis (90%) or text (10%)"""
-    num_captions = max(3, int(duration / 3))  # One caption every 3 seconds
+    num_captions = max(3, int(duration / 3))
     time_per = duration / num_captions
     blocks = []
     
@@ -340,7 +617,6 @@ def generate_srt_with_emojis(duration: float) -> str:
         sh, sm, ss = int(start//3600), int((start%3600)//60), start%60
         eh, em, es = int(end//3600), int((end%3600)//60), end%60
         
-        # 90% emoji, 10% text
         if random.random() < 0.9:
             caption = random.choice(CAPTION_EMOJIS)
         else:
@@ -352,12 +628,7 @@ def generate_srt_with_emojis(duration: float) -> str:
     return "\n".join(blocks)
 
 async def apply_golden_captions(video_path: str, duration: float, output_path: str) -> tuple[bool, str]:
-    """
-    Apply golden captions with COMPREHENSIVE FALLBACK
-    Method 1: Golden color with outline
-    Method 2: White color with shadow
-    Method 3: No captions (continue without)
-    """
+    """Apply golden captions with emojis"""
     logger.info("✨ Applying golden captions with emojis...")
     log_memory("caption-start")
     
@@ -374,7 +645,6 @@ async def apply_golden_captions(video_path: str, duration: float, output_path: s
     
     srt_esc = srt_path.replace("\\", "\\\\").replace(":", "\\:")
     
-    # METHOD 1: Golden captions (small bold text)
     logger.info("   Method 1: Golden captions")
     success = run_ffmpeg([
         "ffmpeg", "-i", video_path,
@@ -389,24 +659,6 @@ async def apply_golden_captions(video_path: str, duration: float, output_path: s
         log_memory("caption-done")
         return True, ""
     
-    # METHOD 2: White captions
-    logger.warning("⚠️ Trying white captions...")
-    cleanup(output_path)
-    
-    success = run_ffmpeg([
-        "ffmpeg", "-i", video_path,
-        "-vf", f"subtitles={srt_esc}:force_style='FontName=Arial,FontSize=20,PrimaryColour=&H00FFFFFF,Bold=1,Outline=2,OutlineColour=&H00000000,Alignment=2,MarginV=40'",
-        "-c:v", "libx264", "-crf", "23", "-preset", "ultrafast",
-        "-y", output_path
-    ], 120, "Captions-White")
-    
-    if success and os.path.exists(output_path) and os.path.getsize(output_path) > 10000:
-        cleanup(srt_path)
-        logger.info("✅ White captions applied")
-        log_memory("caption-done")
-        return True, ""
-    
-    # METHOD 3: No captions (ALWAYS SUCCEEDS)
     logger.warning("⚠️ All caption methods failed, continuing without captions")
     cleanup(srt_path, output_path)
     
@@ -480,14 +732,10 @@ async def download_bgm(output: str) -> bool:
         return False
 
 async def mix_audio_with_bgm(video_path: str, bgm_path: Optional[str], output_path: str) -> tuple[bool, str]:
-    """
-    Mix video with BGM (20% volume)
-    FALLBACK: If BGM fails, use silent video
-    """
+    """Mix video with BGM (20% volume)"""
     logger.info("🎵 Mixing BGM (20% volume)...")
     log_memory("mix-start")
     
-    # METHOD 1: Add BGM
     if bgm_path and os.path.exists(bgm_path):
         logger.info("   Adding BGM...")
         success = run_ffmpeg([
@@ -503,7 +751,6 @@ async def mix_audio_with_bgm(video_path: str, bgm_path: Optional[str], output_pa
             log_memory("mix-done")
             return True, ""
     
-    # METHOD 2: Silent video (no BGM)
     logger.warning("⚠️ Continuing without BGM (silent video)")
     if os.path.exists(video_path):
         shutil.copy(video_path, output_path)
@@ -598,8 +845,8 @@ async def process_china_short(china_url: str, user_id: str, task_id: str):
         logger.info(f"📁 {temp_dir}")
         log_memory("START")
         
-        # Download video
-        update(10, "Downloading from Douyin/TikTok...")
+        # Download video (4 fallback methods)
+        update(10, "Downloading from Douyin/TikTok (4 fallback methods)...")
         raw_video = os.path.join(temp_dir, "raw.mp4")
         success, error = await download_china_video(china_url, raw_video)
         if not success:
@@ -613,11 +860,10 @@ async def process_china_short(china_url: str, user_id: str, task_id: str):
         if duration > 180:
             raise ValueError(f"Video too long ({duration:.0f}s)")
         
-        # Apply filters (saturation, brightness, contrast)
+        # Apply filters
         update(30, "Applying copyright-avoidance filters...")
         filtered_video = os.path.join(temp_dir, "filtered.mp4")
         success, error = await apply_copyright_filters(raw_video, filtered_video)
-        # Always continues even if filters fail
         
         # Remove original audio
         update(50, "Removing original audio...")
@@ -625,11 +871,10 @@ async def process_china_short(china_url: str, user_id: str, task_id: str):
         if not await remove_audio(filtered_video, silent_video):
             raise Exception("Remove audio failed")
         
-        # Apply golden captions with emojis
+        # Apply golden captions
         update(60, "Adding golden captions with emojis...")
         captioned_video = os.path.join(temp_dir, "captioned.mp4")
         success, error = await apply_golden_captions(silent_video, duration, captioned_video)
-        # Always continues even if captions fail
         
         # Download BGM
         update(75, "Downloading BGM...")
@@ -637,7 +882,6 @@ async def process_china_short(china_url: str, user_id: str, task_id: str):
         bgm_success = await download_bgm(bgm_path)
         if not bgm_success:
             bgm_path = None
-            logger.warning("⚠️ BGM download failed, continuing without BGM")
         
         # Mix audio
         update(85, "Mixing BGM (20% volume)...")
@@ -743,7 +987,7 @@ async def process_endpoint(request: Request):
         logger.info(f"✅ Task ID: {task_id}")
         
         # Synchronous processing
-        await asyncio.wait_for(process_china_short(china_url, user_id, task_id), timeout=900)  # 15 minutes
+        await asyncio.wait_for(process_china_short(china_url, user_id, task_id), timeout=900)
         
         result = PROCESSING_STATUS.get(task_id, {"success": False, "error": "Unknown error"})
         return JSONResponse(content=result)
@@ -769,21 +1013,22 @@ async def health_endpoint():
     return JSONResponse(content={
         "status": "ok",
         "features": {
+            "download_methods": "4 (yt-dlp, SaveTik.co, Direct HTTP, SnapTik)",
             "video_sources": "Douyin, TikTok",
             "filters": "Saturation +25%, Brightness +10%, Contrast +15%",
             "captions": "Golden emojis (90%) + text (10%)",
             "bgm_volume": "20%",
             "bgm_tracks": len(CHINA_BGM_URLS),
-            "fallback_system": "Comprehensive (every step has 2-3 fallbacks)"
+            "fallback_system": "Comprehensive (4 download methods + fallbacks for every step)"
         }
     })
 
 async def initialize():
     """Startup initialization"""
     logger.info("="*80)
-    logger.info("🚀 CHINA SHORTS VIDEO PROCESSOR")
+    logger.info("🚀 CHINA SHORTS VIDEO PROCESSOR V2.0")
     logger.info("="*80)
-    logger.info("✅ Download from Douyin/TikTok (yt-dlp + fallbacks)")
+    logger.info("✅ 4 Download Methods: yt-dlp, SaveTik.co, Direct HTTP, SnapTik")
     logger.info("✅ Remove original audio")
     logger.info("✅ Apply copyright filters (saturation, brightness, contrast)")
     logger.info("✅ Golden captions with emojis (90%) + text (10%)")
@@ -794,5 +1039,6 @@ async def initialize():
     
     log_memory("startup")
     logger.info("="*80)
+
 
 __all__ = ["router", "initialize"]
