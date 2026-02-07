@@ -1,16 +1,13 @@
 """
-china_shorts.py - CHINA SHORTS VIDEO PROCESSOR V3.0 (PRODUCTION)
+china_shorts.py - CHINA SHORTS VIDEO PROCESSOR V3.1 (PRODUCTION + MANUAL UPLOAD)
 ===================================================================
-✅ 5 WORKING METHODS (Based on real SaveTik.co analysis)
-✅ Douyin Internal API with signature bypass
-✅ Playwright headless browser (fallback)
-✅ Mobile API with proper headers
-✅ M3U8 stream capture + ffmpeg conversion
-✅ TikTok global API (for TikTok URLs)
+✅ 5 WORKING URL DOWNLOAD METHODS (Based on real SaveTik.co analysis)
+✅ NEW: Manual File Upload Processing
+✅ All same filters, captions, BGM, and YouTube upload
 ===================================================================
 """
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Request, File, UploadFile, Form
 from fastapi.responses import JSONResponse
 import asyncio
 import logging
@@ -28,6 +25,7 @@ from typing import Optional, List, Dict, Any
 from datetime import datetime
 import uuid
 from urllib.parse import urlparse, parse_qs, urlencode
+import aiofiles
 
 try:
     import psutil
@@ -64,11 +62,7 @@ def log_memory(step: str):
 # ═══════════════════════════════════════════════════════════════════════
 
 CHINA_BGM_URLS = [
-    # "https://raw.githubusercontent.com/aryan-Patel-web/audio-collections/main/Indian%20Temple%20Vibes%20_%20Traditional%20Background%20Music%20-%20Royalty%20free%20Download.mp3",
     "https://raw.githubusercontent.com/aryan-Patel-web/audio-collections/main/Meow%20Meow%20Meow%20Meow%20%F0%9F%8E%B6%20Sad%20TikTok%20Song%20%F0%9F%92%94%F0%9F%98%BF.mp3"
-
-    # "https://raw.githubusercontent.com/aryan-Patel-web/audio-collections/main/Krishna%20Healing%20Flute%20'%20Bansuri%20background%20music%20-%20Royalty%20free%20Download.mp3",
-    # "https://raw.githubusercontent.com/aryan-Patel-web/audio-collections/main/Indian%20Epic%20_%20Cinematic%20Sitar%20and%20Drums%20BGM%20-%20Royalty%20free%20Music%20%20Download.mp3",
 ]
 
 PROCESSING_STATUS = {}
@@ -536,7 +530,116 @@ async def download_china_video(url: str, output: str) -> tuple[bool, str]:
     return False, "All download methods failed"
 
 # ═══════════════════════════════════════════════════════════════════════
-# REST OF THE CODE (Unchanged - filters, captions, BGM, upload)
+# MANUAL FILE UPLOAD FUNCTIONS
+# ═══════════════════════════════════════════════════════════════════════
+
+async def save_uploaded_file(upload_file: UploadFile, output_path: str) -> tuple[bool, str]:
+    """
+    Save uploaded file to disk
+    Returns: (success, error_message)
+    """
+    logger.info(f"💾 Saving uploaded file: {upload_file.filename}")
+    
+    try:
+        # Validate file size (max 100MB)
+        max_size = 100 * 1024 * 1024  # 100MB
+        
+        # Read and save file in chunks
+        total_bytes = 0
+        async with aiofiles.open(output_path, 'wb') as f:
+            while True:
+                chunk = await upload_file.read(1024 * 1024)  # 1MB chunks
+                if not chunk:
+                    break
+                
+                total_bytes += len(chunk)
+                
+                # Check size limit
+                if total_bytes > max_size:
+                    logger.error(f"❌ File too large: {total_bytes / (1024*1024):.1f}MB")
+                    if os.path.exists(output_path):
+                        os.remove(output_path)
+                    return False, f"File too large: {total_bytes / (1024*1024):.1f}MB (max 100MB)"
+                
+                await f.write(chunk)
+        
+        # Verify file was saved
+        if not os.path.exists(output_path):
+            return False, "File save failed"
+        
+        file_size = os.path.getsize(output_path)
+        if file_size < 10000:  # Less than 10KB
+            logger.error(f"❌ File too small: {file_size} bytes")
+            os.remove(output_path)
+            return False, "File too small or corrupted"
+        
+        logger.info(f"✅ File saved: {file_size / (1024*1024):.2f}MB")
+        return True, ""
+    
+    except Exception as e:
+        logger.error(f"❌ File save error: {e}")
+        if os.path.exists(output_path):
+            try:
+                os.remove(output_path)
+            except:
+                pass
+        return False, str(e)
+
+
+async def validate_video_file(video_path: str) -> tuple[bool, str]:
+    """
+    Validate uploaded video file using ffprobe
+    Returns: (is_valid, error_message)
+    """
+    logger.info("🔍 Validating video file...")
+    
+    try:
+        # Use ffprobe to check if it's a valid video
+        result = subprocess.run([
+            "ffprobe",
+            "-v", "error",
+            "-select_streams", "v:0",
+            "-show_entries", "stream=codec_type,duration",
+            "-of", "json",
+            video_path
+        ], capture_output=True, timeout=30, text=True)
+        
+        if result.returncode != 0:
+            logger.error(f"❌ Not a valid video file")
+            return False, "Invalid video file format"
+        
+        # Parse output
+        try:
+            data = json.loads(result.stdout)
+            
+            if not data.get("streams"):
+                return False, "No video stream found"
+            
+            # Check duration
+            duration_str = data["streams"][0].get("duration", "0")
+            duration = float(duration_str)
+            
+            if duration <= 0:
+                return False, "Invalid video duration"
+            
+            if duration > 180:  # Max 3 minutes
+                return False, f"Video too long: {duration:.0f}s (max 180s)"
+            
+            logger.info(f"✅ Valid video: {duration:.1f}s")
+            return True, ""
+        
+        except Exception as e:
+            logger.error(f"❌ Parse error: {e}")
+            return False, "Could not parse video metadata"
+    
+    except subprocess.TimeoutExpired:
+        return False, "Video validation timeout"
+    except Exception as e:
+        logger.error(f"❌ Validation error: {e}")
+        return False, str(e)
+
+# ═══════════════════════════════════════════════════════════════════════
+# VIDEO PROCESSING FUNCTIONS
 # ═══════════════════════════════════════════════════════════════════════
 
 async def get_duration(video_path: str) -> float:
@@ -744,11 +847,11 @@ async def upload_to_youtube(video_path: str, title: str, description: str, user_
         return {"success": False, "error": str(e)}
 
 # ═══════════════════════════════════════════════════════════════════════
-# MAIN PIPELINE
+# MAIN PIPELINES
 # ═══════════════════════════════════════════════════════════════════════
 
 async def process_china_short(china_url: str, user_id: str, task_id: str):
-    """Main processing pipeline"""
+    """Main processing pipeline for URL downloads"""
     temp_dir = None
     start_time = datetime.now()
     
@@ -834,6 +937,7 @@ async def process_china_short(china_url: str, user_id: str, task_id: str):
             "success": True,
             "message": "Uploaded!",
             "title": title,
+            "description": description,
             "duration": round(duration, 1),
             "processing_time": round(elapsed, 1),
             "video_id": upload_result["video_id"],
@@ -861,6 +965,144 @@ async def process_china_short(china_url: str, user_id: str, task_id: str):
         gc.collect()
         log_memory("FINAL")
 
+
+async def process_uploaded_video(video_path: str, user_id: str, task_id: str):
+    """
+    Process manually uploaded video file
+    Same pipeline as URL processing, but skips download step
+    """
+    temp_dir = None
+    start_time = datetime.now()
+    
+    PROCESSING_STATUS[task_id] = {
+        "status": "processing",
+        "progress": 0,
+        "message": "Starting...",
+        "started_at": start_time.isoformat()
+    }
+    
+    def update(progress: int, msg: str):
+        PROCESSING_STATUS[task_id]["progress"] = progress
+        PROCESSING_STATUS[task_id]["message"] = msg
+        logger.info(f"[{progress}%] {msg}")
+    
+    try:
+        temp_dir = tempfile.mkdtemp(prefix="china_upload_")
+        logger.info(f"📁 {temp_dir}")
+        log_memory("START-UPLOAD")
+        
+        # Copy uploaded file to temp directory
+        update(10, "Processing uploaded file...")
+        raw_video = os.path.join(temp_dir, "uploaded.mp4")
+        shutil.copy(video_path, raw_video)
+        
+        # Validate video
+        update(15, "Validating video...")
+        is_valid, error = await validate_video_file(raw_video)
+        if not is_valid:
+            raise ValueError(error)
+        
+        # Get duration
+        update(20, "Analyzing video...")
+        duration = await get_duration(raw_video)
+        if duration <= 0 or duration > 180:
+            raise ValueError(f"Invalid duration: {duration:.0f}s")
+        
+        logger.info(f"✅ Video duration: {duration:.1f}s")
+        
+        # Apply filters
+        update(30, "Applying filters...")
+        filtered_video = os.path.join(temp_dir, "filtered.mp4")
+        success, error = await apply_copyright_filters(raw_video, filtered_video)
+        if not success:
+            raise Exception(error)
+        
+        # Remove audio
+        update(50, "Removing audio...")
+        silent_video = os.path.join(temp_dir, "silent.mp4")
+        if not await remove_audio(filtered_video, silent_video):
+            raise Exception("Remove audio failed")
+        
+        # Add captions
+        update(60, "Adding golden captions...")
+        captioned_video = os.path.join(temp_dir, "captioned.mp4")
+        success, error = await apply_golden_captions(silent_video, duration, captioned_video)
+        if not success:
+            raise Exception(error)
+        
+        # Download BGM
+        update(75, "Downloading BGM...")
+        bgm_path = os.path.join(temp_dir, "bgm.mp3")
+        await download_bgm(bgm_path)
+        
+        # Mix audio
+        update(85, "Mixing BGM...")
+        final_video = os.path.join(temp_dir, "final.mp4")
+        success, error = await mix_audio_with_bgm(captioned_video, bgm_path, final_video)
+        if not success:
+            raise Exception(error)
+        
+        # Upload to YouTube
+        update(95, "Uploading to YouTube...")
+        title = f"Amazing China Short 🔥 #{random.choice(['Trending', 'Epic', 'Viral'])} #Shorts"
+        description = "Amazing short video!\n\n#Shorts #Viral #Trending #ChinaShorts #MustWatch"
+        
+        upload_result = await upload_to_youtube(final_video, title, description, user_id)
+        
+        if not upload_result.get("success"):
+            raise Exception(upload_result.get("error"))
+        
+        # Success
+        elapsed = (datetime.now() - start_time).total_seconds()
+        
+        logger.info("="*80)
+        logger.info("✅ UPLOAD SUCCESS!")
+        logger.info(f"   Time: {elapsed:.1f}s")
+        logger.info(f"   Video: {upload_result['video_id']}")
+        logger.info("="*80)
+        
+        PROCESSING_STATUS[task_id] = {
+            "status": "completed",
+            "progress": 100,
+            "success": True,
+            "message": "Uploaded!",
+            "title": title,
+            "description": description,
+            "duration": round(duration, 1),
+            "processing_time": round(elapsed, 1),
+            "video_id": upload_result["video_id"],
+            "video_url": upload_result["video_url"],
+            "completed_at": datetime.utcnow().isoformat()
+        }
+    
+    except Exception as e:
+        logger.error(f"❌ UPLOAD FAILED: {e}")
+        
+        PROCESSING_STATUS[task_id] = {
+            "status": "failed",
+            "progress": 0,
+            "success": False,
+            "error": str(e),
+            "message": str(e),
+            "failed_at": datetime.utcnow().isoformat()
+        }
+    
+    finally:
+        # Clean up temp directory
+        if temp_dir and os.path.exists(temp_dir):
+            logger.info("🧹 Cleanup...")
+            shutil.rmtree(temp_dir, ignore_errors=True)
+        
+        # Clean up uploaded file
+        if video_path and os.path.exists(video_path):
+            try:
+                os.remove(video_path)
+            except:
+                pass
+        
+        gc.collect()
+        log_memory("FINAL-UPLOAD")
+
 # ═══════════════════════════════════════════════════════════════════════
 # API ROUTES
 # ═══════════════════════════════════════════════════════════════════════
@@ -869,8 +1111,8 @@ router = APIRouter()
 
 @router.post("/api/china-shorts/process")
 async def process_endpoint(request: Request):
-    """Process China Short"""
-    logger.info("🌐 REQUEST")
+    """Process China Short from URL"""
+    logger.info("🌐 URL PROCESS REQUEST")
     
     try:
         data = await request.json()
@@ -898,34 +1140,159 @@ async def process_endpoint(request: Request):
         logger.error(f"❌ {e}")
         return JSONResponse(status_code=500, content={"success": False, "error": str(e)})
 
+
+@router.post("/api/china-shorts/process-upload")
+async def process_upload_endpoint(
+    user_id: str = Form(...),
+    video_file: UploadFile = File(...)
+):
+    """
+    NEW ENDPOINT: Process manually uploaded video file
+    Accepts multipart/form-data with user_id and video_file
+    """
+    logger.info("🌐 UPLOAD REQUEST")
+    logger.info(f"   User: {user_id}")
+    logger.info(f"   File: {video_file.filename}")
+    logger.info(f"   Type: {video_file.content_type}")
+    
+    uploaded_file_path = None
+    
+    try:
+        # Validate user_id
+        if not user_id:
+            return JSONResponse(
+                status_code=400, 
+                content={"success": False, "error": "user_id required"}
+            )
+        
+        # Validate file
+        if not video_file:
+            return JSONResponse(
+                status_code=400,
+                content={"success": False, "error": "No video file provided"}
+            )
+        
+        # Check content type
+        if not video_file.content_type or not video_file.content_type.startswith("video/"):
+            return JSONResponse(
+                status_code=400,
+                content={"success": False, "error": f"Invalid file type: {video_file.content_type}. Must be a video file."}
+            )
+        
+        # Create unique filename
+        task_id = str(uuid.uuid4())
+        file_ext = os.path.splitext(video_file.filename)[1] or ".mp4"
+        uploaded_file_path = f"/tmp/china_upload_{task_id}{file_ext}"
+        
+        logger.info(f"✅ Task: {task_id}")
+        logger.info(f"📂 Saving to: {uploaded_file_path}")
+        
+        # Save uploaded file
+        success, error = await save_uploaded_file(video_file, uploaded_file_path)
+        if not success:
+            return JSONResponse(
+                status_code=400,
+                content={"success": False, "error": error}
+            )
+        
+        # Process the uploaded video (with timeout)
+        await asyncio.wait_for(
+            process_uploaded_video(uploaded_file_path, user_id, task_id),
+            timeout=900  # 15 minutes
+        )
+        
+        # Get result
+        result = PROCESSING_STATUS.get(task_id, {"success": False, "error": "Unknown error"})
+        return JSONResponse(content=result)
+    
+    except asyncio.TimeoutError:
+        logger.error("❌ Processing timeout")
+        return JSONResponse(
+            status_code=408,
+            content={"success": False, "error": "Processing timeout (max 15 minutes)"}
+        )
+    
+    except Exception as e:
+        logger.error(f"❌ Upload endpoint error: {e}")
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "error": str(e)}
+        )
+    
+    finally:
+        # Cleanup uploaded file if still exists
+        if uploaded_file_path and os.path.exists(uploaded_file_path):
+            try:
+                os.remove(uploaded_file_path)
+                logger.info(f"🧹 Cleaned up: {uploaded_file_path}")
+            except:
+                pass
+
+
 @router.get("/api/china-shorts/status/{task_id}")
 async def status_endpoint(task_id: str):
-    """Get status"""
+    """Get processing status for a task"""
     status = PROCESSING_STATUS.get(task_id)
     if not status:
-        return JSONResponse(status_code=404, content={"success": False, "error": "Not found"})
+        return JSONResponse(
+            status_code=404,
+            content={"success": False, "error": "Task not found"}
+        )
     return JSONResponse(content=status)
+
 
 @router.get("/api/china-shorts/health")
 async def health_endpoint():
-    """Health check"""
+    """Health check endpoint"""
     return JSONResponse(content={
         "status": "ok",
-        "methods": ["Douyin API", "Mobile API", "yt-dlp Enhanced", "M3U8 Stream", "TikTok Global"]
+        "version": "3.1",
+        "features": {
+            "url_download": {
+                "enabled": True,
+                "methods": [
+                    "Douyin Internal API (iteminfo)",
+                    "Mobile API (Android simulation)",
+                    "yt-dlp Enhanced",
+                    "M3U8 Stream Capture",
+                    "TikTok Global API"
+                ]
+            },
+            "manual_upload": {
+                "enabled": True,
+                "max_file_size": "100MB",
+                "max_duration": "180 seconds",
+                "supported_formats": ["mp4", "mov", "avi", "mkv", "webm", "flv"]
+            },
+            "processing": {
+                "filters": "Saturation +25%, Brightness +10%, Contrast +15%",
+                "audio": "Original removed, BGM added at 20%",
+                "captions": "Golden captions with emojis",
+                "upload": "Direct to YouTube"
+            }
+        }
     })
 
+
 async def initialize():
-    """Startup"""
+    """Startup initialization"""
     logger.info("="*80)
-    logger.info("🚀 CHINA SHORTS V3.0 (PRODUCTION)")
+    logger.info("🚀 CHINA SHORTS V3.1 (PRODUCTION + MANUAL UPLOAD)")
     logger.info("="*80)
-    logger.info("✅ 5 Download Methods:")
+    logger.info("✅ URL Download Methods:")
     logger.info("   1. Douyin Internal API (iteminfo)")
     logger.info("   2. Mobile API (Android)")
     logger.info("   3. yt-dlp Enhanced")
     logger.info("   4. M3U8 Stream Capture")
     logger.info("   5. TikTok Global API")
+    logger.info("")
+    logger.info("✅ NEW: Manual File Upload")
+    logger.info("   • Direct video file upload (max 100MB)")
+    logger.info("   • Same processing pipeline")
+    logger.info("   • Validation & error handling")
     logger.info("="*80)
     log_memory("startup")
 
+
 __all__ = ["router", "initialize"]
+
