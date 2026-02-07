@@ -135,13 +135,19 @@ except ImportError as e:
 
 
 # ✅ NEW: CHINA AUTOMATION
+# ===========================================================================
+# CHINA SHORTS MODULE IMPORT
+# ===========================================================================
 try:
-    from china import router as china_router
-    logger.info("✅ China automation module imported successfully")
+    from china import (
+        router as china_shorts_router,
+        initialize as china_shorts_initialize
+    )
+    logger.info("✅ china_shorts module imported successfully")
 except ImportError as e:
-    logger.error(f"❌ Failed to import china_enhanced: {e}")
-    logger.error(traceback.format_exc())
-    china_router = None
+    logger.error(f"❌ Failed to import china_shorts: {e}")
+    china_shorts_router = None
+    china_shorts_initialize = None
 # ============================================================================
 # UNIFIED DATABASE MANAGER - MULTI-USER OPTIMIZED
 # ============================================================================
@@ -1954,20 +1960,21 @@ except Exception as e:
 
 # ✅ NEW: CHINA AUTOMATION ROUTES (MULTI-NICHE CHINESE VIDEOS)
 # ============================================================================
+# ===========================================================================
+# ✅ CHINA SHORTS ROUTES (DOUYIN/TIKTOK TO YOUTUBE UPLOADER)
+# ===========================================================================
 try:
-    if china_router is not None:
-        app.include_router(china_router, tags=["china-automation"])
-        
-        logger.info("✅ China automation routes registered successfully!")
+    if china_shorts_router is not None:
+        app.include_router(china_shorts_router, tags=["china-shorts"])
+        logger.info("✅ China Shorts routes registered successfully!")
         logger.info("   📍 Available endpoints:")
-        logger.info("      - GET  /api/china/niches")
-        logger.info("      - POST /api/china/generate")
-        logger.info("      - GET  /api/china/test")
+        logger.info("      - GET  /api/china-shorts/health")
+        logger.info("      - POST /api/china-shorts/process")
+        logger.info("      - GET  /api/china-shorts/status/{task_id}")
     else:
-        logger.warning("⚠️ China router not available - routes not registered")
-        
+        logger.warning("⚠️ China Shorts router not available - routes not registered")
 except Exception as e:
-    logger.error(f"❌ China automation routes registration failed: {e}")
+    logger.error(f"❌ China Shorts routes registration failed: {e}")
     logger.error(traceback.format_exc())
 # ============================================================================
 # PLATFORM STATUS ENDPOINT - MULTI-USER

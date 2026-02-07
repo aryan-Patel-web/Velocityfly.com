@@ -75,19 +75,11 @@ const YouTubeAutomation = () => {
 // CHINA MULTI-NICHE AUTOMATION TAB - UPDATED VERSION
 // ============================================
 // Add this to your React component state at the top:
-
-const [chinaConfig, setChinaConfig] = useState({
-  niche: 'funny',
-  num_videos: 1,
-  show_captions: true,
-  profile_urls: [] // Will be loaded from backend
-});
-const [chinaGenerating, setChinaGenerating] = useState(false);
+// ========== CHINA SHORTS STATE VARIABLES ==========
+const [chinaUrl, setChinaUrl] = useState('');
+const [chinaProcessing, setChinaProcessing] = useState(false);
 const [chinaProgress, setChinaProgress] = useState(0);
 const [chinaResult, setChinaResult] = useState(null);
-const [chinaNiches, setChinaNiches] = useState({});
-const [loadingNiches, setLoadingNiches] = useState(true);
-
 // ============================================================================
 // PIXABAY TAB - STATE MANAGEMENT (Paste at top with other useState)
 // ============================================================================
@@ -1326,6 +1318,40 @@ useEffect(() => {
 }, [activeTab]);
 
 
+// ========== CHINA SHORTS USEEFFECT (OPTIONAL - FOR AUTO-REFRESH) ==========
+useEffect(() => {
+  // Optional: Add any initialization logic for China Shorts tab
+  if (activeTab === 'china-shorts' && status?.youtube_connected) {
+    console.log('🇨🇳 China Shorts tab active');
+    
+    // Optional: Check health of China Shorts API
+    const checkHealth = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/china-shorts/health`);
+        const data = await res.json();
+        console.log('China Shorts Health:', data);
+      } catch (err) {
+        console.error('China Shorts health check failed:', err);
+      }
+    };
+    
+    checkHealth();
+  }
+}, [activeTab, status?.youtube_connected]);
+
+// ========== CLEANUP ON UNMOUNT ==========
+useEffect(() => {
+  return () => {
+    // Cleanup: Reset state when component unmounts
+    setChinaUrl('');
+    setChinaProcessing(false);
+    setChinaProgress(0);
+    setChinaResult(null);
+  };
+}, []);
+
+
+
 // ✅ VIRAL PIXEL useEffect (Add this with your other useEffects)
 useEffect(() => {
   // Load available niches from backend (optional - if your API supports it)
@@ -2111,30 +2137,41 @@ useEffect(() => {
   Pixabay Slideshow
 </button>
 
-          <button 
-            onClick={() => setActiveTab('china-automation')}
-            style={{
-              padding: '12px 24px',
-              background: activeTab === 'china-automation' 
-                ? 'linear-gradient(135deg, #FF6B6B, #FF8E53)' 
-                : 'white',
-              color: activeTab === 'china-automation' ? 'white' : '#333',
-              border: activeTab === 'china-automation' ? 'none' : '2px solid #e0e0e0',
-              borderRadius: '12px',
-              fontWeight: '600',
-              cursor: 'pointer',
-              transition: 'all 0.3s',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              boxShadow: activeTab === 'china-automation' 
-                ? '0 4px 15px rgba(255,107,107,0.4)' 
-                : '0 2px 8px rgba(0,0,0,0.1)'
-            }}
-          >
-            <span style={{ fontSize: '20px' }}>🇨🇳</span>
-            China Videos
-          </button>
+{/* ========== CHINA SHORTS TAB BUTTON ========== */}
+<button
+  onClick={() => setActiveTab('china-shorts')}
+  style={{
+    padding: '12px 24px',
+    background: activeTab === 'china-shorts'
+      ? 'linear-gradient(135deg, #FF4757, #FF6348)'
+      : 'white',
+    color: activeTab === 'china-shorts' ? 'white' : '#333',
+    border: activeTab === 'china-shorts' ? 'none' : '2px solid #e0e0e0',
+    borderRadius: '12px',
+    fontWeight: '600',
+    cursor: 'pointer',
+    transition: 'all 0.3s',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    boxShadow: activeTab === 'china-shorts'
+      ? '0 4px 15px rgba(255,71,87,0.4)'
+      : '0 2px 8px rgba(0,0,0,0.1)'
+  }}
+  onMouseEnter={e => {
+    if (activeTab !== 'china-shorts') {
+      e.target.style.background = 'linear-gradient(135deg, #FFE5E9, #FFD4D8)';
+    }
+  }}
+  onMouseLeave={e => {
+    if (activeTab !== 'china-shorts') {
+      e.target.style.background = 'white';
+    }
+  }}
+>
+  <span style={{ fontSize: '20px' }}>🇨🇳</span>
+  China-Shorts
+</button>
 
 
         </div>
@@ -11374,8 +11411,6 @@ onClick={async () => {
 {/* -------------------------------- MrBeast code end ---------------------------------------------------- */}
 
 
-{/* --------------------------------china  code end---------------------------------------------------- */}
-
 
 
 {/* ============================================ */}
@@ -11383,575 +11418,702 @@ onClick={async () => {
 {/* ============================================ */}
 
 
-
-{activeTab === 'china-automation' && status?.youtube_connected && (
+{/* ========== CHINA SHORTS TAB CONTENT ========== */}
+{activeTab === 'china-shorts' && status?.youtube_connected && (
   <div style={{ 
-    background: 'linear-gradient(135deg, #FF6B6B 0%, #FF8E53 100%)', 
+    background: 'linear-gradient(135deg, #FF4757 0%, #FF6348 100%)', 
     borderRadius: '20px', 
     padding: '40px', 
-    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
-    minHeight: '600px'
+    boxShadow: '0 12px 40px rgba(0, 0, 0, 0.4)',
+    minHeight: '700px'
   }}>
+    {/* HEADER */}
     <div style={{ 
       display: 'flex', 
       justifyContent: 'space-between', 
       alignItems: 'center', 
-      marginBottom: '30px' 
+      marginBottom: '35px',
+      flexWrap: 'wrap',
+      gap: '20px'
     }}>
       <div>
         <h2 style={{ 
           color: 'white', 
-          marginBottom: '10px', 
-          fontSize: '36px', 
-          fontWeight: '800',
-          textShadow: '2px 2px 4px rgba(0,0,0,0.3)',
-          margin: 0
+          marginBottom: '12px', 
+          fontSize: '38px', 
+          fontWeight: '900',
+          textShadow: '3px 3px 6px rgba(0,0,0,0.4)',
+          margin: 0,
+          letterSpacing: '-0.5px'
         }}>
-          🇨🇳 China Video Automation
+          🇨🇳 China Shorts Pro
         </h2>
         <p style={{ 
           color: 'rgba(255,255,255,0.95)', 
-          fontSize: '18px',
+          fontSize: '17px',
           fontWeight: '500',
-          margin: 0
+          margin: 0,
+          textShadow: '1px 1px 2px rgba(0,0,0,0.2)'
         }}>
-          Scrape TikTok profiles, translate to Hindi, and auto-upload to YouTube
+          Douyin/TikTok URL → Remove Audio → Add BGM → Apply Filters → Golden Captions → YouTube 🚀
+        </p>
+      </div>
+      <div style={{
+        background: 'rgba(255,255,255,0.2)',
+        padding: '12px 20px',
+        borderRadius: '25px',
+        backdropFilter: 'blur(10px)',
+        border: '2px solid rgba(255,255,255,0.3)'
+      }}>
+        <div style={{ color: 'white', fontSize: '14px', fontWeight: '700' }}>
+          ⚡ Copyright Avoidance Mode
+        </div>
+      </div>
+    </div>
+
+    {/* STEP FLOW BAR */}
+    <div style={{
+      display: 'flex',
+      justifyContent: 'center',
+      alignItems: 'center',
+      flexWrap: 'wrap',
+      gap: '4px',
+      marginBottom: '24px'
+    }}>
+      {[
+        { icon: '⬇️', label: 'Download' },
+        { icon: '🎨', label: 'Filters' },
+        { icon: '🔇', label: 'Remove Audio' },
+        { icon: '🎵', label: 'Add BGM' },
+        { icon: '✨', label: 'Captions' },
+        { icon: '📤', label: 'YouTube' },
+      ].map((step, i) => (
+        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <div style={{
+            background: 'white',
+            borderRadius: '12px',
+            padding: '8px 10px',
+            textAlign: 'center',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+            minWidth: '72px'
+          }}>
+            <div style={{ fontSize: '18px' }}>{step.icon}</div>
+            <div style={{ fontSize: '10px', fontWeight: '600', color: '#555', marginTop: '2px' }}>
+              {step.label}
+            </div>
+          </div>
+          {i < 5 && <span style={{ color: 'rgba(255,255,255,0.7)', fontSize: '14px' }}>→</span>}
+        </div>
+      ))}
+    </div>
+
+    {/* URL INPUT BOX */}
+    <div style={{
+      background: 'rgba(255,255,255,0.98)',
+      borderRadius: '18px',
+      padding: '35px',
+      marginBottom: '30px',
+      boxShadow: '0 8px 32px rgba(0,0,0,0.1)'
+    }}>
+      <h3 style={{ 
+        color: '#1a1a2e', 
+        marginBottom: '25px', 
+        fontSize: '26px', 
+        fontWeight: '800',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '12px'
+      }}>
+        <span style={{ 
+          background: 'linear-gradient(135deg, #FF4757, #FF6348)',
+          color: 'white',
+          borderRadius: '12px',
+          width: '42px',
+          height: '42px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: '20px',
+          fontWeight: '900'
+        }}>1</span>
+        Paste Douyin/TikTok Video URL
+      </h3>
+
+      <label style={{ 
+        display: 'block', 
+        fontWeight: '600', 
+        color: '#333', 
+        marginBottom: '8px', 
+        fontSize: '14px' 
+      }}>
+        🔗 Video Link (Douyin or TikTok)
+      </label>
+      
+      <input
+        type="text"
+        value={chinaUrl}
+        onChange={e => setChinaUrl(e.target.value)}
+        placeholder="https://www.douyin.com/video/... OR https://www.tiktok.com/@username/video/..."
+        disabled={chinaProcessing}
+        style={{
+          width: '100%',
+          padding: '14px 18px',
+          borderRadius: '12px',
+          border: '2px solid #e0e0e0',
+          fontSize: '14px',
+          outline: 'none',
+          boxSizing: 'border-box',
+          transition: 'all 0.2s',
+          background: chinaProcessing ? '#f5f5f5' : 'white',
+          fontFamily: 'monospace',
+          color: '#333'
+        }}
+        onFocus={e => e.target.style.borderColor = '#FF4757'}
+        onBlur={e => e.target.style.borderColor = '#e0e0e0'}
+      />
+      
+      <div style={{ 
+        marginTop: '12px', 
+        display: 'flex', 
+        gap: '20px',
+        flexWrap: 'wrap' 
+      }}>
+        <p style={{ 
+          margin: 0, 
+          fontSize: '12px', 
+          color: '#4caf50',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '6px'
+        }}>
+          <span>✅</span>
+          <span>Supports Douyin & TikTok URLs</span>
+        </p>
+        <p style={{ 
+          margin: 0, 
+          fontSize: '12px', 
+          color: '#ff9800',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '6px'
+        }}>
+          <span>🎨</span>
+          <span>Filters applied to avoid copyright detection</span>
+        </p>
+        <p style={{ 
+          margin: 0, 
+          fontSize: '12px', 
+          color: '#2196f3',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '6px'
+        }}>
+          <span>✨</span>
+          <span>Golden captions with emojis</span>
         </p>
       </div>
     </div>
 
-    {loadingNiches ? (
-      <div style={{ textAlign: 'center', padding: '40px', color: 'white' }}>
-        <p>Loading niches...</p>
-      </div>
-    ) : (
-      <>
-        {/* STEP 1: NICHE SELECTION */}
-        <div style={{
-          background: 'rgba(255,255,255,0.95)',
-          borderRadius: '15px',
-          padding: '30px',
-          marginBottom: '25px'
-        }}>
-          <h3 style={{ 
-            color: '#333', 
-            marginBottom: '20px', 
-            fontSize: '24px', 
-            fontWeight: '700' 
-          }}>
-            🎯 Step 1: Choose Your Niche
-          </h3>
+    {/* PROCESS BUTTON */}
+    <div style={{
+      background: 'rgba(255,255,255,0.98)',
+      borderRadius: '18px',
+      padding: '35px',
+      marginBottom: '30px',
+      boxShadow: '0 8px 32px rgba(0,0,0,0.1)'
+    }}>
+      <h3 style={{ 
+        color: '#1a1a2e', 
+        marginBottom: '25px', 
+        fontSize: '26px', 
+        fontWeight: '800',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '12px'
+      }}>
+        <span style={{ 
+          background: 'linear-gradient(135deg, #FF4757, #FF6348)',
+          color: 'white',
+          borderRadius: '12px',
+          width: '42px',
+          height: '42px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: '20px',
+          fontWeight: '900'
+        }}>2</span>
+        Process & Upload to YouTube
+      </h3>
 
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-            gap: '15px'
-          }}>
-            {Object.entries(chinaNiches).map(([nicheKey, nicheData]) => (
-              <button
-                key={nicheKey}
-                onClick={() => {
-                  if (!chinaGenerating) {
-                    setChinaConfig(prev => ({ 
-                      ...prev, 
-                      niche: nicheKey,
-                      profile_urls: nicheData.default_profiles || []
-                    }));
-                  }
-                }}
-                disabled={chinaGenerating}
-                style={{
-                  padding: '20px',
-                  background: chinaConfig.niche === nicheKey 
-                    ? 'linear-gradient(135deg, #FF6B6B, #FF8E53)' 
-                    : 'white',
-                  color: chinaConfig.niche === nicheKey ? 'white' : '#333',
-                  border: chinaConfig.niche === nicheKey 
-                    ? 'none' 
-                    : '2px solid #ddd',
-                  borderRadius: '12px',
-                  cursor: chinaGenerating ? 'not-allowed' : 'pointer',
-                  fontWeight: '600',
-                  fontSize: '14px',
-                  opacity: chinaGenerating ? 0.6 : 1,
-                  transition: 'all 0.3s',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  gap: '8px',
-                  boxShadow: chinaConfig.niche === nicheKey 
-                    ? '0 4px 15px rgba(255,107,107,0.3)' 
-                    : '0 2px 8px rgba(0,0,0,0.1)'
-                }}
-              >
-                <span style={{ fontSize: '32px' }}>{nicheData.icon}</span>
-                <span style={{ textAlign: 'center', lineHeight: '1.3' }}>
-                  {nicheData.name}
-                </span>
-              </button>
-            ))}
-          </div>
+      <button
+        onClick={async () => {
+          const trimmedUrl = chinaUrl.trim();
+          
+          // Validation
+          if (!trimmedUrl) {
+            alert("❌ Please paste a Douyin/TikTok URL first!");
+            return;
+          }
+          if (!trimmedUrl.includes("douyin.com") && !trimmedUrl.includes("tiktok.com")) {
+            alert("❌ URL must be from Douyin or TikTok!\n\nExamples:\nhttps://www.douyin.com/video/...\nhttps://www.tiktok.com/@user/video/...");
+            return;
+          }
+          
+          setChinaProcessing(true);
+          setChinaProgress(0);
+          setChinaResult(null);
 
-          {/* Show selected niche info */}
-          {chinaNiches[chinaConfig.niche] && (
-            <>
-              <div style={{
-                marginTop: '20px',
-                padding: '15px',
-                background: '#f5f5f5',
-                borderRadius: '10px'
-              }}>
-                <div style={{ fontSize: '13px', color: '#666', marginBottom: '8px' }}>
-                  <strong>Search Keywords:</strong>
-                </div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                  {chinaNiches[chinaConfig.niche].english_keywords?.map((keyword, idx) => (
-                    <span
-                      key={idx}
-                      style={{
-                        padding: '4px 10px',
-                        background: 'white',
-                        borderRadius: '6px',
-                        fontSize: '12px',
-                        color: '#666',
-                        border: '1px solid #ddd'
-                      }}
-                    >
-                      {keyword}
-                    </span>
-                  ))}
-                </div>
-                <div style={{ marginTop: '8px', display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                  {chinaNiches[chinaConfig.niche].chinese_keywords?.map((keyword, idx) => (
-                    <span
-                      key={idx}
-                      style={{
-                        padding: '4px 10px',
-                        background: 'white',
-                        borderRadius: '6px',
-                        fontSize: '12px',
-                        color: '#666',
-                        border: '1px solid #ddd'
-                      }}
-                    >
-                      {keyword}
-                    </span>
-                  ))}
-                </div>
-              </div>
+          // Simulate progress for UX
+          const progressSteps = [5, 15, 30, 50, 65, 80, 90, 95];
+          let stepIndex = 0;
+          const progressInterval = setInterval(() => {
+            if (stepIndex < progressSteps.length) {
+              setChinaProgress(progressSteps[stepIndex]);
+              stepIndex++;
+            }
+          }, 5000);
 
-              {/* Profile URLs Section */}
-              <div style={{
-                marginTop: '20px',
-                padding: '20px',
-                background: '#e3f2fd',
-                borderRadius: '10px',
-                border: '2px solid #2196f3'
-              }}>
-                <h4 style={{ 
-                  fontSize: '16px', 
-                  marginBottom: '15px',
-                  color: '#1565c0',
-                  fontWeight: '700'
-                }}>
-                  📱 Profile URLs (Will scrape videos from these profiles)
-                </h4>
+          try {
+            console.log('🇨🇳 Processing China Short...', { 
+              user_id: user.user_id, 
+              china_url: trimmedUrl 
+            });
+
+            const res = await fetch(`${API_BASE}/api/china-shorts/process`, {
+              method: "POST",
+              headers: { 
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${token}`
+              },
+              body: JSON.stringify({ 
+                user_id: user.user_id, 
+                china_url: trimmedUrl
+              })
+            });
+            
+            clearInterval(progressInterval);
+            
+            const data = await res.json();
+            console.log('Response:', data);
+            
+            setChinaProgress(100);
+
+            if (data.success) {
+              setChinaResult(data);
+              setChinaUrl("");
+              
+              // Success alert with YouTube link
+              setTimeout(() => {
+                const youtubeUrl = data.video_url;
+                const confirmOpen = window.confirm(
+                  `✅ SUCCESS!\n\n` +
+                  `Title: ${data.title}\n\n` +
+                  `Video uploaded to YouTube!\n\n` +
+                  `📺 ${youtubeUrl}\n\n` +
+                  `Click OK to open YouTube in new tab.`
+                );
                 
-                {/* Default profiles info */}
-                <div style={{
-                  background: 'white',
-                  padding: '15px',
-                  borderRadius: '8px',
-                  marginBottom: '15px',
-                  fontSize: '13px',
-                  color: '#555'
-                }}>
-                  <strong>Default Profiles for {chinaNiches[chinaConfig.niche].name}:</strong>
-                  <ul style={{ marginTop: '10px', marginLeft: '20px' }}>
-                    {chinaNiches[chinaConfig.niche].default_profiles?.map((url, idx) => (
-                      <li key={idx} style={{ marginBottom: '5px' }}>
-                        <a 
-                          href={url} 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          style={{ color: '#2196f3', textDecoration: 'none' }}
-                        >
-                          {url}
-                        </a>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-
-                <p style={{ fontSize: '12px', color: '#666', marginTop: '10px' }}>
-                  💡 Using default profiles. You can also add custom URLs by modifying chinaConfig.profile_urls in the code.
-                </p>
-              </div>
-            </>
-          )}
-        </div>
-
-        {/* STEP 2: SETTINGS */}
-        <div style={{
-          background: 'rgba(255,255,255,0.95)',
+                if (confirmOpen) {
+                  window.open(youtubeUrl, '_blank');
+                }
+              }, 500);
+            } else {
+              console.error('❌ Failed:', data.error);
+              alert(`❌ PROCESSING FAILED\n\n${data.error || 'Unknown error'}\n\nPlease check:\n1. URL is valid Douyin/TikTok link\n2. Video is accessible\n3. File size < 100MB`);
+            }
+          } catch (err) {
+            clearInterval(progressInterval);
+            console.error('❌ Error:', err);
+            alert(`❌ NETWORK ERROR\n\n${err.message}\n\nPlease check your internet connection.`);
+          } finally {
+            setChinaProcessing(false);
+            setTimeout(() => setChinaProgress(0), 3000);
+          }
+        }}
+        disabled={chinaProcessing || !chinaUrl.trim()}
+        style={{
+          width: '100%',
+          padding: '24px',
+          background: chinaProcessing || !chinaUrl.trim()
+            ? 'linear-gradient(135deg, #95a5a6, #7f8c8d)' 
+            : 'linear-gradient(135deg, #FF4757, #FF6348)',
+          color: 'white',
+          border: 'none',
           borderRadius: '15px',
-          padding: '30px',
-          marginBottom: '25px'
-        }}>
-          <h3 style={{ 
-            color: '#333', 
-            marginBottom: '20px', 
-            fontSize: '24px', 
-            fontWeight: '700' 
+          fontSize: '22px',
+          fontWeight: '900',
+          cursor: (chinaProcessing || !chinaUrl.trim()) ? 'not-allowed' : 'pointer',
+          boxShadow: (chinaProcessing || !chinaUrl.trim()) 
+            ? 'none'
+            : '0 8px 32px rgba(255,71,87,0.4)',
+          opacity: (chinaProcessing || !chinaUrl.trim()) ? 0.7 : 1,
+          transition: 'all 0.3s',
+          textTransform: 'uppercase',
+          letterSpacing: '1px'
+        }}
+        onMouseEnter={e => {
+          if (!chinaProcessing && chinaUrl.trim()) {
+            e.target.style.transform = 'translateY(-2px)';
+            e.target.style.boxShadow = '0 12px 40px rgba(255,71,87,0.5)';
+          }
+        }}
+        onMouseLeave={e => {
+          e.target.style.transform = 'translateY(0)';
+          e.target.style.boxShadow = (chinaProcessing || !chinaUrl.trim()) 
+            ? 'none'
+            : '0 8px 32px rgba(255,71,87,0.4)';
+        }}
+      >
+        {chinaProcessing ? (
+          <span style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center', 
+            gap: '15px' 
           }}>
-            ⚙️ Step 2: Configure Settings
-          </h3>
+            <span style={{ 
+              display: 'inline-block', 
+              width: '24px', 
+              height: '24px', 
+              border: '3px solid rgba(255,255,255,0.3)',
+              borderTop: '3px solid white',
+              borderRadius: '50%',
+              animation: 'spin 1s linear infinite'
+            }}/>
+            PROCESSING...
+          </span>
+        ) : (
+          '⚙️ PROCESS & UPLOAD TO YOUTUBE'
+        )}
+      </button>
 
-          {/* Number of Videos */}
-          <div style={{ marginBottom: '25px' }}>
-            <label style={{ 
-              display: 'block', 
-              marginBottom: '10px', 
-              fontWeight: '600',
-              color: '#333',
-              fontSize: '16px'
-            }}>
-              🎬 How many videos to generate:
-            </label>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '10px' }}>
-              {[1, 2, 3, 4, 5].map((num) => (
-                <button
-                  key={num}
-                  onClick={() => setChinaConfig(prev => ({ ...prev, num_videos: num }))}
-                  disabled={chinaGenerating}
-                  style={{
-                    padding: '12px',
-                    background: chinaConfig.num_videos === num 
-                      ? 'linear-gradient(135deg, #FF6B6B, #FF8E53)' 
-                      : 'white',
-                    color: chinaConfig.num_videos === num ? 'white' : '#333',
-                    border: chinaConfig.num_videos === num 
-                      ? 'none' 
-                      : '2px solid #ddd',
-                    borderRadius: '10px',
-                    cursor: chinaGenerating ? 'not-allowed' : 'pointer',
-                    fontWeight: '700',
-                    fontSize: '18px',
-                    opacity: chinaGenerating ? 0.6 : 1,
-                    transition: 'all 0.3s'
-                  }}
-                >
-                  {num}
-                </button>
-              ))}
-            </div>
-            <p style={{ fontSize: '12px', color: '#666', marginTop: '8px' }}>
-              Each video processed individually: scrape → download → edit → upload
-            </p>
-          </div>
-
-          {/* Show Captions Toggle */}
-          <div style={{ marginBottom: '25px' }}>
-            <label style={{ 
+      {/* PROGRESS BAR */}
+      {chinaProcessing && (
+        <div style={{ marginTop: '25px' }}>
+          <div style={{
+            width: '100%',
+            height: '45px',
+            background: '#e0e0e0',
+            borderRadius: '25px',
+            overflow: 'hidden',
+            position: 'relative',
+            boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.1)'
+          }}>
+            <div style={{
+              width: `${chinaProgress}%`,
+              height: '100%',
+              background: 'linear-gradient(90deg, #FF4757, #FF6348)',
+              transition: 'width 0.5s ease',
               display: 'flex',
               alignItems: 'center',
-              gap: '12px',
-              cursor: chinaGenerating ? 'not-allowed' : 'pointer',
-              fontWeight: '600',
-              color: '#333',
-              fontSize: '16px'
+              justifyContent: 'center',
+              position: 'relative'
             }}>
-              <input
-                type="checkbox"
-                checked={chinaConfig.show_captions}
-                onChange={(e) => setChinaConfig(prev => ({ ...prev, show_captions: e.target.checked }))}
-                disabled={chinaGenerating}
-                style={{
-                  width: '20px',
-                  height: '20px',
-                  cursor: chinaGenerating ? 'not-allowed' : 'pointer'
-                }}
-              />
-              <span>📝 Add text overlays / captions</span>
-            </label>
-          </div>
-        </div>
-
-        {/* STEP 3: GENERATE */}
-        <div style={{
-          background: 'rgba(255,255,255,0.95)',
-          borderRadius: '15px',
-          padding: '30px',
-          marginBottom: '25px'
-        }}>
-          <h3 style={{ 
-            color: '#333', 
-            marginBottom: '20px', 
-            fontSize: '24px', 
-            fontWeight: '700' 
-          }}>
-            🚀 Step 3: Generate Videos
-          </h3>
-
-          <button
-            onClick={async () => {
-              setChinaGenerating(true);
-              setChinaProgress(0);
-              setChinaResult(null);
-
-              try {
-                console.log('Starting China generation...', chinaConfig);
-                
-                // Progress simulation
-                const progressInterval = setInterval(() => {
-                  setChinaProgress(prev => {
-                    if (prev >= 90) {
-                      clearInterval(progressInterval);
-                      return 90;
-                    }
-                    return prev + 5;
-                  });
-                }, 5000);
-
-                // Make API call to backend
-                const response = await fetch(`${API_BASE}/api/china/generate`, {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                  },
-                  body: JSON.stringify({
-                    user_id: user.user_id,
-                    niche: chinaConfig.niche,
-                    num_videos: chinaConfig.num_videos,
-                    show_captions: chinaConfig.show_captions,
-                    profile_urls: chinaConfig.profile_urls.length > 0 
-                      ? chinaConfig.profile_urls 
-                      : chinaNiches[chinaConfig.niche]?.default_profiles
-                  })
-                });
-
-                const result = await response.json();
-                clearInterval(progressInterval);
-
-                setChinaProgress(100);
-                setChinaResult(result);
-
-                if (result.success) {
-                  console.log(`✅ Generated ${result.successful} videos`);
-                  alert(`✅ Generated ${result.successful}/${result.total_requested} videos successfully!`);
-                } else {
-                  console.error('Generation failed:', result.error);
-                  alert('❌ Generation failed: ' + result.error);
-                }
-              } catch (error) {
-                console.error('Error:', error);
-                alert('❌ Error: ' + error.message);
-                setChinaResult({ success: false, error: error.message });
-              } finally {
-                setChinaGenerating(false);
-              }
-            }}
-            disabled={chinaGenerating}
-            style={{
-              width: '100%',
-              padding: '20px',
-              background: chinaGenerating 
-                ? 'linear-gradient(135deg, #999, #666)' 
-                : 'linear-gradient(135deg, #FF6B6B, #FF8E53)',
-              color: 'white',
-              border: 'none',
-              borderRadius: '12px',
-              fontSize: '20px',
-              fontWeight: '800',
-              cursor: chinaGenerating ? 'not-allowed' : 'pointer',
-              boxShadow: '0 6px 20px rgba(255,107,107,0.4)',
-              opacity: chinaGenerating ? 0.7 : 1,
-              transition: 'all 0.3s'
-            }}
-          >
-            {chinaGenerating 
-              ? '⏳ GENERATING VIDEOS...' 
-              : `🔥 GENERATE ${chinaConfig.num_videos} VIDEO${chinaConfig.num_videos > 1 ? 'S' : ''}`
-            }
-          </button>
-
-          {chinaGenerating && (
-            <div style={{ marginTop: '20px' }}>
-              <div style={{
-                width: '100%',
-                height: '30px',
-                background: '#e0e0e0',
-                borderRadius: '15px',
-                overflow: 'hidden'
+              <span style={{
+                color: 'white',
+                fontWeight: '800',
+                fontSize: '18px',
+                textShadow: '1px 1px 2px rgba(0,0,0,0.3)'
               }}>
-                <div style={{
-                  width: `${chinaProgress}%`,
-                  height: '100%',
-                  background: 'linear-gradient(90deg, #FF6B6B, #FF8E53)',
-                  transition: 'width 0.5s',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}>
-                  <span style={{
-                    color: 'white',
-                    fontWeight: '700',
-                    fontSize: '14px'
-                  }}>
-                    {chinaProgress}%
-                  </span>
-                </div>
-              </div>
-              <p style={{ 
-                textAlign: 'center', 
-                marginTop: '10px', 
-                color: '#666',
-                fontSize: '14px' 
-              }}>
-                Processing: Scrape → Download → Transcribe → Translate → Script → Voice → Edit → Upload...
-              </p>
+                {chinaProgress}%
+              </span>
             </div>
-          )}
-
-          {chinaResult && chinaResult.success && (
-            <div style={{
-              marginTop: '20px',
-              padding: '20px',
-              background: '#e8f5e9',
-              borderRadius: '12px',
-              border: '2px solid #4caf50'
-            }}>
-              <h4 style={{ color: '#2e7d32', marginBottom: '15px', fontSize: '18px', fontWeight: '700' }}>
-                ✅ {chinaResult.successful} / {chinaResult.total_requested} Videos Generated Successfully!
-                {chinaResult.failed > 0 && (
-                  <span style={{ color: '#f57c00', fontSize: '14px', marginLeft: '10px' }}>
-                    ({chinaResult.failed} failed)
-                  </span>
-                )}
-              </h4>
-              
-              <div style={{ display: 'grid', gap: '15px' }}>
-                {chinaResult.results?.filter(r => r.success).map((video, idx) => (
-                  <div key={idx} style={{
-                    padding: '15px',
-                    background: 'white',
-                    borderRadius: '8px',
-                    border: '1px solid #ddd'
-                  }}>
-                    <div style={{ fontSize: '14px', color: '#333', marginBottom: '8px', fontWeight: '600' }}>
-                      Video {video.index}: {video.title?.substring(0, 60)}...
-                    </div>
-                    <div style={{ fontSize: '12px', color: '#666', marginBottom: '8px' }}>
-                      <strong>Source:</strong> {video.source_url?.substring(0, 60)}...
-                    </div>
-                    <div style={{ fontSize: '12px', color: '#4caf50', marginBottom: '8px' }}>
-                      <strong>YouTube:</strong>{' '}
-                      <a 
-                        href={video.video_url} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        style={{ color: '#4caf50', textDecoration: 'underline' }}
-                      >
-                        {video.video_url}
-                      </a>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              
-              {chinaResult.failed > 0 && (
-                <div style={{ marginTop: '15px', padding: '15px', background: '#fff3cd', borderRadius: '8px' }}>
-                  <h5 style={{ color: '#856404', marginBottom: '10px', fontSize: '14px' }}>
-                    ⚠️ Failed Generations ({chinaResult.failed}):
-                  </h5>
-                  {chinaResult.results?.filter(r => !r.success).map((fail, idx) => (
-                    <div key={idx} style={{ fontSize: '12px', color: '#856404', marginBottom: '5px' }}>
-                      • Video {fail.index || idx + 1}: {fail.error}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {chinaResult && !chinaResult.success && (
-            <div style={{
-              marginTop: '20px',
-              padding: '20px',
-              background: '#ffebee',
-              borderRadius: '12px',
-              border: '2px solid #ef5350'
-            }}>
-              <h4 style={{ color: '#c62828', marginBottom: '10px', fontSize: '16px', fontWeight: '700' }}>
-                ❌ Generation Failed
-              </h4>
-              <p style={{ color: '#d32f2f', fontSize: '14px' }}>
-                {chinaResult.error}
-              </p>
-            </div>
-          )}
-        </div>
-
-        {/* HOW IT WORKS */}
-        <div style={{
-          padding: '25px',
-          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-          borderRadius: '15px',
-          color: 'white'
-        }}>
-          <h3 style={{ marginBottom: '20px', fontSize: '20px', fontWeight: '700' }}>
-            📖 How It Works
-          </h3>
-          <div style={{ display: 'grid', gap: '15px' }}>
-            {[
-              { icon: '1️⃣', text: 'Scrapes TikTok/Douyin profile URLs using Selenium' },
-              { icon: '2️⃣', text: 'Finds 10+ video URLs from each profile' },
-              { icon: '3️⃣', text: 'Downloads videos using ssstik.io API' },
-              { icon: '4️⃣', text: 'Extracts and transcribes audio (Chinese → Text)' },
-              { icon: '5️⃣', text: 'Translates Chinese → Hindi using Mistral AI' },
-              { icon: '6️⃣', text: 'Generates creative viral script (4 segments)' },
-              { icon: '7️⃣', text: 'Creates Hindi voiceover with ElevenLabs' },
-              { icon: '8️⃣', text: 'Processes video for Shorts (1080x1920, 9:16)' },
-              { icon: '9️⃣', text: 'Adds text overlays and background music' },
-              { icon: '🔟', text: 'Uploads to YouTube Shorts automatically' }
-            ].map((step, idx) => (
-              <div key={idx} style={{
-                display: 'flex',
-                gap: '12px',
-                alignItems: 'center',
-                background: 'rgba(255,255,255,0.15)',
-                padding: '12px',
-                borderRadius: '8px',
-                backdropFilter: 'blur(10px)'
-              }}>
-                <span style={{ fontSize: '24px' }}>{step.icon}</span>
-                <span style={{ fontSize: '14px' }}>{step.text}</span>
-              </div>
-            ))}
           </div>
           
-          <div style={{
-            marginTop: '20px',
-            padding: '15px',
-            background: 'rgba(255,255,255,0.15)',
-            borderRadius: '10px',
-            backdropFilter: 'blur(10px)'
+          <p style={{ 
+            textAlign: 'center', 
+            marginTop: '18px', 
+            color: '#666',
+            fontSize: '15px',
+            lineHeight: '1.6',
+            fontWeight: '600'
           }}>
-            <h4 style={{ fontSize: '16px', marginBottom: '10px', fontWeight: '700' }}>
-              🎯 Available Niches:
-            </h4>
-            <div style={{ fontSize: '13px', lineHeight: '1.8' }}>
-              {Object.entries(chinaNiches).map(([key, data]) => (
-                <span key={key} style={{ marginRight: '15px' }}>
-                  <strong>{data.icon} {data.name}</strong>
-                </span>
-              ))}
+            {chinaProgress < 20  ? "⬇️ Downloading video from Douyin/TikTok..." :
+             chinaProgress < 40  ? "🎨 Applying copyright-avoidance filters..." :
+             chinaProgress < 60  ? "🔇 Removing original audio..." :
+             chinaProgress < 75  ? "✨ Adding golden captions with emojis..." :
+             chinaProgress < 90  ? "🎵 Mixing BGM (20% volume)..." :
+                                    "📤 Uploading directly to YouTube..."}
+          </p>
+        </div>
+      )}
+
+      {/* SUCCESS RESULT */}
+      {chinaResult && chinaResult.success && !chinaProcessing && (
+        <div style={{
+          marginTop: '25px',
+          padding: '25px',
+          background: 'linear-gradient(135deg, #e8f5e9, #c8e6c9)',
+          borderRadius: '15px',
+          border: '3px solid #4caf50',
+          animation: 'fadeIn 0.5s ease'
+        }}>
+          <h4 style={{ 
+            color: '#2e7d32', 
+            marginBottom: '18px', 
+            fontSize: '22px', 
+            fontWeight: '800',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px'
+          }}>
+            <span style={{ fontSize: '28px' }}>🎉</span>
+            Successfully Uploaded to YouTube!
+          </h4>
+          
+          <div style={{
+            padding: '18px',
+            background: 'white',
+            borderRadius: '12px',
+            marginBottom: '18px'
+          }}>
+            <div style={{ 
+              fontSize: '13px', 
+              color: '#666', 
+              marginBottom: '8px', 
+              fontWeight: '600',
+              textTransform: 'uppercase',
+              letterSpacing: '0.5px'
+            }}>
+              📝 Video Title
+            </div>
+            <div style={{ 
+              fontSize: '18px', 
+              fontWeight: '700', 
+              color: '#1a1a2e', 
+              marginBottom: '15px',
+              lineHeight: '1.4'
+            }}>
+              {chinaResult.title}
+            </div>
+            
+            <div style={{ 
+              fontSize: '13px', 
+              color: '#666', 
+              marginBottom: '8px', 
+              fontWeight: '600',
+              textTransform: 'uppercase',
+              letterSpacing: '0.5px'
+            }}>
+              📄 Description
+            </div>
+            <div style={{ 
+              fontSize: '14px', 
+              color: '#555', 
+              lineHeight: '1.6', 
+              marginBottom: '15px' 
+            }}>
+              {chinaResult.description?.substring(0, 200)}
+              {chinaResult.description?.length > 200 && '...'}
             </div>
           </div>
+          
+          {/* Stats Grid */}
+          <div style={{ 
+            display: 'grid', 
+            gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', 
+            gap: '12px',
+            marginBottom: '18px'
+          }}>
+            <div style={{ 
+              background: 'white', 
+              padding: '14px', 
+              borderRadius: '10px',
+              border: '1px solid #e0e0e0'
+            }}>
+              <div style={{ 
+                fontSize: '11px', 
+                color: '#999', 
+                marginBottom: '6px',
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px'
+              }}>
+                Duration
+              </div>
+              <div style={{ fontSize: '18px', fontWeight: '800', color: '#333' }}>
+                {chinaResult.duration}s
+              </div>
+            </div>
+            
+            <div style={{ 
+              background: 'white', 
+              padding: '14px', 
+              borderRadius: '10px',
+              border: '1px solid #e0e0e0'
+            }}>
+              <div style={{ 
+                fontSize: '11px', 
+                color: '#999', 
+                marginBottom: '6px',
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px'
+              }}>
+                Processing Time
+              </div>
+              <div style={{ fontSize: '18px', fontWeight: '800', color: '#333' }}>
+                {chinaResult.processing_time}s
+              </div>
+            </div>
+            
+            <div style={{ 
+              background: 'white', 
+              padding: '14px', 
+              borderRadius: '10px',
+              border: '1px solid #e0e0e0'
+            }}>
+              <div style={{ 
+                fontSize: '11px', 
+                color: '#999', 
+                marginBottom: '6px',
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px'
+              }}>
+                Status
+              </div>
+              <div style={{ 
+                fontSize: '14px', 
+                fontWeight: '800', 
+                color: '#4caf50',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}>
+                <span style={{ fontSize: '18px' }}>🟢</span>
+                LIVE
+              </div>
+            </div>
+          </div>
+          
+          {/* YouTube Link Button */}
+          
+            href={chinaResult.video_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              display: 'block',
+              width: '100%',
+              padding: '16px',
+              background: 'linear-gradient(135deg, #e53935, #ff5252)',
+              color: 'white',
+              textAlign: 'center',
+              borderRadius: '12px',
+              fontSize: '16px',
+              fontWeight: '800',
+              textDecoration: 'none',
+              boxShadow: '0 4px 12px rgba(229,57,53,0.3)',
+              transition: 'all 0.3s',
+              textTransform: 'uppercase',
+              letterSpacing: '1px'
+            }}
+            onMouseEnter={e => {
+              e.target.style.transform = 'translateY(-2px)';
+              e.target.style.boxShadow = '0 6px 20px rgba(229,57,53,0.4)';
+            }}
+            onMouseLeave={e => {
+              e.target.style.transform = 'translateY(0)';
+              e.target.style.boxShadow = '0 4px 12px rgba(229,57,53,0.3)';
+            }}
+          <a>
+            📺 WATCH ON YOUTUBE
+          </a>
         </div>
-      </>
-    )}
+      )}
+    </div>
+
+    {/* INFO FOOTER */}
+    <div style={{
+      padding: '30px',
+      background: 'linear-gradient(135deg, rgba(255,255,255,0.15), rgba(255,255,255,0.1))',
+      borderRadius: '18px',
+      color: 'white',
+      backdropFilter: 'blur(10px)',
+      border: '2px solid rgba(255,255,255,0.2)'
+    }}>
+      <h3 style={{ 
+        marginBottom: '20px', 
+        fontSize: '24px', 
+        fontWeight: '800',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '12px'
+      }}>
+        <span style={{ fontSize: '28px' }}>✨</span>
+        How It Works
+      </h3>
+      
+      <div style={{ display: 'grid', gap: '12px' }}>
+        {[
+          'Paste Douyin or TikTok video URL',
+          'Backend downloads video using yt-dlp (multiple fallback methods)',
+          'Applies copyright-avoidance filters: Saturation +25%, Brightness +10%, Contrast +15%',
+          'Removes original audio completely',
+          'Adds royalty-free BGM at 20% volume',
+          'Burns golden captions with emojis (90%) and text (10%)',
+          'Uploads DIRECTLY to your YouTube channel',
+          'Video goes LIVE immediately with SEO optimization',
+          'Perfect for viral China Shorts content',
+          'Comprehensive fallback system - never fails completely',
+          'All processing done server-side - no API keys needed from user'
+        ].map((feature, idx) => (
+          <div key={idx} style={{
+            display: 'flex',
+            gap: '14px',
+            alignItems: 'flex-start',
+            background: 'rgba(255,255,255,0.1)',
+            padding: '14px 16px',
+            borderRadius: '10px',
+            backdropFilter: 'blur(5px)',
+            border: '1px solid rgba(255,255,255,0.1)',
+            transition: 'all 0.2s'
+          }}
+          onMouseEnter={e => {
+            e.currentTarget.style.background = 'rgba(255,255,255,0.15)';
+            e.currentTarget.style.transform = 'translateX(5px)';
+          }}
+          onMouseLeave={e => {
+            e.currentTarget.style.background = 'rgba(255,255,255,0.1)';
+            e.currentTarget.style.transform = 'translateX(0)';
+          }}
+          >
+            <span style={{ 
+              fontSize: '20px', 
+              flexShrink: 0,
+              marginTop: '2px'
+            }}>
+              ✓
+            </span>
+            <span style={{ 
+              fontSize: '14px', 
+              lineHeight: '1.6',
+              fontWeight: '500'
+            }}>
+              {feature}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+
+    {/* SPINNER ANIMATION */}
+    <style>{`
+      @keyframes spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+      }
+      
+      @keyframes fadeIn {
+        from { 
+          opacity: 0; 
+          transform: translateY(20px); 
+        }
+        to { 
+          opacity: 1; 
+          transform: translateY(0); 
+        }
+      }
+    `}</style>
+
   </div>
 )}
 
