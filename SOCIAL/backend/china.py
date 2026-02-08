@@ -2198,16 +2198,16 @@
 
 
 """
-china_shorts_final.py - CHINA SHORTS VIDEO PROCESSOR (FINAL VERSION)
-=====================================================================
-✅ URL Download: 5 working methods (Douyin API, Mobile API, yt-dlp, M3U8, TikTok)
-✅ Manual Upload: Direct file upload support
-✅ AI SEO: Viral titles, descriptions, 45 keywords, 7-9 hashtags (Mistral AI)
-✅ Fallback SEO: When AI fails
-✅ Video Processing: Filters, emoji captions, BGM mixing
-✅ YouTube Upload: Direct upload with full SEO
-✅ Extensive Logging: Track every step in Render logs
-=====================================================================
+china_shorts_final_orange_cat.py - ORANGE CAT FOCUSED WITH INTRO/OUTRO
+========================================================================
+✅ URL Download + Manual Upload (dual mode)
+✅ AI SEO: Orange Cat focused titles, descriptions, keywords, hashtags
+✅ SINGLE BGM: Meow Meow Meow (50% volume)
+✅ INTRO/OUTRO: Hook-style voiceovers (5 sec each)
+✅ ElevenLabs Priority (3 voices) + Edge TTS fallback
+✅ Emoji captions at bottom
+✅ YouTube upload with full SEO
+========================================================================
 """
 
 from fastapi import APIRouter, Request, File, UploadFile, Form
@@ -2227,7 +2227,6 @@ import aiofiles
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 import uuid
-from urllib.parse import urlparse, parse_qs
 
 try:
     import psutil
@@ -2236,9 +2235,9 @@ except:
     HAS_PSUTIL = False
 
 # ═══════════════════════════════════════════════════════════════════════
-# LOGGING CONFIGURATION
+# LOGGING
 # ═══════════════════════════════════════════════════════════════════════
-logger = logging.getLogger("ChinaShortsProcessor")
+logger = logging.getLogger("ChinaShortsOrangeCat")
 logger.setLevel(logging.INFO)
 
 if not logger.handlers:
@@ -2250,28 +2249,26 @@ if not logger.handlers:
     logger.addHandler(handler)
 
 def log_memory(step: str):
-    """Log memory usage with detailed tracking"""
+    """Log memory usage"""
     if HAS_PSUTIL:
         try:
             process = psutil.Process(os.getpid())
             mem_mb = process.memory_info().rss / 1024 / 1024
             logger.info(f"🧠 MEMORY [{step}]: {mem_mb:.1f}MB")
             if mem_mb > 450:
-                logger.warning(f"⚠️  HIGH MEMORY [{step}]: {mem_mb:.1f}MB - Running GC")
+                logger.warning(f"⚠️  HIGH MEMORY: {mem_mb:.1f}MB - Running GC")
                 gc.collect()
-                new_mem = process.memory_info().rss / 1024 / 1024
-                logger.info(f"🧠 AFTER GC [{step}]: {new_mem:.1f}MB")
-        except Exception as e:
-            logger.debug(f"Memory logging failed: {e}")
+        except:
+            pass
 
 def log_step(step: str, status: str = "START", details: str = ""):
-    """Log processing steps with clear formatting"""
+    """Log processing steps"""
     separator = "=" * 70
     if status == "START":
         logger.info(f"\n{separator}")
         logger.info(f"🚀 STEP: {step}")
         if details:
-            logger.info(f"   Details: {details}")
+            logger.info(f"   {details}")
         logger.info(separator)
     elif status == "SUCCESS":
         logger.info(f"✅ SUCCESS: {step}")
@@ -2281,64 +2278,85 @@ def log_step(step: str, status: str = "START", details: str = ""):
         logger.error(f"❌ FAILED: {step}")
         if details:
             logger.error(f"   {details}")
-    elif status == "WARNING":
-        logger.warning(f"⚠️  WARNING: {step}")
-        if details:
-            logger.warning(f"   {details}")
 
 # ═══════════════════════════════════════════════════════════════════════
-# CONFIGURATION
+# CONFIG
 # ═══════════════════════════════════════════════════════════════════════
 MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY")
+ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY", "")
 
-# BGM URLs for China Shorts
-CHINA_BGM_URLS = [
-    "https://raw.githubusercontent.com/aryan-Patel-web/audio-collections/main/Meow%20Meow%20Meow%20Meow%20%F0%9F%8E%B6%20Sad%20TikTok%20Song%20%F0%9F%92%94%F0%9F%98%BF.mp3",
-    "https://raw.githubusercontent.com/aryan-Patel-web/audio-collections/main/Epic%20Action%20BGM%20-%20Battle%20Music.mp3",
-    "https://raw.githubusercontent.com/aryan-Patel-web/audio-collections/main/Funny%20Comedy%20BGM%20-%20Cartoon%20Style.mp3",
+# SINGLE BGM - Meow Meow Meow ONLY (50% volume)
+CHINA_BGM_URL = "https://raw.githubusercontent.com/aryan-Patel-web/audio-collections/main/Meow%20Meow%20Meow%20Meow%20%F0%9F%8E%B6%20Sad%20TikTok%20Song%20%F0%9F%92%94%F0%9F%98%BF.mp3"
+BGM_VOLUME = 0.50  # 50% volume
+
+# Emoji captions (cute + fun)
+CAPTION_EMOJIS = ["😺", "🐱", "😹", "😼", "🦁", "💪", "🔥", "✨", "💯", "👀", "🎉", "❤️", "😂", "🤣", "😍"]
+
+# ElevenLabs Voice IDs for Intro/Outro (Hindi/Hinglish)
+ELEVENLABS_INTRO_VOICES = [
+    "Sm1seazb4gs7RSlUVw7c",  # Voice 1
+    "MwUdldmtb1Qt7mDEbKM3",  # Voice 2
+    "ryIIztHPLYSJ74ueXxnO"   # Voice 3
 ]
 
-# Emoji captions
-CAPTION_EMOJIS = ["😂", "🤣", "😱", "😮", "🤔", "😍", "🔥", "✨", "💯", "👀", "🎉", "❤️", "🙌", "💪", "🤯"]
-CAPTION_TEXT = ["LOL", "OMG", "WOW", "HAHA", "NICE", "EPIC", "COOL", "FIRE"]
+# Edge TTS fallback voices
+EDGE_TTS_VOICES = ["hi-IN-MadhurNeural", "hi-IN-SwaraNeural"]
 
 # Douyin/TikTok headers
 DOUYIN_HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
     "Referer": "https://www.douyin.com/",
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
     "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
-    "Accept-Encoding": "gzip, deflate, br",
-    "Cookie": "ttwid=1%7C; __ac_nonce=0; __ac_signature=_02B4Z6wo00f01; odin_tt=0",
 }
 
 MOBILE_HEADERS = {
-    "User-Agent": "com.ss.android.ugc.aweme/260801 (Linux; U; Android 11; zh_CN; SM-G991B; Build/RP1A.200720.012; Cronet/TTNetVersion:d2f6e1a7 2021-06-15 QuicVersion:0144d358 2021-03-09)",
+    "User-Agent": "com.ss.android.ugc.aweme/260801 (Linux; U; Android 11)",
     "Accept-Encoding": "gzip, deflate",
 }
 
 PROCESSING_STATUS = {}
 
 # ═══════════════════════════════════════════════════════════════════════
+# INTRO/OUTRO TEMPLATES (HOOK + SUSPENSE)
+# ═══════════════════════════════════════════════════════════════════════
+
+INTRO_TEMPLATES = [
+    "Dosto, aaj hum dekhenge orange billa ki mastiyan! Dekhte rahiye kya hota hai!",
+    "Santra billa ki sarrarate shuru! Ye dekh kar aap shock ho jayenge!",
+    "Orange cat ki badmashiyan aa gayi! Video end tak dekhna mat bhoolna!",
+    "Dekho aaj is orange bille ne kya dhamaal machaya! Ye toh must watch hai!",
+    "Billo ki duniya mein aapka swagat! Orange cat ki ye harkatein dekhiye!",
+    "Aaj ka episode - Orange Billa Special! End tak zaroor dekhiye!",
+    "Orange cat ki ye video viral ho rahi hai! Aap bhi dekho kya scene hai!",
+]
+
+OUTRO_TEMPLATES = [
+    "Kaisa laga orange bille ka ye video? LIKE karein aur SUBSCRIBE zaroor karein!",
+    "Agar aapko ye mastiyan pasand aayi to LIKE aur SUBSCRIBE karein! More videos coming!",
+    "Orange cat ki aur videos chahiye? To channel ko SUBSCRIBE karo aur BELL icon dabaao!",
+    "Video kaisi lagi batao! LIKE karo, SHARE karo, aur SUBSCRIBE zaroor karein!",
+    "Agli baar aur masti ke saath! Tab tak LIKE, SUBSCRIBE karna mat bhoolna!",
+]
+
+# ═══════════════════════════════════════════════════════════════════════
 # UTILITY FUNCTIONS
 # ═══════════════════════════════════════════════════════════════════════
 
 def cleanup(*paths):
-    """Delete files and force garbage collection"""
+    """Delete files and GC"""
     for path in paths:
         try:
             if path and os.path.exists(path):
                 os.remove(path)
-                logger.debug(f"🗑️  Cleaned up: {path}")
-        except Exception as e:
-            logger.debug(f"Cleanup failed for {path}: {e}")
+                logger.debug(f"🗑️  Cleaned: {path}")
+        except:
+            pass
     gc.collect()
 
 def run_ffmpeg(cmd: list, timeout: int = 180, step: str = "FFmpeg") -> bool:
-    """Run FFmpeg command with detailed logging"""
-    logger.info(f"🎬 Running FFmpeg: {step}")
-    logger.debug(f"   Command: {' '.join(cmd[:5])}...")
-    
+    """Run FFmpeg with logging"""
+    logger.info(f"🎬 {step}...")
     try:
         result = subprocess.run(
             cmd, 
@@ -2347,120 +2365,124 @@ def run_ffmpeg(cmd: list, timeout: int = 180, step: str = "FFmpeg") -> bool:
             timeout=timeout, 
             text=True
         )
-        
         if result.returncode == 0:
-            logger.info(f"✅ FFmpeg {step} completed successfully")
+            logger.info(f"✅ {step} completed")
             return True
         else:
-            error_msg = result.stderr[-500:] if result.stderr else "Unknown error"
-            logger.error(f"❌ FFmpeg {step} failed (code {result.returncode})")
-            logger.error(f"   Error: {error_msg}")
+            logger.error(f"❌ {step} failed: {result.stderr[-200:]}")
             return False
-            
     except subprocess.TimeoutExpired:
-        logger.error(f"❌ FFmpeg {step} timeout after {timeout}s")
+        logger.error(f"❌ {step} timeout")
         return False
     except Exception as e:
-        logger.error(f"❌ FFmpeg {step} exception: {e}")
+        logger.error(f"❌ {step} error: {e}")
         return False
 
 # ═══════════════════════════════════════════════════════════════════════
-# AI SEO GENERATION (TITLES, DESCRIPTIONS, KEYWORDS, HASHTAGS)
+# AI SEO GENERATION - ORANGE CAT FOCUSED
 # ═══════════════════════════════════════════════════════════════════════
 
-async def generate_viral_seo_metadata(video_type: str = "china_short") -> dict:
-    """
-    Generate viral SEO metadata using Mistral AI
-    Returns: {title, description, keywords[], hashtags[]}
-    """
-    log_step("AI SEO Generation", "START", f"Type: {video_type}")
+async def generate_orange_cat_seo() -> dict:
+    """Generate Orange Cat focused SEO metadata"""
+    log_step("AI SEO Generation", "START", "Orange Cat Focus")
     log_memory("ai-seo-start")
     
-    # Try Mistral AI first
+    # Try Mistral AI
     if MISTRAL_API_KEY:
         try:
-            logger.info("🤖 Using Mistral AI for viral SEO generation...")
+            logger.info("🤖 Using Mistral AI for Orange Cat SEO...")
             
-            if video_type == "china_short":
-                prompt = """You are a VIRAL YouTube Shorts SEO expert for CHINA SHORTS content.
+            prompt = """You are a VIRAL YouTube Shorts SEO expert for AI ORANGE CAT VIDEOS.
 
 VIDEO CONTEXT:
-- Content: China/Douyin short videos (trending, funny, viral content)
-- Style: Fast-paced, attention-grabbing, meme-worthy
-- Target: High engagement, viral potential
+- Content: AI-generated orange cat doing funny, chaotic, emotional things
+- Orange cat is ALWAYS the main character
+- Style: Cute, funny, sometimes dramatic/savage
+- Audio: Sad/cute background music (Meow Meow Meow TikTok song)
+- Platform: YouTube Shorts
 - Audience: Global (India + International)
 
 TASK: Generate viral SEO metadata
 
 ━━━━━━━━━━━━━━━━━━━━━━
-🎯 TITLE REQUIREMENTS:
+🎯 TITLE REQUIREMENTS (STRICT)
 ━━━━━━━━━━━━━━━━━━━━━━
-- Length: 3-7 words MAX
-- Language: Simple English OR Hinglish
-- Include curiosity hook: ["99%", "Aaj Tak", "Bas 1", "China Ne"]
-- Include 3-5 inline hashtags at END
+- Length: **3-7 words ONLY**
+- Language: Simple English (natural, conversational)
+- **MUST mention "Orange Cat"** (or "Orange Billa" or "Santra Cat")
+- Title should feel like:
+  * A mini story
+  * An action the cat is doing
+  * An emotion or vibe
+- Include **3-5 inline hashtags** at END
 - NO emojis in title
+- NO clickbait words (shocking, 99%, China, etc.)
 - Natural, human-sounding
 
-FORMAT: Title Words #tag1 #tag2 #tag3
+FORMAT (EXACT):
+Title Words #tag1 #tag2 #tag3
 
-EXAMPLES:
-99% Log Yeh Nahi Jaante #china #viral #shorts
-China Ne Aisa Kiya #trending #china #mustwatch
-Bas 1 China Video #viral #shorts #china
+STYLE EXAMPLES (DO NOT COPY EXACTLY - CREATE NEW):
+- The Big Orange Cat Story #cat #cats #viral
+- Orange Cat Doing Orange Cat Things #cat #pets #funny
+- Orange Cat Revenge Mode #cat #shorts #animals
+- Orange Billa Ki Mastiyan #cat #cats #shorts
+- Santra Cat Energy Real Hai #cat #viral #funny
 
 ━━━━━━━━━━━━━━━━━━━━━━
-📝 DESCRIPTION REQUIREMENTS:
+📝 DESCRIPTION REQUIREMENTS
 ━━━━━━━━━━━━━━━━━━━━━━
-Write 2 short paragraphs:
+Write **2 short paragraphs**:
 
 Paragraph 1 (2-3 lines):
-- Hook the viewer
-- Mention what makes this special
-- Create FOMO
+- Describe what the orange cat is doing
+- Make it feel like a mini story
+- Keep it simple and emotional/funny
 
 Paragraph 2 (2-3 lines):
-- Call to action (like, share, subscribe)
-- Mention viral potential
-- Keep it natural
+- Mention AI-generated animation naturally
+- Encourage replay/watch till end
+- Soft CTA (like, share, subscribe)
 
 ━━━━━━━━━━━━━━━━━━━━━━
-🔑 KEYWORDS REQUIREMENTS:
+🔑 KEYWORDS REQUIREMENTS
 ━━━━━━━━━━━━━━━━━━━━━━
-Generate EXACTLY 45 keywords:
+Generate **EXACTLY 45 keywords**:
 - Mix: English + Hinglish
-- Focus areas:
-  * china shorts
-  * viral video
-  * trending china
-  * douyin video
-  * china viral
+- Focus heavily on:
+  * orange cat
+  * orange cat story
+  * funny orange cat
+  * ai orange cat
+  * orange cat shorts
+  * orange billa
+  * santra cat
 - One keyword per line
 - SEO-optimized
 
 ━━━━━━━━━━━━━━━━━━━━━━
-#️⃣ HASHTAGS REQUIREMENTS:
+#️⃣ HASHTAGS REQUIREMENTS
 ━━━━━━━━━━━━━━━━━━━━━━
-Generate 7-9 hashtags:
-- MUST include: #Shorts, #Viral, #China
-- Others: trending, must watch, etc.
-- Format: #HashtagName
+Generate **7-9 hashtags**:
+- MUST include:
+  #Shorts
+  #OrangeCat
+  #Cats
+- Others: funny, pets, animals, ai, viral
 
 ━━━━━━━━━━━━━━━━━━━━━━
-OUTPUT FORMAT (JSON ONLY):
+OUTPUT FORMAT (JSON ONLY)
 ━━━━━━━━━━━━━━━━━━━━━━
 {
-  "title": "Title with inline #tags",
+  "title": "Orange Cat Title Here #tag1 #tag2 #tag3",
   "description": "Paragraph 1\\n\\nParagraph 2",
   "keywords": ["keyword1", "keyword2", ... 45 total],
-  "hashtags": ["#Shorts", "#Viral", ... 7-9 total]
+  "hashtags": ["#Shorts", "#OrangeCat", "#Cats", ... 7-9 total]
 }
 
 OUTPUT ONLY VALID JSON. NO EXTRA TEXT."""
             
             async with httpx.AsyncClient(timeout=60) as client:
-                logger.info("   📡 Calling Mistral API...")
-                
                 resp = await client.post(
                     "https://api.mistral.ai/v1/chat/completions",
                     headers={"Authorization": f"Bearer {MISTRAL_API_KEY}"},
@@ -2475,57 +2497,43 @@ OUTPUT ONLY VALID JSON. NO EXTRA TEXT."""
                     }
                 )
                 
-                logger.info(f"   📡 Mistral API response: {resp.status_code}")
-                
                 if resp.status_code == 200:
                     content = resp.json()["choices"][0]["message"]["content"]
-                    logger.debug(f"   Raw AI response: {content[:200]}...")
-                    
-                    # Clean up response
                     content = re.sub(r'[\x00-\x1f\x7f-\x9f]', '', content)
                     content = re.sub(r'```json\n?|\n?```', '', content).strip()
                     
-                    # Extract JSON
                     match = re.search(r'\{.*\}', content, re.DOTALL)
                     
                     if match:
                         data = json.loads(match.group(0))
                         
-                        title = data.get("title", "")
-                        description = data.get("description", "")
+                        title = data.get("title", "Orange Cat Adventures #cat #viral #shorts")
+                        description = data.get("description", "Watch this amazing orange cat!\n\nLike and subscribe!")
                         keywords = data.get("keywords", [])
-                        hashtags = data.get("hashtags", [])
-                        
-                        # Validate and fix
-                        if not title:
-                            raise ValueError("No title generated")
+                        hashtags = data.get("hashtags", ["#Shorts", "#OrangeCat", "#Cats"])
                         
                         # Ensure 45 keywords
                         if len(keywords) < 45:
-                            default_keywords = [
-                                "china shorts", "viral video", "trending china", "douyin video",
-                                "china viral", "short video", "viral shorts", "china trending",
-                                "must watch", "trending video", "viral china", "douyin trending"
+                            default_kw = [
+                                "orange cat", "orange cat video", "funny orange cat", "orange cat shorts",
+                                "ai orange cat", "orange billa", "santra cat", "cat videos", "funny cats",
+                                "cute cats", "cat shorts", "viral cat", "trending cat", "cat ai"
                             ]
                             while len(keywords) < 45:
-                                keywords.append(default_keywords[len(keywords) % len(default_keywords)])
+                                keywords.append(default_kw[len(keywords) % len(default_kw)])
                         
                         keywords = keywords[:45]
                         
-                        # Ensure hashtags include required ones
-                        required_tags = ["#Shorts", "#Viral", "#China"]
-                        for tag in required_tags:
+                        # Ensure required hashtags
+                        required = ["#Shorts", "#OrangeCat", "#Cats"]
+                        for tag in required:
                             if tag not in hashtags:
                                 hashtags.insert(0, tag)
-                        
                         hashtags = hashtags[:9]
                         
-                        logger.info("✅ AI SEO Generated Successfully!")
+                        logger.info("✅ AI SEO Generated!")
                         logger.info(f"   Title: {title}")
-                        logger.info(f"   Description length: {len(description)} chars")
                         logger.info(f"   Keywords: {len(keywords)}")
-                        logger.info(f"   Hashtags: {len(hashtags)}")
-                        
                         log_memory("ai-seo-done")
                         
                         return {
@@ -2535,53 +2543,39 @@ OUTPUT ONLY VALID JSON. NO EXTRA TEXT."""
                             "hashtags": hashtags,
                             "ai_generated": True
                         }
-                    else:
-                        logger.warning("   ⚠️  Could not extract JSON from AI response")
-                else:
-                    logger.warning(f"   ⚠️  Mistral API failed with status {resp.status_code}")
-        
         except Exception as e:
-            logger.warning(f"   ⚠️  Mistral AI error: {e}")
-            logger.debug(f"   Exception details: {str(e)}")
-    else:
-        logger.info("   ⚠️  MISTRAL_API_KEY not configured")
+            logger.warning(f"⚠️  Mistral AI failed: {e}")
     
-    # FALLBACK: Basic SEO generation
-    log_step("Fallback SEO Generation", "START")
-    logger.info("   Using fallback SEO generation (basic templates)...")
+    # FALLBACK: Basic Orange Cat SEO
+    logger.info("Using fallback Orange Cat SEO...")
     
     title_templates = [
-        "99% Log Yeh Nahi Jaante #china #viral #shorts",
-        "China Ne Aisa Kiya #trending #china #mustwatch",
-        "Bas 1 China Video #viral #shorts #china",
-        "Aaj Tak Ka Best #china #trending #viral",
-        "China Ki Ye Video #viral #shorts #trending"
+        "Orange Cat Adventures Begin #cat #viral #shorts",
+        "Orange Billa Ki Mastiyan #cat #cats #funny",
+        "Santra Cat Doing Cat Things #cat #shorts #pets",
+        "The Orange Cat Story #cat #viral #animals",
+        "Orange Cat Energy Real #cat #cats #trending"
     ]
     
     title = random.choice(title_templates)
     
-    description = """This China short video will blow your mind! Watch till the end to see something amazing that you've never seen before. This is the most viral content from China right now.
+    description = """Watch this amazing orange cat doing what orange cats do best! This AI-generated animation will make you smile and want to replay it again and again.
 
-Like, share and subscribe for more viral China shorts! Don't miss out on trending content. Hit the bell icon for notifications!"""
+Like this video if you love orange cats! Subscribe for more cute cat content. Share with your friends who love cats!"""
     
     keywords = [
-        "china shorts", "viral video", "trending china", "douyin video", "china viral",
-        "short video", "viral shorts", "china trending", "must watch", "trending video",
-        "viral china", "douyin trending", "china content", "viral content", "trending shorts",
-        "china tiktok", "douyin shorts", "viral douyin", "china video", "trending tiktok",
-        "china must watch", "viral trending", "china entertainment", "douyin content", "viral entertainment",
-        "china social", "trending content", "viral social", "china platform", "douyin platform",
-        "viral platform", "china media", "trending media", "viral clips", "china clips",
-        "trending clips", "china moments", "viral moments", "trending moments", "china highlights",
-        "viral highlights", "trending highlights", "china best", "viral best", "trending best"
+        "orange cat", "orange cat video", "funny orange cat", "orange cat shorts", "ai orange cat",
+        "orange billa", "santra cat", "cat videos", "funny cats", "cute cats",
+        "cat shorts", "viral cat", "trending cat", "cat ai", "orange cat story",
+        "orange cat funny", "orange cat viral", "cat content", "pet videos", "animal shorts",
+        "ai cat", "cat animation", "orange cat meme", "cat trending", "cat must watch",
+        "orange cat cute", "funny cat video", "cat shorts viral", "trending shorts", "viral shorts",
+        "orange cat trending", "cat video viral", "pet shorts", "animal videos", "cute cat video",
+        "orange billa video", "santra cat video", "cat ai video", "ai animation cat", "orange cat ai",
+        "cat viral video", "shorts cat", "trending cat video", "must watch cat", "funny orange"
     ]
     
-    hashtags = ["#Shorts", "#Viral", "#China", "#Trending", "#MustWatch", "#Douyin", "#ChinaShorts"]
-    
-    logger.info("✅ Fallback SEO Generated")
-    logger.info(f"   Title: {title}")
-    logger.info(f"   Keywords: {len(keywords)}")
-    logger.info(f"   Hashtags: {len(hashtags)}")
+    hashtags = ["#Shorts", "#OrangeCat", "#Cats", "#Viral", "#Funny", "#Pets", "#AI"]
     
     log_memory("ai-seo-done")
     
@@ -2594,107 +2588,188 @@ Like, share and subscribe for more viral China shorts! Don't miss out on trendin
     }
 
 # ═══════════════════════════════════════════════════════════════════════
-# VIDEO PROCESSING FUNCTIONS
+# INTRO/OUTRO VOICEOVER GENERATION
+# ═══════════════════════════════════════════════════════════════════════
+
+async def generate_intro_outro_voiceovers(temp_dir: str) -> tuple[Optional[str], Optional[str]]:
+    """
+    Generate intro and outro voiceovers
+    Priority: ElevenLabs (3 voices randomly) → Edge TTS fallback
+    Returns: (intro_path, outro_path)
+    """
+    log_step("Intro/Outro Voiceovers", "START")
+    log_memory("voiceover-start")
+    
+    intro_text = random.choice(INTRO_TEMPLATES)
+    outro_text = random.choice(OUTRO_TEMPLATES)
+    
+    logger.info(f"   Intro: {intro_text}")
+    logger.info(f"   Outro: {outro_text}")
+    
+    intro_path = os.path.join(temp_dir, "intro.mp3")
+    outro_path = os.path.join(temp_dir, "outro.mp3")
+    
+    # Try ElevenLabs first
+    if ELEVENLABS_API_KEY and len(ELEVENLABS_API_KEY) > 20:
+        try:
+            logger.info("   🎙️ Attempting ElevenLabs for intro/outro...")
+            
+            # Random voice for variety
+            voice_id = random.choice(ELEVENLABS_INTRO_VOICES)
+            logger.info(f"   Selected voice: {voice_id}")
+            
+            async with httpx.AsyncClient(timeout=60) as client:
+                # Generate intro
+                logger.info("   Generating intro...")
+                resp_intro = await client.post(
+                    f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}",
+                    headers={"xi-api-key": ELEVENLABS_API_KEY},
+                    json={
+                        "text": intro_text,
+                        "model_id": "eleven_multilingual_v2",
+                        "voice_settings": {
+                            "stability": 0.5,
+                            "similarity_boost": 0.75
+                        }
+                    }
+                )
+                
+                if resp_intro.status_code == 200:
+                    with open(intro_path, 'wb') as f:
+                        f.write(resp_intro.content)
+                    logger.info(f"   ✅ Intro voiceover: {os.path.getsize(intro_path)/1024:.1f}KB")
+                else:
+                    logger.warning(f"   ⚠️  Intro failed: {resp_intro.status_code}")
+                    intro_path = None
+                
+                # Generate outro
+                logger.info("   Generating outro...")
+                resp_outro = await client.post(
+                    f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}",
+                    headers={"xi-api-key": ELEVENLABS_API_KEY},
+                    json={
+                        "text": outro_text,
+                        "model_id": "eleven_multilingual_v2",
+                        "voice_settings": {
+                            "stability": 0.5,
+                            "similarity_boost": 0.75
+                        }
+                    }
+                )
+                
+                if resp_outro.status_code == 200:
+                    with open(outro_path, 'wb') as f:
+                        f.write(resp_outro.content)
+                    logger.info(f"   ✅ Outro voiceover: {os.path.getsize(outro_path)/1024:.1f}KB")
+                else:
+                    logger.warning(f"   ⚠️  Outro failed: {resp_outro.status_code}")
+                    outro_path = None
+                
+                if intro_path and outro_path:
+                    log_step("Intro/Outro Voiceovers", "SUCCESS", "ElevenLabs")
+                    log_memory("voiceover-done")
+                    return intro_path, outro_path
+        
+        except Exception as e:
+            logger.warning(f"   ⚠️  ElevenLabs error: {e}")
+    
+    # FALLBACK: Edge TTS
+    logger.info("   🔄 Falling back to Edge TTS...")
+    
+    try:
+        import edge_tts
+        
+        voice = random.choice(EDGE_TTS_VOICES)
+        logger.info(f"   Using Edge TTS voice: {voice}")
+        
+        # Generate intro
+        await edge_tts.Communicate(intro_text, voice, rate="+10%").save(intro_path)
+        logger.info(f"   ✅ Intro (Edge TTS): {os.path.getsize(intro_path)/1024:.1f}KB")
+        
+        # Generate outro
+        await edge_tts.Communicate(outro_text, voice, rate="+10%").save(outro_path)
+        logger.info(f"   ✅ Outro (Edge TTS): {os.path.getsize(outro_path)/1024:.1f}KB")
+        
+        log_step("Intro/Outro Voiceovers", "SUCCESS", "Edge TTS")
+        log_memory("voiceover-done")
+        return intro_path, outro_path
+    
+    except Exception as e:
+        logger.error(f"   ❌ Edge TTS failed: {e}")
+        log_step("Intro/Outro Voiceovers", "FAILED")
+        return None, None
+
+# ═══════════════════════════════════════════════════════════════════════
+# VIDEO PROCESSING
 # ═══════════════════════════════════════════════════════════════════════
 
 async def get_duration(video_path: str) -> float:
-    """Get video duration using ffprobe"""
-    log_step("Get Video Duration", "START", video_path)
-    
+    """Get video duration"""
     try:
         result = subprocess.run(
             ["ffprobe", "-v", "error", "-show_entries", "format=duration",
              "-of", "default=noprint_wrappers=1:nokey=1", video_path],
             capture_output=True, timeout=15, text=True
         )
-        
         if result.returncode == 0:
             duration = float(result.stdout.strip())
-            logger.info(f"✅ Duration: {duration:.1f}s")
+            logger.info(f"⏱️  Duration: {duration:.1f}s")
             return duration
-        else:
-            logger.error(f"❌ ffprobe failed: {result.stderr}")
-            return 0.0
-    except Exception as e:
-        logger.error(f"❌ Duration check error: {e}")
+        return 0.0
+    except:
         return 0.0
 
 async def validate_video_file(video_path: str) -> tuple[bool, str]:
-    """Validate video file using ffprobe"""
-    log_step("Video Validation", "START", video_path)
-    
+    """Validate video file"""
     try:
         result = subprocess.run([
-            "ffprobe",
-            "-v", "error",
-            "-select_streams", "v:0",
-            "-show_entries", "stream=codec_type,duration",
-            "-of", "json",
-            video_path
+            "ffprobe", "-v", "error", "-select_streams", "v:0",
+            "-show_entries", "stream=codec_type,duration", "-of", "json", video_path
         ], capture_output=True, timeout=30, text=True)
         
         if result.returncode != 0:
-            logger.error("❌ Not a valid video file")
-            return False, "Invalid video file format"
+            return False, "Invalid video file"
         
         data = json.loads(result.stdout)
-        
         if not data.get("streams"):
-            return False, "No video stream found"
+            return False, "No video stream"
         
-        duration_str = data["streams"][0].get("duration", "0")
-        duration = float(duration_str)
-        
+        duration = float(data["streams"][0].get("duration", "0"))
         if duration <= 0:
-            return False, "Invalid video duration"
-        
+            return False, "Invalid duration"
         if duration > 180:
-            return False, f"Video too long: {duration:.0f}s (max 180s)"
+            return False, f"Video too long: {duration:.0f}s"
         
         logger.info(f"✅ Valid video: {duration:.1f}s")
         return True, ""
-    
     except Exception as e:
-        logger.error(f"❌ Validation error: {e}")
         return False, str(e)
 
 async def apply_copyright_filters(input_path: str, output_path: str) -> tuple[bool, str]:
-    """Apply copyright-avoidance filters"""
+    """Apply filters"""
     log_step("Copyright Filters", "START")
-    log_memory("filter-start")
-    
-    filter_complex = "eq=saturation=1.25:brightness=0.10:contrast=1.15"
-    
-    logger.info(f"   Filter: {filter_complex}")
     
     success = run_ffmpeg([
         "ffmpeg", "-i", input_path,
-        "-vf", filter_complex,
+        "-vf", "eq=saturation=1.25:brightness=0.10:contrast=1.15",
         "-c:v", "libx264", "-crf", "23", "-preset", "ultrafast",
-        "-c:a", "copy",
-        "-y", output_path
+        "-c:a", "copy", "-y", output_path
     ], 90, "Filters")
     
-    if success and os.path.exists(output_path) and os.path.getsize(output_path) > 10000:
-        size_mb = os.path.getsize(output_path) / (1024 * 1024)
-        log_step("Copyright Filters", "SUCCESS", f"Output: {size_mb:.1f}MB")
-        log_memory("filter-done")
+    if success and os.path.exists(output_path):
+        log_step("Copyright Filters", "SUCCESS")
         return True, ""
     
-    # Fallback: copy original
-    logger.warning("⚠️  Filter failed, using original")
+    # Fallback: copy
     if os.path.exists(input_path):
         shutil.copy(input_path, output_path)
         return True, ""
     
-    log_step("Copyright Filters", "FAILED")
     return False, "Filter failed"
 
-def generate_srt_with_emojis(duration: float) -> str:
+def generate_emoji_srt(duration: float) -> str:
     """Generate SRT with emojis"""
-    logger.info("📝 Generating SRT captions...")
-    
-    num_captions = max(3, int(duration / 3))
+    num_captions = max(5, int(duration / 2))
     time_per = duration / num_captions
     blocks = []
     
@@ -2705,90 +2780,71 @@ def generate_srt_with_emojis(duration: float) -> str:
         sh, sm, ss = int(start//3600), int((start%3600)//60), start%60
         eh, em, es = int(end//3600), int((end%3600)//60), end%60
         
-        caption = random.choice(CAPTION_EMOJIS) if random.random() < 0.9 else random.choice(CAPTION_TEXT)
+        emoji_count = random.choice([2, 3])
+        emojis = " ".join(random.choices(CAPTION_EMOJIS, k=emoji_count))
         
         blocks.append(
             f"{i+1}\n"
             f"{sh:02d}:{sm:02d}:{ss:06.3f}".replace(".", ",") + 
             f" --> {eh:02d}:{em:02d}:{es:06.3f}".replace(".", ",") + 
-            f"\n{caption}\n"
+            f"\n{emojis}\n"
         )
     
-    logger.info(f"   Generated {num_captions} captions")
     return "\n".join(blocks)
 
-async def apply_golden_captions(video_path: str, duration: float, output_path: str) -> tuple[bool, str]:
-    """Apply golden captions at bottom"""
-    log_step("Golden Captions", "START")
-    log_memory("caption-start")
+async def apply_emoji_captions(video_path: str, duration: float, output_path: str) -> tuple[bool, str]:
+    """Apply emoji captions at bottom"""
+    log_step("Emoji Captions", "START")
     
     srt_path = output_path.replace(".mp4", ".srt")
     
     try:
         with open(srt_path, 'w', encoding='utf-8') as f:
-            f.write(generate_srt_with_emojis(duration))
-        logger.info(f"✅ SRT file created: {srt_path}")
-    except Exception as e:
-        logger.warning(f"⚠️  SRT generation failed: {e}, skipping captions")
-        if os.path.exists(video_path):
-            shutil.copy(video_path, output_path)
+            f.write(generate_emoji_srt(duration))
+    except:
+        shutil.copy(video_path, output_path)
         return True, ""
     
     srt_esc = srt_path.replace("\\", "\\\\").replace(":", "\\:")
     
     success = run_ffmpeg([
         "ffmpeg", "-i", video_path,
-        "-vf", f"subtitles={srt_esc}:force_style='FontName=Arial Black,FontSize=20,PrimaryColour=&H00FFD700,Bold=1,Outline=2,OutlineColour=&H00000000,Alignment=2,MarginV=40'",
+        "-vf", f"subtitles={srt_esc}:force_style='FontSize=28,Bold=1,Alignment=2,MarginV=40'",
         "-c:v", "libx264", "-crf", "23", "-preset", "ultrafast",
         "-y", output_path
-    ], 120, "Captions")
+    ], 120, "Emoji-Captions")
     
     cleanup(srt_path)
     
-    if success and os.path.exists(output_path):
-        log_step("Golden Captions", "SUCCESS")
-        log_memory("caption-done")
+    if success:
+        log_step("Emoji Captions", "SUCCESS")
         return True, ""
     
     # Fallback
-    logger.warning("⚠️  Caption overlay failed, using original")
     if os.path.exists(video_path):
         shutil.copy(video_path, output_path)
         return True, ""
     
-    log_step("Golden Captions", "FAILED")
     return False, "Caption failed"
 
 async def remove_audio(video_in: str, video_out: str) -> bool:
-    """Remove audio from video"""
-    log_step("Remove Audio", "START")
-    
+    """Remove audio"""
     success = run_ffmpeg([
         "ffmpeg", "-i", video_in,
-        "-c:v", "copy", "-an",
-        "-y", video_out
+        "-c:v", "copy", "-an", "-y", video_out
     ], 60, "Remove-Audio")
     
     if success:
         cleanup(video_in)
-        log_step("Remove Audio", "SUCCESS")
-    else:
-        log_step("Remove Audio", "FAILED")
-    
     return success
 
 async def download_bgm(output: str) -> bool:
-    """Download BGM"""
-    log_step("Download BGM", "START")
-    log_memory("bgm-start")
-    
-    bgm_url = random.choice(CHINA_BGM_URLS)
-    logger.info(f"   Selected BGM: {bgm_url.split('/')[-1][:50]}...")
+    """Download single BGM (Meow Meow Meow)"""
+    log_step("Download BGM", "START", "Meow Meow Meow")
     
     try:
         async with httpx.AsyncClient(timeout=180) as client:
-            logger.info("   📥 Downloading...")
-            async with client.stream("GET", bgm_url) as response:
+            async with client.stream("GET", CHINA_BGM_URL) as response:
                 if response.status_code == 200:
                     total = 0
                     with open(output, 'wb') as f:
@@ -2797,62 +2853,146 @@ async def download_bgm(output: str) -> bool:
                             total += len(chunk)
                     
                     if total > 10000:
-                        size_mb = total / (1024 * 1024)
-                        log_step("Download BGM", "SUCCESS", f"{size_mb:.1f}MB")
-                        log_memory("bgm-done")
+                        size = total / (1024 * 1024)
+                        log_step("Download BGM", "SUCCESS", f"{size:.1f}MB")
                         return True
-                else:
-                    logger.warning(f"   ⚠️  HTTP {response.status_code}")
-        
-        log_step("Download BGM", "FAILED")
         return False
-    except Exception as e:
-        logger.error(f"❌ BGM download error: {e}")
+    except:
         return False
 
-async def mix_audio_with_bgm(video_path: str, bgm_path: Optional[str], output_path: str) -> tuple[bool, str]:
-    """Mix BGM with video"""
-    log_step("Mix BGM", "START")
-    log_memory("mix-start")
+async def add_intro_outro_to_video(
+    video_path: str, 
+    intro_audio: Optional[str], 
+    outro_audio: Optional[str], 
+    bgm_path: Optional[str],
+    output_path: str
+) -> tuple[bool, str]:
+    """
+    Add intro (first 5s) and outro (last 5s) voiceovers with BGM at 50%
+    """
+    log_step("Add Intro/Outro + BGM", "START")
+    log_memory("audio-mix-start")
     
-    if bgm_path and os.path.exists(bgm_path):
-        logger.info(f"   BGM file: {bgm_path}")
-        logger.info(f"   BGM size: {os.path.getsize(bgm_path) / (1024*1024):.1f}MB")
+    # If no intro/outro, just add BGM
+    if not intro_audio and not outro_audio:
+        logger.warning("   ⚠️  No intro/outro audio, adding BGM only...")
         
-        success = run_ffmpeg([
-            "ffmpeg", "-i", video_path, "-i", bgm_path,
-            "-filter_complex", "[1:a]volume=0.20[a]",
-            "-map", "0:v", "-map", "[a]",
-            "-c:v", "copy", "-c:a", "aac", "-b:a", "96k",
-            "-shortest", "-y", output_path
-        ], 90, "Mix-BGM")
+        if bgm_path and os.path.exists(bgm_path):
+            success = run_ffmpeg([
+                "ffmpeg", "-i", video_path, "-i", bgm_path,
+                "-filter_complex", f"[1:a]volume={BGM_VOLUME}[a]",
+                "-map", "0:v", "-map", "[a]",
+                "-c:v", "copy", "-c:a", "aac", "-b:a", "96k",
+                "-shortest", "-y", output_path
+            ], 90, "Add-BGM")
+            
+            cleanup(video_path, bgm_path)
+            
+            if success:
+                log_step("Add Intro/Outro + BGM", "SUCCESS", "BGM only")
+                return True, ""
         
-        cleanup(video_path, bgm_path)
-        
-        if success:
-            log_step("Mix BGM", "SUCCESS")
-            log_memory("mix-done")
-            return True, ""
-    
-    # Fallback: no BGM
-    logger.warning("⚠️  BGM mixing failed or no BGM, copying video")
-    if os.path.exists(video_path):
+        # No BGM either - copy video
         shutil.copy(video_path, output_path)
-        cleanup(video_path, bgm_path)
+        cleanup(video_path)
         return True, ""
     
-    log_step("Mix BGM", "FAILED")
-    return False, "Mix failed"
+    # We have intro/outro - create complex audio mix
+    logger.info("   Creating audio timeline with intro/outro + BGM...")
+    
+    # Get video duration first
+    duration = await get_duration(video_path)
+    if duration <= 0:
+        logger.error("   ❌ Could not get video duration")
+        return False, "Duration error"
+    
+    logger.info(f"   Video duration: {duration:.1f}s")
+    logger.info(f"   Intro at: 0-5s")
+    logger.info(f"   Outro at: {duration-5:.1f}-{duration:.1f}s")
+    
+    # Build FFmpeg filter complex for intro/outro overlay
+    filter_parts = []
+    
+    # Add BGM if available (50% volume, full length)
+    if bgm_path and os.path.exists(bgm_path):
+        filter_parts.append(f"[1:a]volume={BGM_VOLUME}[bgm]")
+        bgm_index = "[bgm]"
+    else:
+        bgm_index = None
+    
+    # Prepare intro audio (delay 0s, duration 5s)
+    if intro_audio and os.path.exists(intro_audio):
+        filter_parts.append("[2:a]adelay=0|0[intro]")
+        intro_index = "[intro]"
+    else:
+        intro_index = None
+    
+    # Prepare outro audio (delay to last 5s)
+    if outro_audio and os.path.exists(outro_audio):
+        delay_ms = int((duration - 5) * 1000)  # milliseconds
+        filter_parts.append(f"[3:a]adelay={delay_ms}|{delay_ms}[outro]")
+        outro_index = "[outro]"
+    else:
+        outro_index = None
+    
+    # Mix all audio streams
+    mix_inputs = []
+    if bgm_index:
+        mix_inputs.append(bgm_index)
+    if intro_index:
+        mix_inputs.append(intro_index)
+    if outro_index:
+        mix_inputs.append(outro_index)
+    
+    if mix_inputs:
+        num_inputs = len(mix_inputs)
+        filter_parts.append(f"{';'.join(mix_inputs)}amix=inputs={num_inputs}:duration=first[a]")
+    else:
+        # No audio at all
+        logger.warning("   ⚠️  No audio to mix")
+        shutil.copy(video_path, output_path)
+        cleanup(video_path, intro_audio, outro_audio, bgm_path)
+        return True, ""
+    
+    filter_complex = ";".join(filter_parts)
+    logger.info(f"   Filter: {filter_complex[:100]}...")
+    
+    # Build FFmpeg command
+    cmd = ["ffmpeg", "-i", video_path]
+    
+    if bgm_path and os.path.exists(bgm_path):
+        cmd.extend(["-i", bgm_path])
+    
+    if intro_audio and os.path.exists(intro_audio):
+        cmd.extend(["-i", intro_audio])
+    
+    if outro_audio and os.path.exists(outro_audio):
+        cmd.extend(["-i", outro_audio])
+    
+    cmd.extend([
+        "-filter_complex", filter_complex,
+        "-map", "0:v", "-map", "[a]",
+        "-c:v", "copy", "-c:a", "aac", "-b:a", "96k",
+        "-shortest", "-y", output_path
+    ])
+    
+    success = run_ffmpeg(cmd, 120, "Mix-All-Audio")
+    
+    cleanup(video_path, intro_audio, outro_audio, bgm_path)
+    
+    if success:
+        log_step("Add Intro/Outro + BGM", "SUCCESS")
+        log_memory("audio-mix-done")
+        return True, ""
+    
+    return False, "Audio mix failed"
 
 # ═══════════════════════════════════════════════════════════════════════
 # URL DOWNLOAD FUNCTIONS (5 METHODS)
 # ═══════════════════════════════════════════════════════════════════════
 
 def extract_video_id(url: str) -> Optional[str]:
-    """Extract video ID from Douyin/TikTok URL"""
-    logger.info("🔍 Extracting video ID...")
-    logger.info(f"   URL: {url[:80]}...")
-    
+    """Extract video ID"""
     patterns = [
         r'modal_id=(\d+)',
         r'video/(\d{19})',
@@ -2864,305 +3004,89 @@ def extract_video_id(url: str) -> Optional[str]:
     for pattern in patterns:
         match = re.search(pattern, url)
         if match:
-            video_id = match.group(1)
-            logger.info(f"✅ Extracted ID: {video_id}")
-            return video_id
-    
-    logger.warning("⚠️  Could not extract video ID")
+            return match.group(1)
     return None
 
 async def download_douyin_api(video_id: str, output: str) -> bool:
-    """Method 1: Douyin Internal API (iteminfo)"""
-    log_step("Download Method 1", "START", "Douyin Internal API")
+    """Method 1: Douyin API"""
+    log_step("Download Method 1", "START", "Douyin API")
     
     if not video_id:
-        logger.warning("   ❌ No video ID provided")
         return False
     
     api_url = f"https://www.iesdouyin.com/web/api/v2/aweme/iteminfo/?item_ids={video_id}"
-    logger.info(f"   API URL: {api_url}")
     
     try:
         async with httpx.AsyncClient(timeout=60, follow_redirects=True) as client:
-            logger.info("   📡 Calling Douyin API...")
-            
             response = await client.get(api_url, headers=DOUYIN_HEADERS)
-            logger.info(f"   📡 Response: {response.status_code}")
             
             if response.status_code != 200:
-                logger.warning(f"   ❌ API returned {response.status_code}")
                 return False
             
             data = response.json()
             
             if "item_list" not in data or not data["item_list"]:
-                logger.warning("   ❌ No item_list in response")
                 return False
             
             item = data["item_list"][0]
             video_urls = []
             
-            # Extract video URLs
             if "video" in item and "play_addr" in item["video"]:
-                play_addr = item["video"]["play_addr"]
-                if "url_list" in play_addr:
-                    video_urls.extend(play_addr["url_list"])
+                if "url_list" in item["video"]["play_addr"]:
+                    video_urls.extend(item["video"]["play_addr"]["url_list"])
             
             if "video" in item and "download_addr" in item["video"]:
-                download_addr = item["video"]["download_addr"]
-                if "url_list" in download_addr:
-                    video_urls.extend(download_addr["url_list"])
+                if "url_list" in item["video"]["download_addr"]:
+                    video_urls.extend(item["video"]["download_addr"]["url_list"])
             
             if not video_urls:
-                logger.warning("   ❌ No video URLs found")
                 return False
             
-            logger.info(f"   Found {len(video_urls)} URL(s)")
-            
-            # Try each URL
-            for i, video_url in enumerate(video_urls):
-                logger.info(f"   📥 Trying URL {i+1}/{len(video_urls)}")
-                logger.debug(f"      {video_url[:60]}...")
-                
+            for video_url in video_urls:
                 try:
                     async with client.stream("GET", video_url, headers=DOUYIN_HEADERS, timeout=180) as stream:
                         if stream.status_code == 200:
-                            content_type = stream.headers.get("content-type", "")
-                            logger.info(f"      Content-Type: {content_type}")
-                            
-                            if "video" in content_type or "octet-stream" in content_type:
-                                total = 0
-                                with open(output, 'wb') as f:
-                                    async for chunk in stream.aiter_bytes(1024*1024):
-                                        f.write(chunk)
-                                        total += len(chunk)
-                                        if total % (5*1024*1024) == 0:
-                                            logger.debug(f"      Downloaded: {total/(1024*1024):.1f}MB")
-                                
-                                if total > 10000:
-                                    size = total / (1024 * 1024)
-                                    log_step("Download Method 1", "SUCCESS", f"{size:.1f}MB")
-                                    return True
-                except Exception as e:
-                    logger.warning(f"      ⚠️  URL {i+1} failed: {e}")
-                    continue
-            
-            log_step("Download Method 1", "FAILED", "All URLs failed")
-            return False
-    
-    except Exception as e:
-        logger.error(f"❌ Method 1 exception: {e}")
-        return False
-
-async def download_mobile_api(video_id: str, output: str) -> bool:
-    """Method 2: Mobile API (Android simulation)"""
-    log_step("Download Method 2", "START", "Mobile API")
-    
-    if not video_id:
-        return False
-    
-    mobile_endpoints = [
-        f"https://aweme.snssdk.com/aweme/v1/play/?video_id={video_id}&ratio=default&line=0",
-        f"https://api-va.tiktokv.com/aweme/v1/play/?video_id={video_id}",
-    ]
-    
-    try:
-        async with httpx.AsyncClient(timeout=60, follow_redirects=True) as client:
-            for idx, endpoint in enumerate(mobile_endpoints, 1):
-                logger.info(f"   📥 Trying endpoint {idx}/{len(mobile_endpoints)}")
-                logger.debug(f"      {endpoint[:60]}...")
-                
-                try:
-                    response = await client.get(endpoint, headers=MOBILE_HEADERS, timeout=120)
-                    logger.info(f"      Response: {response.status_code}")
-                    
-                    if response.status_code == 200:
-                        content_type = response.headers.get("content-type", "")
-                        
-                        if "video" in content_type or "octet-stream" in content_type:
+                            total = 0
                             with open(output, 'wb') as f:
-                                f.write(response.content)
+                                async for chunk in stream.aiter_bytes(1024*1024):
+                                    f.write(chunk)
+                                    total += len(chunk)
                             
-                            if os.path.getsize(output) > 10000:
-                                size = os.path.getsize(output) / (1024 * 1024)
-                                log_step("Download Method 2", "SUCCESS", f"{size:.1f}MB")
+                            if total > 10000:
+                                log_step("Download Method 1", "SUCCESS", f"{total/(1024*1024):.1f}MB")
                                 return True
-                
-                except Exception as e:
-                    logger.warning(f"      ⚠️  Endpoint {idx} failed: {e}")
+                except:
                     continue
             
-            log_step("Download Method 2", "FAILED")
             return False
-    
-    except Exception as e:
-        logger.error(f"❌ Method 2 exception: {e}")
+    except:
         return False
 
 async def download_ytdlp_enhanced(url: str, output: str) -> bool:
-    """Method 3: yt-dlp with enhanced settings"""
-    log_step("Download Method 3", "START", "yt-dlp Enhanced")
+    """Method 2: yt-dlp"""
+    log_step("Download Method 2", "START", "yt-dlp")
     
     try:
-        cookies_content = """# Netscape HTTP Cookie File
-.douyin.com	TRUE	/	FALSE	0	ttwid	1%7C
-.douyin.com	TRUE	/	FALSE	0	__ac_nonce	0
-.douyin.com	TRUE	/	FALSE	0	odin_tt	0
-"""
-        
-        cookies_file = output + ".cookies"
-        with open(cookies_file, 'w') as f:
-            f.write(cookies_content)
-        
-        logger.info("   🍪 Cookies file created")
-        logger.info("   📥 Running yt-dlp...")
-        
         result = subprocess.run([
-            "yt-dlp",
-            "-f", "best[ext=mp4]/best",
-            "--no-playlist",
-            "--no-warnings",
-            "--cookies", cookies_file,
+            "yt-dlp", "-f", "best[ext=mp4]/best",
+            "--no-playlist", "--no-warnings",
             "--user-agent", DOUYIN_HEADERS["User-Agent"],
             "--referer", "https://www.douyin.com/",
-            "-o", output,
-            url
+            "-o", output, url
         ], capture_output=True, timeout=180, text=True)
-        
-        cleanup(cookies_file)
-        
-        logger.info(f"   yt-dlp exit code: {result.returncode}")
         
         if result.returncode == 0 and os.path.exists(output) and os.path.getsize(output) > 10000:
             size = os.path.getsize(output) / (1024 * 1024)
-            log_step("Download Method 3", "SUCCESS", f"{size:.1f}MB")
+            log_step("Download Method 2", "SUCCESS", f"{size:.1f}MB")
             return True
         
-        if result.stderr:
-            logger.warning(f"   yt-dlp stderr: {result.stderr[-300:]}")
-        
-        log_step("Download Method 3", "FAILED")
         return False
-    
-    except Exception as e:
-        logger.error(f"❌ Method 3 exception: {e}")
-        return False
-
-async def download_m3u8_stream(video_id: str, output: str) -> bool:
-    """Method 4: M3U8 stream capture"""
-    log_step("Download Method 4", "START", "M3U8 Stream")
-    
-    if not video_id:
-        return False
-    
-    try:
-        api_url = f"https://www.iesdouyin.com/web/api/v2/aweme/iteminfo/?item_ids={video_id}"
-        
-        async with httpx.AsyncClient(timeout=60) as client:
-            response = await client.get(api_url, headers=DOUYIN_HEADERS)
-            
-            if response.status_code != 200:
-                return False
-            
-            data = response.json()
-            m3u8_url = None
-            
-            if "item_list" in data and data["item_list"]:
-                item = data["item_list"][0]
-                
-                if "video" in item and "play_addr" in item["video"]:
-                    play_addr = item["video"]["play_addr"]
-                    
-                    if "url_list" in play_addr:
-                        for url in play_addr["url_list"]:
-                            if ".m3u8" in url:
-                                m3u8_url = url
-                                break
-            
-            if not m3u8_url:
-                logger.warning("   ❌ No m3u8 URL found")
-                return False
-            
-            logger.info(f"   Found m3u8: {m3u8_url[:60]}...")
-            logger.info("   📥 Converting m3u8 to mp4...")
-            
-            result = subprocess.run([
-                "ffmpeg",
-                "-i", m3u8_url,
-                "-c", "copy",
-                "-bsf:a", "aac_adtstoasc",
-                "-y", output
-            ], capture_output=True, timeout=180)
-            
-            if result.returncode == 0 and os.path.exists(output) and os.path.getsize(output) > 10000:
-                size = os.path.getsize(output) / (1024 * 1024)
-                log_step("Download Method 4", "SUCCESS", f"{size:.1f}MB")
-                return True
-            
-            log_step("Download Method 4", "FAILED")
-            return False
-    
-    except Exception as e:
-        logger.error(f"❌ Method 4 exception: {e}")
-        return False
-
-async def download_tiktok_global(video_id: str, output: str) -> bool:
-    """Method 5: TikTok Global API"""
-    log_step("Download Method 5", "START", "TikTok Global")
-    
-    if not video_id:
-        return False
-    
-    api_url = f"https://api16-normal-c-useast1a.tiktokv.com/aweme/v1/feed/?aweme_id={video_id}"
-    
-    try:
-        async with httpx.AsyncClient(timeout=60) as client:
-            headers = {
-                "User-Agent": "TikTok 26.2.0 rv:262018 (iPhone; iOS 14.4.2; en_US) Cronet",
-            }
-            
-            response = await client.get(api_url, headers=headers)
-            
-            if response.status_code != 200:
-                return False
-            
-            data = response.json()
-            video_url = None
-            
-            if "aweme_list" in data and data["aweme_list"]:
-                item = data["aweme_list"][0]
-                
-                if "video" in item and "play_addr" in item["video"]:
-                    play_addr = item["video"]["play_addr"]
-                    if "url_list" in play_addr and play_addr["url_list"]:
-                        video_url = play_addr["url_list"][0]
-            
-            if not video_url:
-                return False
-            
-            async with client.stream("GET", video_url, headers=headers, timeout=180) as stream:
-                if stream.status_code == 200:
-                    total = 0
-                    with open(output, 'wb') as f:
-                        async for chunk in stream.aiter_bytes(1024*1024):
-                            f.write(chunk)
-                            total += len(chunk)
-                    
-                    if total > 10000:
-                        size = total / (1024 * 1024)
-                        log_step("Download Method 5", "SUCCESS", f"{size:.1f}MB")
-                        return True
-            
-            return False
-    
-    except Exception as e:
-        logger.error(f"❌ Method 5 exception: {e}")
+    except:
         return False
 
 async def download_china_video(url: str, output: str) -> tuple[bool, str]:
-    """Master download function with 5 methods"""
-    log_step("Download China Video", "START", url[:80])
-    log_memory("download-start")
+    """Master download function"""
+    log_step("Download China Video", "START")
     
     video_id = extract_video_id(url)
     
@@ -3171,77 +3095,48 @@ async def download_china_video(url: str, output: str) -> tuple[bool, str]:
     
     methods = [
         ("Douyin API", lambda: download_douyin_api(video_id, output)),
-        ("Mobile API", lambda: download_mobile_api(video_id, output)),
         ("yt-dlp Enhanced", lambda: download_ytdlp_enhanced(url, output)),
-        ("M3U8 Stream", lambda: download_m3u8_stream(video_id, output)),
-        ("TikTok Global", lambda: download_tiktok_global(video_id, output)),
     ]
     
     for method_name, method_func in methods:
-        logger.info(f"\n{'='*70}")
-        logger.info(f"🔄 TRYING: {method_name}")
-        logger.info(f"{'='*70}")
-        
         try:
             success = await method_func()
             
             if success and os.path.exists(output) and os.path.getsize(output) > 10000:
-                size = os.path.getsize(output) / (1024 * 1024)
-                logger.info(f"\n{'='*70}")
-                logger.info(f"✅ DOWNLOAD SUCCESS with {method_name}")
-                logger.info(f"   Size: {size:.1f}MB")
-                logger.info(f"{'='*70}\n")
-                log_memory("download-done")
+                log_step("Download China Video", "SUCCESS", method_name)
                 return True, ""
             
-            logger.warning(f"⚠️  {method_name} failed, trying next method...")
-            
             if os.path.exists(output):
                 os.remove(output)
-        
-        except Exception as e:
-            logger.error(f"❌ {method_name} critical error: {e}")
-            if os.path.exists(output):
-                os.remove(output)
+        except:
             continue
-    
-    logger.error(f"\n{'='*70}")
-    logger.error("❌ ALL 5 DOWNLOAD METHODS FAILED")
-    logger.error(f"{'='*70}\n")
     
     return False, "All download methods failed"
 
 # ═══════════════════════════════════════════════════════════════════════
-# MANUAL UPLOAD FUNCTIONS
+# MANUAL UPLOAD
 # ═══════════════════════════════════════════════════════════════════════
 
 async def save_uploaded_file(upload_file: UploadFile, output_path: str) -> tuple[bool, str]:
-    """Save uploaded file to disk"""
+    """Save uploaded file"""
     log_step("Save Uploaded File", "START", upload_file.filename)
-    log_memory("upload-save-start")
     
     try:
-        max_size = 100 * 1024 * 1024  # 100MB
+        max_size = 100 * 1024 * 1024
         total_bytes = 0
-        
-        logger.info(f"   Saving to: {output_path}")
         
         async with aiofiles.open(output_path, 'wb') as f:
             while True:
-                chunk = await upload_file.read(1024 * 1024)  # 1MB chunks
+                chunk = await upload_file.read(1024 * 1024)
                 if not chunk:
                     break
                 
                 total_bytes += len(chunk)
                 
-                if total_bytes % (10*1024*1024) == 0:
-                    logger.info(f"   Progress: {total_bytes/(1024*1024):.1f}MB")
-                
                 if total_bytes > max_size:
-                    logger.error(f"❌ File too large: {total_bytes/(1024*1024):.1f}MB")
                     if os.path.exists(output_path):
                         os.remove(output_path)
-                    return False, f"File too large: {total_bytes/(1024*1024):.1f}MB (max 100MB)"
+                    return False, f"File too large: {total_bytes/(1024*1024):.1f}MB"
                 
                 await f.write(chunk)
         
@@ -3250,21 +3145,14 @@ async def save_uploaded_file(upload_file: UploadFile, output_path: str) -> tuple
         
         file_size = os.path.getsize(output_path)
         if file_size < 10000:
-            logger.error(f"❌ File too small: {file_size} bytes")
             os.remove(output_path)
-            return False, "File too small or corrupted"
+            return False, "File too small"
         
         log_step("Save Uploaded File", "SUCCESS", f"{file_size/(1024*1024):.2f}MB")
-        log_memory("upload-save-done")
         return True, ""
-    
     except Exception as e:
-        logger.error(f"❌ File save error: {e}")
         if os.path.exists(output_path):
-            try:
-                os.remove(output_path)
-            except:
-                pass
+            os.remove(output_path)
         return False, str(e)
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -3272,14 +3160,8 @@ async def save_uploaded_file(upload_file: UploadFile, output_path: str) -> tuple
 # ═══════════════════════════════════════════════════════════════════════
 
 async def upload_to_youtube(video_path: str, title: str, description: str, user_id: str) -> dict:
-    """Upload to YouTube with full SEO"""
+    """Upload to YouTube"""
     log_step("YouTube Upload", "START")
-    log_memory("upload-start")
-    
-    logger.info(f"   Video: {video_path}")
-    logger.info(f"   Size: {os.path.getsize(video_path)/(1024*1024):.1f}MB")
-    logger.info(f"   Title: {title}")
-    logger.info(f"   Description length: {len(description)} chars")
     
     try:
         from YTdatabase import get_database_manager as get_yt_db
@@ -3288,14 +3170,10 @@ async def upload_to_youtube(video_path: str, title: str, description: str, user_
         if not yt_db.youtube.client:
             await yt_db.connect()
         
-        logger.info("   📡 Fetching YouTube credentials...")
         creds = await yt_db.youtube.youtube_credentials_collection.find_one({"user_id": user_id})
         
         if not creds:
-            logger.error("❌ No YouTube credentials found")
             return {"success": False, "error": "No YouTube credentials"}
-        
-        logger.info("   ✅ Credentials found")
         
         credentials = {
             "access_token": creds.get("access_token"),
@@ -3311,8 +3189,6 @@ async def upload_to_youtube(video_path: str, title: str, description: str, user_
         
         from mainY import youtube_scheduler
         
-        logger.info("   📤 Starting upload...")
-        
         result = await youtube_scheduler.generate_and_upload_content(
             user_id=user_id,
             credentials_data=credentials,
@@ -3324,26 +3200,16 @@ async def upload_to_youtube(video_path: str, title: str, description: str, user_
         
         if result.get("success"):
             video_id = result.get("video_id")
-            video_url = f"https://youtube.com/shorts/{video_id}"
-            
-            log_step("YouTube Upload", "SUCCESS", f"Video ID: {video_id}")
-            logger.info(f"   🎬 URL: {video_url}")
-            log_memory("upload-done")
-            
+            log_step("YouTube Upload", "SUCCESS", f"ID: {video_id}")
             return {
                 "success": True,
                 "video_id": video_id,
-                "video_url": video_url
+                "video_url": f"https://youtube.com/shorts/{video_id}"
             }
         
-        error = result.get("error", "Upload failed")
-        logger.error(f"❌ Upload failed: {error}")
-        return {"success": False, "error": error}
-        
+        return {"success": False, "error": result.get("error", "Upload failed")}
     except Exception as e:
-        logger.error(f"❌ Upload exception: {e}")
-        import traceback
-        logger.error(f"   Traceback: {traceback.format_exc()}")
+        logger.error(f"❌ Upload error: {e}")
         return {"success": False, "error": str(e)}
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -3351,21 +3217,19 @@ async def upload_to_youtube(video_path: str, title: str, description: str, user_
 # ═══════════════════════════════════════════════════════════════════════
 
 async def process_china_short_url(china_url: str, user_id: str, task_id: str):
-    """Main pipeline for URL-based processing"""
+    """Main pipeline for URL processing"""
     temp_dir = None
     start_time = datetime.now()
     
     logger.info("\n" + "="*80)
-    logger.info("🚀 STARTING URL-BASED PROCESSING")
+    logger.info("🚀 STARTING URL PROCESSING (ORANGE CAT)")
     logger.info(f"   Task ID: {task_id}")
-    logger.info(f"   User ID: {user_id}")
-    logger.info(f"   URL: {china_url[:80]}...")
     logger.info("="*80 + "\n")
     
     PROCESSING_STATUS[task_id] = {
         "status": "processing",
         "progress": 0,
-        "message": "Starting URL processing...",
+        "message": "Starting...",
         "started_at": start_time.isoformat(),
         "processing_type": "url"
     }
@@ -3376,73 +3240,70 @@ async def process_china_short_url(china_url: str, user_id: str, task_id: str):
         logger.info(f"📊 [{progress}%] {msg}")
     
     try:
-        temp_dir = tempfile.mkdtemp(prefix="china_url_")
-        logger.info(f"📁 Temp directory: {temp_dir}")
+        temp_dir = tempfile.mkdtemp(prefix="orange_cat_")
+        logger.info(f"📁 Temp: {temp_dir}")
         log_memory("START")
         
-        # Download (5 methods)
-        update(10, "Downloading video (trying 5 methods)...")
+        # Download
+        update(10, "Downloading video...")
         raw_video = os.path.join(temp_dir, "raw.mp4")
         success, error = await download_china_video(china_url, raw_video)
         if not success:
-            raise Exception(f"Download failed: {error}")
-        
-        # Get duration
-        update(20, "Analyzing video...")
-        duration = await get_duration(raw_video)
-        if duration <= 0:
-            raise ValueError("Invalid video duration")
-        if duration > 180:
-            raise ValueError(f"Video too long: {duration:.0f}s (max 180s)")
-        
-        logger.info(f"✅ Video duration: {duration:.1f}s")
-        
-        # Generate AI SEO
-        update(25, "Generating AI SEO metadata...")
-        seo_metadata = await generate_viral_seo_metadata("china_short")
-        
-        # Apply filters
-        update(30, "Applying copyright filters...")
-        filtered_video = os.path.join(temp_dir, "filtered.mp4")
-        success, error = await apply_copyright_filters(raw_video, filtered_video)
-        if not success:
             raise Exception(error)
         
+        # Duration
+        update(20, "Analyzing...")
+        duration = await get_duration(raw_video)
+        if duration <= 0 or duration > 180:
+            raise ValueError(f"Invalid duration: {duration:.0f}s")
+        
+        # Generate AI SEO
+        update(25, "Generating Orange Cat SEO...")
+        seo_metadata = await generate_orange_cat_seo()
+        
+        # Filters
+        update(30, "Applying filters...")
+        filtered_video = os.path.join(temp_dir, "filtered.mp4")
+        await apply_copyright_filters(raw_video, filtered_video)
+        
         # Remove audio
-        update(50, "Removing original audio...")
+        update(40, "Removing audio...")
         silent_video = os.path.join(temp_dir, "silent.mp4")
         if not await remove_audio(filtered_video, silent_video):
             raise Exception("Remove audio failed")
         
-        # Add captions
-        update(60, "Adding golden captions...")
+        # Captions
+        update(50, "Adding emoji captions...")
         captioned_video = os.path.join(temp_dir, "captioned.mp4")
-        success, error = await apply_golden_captions(silent_video, duration, captioned_video)
-        if not success:
-            raise Exception(error)
+        await apply_emoji_captions(silent_video, duration, captioned_video)
+        
+        # Generate Intro/Outro
+        update(60, "Generating intro/outro voiceovers...")
+        intro_audio, outro_audio = await generate_intro_outro_voiceovers(temp_dir)
         
         # Download BGM
-        update(75, "Downloading BGM...")
+        update(70, "Downloading BGM (Meow Meow)...")
         bgm_path = os.path.join(temp_dir, "bgm.mp3")
         bgm_success = await download_bgm(bgm_path)
         if not bgm_success:
-            logger.warning("⚠️  BGM download failed, continuing without BGM")
             bgm_path = None
         
-        # Mix BGM
-        update(85, "Mixing audio with BGM...")
+        # Mix audio (intro/outro + BGM at 50%)
+        update(80, "Mixing intro/outro + BGM (50%)...")
         final_video = os.path.join(temp_dir, "final.mp4")
-        success, error = await mix_audio_with_bgm(captioned_video, bgm_path, final_video)
+        success, error = await add_intro_outro_to_video(
+            captioned_video, intro_audio, outro_audio, bgm_path, final_video
+        )
         if not success:
             raise Exception(error)
         
-        # Prepare full description
+        # Upload
+        update(95, "Uploading to YouTube...")
+        
         keywords_text = "\n".join(seo_metadata['keywords'])
         hashtags_text = " ".join(seo_metadata['hashtags'])
         full_description = f"{seo_metadata['description']}\n\n━━━━━━━━━━━━━━━━━━━━━━\nKEYWORDS:\n{keywords_text}\n\n{hashtags_text}"
         
-        # Upload
-        update(95, "Uploading to YouTube...")
         upload_result = await upload_to_youtube(
             final_video,
             seo_metadata['title'],
@@ -3457,19 +3318,16 @@ async def process_china_short_url(china_url: str, user_id: str, task_id: str):
         elapsed = (datetime.now() - start_time).total_seconds()
         
         logger.info("\n" + "="*80)
-        logger.info("✅✅✅ URL PROCESSING SUCCESS! ✅✅✅")
-        logger.info(f"   Processing time: {elapsed:.1f}s")
+        logger.info("✅✅✅ URL PROCESSING SUCCESS (ORANGE CAT)! ✅✅✅")
+        logger.info(f"   Time: {elapsed:.1f}s")
         logger.info(f"   Video ID: {upload_result['video_id']}")
-        logger.info(f"   Video URL: {upload_result['video_url']}")
-        logger.info(f"   Title: {seo_metadata['title']}")
-        logger.info(f"   AI Generated: {seo_metadata.get('ai_generated', False)}")
         logger.info("="*80 + "\n")
         
         PROCESSING_STATUS[task_id] = {
             "status": "completed",
             "progress": 100,
             "success": True,
-            "message": "Uploaded successfully!",
+            "message": "Uploaded!",
             "processing_type": "url",
             "title": seo_metadata["title"],
             "description": full_description,
@@ -3484,13 +3342,9 @@ async def process_china_short_url(china_url: str, user_id: str, task_id: str):
         }
         
     except Exception as e:
-        logger.error("\n" + "="*80)
-        logger.error(f"❌❌❌ URL PROCESSING FAILED ❌❌❌")
-        logger.error(f"   Error: {e}")
-        logger.error("="*80 + "\n")
-        
-        import traceback
-        logger.error(f"Traceback:\n{traceback.format_exc()}")
+        logger.error(f"\n{'='*80}")
+        logger.error(f"❌ URL PROCESSING FAILED: {e}")
+        logger.error(f"{'='*80}\n")
         
         PROCESSING_STATUS[task_id] = {
             "status": "failed",
@@ -3504,28 +3358,24 @@ async def process_china_short_url(china_url: str, user_id: str, task_id: str):
     
     finally:
         if temp_dir and os.path.exists(temp_dir):
-            logger.info("🧹 Cleaning up temporary files...")
             shutil.rmtree(temp_dir, ignore_errors=True)
-        
         gc.collect()
         log_memory("FINAL")
 
 async def process_uploaded_video(video_path: str, user_id: str, task_id: str):
-    """Main pipeline for manual upload processing"""
+    """Main pipeline for manual upload"""
     temp_dir = None
     start_time = datetime.now()
     
     logger.info("\n" + "="*80)
-    logger.info("🚀 STARTING MANUAL UPLOAD PROCESSING")
+    logger.info("🚀 STARTING UPLOAD PROCESSING (ORANGE CAT)")
     logger.info(f"   Task ID: {task_id}")
-    logger.info(f"   User ID: {user_id}")
-    logger.info(f"   File: {video_path}")
     logger.info("="*80 + "\n")
     
     PROCESSING_STATUS[task_id] = {
         "status": "processing",
         "progress": 0,
-        "message": "Starting upload processing...",
+        "message": "Starting...",
         "started_at": start_time.isoformat(),
         "processing_type": "upload"
     }
@@ -3536,8 +3386,8 @@ async def process_uploaded_video(video_path: str, user_id: str, task_id: str):
         logger.info(f"📊 [{progress}%] {msg}")
     
     try:
-        temp_dir = tempfile.mkdtemp(prefix="china_upload_")
-        logger.info(f"📁 Temp directory: {temp_dir}")
+        temp_dir = tempfile.mkdtemp(prefix="orange_cat_upload_")
+        logger.info(f"📁 Temp: {temp_dir}")
         log_memory("START-UPLOAD")
         
         # Copy uploaded file
@@ -3546,67 +3396,64 @@ async def process_uploaded_video(video_path: str, user_id: str, task_id: str):
         shutil.copy(video_path, raw_video)
         
         # Validate
-        update(15, "Validating video...")
+        update(15, "Validating...")
         is_valid, error = await validate_video_file(raw_video)
         if not is_valid:
             raise ValueError(error)
         
-        # Get duration
-        update(20, "Analyzing video...")
+        # Duration
+        update(20, "Analyzing...")
         duration = await get_duration(raw_video)
-        if duration <= 0:
-            raise ValueError("Invalid video duration")
-        if duration > 180:
-            raise ValueError(f"Video too long: {duration:.0f}s (max 180s)")
-        
-        logger.info(f"✅ Video duration: {duration:.1f}s")
+        if duration <= 0 or duration > 180:
+            raise ValueError(f"Invalid duration: {duration:.0f}s")
         
         # Generate AI SEO
-        update(25, "Generating AI SEO metadata...")
-        seo_metadata = await generate_viral_seo_metadata("china_short")
+        update(25, "Generating Orange Cat SEO...")
+        seo_metadata = await generate_orange_cat_seo()
         
-        # Apply filters
-        update(30, "Applying copyright filters...")
+        # Filters
+        update(30, "Applying filters...")
         filtered_video = os.path.join(temp_dir, "filtered.mp4")
-        success, error = await apply_copyright_filters(raw_video, filtered_video)
-        if not success:
-            raise Exception(error)
+        await apply_copyright_filters(raw_video, filtered_video)
         
         # Remove audio
-        update(50, "Removing original audio...")
+        update(40, "Removing audio...")
         silent_video = os.path.join(temp_dir, "silent.mp4")
         if not await remove_audio(filtered_video, silent_video):
             raise Exception("Remove audio failed")
         
-        # Add captions
-        update(60, "Adding golden captions...")
+        # Captions
+        update(50, "Adding emoji captions...")
         captioned_video = os.path.join(temp_dir, "captioned.mp4")
-        success, error = await apply_golden_captions(silent_video, duration, captioned_video)
-        if not success:
-            raise Exception(error)
+        await apply_emoji_captions(silent_video, duration, captioned_video)
+        
+        # Generate Intro/Outro
+        update(60, "Generating intro/outro voiceovers...")
+        intro_audio, outro_audio = await generate_intro_outro_voiceovers(temp_dir)
         
         # Download BGM
-        update(75, "Downloading BGM...")
+        update(70, "Downloading BGM (Meow Meow)...")
         bgm_path = os.path.join(temp_dir, "bgm.mp3")
         bgm_success = await download_bgm(bgm_path)
         if not bgm_success:
-            logger.warning("⚠️  BGM download failed, continuing without BGM")
             bgm_path = None
         
-        # Mix BGM
-        update(85, "Mixing audio with BGM...")
+        # Mix audio
+        update(80, "Mixing intro/outro + BGM (50%)...")
         final_video = os.path.join(temp_dir, "final.mp4")
-        success, error = await mix_audio_with_bgm(captioned_video, bgm_path, final_video)
+        success, error = await add_intro_outro_to_video(
+            captioned_video, intro_audio, outro_audio, bgm_path, final_video
+        )
         if not success:
             raise Exception(error)
         
-        # Prepare full description
+        # Upload
+        update(95, "Uploading to YouTube...")
+        
         keywords_text = "\n".join(seo_metadata['keywords'])
         hashtags_text = " ".join(seo_metadata['hashtags'])
         full_description = f"{seo_metadata['description']}\n\n━━━━━━━━━━━━━━━━━━━━━━\nKEYWORDS:\n{keywords_text}\n\n{hashtags_text}"
         
-        # Upload
-        update(95, "Uploading to YouTube...")
         upload_result = await upload_to_youtube(
             final_video,
             seo_metadata['title'],
@@ -3621,19 +3468,16 @@ async def process_uploaded_video(video_path: str, user_id: str, task_id: str):
         elapsed = (datetime.now() - start_time).total_seconds()
         
         logger.info("\n" + "="*80)
-        logger.info("✅✅✅ UPLOAD PROCESSING SUCCESS! ✅✅✅")
-        logger.info(f"   Processing time: {elapsed:.1f}s")
+        logger.info("✅✅✅ UPLOAD PROCESSING SUCCESS (ORANGE CAT)! ✅✅✅")
+        logger.info(f"   Time: {elapsed:.1f}s")
         logger.info(f"   Video ID: {upload_result['video_id']}")
-        logger.info(f"   Video URL: {upload_result['video_url']}")
-        logger.info(f"   Title: {seo_metadata['title']}")
-        logger.info(f"   AI Generated: {seo_metadata.get('ai_generated', False)}")
         logger.info("="*80 + "\n")
         
         PROCESSING_STATUS[task_id] = {
             "status": "completed",
             "progress": 100,
             "success": True,
-            "message": "Uploaded successfully!",
+            "message": "Uploaded!",
             "processing_type": "upload",
             "title": seo_metadata["title"],
             "description": full_description,
@@ -3648,13 +3492,9 @@ async def process_uploaded_video(video_path: str, user_id: str, task_id: str):
         }
     
     except Exception as e:
-        logger.error("\n" + "="*80)
-        logger.error(f"❌❌❌ UPLOAD PROCESSING FAILED ❌❌❌")
-        logger.error(f"   Error: {e}")
-        logger.error("="*80 + "\n")
-        
-        import traceback
-        logger.error(f"Traceback:\n{traceback.format_exc()}")
+        logger.error(f"\n{'='*80}")
+        logger.error(f"❌ UPLOAD PROCESSING FAILED: {e}")
+        logger.error(f"{'='*80}\n")
         
         PROCESSING_STATUS[task_id] = {
             "status": "failed",
@@ -3667,16 +3507,12 @@ async def process_uploaded_video(video_path: str, user_id: str, task_id: str):
         }
     
     finally:
-        # Clean up temp directory
         if temp_dir and os.path.exists(temp_dir):
-            logger.info("🧹 Cleaning up temporary files...")
             shutil.rmtree(temp_dir, ignore_errors=True)
         
-        # Clean up uploaded file
         if video_path and os.path.exists(video_path):
             try:
                 os.remove(video_path)
-                logger.info(f"🗑️  Deleted uploaded file: {video_path}")
             except:
                 pass
         
@@ -3691,137 +3527,74 @@ router = APIRouter()
 
 @router.post("/api/china-shorts/process-url")
 async def process_url_endpoint(request: Request):
-    """Process China Short from URL"""
-    logger.info("🌐 NEW URL PROCESS REQUEST")
+    """Process from URL"""
+    logger.info("🌐 URL REQUEST")
     
     try:
         data = await request.json()
-        
         user_id = data.get("user_id")
         china_url = (data.get("china_url") or "").strip()
         
-        if not user_id:
-            return JSONResponse(
-                status_code=400, 
-                content={"success": False, "error": "user_id required"}
-            )
-        
-        if not china_url:
-            return JSONResponse(
-                status_code=400, 
-                content={"success": False, "error": "china_url required"}
-            )
+        if not user_id or not china_url:
+            return JSONResponse(status_code=400, content={"success": False, "error": "Missing parameters"})
         
         task_id = str(uuid.uuid4())
-        logger.info(f"✅ Created task: {task_id}")
+        logger.info(f"✅ Task: {task_id}")
         
-        # Start processing in background
         asyncio.create_task(process_china_short_url(china_url, user_id, task_id))
         
         return JSONResponse(content={
             "success": True,
             "task_id": task_id,
-            "message": "Processing started",
             "status_url": f"/api/china-shorts/status/{task_id}"
         })
-        
     except Exception as e:
-        logger.error(f"❌ URL endpoint error: {e}")
-        import traceback
-        logger.error(f"Traceback:\n{traceback.format_exc()}")
-        return JSONResponse(
-            status_code=500, 
-            content={"success": False, "error": str(e)}
-        )
+        logger.error(f"❌ {e}")
+        return JSONResponse(status_code=500, content={"success": False, "error": str(e)})
 
 @router.post("/api/china-shorts/process-upload")
 async def process_upload_endpoint(
     user_id: str = Form(...),
     video_file: UploadFile = File(...)
 ):
-    """Process manually uploaded video file"""
-    logger.info("🌐 NEW UPLOAD REQUEST")
-    logger.info(f"   User: {user_id}")
-    logger.info(f"   File: {video_file.filename}")
-    logger.info(f"   Type: {video_file.content_type}")
+    """Process from upload"""
+    logger.info("🌐 UPLOAD REQUEST")
     
     uploaded_file_path = None
     
     try:
-        # Validate
-        if not user_id:
-            return JSONResponse(
-                status_code=400,
-                content={"success": False, "error": "user_id required"}
-            )
+        if not user_id or not video_file:
+            return JSONResponse(status_code=400, content={"success": False, "error": "Missing parameters"})
         
-        if not video_file:
-            return JSONResponse(
-                status_code=400,
-                content={"success": False, "error": "video_file required"}
-            )
-        
-        if not video_file.content_type or not video_file.content_type.startswith("video/"):
-            return JSONResponse(
-                status_code=400,
-                content={
-                    "success": False, 
-                    "error": f"Invalid file type: {video_file.content_type}. Must be a video file."
-                }
-            )
-        
-        # Create task
         task_id = str(uuid.uuid4())
         file_ext = os.path.splitext(video_file.filename)[1] or ".mp4"
         uploaded_file_path = f"/tmp/china_upload_{task_id}{file_ext}"
         
-        logger.info(f"✅ Created task: {task_id}")
-        logger.info(f"📂 Saving to: {uploaded_file_path}")
+        logger.info(f"✅ Task: {task_id}")
         
-        # Save file
         success, error = await save_uploaded_file(video_file, uploaded_file_path)
         if not success:
-            return JSONResponse(
-                status_code=400,
-                content={"success": False, "error": error}
-            )
+            return JSONResponse(status_code=400, content={"success": False, "error": error})
         
-        # Start processing in background
         asyncio.create_task(process_uploaded_video(uploaded_file_path, user_id, task_id))
         
         return JSONResponse(content={
             "success": True,
             "task_id": task_id,
-            "message": "Processing started",
             "status_url": f"/api/china-shorts/status/{task_id}"
         })
-    
     except Exception as e:
-        logger.error(f"❌ Upload endpoint error: {e}")
-        import traceback
-        logger.error(f"Traceback:\n{traceback.format_exc()}")
-        
-        # Cleanup
+        logger.error(f"❌ {e}")
         if uploaded_file_path and os.path.exists(uploaded_file_path):
-            try:
-                os.remove(uploaded_file_path)
-            except:
-                pass
-        
-        return JSONResponse(
-            status_code=500,
-            content={"success": False, "error": str(e)}
-        )
+            os.remove(uploaded_file_path)
+        return JSONResponse(status_code=500, content={"success": False, "error": str(e)})
 
 @router.get("/api/china-shorts/status/{task_id}")
 async def status_endpoint(task_id: str):
-    """Get processing status"""
+    """Get status"""
     status = PROCESSING_STATUS.get(task_id)
     if not status:
-        return JSONResponse(
-            status_code=404,
-            content={"success": False, "error": "Task not found"}
-        )
+        return JSONResponse(status_code=404, content={"success": False, "error": "Task not found"})
     return JSONResponse(content=status)
 
 @router.get("/api/china-shorts/health")
@@ -3829,86 +3602,44 @@ async def health_endpoint():
     """Health check"""
     return JSONResponse(content={
         "status": "ok",
-        "version": "4.0_FINAL",
+        "version": "5.0_ORANGE_CAT",
+        "elevenlabs_configured": bool(ELEVENLABS_API_KEY and len(ELEVENLABS_API_KEY) > 20),
         "mistral_configured": bool(MISTRAL_API_KEY),
         "features": {
-            "url_download": {
-                "enabled": True,
-                "methods": 5,
-                "method_names": [
-                    "Douyin Internal API (iteminfo)",
-                    "Mobile API (Android simulation)",
-                    "yt-dlp Enhanced",
-                    "M3U8 Stream Capture",
-                    "TikTok Global API"
-                ]
-            },
-            "manual_upload": {
-                "enabled": True,
-                "max_file_size": "100MB",
-                "max_duration": "180 seconds",
-                "supported_formats": ["mp4", "mov", "avi", "mkv", "webm", "flv"]
-            },
-            "ai_seo": {
-                "enabled": bool(MISTRAL_API_KEY),
-                "provider": "Mistral AI" if MISTRAL_API_KEY else "Fallback",
-                "generates": ["title", "description", "45 keywords", "7-9 hashtags"]
-            },
-            "processing": {
-                "filters": "Saturation +25%, Brightness +10%, Contrast +15%",
-                "audio": "Original removed, BGM added at 20%",
-                "captions": "Golden emoji captions",
-                "upload": "Direct to YouTube Shorts"
-            }
-        },
-        "endpoints": {
-            "url_processing": "/api/china-shorts/process-url",
-            "file_upload": "/api/china-shorts/process-upload",
-            "status_check": "/api/china-shorts/status/{task_id}",
-            "health": "/api/china-shorts/health"
+            "focus": "Orange Cat AI Videos",
+            "bgm": "Meow Meow Meow (50% volume)",
+            "intro_outro": "Hook-style voiceovers (5s each)",
+            "voiceover": "ElevenLabs (3 voices) → Edge TTS",
+            "captions": "Emoji captions at bottom",
+            "seo": "Orange Cat focused titles + 45 keywords + hashtags"
         }
     })
 
 async def initialize():
-    """Startup initialization"""
+    """Startup"""
     logger.info("\n" + "="*80)
-    logger.info("🚀 CHINA SHORTS PROCESSOR - FINAL VERSION 4.0")
+    logger.info("🚀 CHINA SHORTS - ORANGE CAT EDITION v5.0")
     logger.info("="*80)
-    logger.info("")
-    logger.info("📥 URL DOWNLOAD METHODS (5):")
-    logger.info("   1. ✅ Douyin Internal API (iteminfo)")
-    logger.info("   2. ✅ Mobile API (Android)")
-    logger.info("   3. ✅ yt-dlp Enhanced")
-    logger.info("   4. ✅ M3U8 Stream Capture")
-    logger.info("   5. ✅ TikTok Global API")
-    logger.info("")
-    logger.info("📤 MANUAL FILE UPLOAD:")
-    logger.info("   ✅ Direct video file upload (max 100MB)")
-    logger.info("   ✅ Same processing pipeline as URL")
-    logger.info("   ✅ Validation & error handling")
-    logger.info("")
-    logger.info("🤖 AI SEO GENERATION:")
-    if MISTRAL_API_KEY:
-        logger.info("   ✅ Mistral AI configured")
+    logger.info("✅ Orange Cat Focused AI Titles")
+    logger.info("✅ Single BGM: Meow Meow Meow (50% volume)")
+    logger.info("✅ Intro/Outro: Hook-style voiceovers (5s each)")
+    logger.info("✅ ElevenLabs Priority (3 voices)")
+    logger.info("✅ Edge TTS Fallback")
+    logger.info("✅ Emoji Captions")
+    logger.info("✅ URL Download + Manual Upload")
+    logger.info("="*80)
+    
+    if ELEVENLABS_API_KEY and len(ELEVENLABS_API_KEY) > 20:
+        logger.info("✅ ElevenLabs configured")
+        logger.info(f"   Voices: {len(ELEVENLABS_INTRO_VOICES)}")
     else:
-        logger.info("   ⚠️  Mistral AI not configured (using fallback)")
-    logger.info("   ✅ Viral titles with inline hashtags")
-    logger.info("   ✅ SEO-optimized descriptions")
-    logger.info("   ✅ 45 keywords for discoverability")
-    logger.info("   ✅ 7-9 trending hashtags")
-    logger.info("")
-    logger.info("🎬 VIDEO PROCESSING:")
-    logger.info("   ✅ Copyright-avoidance filters")
-    logger.info("   ✅ Golden emoji captions")
-    logger.info("   ✅ BGM mixing (20% volume)")
-    logger.info("   ✅ Direct YouTube upload")
-    logger.info("")
-    logger.info("📊 LOGGING:")
-    logger.info("   ✅ Extensive step-by-step logging")
-    logger.info("   ✅ Memory usage tracking")
-    logger.info("   ✅ Error tracking with traceback")
-    logger.info("   ✅ Progress updates")
-    logger.info("")
+        logger.warning("⚠️  ElevenLabs not configured (using Edge TTS)")
+    
+    if MISTRAL_API_KEY:
+        logger.info("✅ Mistral AI configured")
+    else:
+        logger.warning("⚠️  Mistral AI not configured (using fallback)")
+    
     logger.info("="*80 + "\n")
     log_memory("startup")
 

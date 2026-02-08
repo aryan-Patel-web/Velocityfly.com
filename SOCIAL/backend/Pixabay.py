@@ -113,7 +113,7 @@ LUXURY_MOTIVATION_MUSIC_URLS = [
     "https://raw.githubusercontent.com/aryan-Patel-web/audio-collections/main/M%F0%9D%9A%8A%F0%9D%9A%9D%F0%9D%9A%9E%F0%9D%9A%9C%F0%9D%9A%91%F0%9D%9A%94%F0%9D%9A%8A%20%20U%F0%9D%9A%95%F0%9D%9A%9D%F0%9D%9A%9B%F0%9D%9A%8A%F0%9D%9A%8F%F0%9D%9A%9E%F0%9D%9A%97%F0%9D%9A%94.mp3",
     "https://raw.githubusercontent.com/aryan-Patel-web/audio-collections/main/LXNGVX%20-%20Habibi%20Ta'a%20(Bila%20Hamm).mp3",
     "https://raw.githubusercontent.com/aryan-Patel-web/audio-collections/main/GLXXMSTRIDER%20-%20DON'T%20STOP%20-%20Slowed.mp3",
-    "https://raw.githubusercontent.com/aryan-Patel-web/audio-collections/main/CANTO%20DE%20LUNA%20(ULTRA%20SLOWED).mp3",
+
   
     "https://raw.githubusercontent.com/aryan-Patel-web/audio-collections/main/AGUS%20FUNK%20(ULTRA%20SLOWED).mp3",
     "https://raw.githubusercontent.com/aryan-Patel-web/audio-collections/main/DNA%20-%20Slowed.mp3",
