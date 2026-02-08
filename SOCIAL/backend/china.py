@@ -2290,11 +2290,11 @@ ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY", "")
 
 # SINGLE BGM - Meow Meow Meow ONLY (50% volume)
 CHINA_BGM_URL = "https://raw.githubusercontent.com/aryan-Patel-web/audio-collections/main/Meow%20Meow%20Meow%20Meow%20%F0%9F%8E%B6%20Sad%20TikTok%20Song%20%F0%9F%92%94%F0%9F%98%BF.mp3"
-BGM_VOLUME = 0.50  # 50% volume
+BGM_VOLUME = 0.40  # 50% volume
 
 CAPTION_EMOJIS = ["😺", "🐱", "😹", "😼", "🦁", "💪", "🔥", "✨", "💯", "👀", "🎉", "❤️", "😂", "🤣", "😍"]
 
-ELEVENLABS_INTRO_VOICES = ["Sm1seazb4gs7RSlUVw7c", "MwUdldmtb1Qt7mDEbKM3", "ryIIztHPLYSJ74ueXxnO"]
+ELEVENLABS_INTRO_VOICES = ["7b9mYhmnp0y2qSH1FnBL", "MwUdldmtb1Qt7mDEbKM3", "ryIIztHPLYSJ74ueXxnO"]
 EDGE_TTS_VOICES = ["hi-IN-MadhurNeural", "hi-IN-SwaraNeural"]
 
 DOUYIN_HEADERS = {
