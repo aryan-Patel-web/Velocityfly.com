@@ -848,7 +848,7 @@
 gdrive_reels_ENHANCED.py - PRODUCTION READY WITH COMPLETE ENHANCEMENTS
 ===================================================================
 ✅ FALLBACK FOR EVERY STEP - Never fails completely
-✅ 1.75x voiceover speed (increased from 1.05x)
+✅ 1.65x voiceover speed (increased from 1.05x)
 ✅ ElevenLabs voice as PRIORITY (with Edge TTS fallback)
 ✅ SEO-optimized titles with emojis and viral appeal
 ✅ AI-generated descriptions with 35+ keywords
@@ -1349,17 +1349,17 @@ Generate in JSON format:
     }
 
 # ═══════════════════════════════════════════════════════════════════════
-# VOICEOVER WITH 1.75X SPEED - ELEVENLABS PRIORITY + EDGE TTS FALLBACK
+# VOICEOVER WITH 1.65X SPEED - ELEVENLABS PRIORITY + EDGE TTS FALLBACK
 # ═══════════════════════════════════════════════════════════════════════
 
 \
 async def generate_voiceover_12x(script: str, output: str) -> tuple[bool, str]:
     """
-    Generate voiceover at 1.75x speed with priority system:
+    Generate voiceover at 1.65x speed with priority system:
     1. ElevenLabs (PRIMARY)
     2. Edge TTS (FALLBACK)
     """
-    logger.info("🎙️ Voiceover (1.75x speed)...")
+    logger.info("🎙️ Voiceover (1.65x speed)...")
     log_memory("voice-start")
     
     # ========== PRIORITY 1: ELEVENLABS ==========
@@ -1381,14 +1381,14 @@ async def generate_voiceover_12x(script: str, output: str) -> tuple[bool, str]:
                     with open(base, 'wb') as f:
                         f.write(resp.content)
                     
-                    # Apply 1.75x speed
+                    # Apply 1.65x speed
                     if run_ffmpeg([
-                        "ffmpeg", "-i", base, "-filter:a", "atempo=1.75",
+                        "ffmpeg", "-i", base, "-filter:a", "atempo=1.65",
                         "-y", output
                     ], 30):
                         cleanup(base)
                         size = os.path.getsize(output) / 1024
-                        logger.info(f"✅ ElevenLabs Voiceover (1.75x): {size:.1f}KB")
+                        logger.info(f"✅ ElevenLabs Voiceover (1.65x): {size:.1f}KB")
                         log_memory("voice-done")
                         return True, ""
                     cleanup(base)
@@ -1410,14 +1410,14 @@ async def generate_voiceover_12x(script: str, output: str) -> tuple[bool, str]:
         # Generate with Edge TTS at increased rate
         await edge_tts.Communicate(script[:2000], voice, rate="+20%").save(base)
         
-        # Apply 1.75x speed on top
+        # Apply 1.65x speed on top
         if run_ffmpeg([
-            "ffmpeg", "-i", base, "-filter:a", "atempo=1.75",
+            "ffmpeg", "-i", base, "-filter:a", "atempo=1.65",
             "-y", output
         ], 30):
             cleanup(base)
             size = os.path.getsize(output) / 1024
-            logger.info(f"✅ Edge TTS Voiceover (1.75x): {size:.1f}KB")
+            logger.info(f"✅ Edge TTS Voiceover (1.65x): {size:.1f}KB")
             log_memory("voice-done")
             return True, ""
         
@@ -1718,8 +1718,8 @@ async def process_reel(drive_url: str, user_id: str, task_id: str):
         logger.info(f"   Title: {metadata['title']}")
         logger.info(f"   Hashtags: {' '.join(metadata['hashtags'])}")
         
-        # Voiceover at 1.75x (ElevenLabs → Edge TTS fallback)
-        update(60, "Voiceover (1.75x speed)...")
+        # Voiceover at 1.65x (ElevenLabs → Edge TTS fallback)
+        update(60, "Voiceover (1.65x speed)...")
         voiceover = os.path.join(temp_dir, "voice.mp3")
         success, error = await generate_voiceover_12x(metadata["script"], voiceover)
         if not success:
@@ -1882,7 +1882,7 @@ async def health_endpoint():
         "mistral_configured": bool(MISTRAL_API_KEY),
         "active_tasks": len([s for s in PROCESSING_STATUS.values() if s["status"] == "processing"]),
         "features": {
-            "voiceover_speed": "1.75x",
+            "voiceover_speed": "1.65x",
             "voiceover_priority": "ElevenLabs → Edge TTS",
             "caption_colors": "Golden (#FFD700) → White → None",
             "bgm_volume": "0.18 (increased by 10%)",
@@ -1912,7 +1912,7 @@ async def initialize():
     logger.info("="*80)
     logger.info("🚀 GDRIVE REELS (ENHANCED VERSION)")
     logger.info("="*80)
-    logger.info("✅ 1.75x voiceover speed")
+    logger.info("✅ 1.65x voiceover speed")
     logger.info("✅ ElevenLabs priority + Edge TTS fallback")
     logger.info("✅ SEO: Title + Description + 35+ Keywords + 7-9 Hashtags")
     logger.info("✅ Golden captions → White → None fallback")
