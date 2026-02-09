@@ -82,7 +82,7 @@ EDGE_TTS_VOICES = ["hi-IN-MadhurNeural", "hi-IN-SwaraNeural"]
 
 # ElevenLabs Hindi voice ID
 # ELEVENLABS_VOICE_ID = "yD0Zg2jxgfQLY8I2MEHO"
-ELEVENLABS_VOICE_ID ="kvQSb3naDTi3sgHwwBC1"
+ELEVENLABS_VOICE_ID ="FZkK3TvQ0pjyDmT8fzIW"
 
 # ═══════════════════════════════════════════════════════════════════════
 # TOP 10 ROYALTY-FREE BGM FOR AI STORY REELS
