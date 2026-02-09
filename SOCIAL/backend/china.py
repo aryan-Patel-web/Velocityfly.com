@@ -209,14 +209,14 @@ DESCRIPTION: 2 short paragraphs about the orange cat
 
 KEYWORDS: EXACTLY 45 keywords (orange cat, funny cat, etc.)
 
-HASHTAGS: 7-9 hashtags (#Shorts, #OrangeCat, #Cats are MUST)
+HASHTAGS: 8-9 hashtags (#Shorts, #OrangeCat, #Cats are MUST)
 
 OUTPUT JSON:
 {
   "title": "Orange Cat Title #tag1 #tag2 #tag3",
   "description": "Paragraph 1\\n\\nParagraph 2",
   "keywords": ["keyword1", ... 45 total],
-  "hashtags": ["#Shorts", "#OrangeCat", ... 7-9 total]
+  "hashtags": ["#Foryou", "#Fyp", "#Explore", "#Reach", "#Reelsgrowth", "#Boostyourreel", "#Trendingnow", #Shorts", "#OrangeCat", ... 8-9 total]
 }"""
             
             async with httpx.AsyncClient(timeout=60) as client:

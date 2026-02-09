@@ -512,7 +512,7 @@ SEO REQUIREMENTS (VERY STRICT – FOLLOW EXACTLY):
    - NO unrelated keywords
    - End description with: "Keywords: ..."
 
-8. Generate EXACTLY 35  SEO KEYWORDS:
+8. Generate EXACTLY 65  SEO KEYWORDS:
    - ALL keywords MUST be derived ONLY from:
      a) Title words
      b) Brands mentioned in description
@@ -535,7 +535,7 @@ SEO REQUIREMENTS (VERY STRICT – FOLLOW EXACTLY):
      supercar comparison shorts
      rich lifestyle cars
 
-9. Generate 5–7 HASHTAGS ONLY:
+9. Generate 8–9 HASHTAGS ONLY:
    - Hashtags MUST be DIRECTLY created from:
      a) Title brands
      b) Main topic words
@@ -567,7 +567,7 @@ SEO REQUIREMENTS (VERY STRICT – FOLLOW EXACTLY):
 - Each keyword must be a real YouTube search phrase
 - Keywords must be derived ONLY from title + description
 
-14. AFTER the 35 keywords, directly write EXACTLY 6 hashtags:
+14. AFTER the 65 keywords, directly write EXACTLY 6 hashtags:
 - One hashtag per line
 - Derived from title/topic only
 - No generic unrelated tags
@@ -593,12 +593,20 @@ keyword phrase thirteen
 keyword phrase fourteen
 keyword phrase fifteen
 
+#Foryou 
+#Fyp 
+#Explore 
+#Reach 
+#Reelsgrowth 
+#Boostyourreel 
+#Trendingnow
 #HashtagOne
 #HashtagTwo
 #HashtagThree
 #HashtagFour
 #HashtagFive
 #HashtagSix
+
 
 5. If keywords are comma-separated or labeled, output is INVALID.
 
