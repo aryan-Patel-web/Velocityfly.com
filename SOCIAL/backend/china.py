@@ -112,10 +112,23 @@ MOBILE_HEADERS = {
 PROCESSING_STATUS = {}
 
 INTRO_TEMPLATES = [
-    "Dosto, aaj hum dekhenge orange billa ki mastiyan! Dekhte rahiye kya hota hai!",
-    "Santra billa ki sarrarate shuru! Ye dekh kar aap shock ho jayenge!",
-    "Orange cat ki badmashiyan aa gayi! Video end tak dekhna mat bhoolna!",
-    "Dekho aaj is orange bille ne kya dhamaal machaya! Ye toh must watch hai!",
+    "Arre bhai ruk ja! Ye koi normal cat nahi hai, ye hai desi ORANGE BILLA! Aage jo hone wala hai, woh full meme material hai!",
+    
+    "Dosto, kasam se bol raha hoon, agar ye orange billa aapne pehle dekha hota na… aaj internet pe viral tum hi hote!",
+    
+    "Indian internet ka naya superstar aa gaya hai! Orange billa on fire hai, video skip mat karna warna pachtana padega!",
+    
+    "Bhai sahab! Aaj orange bille ne jo kaand kiya hai na, woh dekh ke hasi rokna mushkil ho jayega!",
+    
+    "Warning dosto! Ye video dekhne ke baad aap bolenge – ‘Bhai ye cat toh full India level hai!’",
+    
+    "Arre maa kasam! Ye orange billa itna zyada funny hai ki aaj ke saare reels fail ho jaayenge!",
+    
+    "Bas ek baar dekh lo! Orange billa ka ye scene aaj har Indian ke face pe smile laane wala hai!",
+    
+    "Dosto, ye sirf ek cat nahi hai… ye hai full desi swag wala ORANGE BILLA! End tak dekhna compulsory hai!",
+    
+    "Aaj pata chalega India orange cats ko itna kyu pyaar karta hai! Is billa ne reason de diya!",
 ]
 
 OUTRO_TEMPLATES = [
