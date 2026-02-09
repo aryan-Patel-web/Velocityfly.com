@@ -1423,12 +1423,13 @@ def log_memory(step: str):
                 gc.collect()
         except:
             pass
+        
 
 # ═══════════════════════════════════════════════════════════════════════
 # CONFIG
 # ═══════════════════════════════════════════════════════════════════════
 GROQ_API_KEY = os.getenv("GROQ_SPEECH_API")
-GROQ_API_KEY_FALLBACK = os.getenv("GROQ_SPEECH_API1", "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")
+GROQ_API_KEY_FALLBACK = os.getenv("GROQ_SPEECH_API1")
 MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY")
 ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY", "")
 
