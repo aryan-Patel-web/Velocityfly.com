@@ -70,7 +70,7 @@
 # #     "https://freesound.org/data/previews/543/543995_11587873-lq.mp3",
     
 # #     # Dark Ambient Space
-# #     "https://freesound.org/data/previews/632/632351_10755880-lq.mp3",
+# #     "https://freesound.org/data/previews/632/632651_10755880-lq.mp3",
     
 # #     # Mystery Tension
 # #     "https://freesound.org/data/previews/558/558262_11587873-lq.mp3",
@@ -437,7 +437,7 @@
 # #         import edge_tts
         
 # #         temp = os.path.join(temp_dir, f"edge_{uuid.uuid4().hex[:4]}.mp3")
-# #         text_clean = text.strip()[:350]
+# #         text_clean = text.strip()[:650]
         
 # #         logger.info(f"   📞 Using Edge TTS (fallback)...")
 # #         logger.info(f"   Voice: hi-IN-MadhurNeural")
@@ -1430,7 +1430,7 @@
 #     "https://freesound.org/data/previews/543/543995_11587873-lq.mp3",
     
 #     # Dark Ambient Space
-#     "https://freesound.org/data/previews/632/632351_10755880-lq.mp3",
+#     "https://freesound.org/data/previews/632/632651_10755880-lq.mp3",
     
 #     # Mystery Tension
 #     "https://freesound.org/data/previews/558/558262_11587873-lq.mp3",
@@ -1835,7 +1835,7 @@
 #         import edge_tts
         
 #         temp = os.path.join(temp_dir, f"edge_{uuid.uuid4().hex[:4]}.mp3")
-#         text_clean = text.strip()[:350]
+#         text_clean = text.strip()[:650]
         
 #         logger.info(f"   📞 Using Edge TTS (fallback)...")
 #         logger.info(f"   Voice: hi-IN-MadhurNeural")
@@ -2909,7 +2909,7 @@ TRANSITIONS = [
 BACKGROUND_MUSIC_URLS = [
     "https://freesound.org/data/previews/614/614090_11931419-lq.mp3",
     "https://freesound.org/data/previews/543/543995_11587873-lq.mp3",
-    "https://freesound.org/data/previews/632/632351_10755880-lq.mp3",
+    "https://freesound.org/data/previews/632/632651_10755880-lq.mp3",
     "https://freesound.org/data/previews/558/558262_11587873-lq.mp3",
     "https://freesound.org/data/previews/521/521495_9961799-lq.mp3",
     "https://freesound.org/data/previews/477/477718_9497060-lq.mp3",
@@ -3306,7 +3306,7 @@ async def generate_voice_edge(text: str, duration: float, temp_dir: str) -> Opti
         import edge_tts
         
         temp = os.path.join(temp_dir, f"edge_{uuid.uuid4().hex[:4]}.mp3")
-        text_clean = text.strip()[:350]
+        text_clean = text.strip()[:650]
         
         logger.info(f"   📞 Edge TTS (Final Fallback)...")
         

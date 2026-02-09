@@ -5,7 +5,7 @@ gdrive_reels_ENHANCED.py - PRODUCTION READY WITH COMPLETE ENHANCEMENTS
 ✅ 1.45x voiceover speed (increased from 1.05x)
 ✅ ElevenLabs voice as PRIORITY (with Edge TTS fallback)
 ✅ SEO-optimized titles with emojis and viral appeal
-✅ AI-generated descriptions with 35+ keywords
+✅ AI-generated descriptions with 65+ keywords
 ✅ 7-9 trending hashtags per video
 ✅ Golden captions with white fallback (continues without if both fail)
 ✅ BGM volume increased by 10% (0.18 from 0.12)
@@ -1040,7 +1040,7 @@ async def health_endpoint():
             "caption_colors": "Golden (#FFD700) → White → None",
             "bgm_volume": "0.18 (increased by 10%)",
             "bgm_tracks": len(TOP_10_BGM_URLS),
-            "seo_optimization": "Title + Description + 35+ Keywords + 7-9 Hashtags"
+            "seo_optimization": "Title + Description + 65+ Keywords + 7-9 Hashtags"
         }
     })
 
@@ -1067,7 +1067,7 @@ async def initialize():
     logger.info("="*80)
     logger.info("✅ 1.45x voiceover speed")
     logger.info("✅ ElevenLabs priority + Edge TTS fallback")
-    logger.info("✅ SEO: Title + Description + 35+ Keywords + 7-9 Hashtags")
+    logger.info("✅ SEO: Title + Description + 65+ Keywords + 7-9 Hashtags")
     logger.info("✅ Golden captions → White → None fallback")
     logger.info("✅ BGM volume: 0.18 (increased 10%)")
     logger.info(f"✅ Top {len(TOP_10_BGM_URLS)} royalty-free BGM tracks")
