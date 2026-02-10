@@ -3119,6 +3119,7 @@ async def download_bgm(output: str) -> bool:
         logger.warning("⚠️ BGM error")
         return False
 
+
 async def create_final_video(silent: str, voice: str, srt: str, bgm: Optional[str], output: str) -> tuple[bool, str]:
     """Create final video with captions and audio"""
     logger.info("✨ Final Video...")
