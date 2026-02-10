@@ -2666,9 +2666,14 @@ def detect_character_gender(segments: List[Dict]) -> str:
 # ═══════════════════════════════════════════════════════════════════════
 # CONCISE SCRIPT GENERATION - ROMAN HINDI/HINGLISH FOR TTS
 # ═══════════════════════════════════════════════════════════════════════
+# ═══════════════════════════════════════════════════════════════════════
+# CONCISE SCRIPT GENERATION — TRANSCRIPT PRESERVE MODE (TTS POLISH ONLY)
+# ═══════════════════════════════════════════════════════════════════════
+
 async def generate_concise_script(segments: List[Dict], duration: float) -> dict:
-    """Generate CONCISE TTS-friendly script in ROMAN HINDI/HINGLISH"""
-    logger.info("🤖 AI Script (Roman Hindi + TTS Optimized)...")
+    """Generate TTS-ready script by preserving transcript (90%) and polishing for voiceover"""
+
+    logger.info("🤖 AI Script (Transcript Preserve + TTS Polish)...")
     log_memory("ai-start")
 
     # Combine transcript
@@ -2678,8 +2683,8 @@ async def generate_concise_script(segments: List[Dict], duration: float) -> dict
     word_count = len(transcript.split())
     speaking_rate = word_count / duration if duration > 0 else 2.5
 
-    # Keep buffer so VO never exceeds video
-    target_words = int(duration * speaking_rate * 0.75)  # Reduced to 75% for safety
+    # Safety buffer
+    target_words = int(duration * speaking_rate * 0.9)
 
     logger.info(f"   Original words: {word_count}")
     logger.info(f"   Target words: {target_words}")
@@ -2691,89 +2696,73 @@ async def generate_concise_script(segments: List[Dict], duration: float) -> dict
 
     if MISTRAL_API_KEY:
         try:
-            logger.info("   Using Mistral — Roman Hindi TTS optimized")
+            logger.info("   Using Mistral — Transcript Preserve Mode")
 
-            prompt = f"""Generate a SHORT, HIGH-IMPACT Hindi narration for AI voiceover in ROMAN HINDI/HINGLISH format.
+            prompt = f"""
+You are a TTS SCRIPT POLISHER — not a writer.
 
-CRITICAL: Script must be in ROMAN HINDI (Latin script), NOT Devanagari.
+YOUR ROLE:
+Clean and optimize transcript for AI voiceover.
 
-✅ CORRECT EXAMPLES:
-- "Aaj main aapko ek ajeeb kahani sunane jaa raha hoon"
-- "Ek baar ki baat hai ek gaon mein"
-- "Suniye ye rochak ghatna"
+STRICT PRESERVE RULE:
+- Keep 90% wording SAME as transcript
+- Maximum 10% wording change allowed
+- Do NOT rewrite story
+- Do NOT summarize
+- Do NOT add new ideas
+- Do NOT change order
+- Do NOT shorten aggressively
 
-❌ WRONG (Devanagari):
-- "आज मैं आपको एक अजीब कहानी सुनाने जा रहा हूं"
+ONLY ALLOWED EDITS:
 
-TTS VOICE OPTIMIZATION RULES (CRITICAL):
+1. Convert into ROMAN HINDI / HINGLISH (Latin script)
+2. Fix pronunciation for TTS clarity
+3. Replace hard words with easier spoken words
+4. Break long sentences
+5. Add light emotional cues like: socho, achanak, tabhi (very limited)
+6. Remove tongue-twister phrases
+7. Add "..." pause max 3 times
+8. Keep loud narration tone
 
-1. PRONUNCIATION:
-   - Use simple spoken words only
-   - Avoid difficult/poetic vocabulary
-   - Avoid tongue twisters
-   - Avoid complex names (simplify if needed)
-   
-2. SENTENCE STRUCTURE:
-   - Short sentences (under 10 words preferred)
-   - Clear, direct statements
-   - Natural speech rhythm
-   
-3. NARRATION STYLE:
-   - LOUD and DRAMATIC storytelling tone
-   - Emotional and engaging
-   - Use spoken cues: "socho", "achanak", "tabhi", "uske baad", "phir kya hua"
-   - Build suspense and interest
-   
-4. PAUSES:
-   - Use "..." for dramatic pauses (MAX 2-3 times only)
-   - Example: "Ek baar ki baat hai... ek aadmi tha... jo bahut gareeb tha"
-   
-5. FORMATTING:
-   - No special symbols or brackets
-   - No asterisks or quotation marks mid-sentence
-   - Clean, speakable text only
+TTS SAFETY RULES:
 
-TRANSCRIPT REFERENCE:
+- No difficult Sanskrit words
+- No poetic phrases
+- No brackets
+- No symbols
+- No emojis in script
+- Sentences under 12 words preferred
+- Must sound natural when spoken by ElevenLabs Hindi voice
+
+TRANSCRIPT (DO NOT REWRITE — ONLY POLISH):
 {transcript}
 
-VIDEO DURATION: {duration} seconds
-STRICT MAX WORDS: {target_words}
+VIDEO DURATION: {duration} sec
+TARGET WORD LIMIT: {target_words}
 
-STRUCTURE:
+CTA TO KEEP AT END:
+{cta}
 
-1. HOOK (3-6 words): 
-   - "Suniye ye ajeeb baat"
-   - "Aaj main bataunga ek raaz"
-   
-2. MAIN STORY (concise, emotional):
-   - Get to point quickly
-   - Maintain drama
-   - Clear narrative flow
-   
-3. KEY INSIGHT/TWIST:
-   - One strong takeaway
-   
-4. STRONG CTA:
-   - "{cta}"
+IMPORTANT:
+If transcript already TTS-friendly — return almost same text.
 
-STRICT RULES:
-- Do NOT exceed {target_words} words
-- Better to use {target_words - 10} words for safety
-- Count every word including CTA
-
-SEO OUTPUT:
+SEO OUTPUT ALSO REQUIRED.
 
 Return ONLY valid JSON:
 
 {{
-  "script": "roman hindi narration under {target_words} words with dramatic narration style",
+  "script": "tts polished roman hindi version — 90 percent same as transcript",
   "word_count": actual_number,
-  "title": "Viral Hinglish Title with Emoji 😱🔥 | Max 100 chars",
-  "description": "Hinglish paragraph 1\\n\\nHinglish paragraph 2 with keywords",
-  "keywords": ["keyword1", "keyword2", "keyword3"],
-  "hashtags": ["#Shorts", "#Viral", "#Hindi", "#Trending", "#MustWatch"],
+  "title": "Viral Hinglish Title with Emoji 😱🔥",
+  "description": "2 short hinglish paragraphs",
+  "keywords": ["keyword1","keyword2","keyword3"],
+  "hashtags": ["#Shorts","#Viral","#Hindi","#Trending"],
   "story_id": "unique-id"
-}}"""
+}}
+"""
+
+            # ---- Your Mistral API call continues below ----
+
 
             async with httpx.AsyncClient(timeout=60) as client:
                 resp = await client.post(
