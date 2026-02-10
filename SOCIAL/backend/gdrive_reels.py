@@ -2698,68 +2698,71 @@ async def generate_concise_script(segments: List[Dict], duration: float) -> dict
         try:
             logger.info("   Using Mistral — Transcript Preserve Mode")
 
-            prompt = f"""
-You are a TTS SCRIPT POLISHER — not a writer.
+            # prompt = f"""
+            prompt = f"""Generate a HUMAN-LIKE, CONVERSATIONAL Hindi narration for AI voiceover.
 
-YOUR ROLE:
-Clean and optimize transcript for AI voiceover.
-
-STRICT PRESERVE RULE:
-- Keep 90% wording SAME as transcript
-- Maximum 10% wording change allowed
-- Do NOT rewrite story
-- Do NOT summarize
-- Do NOT add new ideas
-- Do NOT change order
-- Do NOT shorten aggressively
-
-ONLY ALLOWED EDITS:
-
-1. Convert into ROMAN HINDI / HINGLISH (Latin script)
-2. Fix pronunciation for TTS clarity
-3. Replace hard words with easier spoken words
-4. Break long sentences
-5. Add light emotional cues like: socho, achanak, tabhi (very limited)
-6. Remove tongue-twister phrases
-7. Add "..." pause max 3 times
-8. Keep loud narration tone
-
-TTS SAFETY RULES:
-
-- No difficult Sanskrit words
-- No poetic phrases
-- No brackets
-- No symbols
-- No emojis in script
-- Sentences under 12 words preferred
+CRITICAL SCRIPT FORMAT:
+- Write ONLY in ROMAN HINDI / HINGLISH (Latin letters)
+- Never use Devanagari
 - Must sound natural when spoken by ElevenLabs Hindi voice
+- Preserve transcript meaning closely (no heavy rewrite)
 
-TRANSCRIPT (DO NOT REWRITE — ONLY POLISH):
+INPUT TRANSCRIPT:
 {transcript}
 
-VIDEO DURATION: {duration} sec
-TARGET WORD LIMIT: {target_words}
+VIDEO DURATION: {duration} seconds
+TARGET WORDS: {target_words}
+SPEAKING RATE: {speaking_rate:.2f}
 
-CTA TO KEEP AT END:
+VOICEOVER RULES (VERY IMPORTANT):
+
+1. TTS FRIENDLY:
+- Simple spoken words only
+- No difficult Sanskrit/Urdu vocabulary
+- No tongue twisters
+- No complex names
+- Sentence length under 12 words preferred
+
+2. HUMAN SPEECH STYLE:
+- Conversational tone
+- Use Hinglish mix naturally
+- Add light emotion words: socho, dekho, achanak, tabhi
+- Use engaging questions sometimes: "kya aap jaante ho?"
+
+3. NATURAL PAUSES:
+- Use "..." for dramatic pauses
+- Max 3–4 times only
+- Use before reveal moments
+Example:
+"Ek raat... kuch ajeeb hua"
+
+4. RHYTHM:
+- Mix short + medium sentences
+- No comma-heavy text
+- No robotic lists
+
+5. STRICT LIMIT:
+- Do NOT exceed {target_words} words
+- Keep flow tight for duration fit
+
+ENDING CTA (must include at end):
 {cta}
 
-IMPORTANT:
-If transcript already TTS-friendly — return almost same text.
-
-SEO OUTPUT ALSO REQUIRED.
+SEO OUTPUT ALSO NEEDED:
 
 Return ONLY valid JSON:
 
 {{
-  "script": "tts polished roman hindi version — 90 percent same as transcript",
-  "word_count": actual_number,
+  "script": "roman hindi conversational narration with pauses ... ending with CTA",
   "title": "Viral Hinglish Title with Emoji 😱🔥",
   "description": "2 short hinglish paragraphs",
   "keywords": ["keyword1","keyword2","keyword3"],
   "hashtags": ["#Shorts","#Viral","#Hindi","#Trending"],
-  "story_id": "unique-id"
+  "story_id": "unique-id",
+  "speaking_rate": {speaking_rate}
 }}
 """
+
 
             # ---- Your Mistral API call continues below ----
 
