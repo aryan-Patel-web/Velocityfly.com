@@ -2307,17 +2307,17 @@
 
 
 
-
 """
-gdrive_reels.py - PERFECT VOICE SYNC + HUMAN-LIKE + NO GAPS
+gdrive_reels.py - PERFECT VOICE SYNC WITH CHUNK-BASED GENERATION
 =================================================================================
-✅ Voice speed matches original video (1.1x-1.2x faster, never slower!)
-✅ Natural pauses with "..." in script
-✅ Perfect 29s video = 29s voiceover (±0.5s max)
-✅ Human-like conversational Hindi script
-✅ NO 7-second gaps - seamless concatenation
-✅ Speaking rate matching from original video
-✅ All original features preserved
+✅ Fixed voice ID: FZkK3TvQ0pjyDmT8fzIW (Primary ElevenLabs)
+✅ Break video into equal 10-second chunks
+✅ Generate voiceover per chunk for perfect sync
+✅ 30s video = 30s voiceover (±2s tolerance is fine)
+✅ Speed adjustment only if difference > 5s
+✅ NO CAPTIONS (removed for speed)
+✅ Concise script generation (fewer words)
+✅ All other features preserved
 =================================================================================
 """
 
@@ -2377,7 +2377,10 @@ GROQ_API_KEY = os.getenv("GROQ_SPEECH_API")
 MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY")
 ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY", "")
 
-# Voice IDs for character detection
+# PRIMARY VOICE ID - FIXED
+PRIMARY_VOICE_ID = "FZkK3TvQ0pjyDmT8fzIW"
+
+# Fallback voices
 VOICE_IDS = {
     "male": ["7qBNUtXRGP0jPi0H4r8k", "BTNeCNdXniCSbjEac5vd"],
     "female": ["Icov0pR6jgWuaZhmlmtO", "UbB19hYD8fvYxwJAVTY5"]
@@ -2659,95 +2662,96 @@ def detect_character_gender(segments: List[Dict]) -> str:
         return "male"
 
 # ═══════════════════════════════════════════════════════════════════════
-# HUMAN-LIKE SCRIPT GENERATION WITH NATURAL PAUSES
+# CONCISE SCRIPT GENERATION - FEWER WORDS TO FIT IN VOICEOVER
 # ═══════════════════════════════════════════════════════════════════════
-async def generate_human_like_script(segments: List[Dict], duration: float) -> dict:
-    """Generate HUMAN-LIKE conversational script with LIMITED natural pauses"""
-    logger.info("🤖 AI Script (Human-like + Natural Pauses)...")
+async def generate_concise_script(segments: List[Dict], duration: float) -> dict:
+    """Generate CONCISE script that fits perfectly in voiceover duration"""
+    logger.info("🤖 AI Script (Concise + Fits Duration)...")
     log_memory("ai-start")
     
     # Combine segments for full text
     transcript = " ".join([seg["text"] for seg in segments])
     
-    # Calculate original speaking rate (words per second)
+    # Calculate REDUCED word count (20% less to ensure it fits)
     word_count = len(transcript.split())
     speaking_rate = word_count / duration if duration > 0 else 2.5
     
-    logger.info(f"   Original speaking rate: {speaking_rate:.2f} words/sec")
+    # Reduce target by 20% to ensure voiceover doesn't exceed video length
+    target_words = int(duration * speaking_rate * 0.8)
     
-    # Target words for new script
-    target_words = int(duration * speaking_rate)
+    logger.info(f"   Original: {word_count} words")
+    logger.info(f"   Target: {target_words} words (80% of capacity)")
+    logger.info(f"   Speaking rate: {speaking_rate:.2f} words/sec")
     
-    # CTA
-    cta = "Agar aapko yeh video achhi lagi ho toh LIKE karein, SUBSCRIBE karein aur apne doston ko SHARE karein!"
+    # CTA - shorter version
+    cta = "Like, Subscribe aur Share karein!"
     
     # Detect character
     character_gender = detect_character_gender(segments)
     
-    # Try Mistral AI with IMPROVED HUMAN-LIKE PROMPT
+    # Try Mistral AI with CONCISE PROMPT
     if MISTRAL_API_KEY:
         try:
-            logger.info("   Trying Mistral AI for human-like script...")
+            logger.info("   Trying Mistral AI for concise script...")
             
-            # IMPROVED PROMPT - LIMIT PAUSES TO 5-8 MAX!
-            prompt = f"""Generate a CONVERSATIONAL, HUMAN-LIKE Hindi narration with LIMITED natural pauses:
+            # CONCISE PROMPT - STRICT WORD LIMIT
+            prompt = f"""Generate a CONCISE, NATURAL Hindi narration that fits EXACTLY in the given duration:
 
 Original Transcript: {transcript}
 Video Duration: {duration} seconds
-Target Words: {target_words} words
+STRICT MAXIMUM WORDS: {target_words} words
 Speaking Rate: {speaking_rate:.2f} words/second
 
 CRITICAL REQUIREMENTS:
 
-1. **NATURAL CONVERSATIONAL HINDI**:
-   - Use casual, everyday Hindi words
-   - Mix Hindi with natural Hinglish
-   - Vary sentence length
-   - Use rhetorical questions: "Kya aap jaante hain?", "Sochiye zara..."
-   - Add emotional expressions: "Wahh!", "Arre!", "Dekho..."
+1. **STRICT WORD LIMIT**:
+   - Your script MUST be MAXIMUM {target_words} words
+   - Count every word carefully
+   - If you exceed {target_words} words, the voiceover will be too long
+   - Better to use {target_words - 10} words to be safe
 
-2. **LIMITED NATURAL PAUSES** (MAXIMUM 5-8 PAUSES ONLY!):
-   - Use "..." SPARINGLY - only 5-8 times in ENTIRE script
-   - Use "..." ONLY for dramatic moments
-   - Example: "Suniye ek kahani... Ek baar ek gaon mein ek aadmi tha jo bahut gareeb tha... Lekin ek din... kuch ajeeb hua... Aur phir... sab badal gaya!"
-   - That's only 5 pauses for entire story - PERFECT!
-   - DO NOT use "..." after every sentence!
+2. **CONCISE STORYTELLING**:
+   - Get to the point quickly
+   - Use short, punchy sentences
+   - Remove unnecessary words
+   - No long descriptions
+   - Every word must add value
 
-3. **HUMAN SPEAKING PATTERNS**:
-   - Start with hook: "Suniye ek rochak kahani..."
-   - Use connecting words: "toh", "phir", "aur", "lekin"
-   - Add emphasis: "bahut", "ekdum", "bilkul"
-   - Natural flow without excessive breaks
+3. **NATURAL HINDI**:
+   - Conversational tone
+   - Mix Hindi with Hinglish
+   - Use simple, everyday words
+   - Natural flow
 
 4. **STRUCTURE**:
-   - Hook (5-10 words)
-   - Main story (flowing naturally)
-   - Conclusion
-   - CTA at end: "{cta}"
+   - Quick hook (3-5 words): "Suniye ek baat..."
+   - Main point (concise, direct)
+   - Quick conclusion
+   - Short CTA: "{cta}"
 
-5. **STRICT PAUSE LIMIT**: Maximum 5-8 "..." in ENTIRE script!
+5. **NO LONG PAUSES**: Use "..." only 2-3 times maximum
 
 SEO REQUIREMENTS:
 
-6. Generate a VIRAL Hinglish TITLE:
-   - Power words: SHOCKING, AMAZING, UNBELIEVABLE, SECRET
-   - Emojis for visual appeal
-   - Example: "Yeh Video Dekhkar Aap SHOCK Ho Jaoge! 😱 | Sachai Kya Hai? #Shorts"
+6. Generate a VIRAL Hinglish TITLE (max 100 chars):
+   - Power words: SHOCKING, AMAZING, SECRET, MUST WATCH
+   - Emojis for appeal
+   - Example: "Yeh Sach Jaankar Shocked Ho Jaoge! 😱 #Shorts"
 
 7. Write Hinglish DESCRIPTION (2-3 short paragraphs)
 
-8. Generate EXACTLY 65-70 SEO KEYWORDS (VERTICAL format, one per line, NO commas)
+8. Generate 60-70 SEO KEYWORDS (vertical format, one per line)
 
-9. Generate 8-9 HASHTAGS (VERTICAL format, one per line)
+9. Generate 8-10 HASHTAGS (vertical format, one per line)
 
 Generate in JSON format:
 {{
-    "script": "Suniye ek kahani... [natural Hindi with ONLY 5-8 pauses total] {cta}",
-    "title": "Viral Hinglish title with emojis (max 100 chars)",
-    "description": "Hinglish description paragraph 1\\n\\nHinglish description paragraph 2\\n\\nkeyword one\\nkeyword two\\n... (65+ keywords)\\n\\n#HashtagOne\\n#HashtagTwo\\n... (8-9 hashtags)",
-    "hashtags": ["#Foryou", "#Fyp", "#Explore", "#Reach", "#Reelsgrowth", "#Boostyourreel", "#Trendingnow","#Shorts", "#Viral", "#Hindi", "#Trending"],
-    "story_id": "unique-id",
-    "speaking_rate": {speaking_rate}
+    "script": "Concise natural Hindi script with maximum {target_words} words including {cta}",
+    "word_count": actual_word_count_number,
+    "title": "Viral Hinglish title with emojis",
+    "description": "Description paragraph 1\\n\\nDescription paragraph 2\\n\\nkeywords\\n\\nhashtags",
+    "hashtags": ["#Shorts", "#Viral", "#Hindi", "#Trending", "#MustWatch"],
+    "story_id": "unique-id"
 }}"""
             
             async with httpx.AsyncClient(timeout=60) as client:
@@ -2759,12 +2763,12 @@ Generate in JSON format:
                         "messages": [
                             {
                                 "role": "system",
-                                "content": "You are a viral YouTube storyteller. Create NATURAL, CONVERSATIONAL Hindi scripts that sound like a real person talking, not AI. Use '...' for natural pauses. Output ONLY valid JSON."
+                                "content": "You are a concise storyteller. Create SHORT, NATURAL Hindi scripts that fit perfectly in the given time. STRICT word limits. Output ONLY valid JSON."
                             },
                             {"role": "user", "content": prompt}
                         ],
-                        "temperature": 0.9,  # Higher for more natural variation
-                        "max_tokens": 1500
+                        "temperature": 0.7,
+                        "max_tokens": 1000
                     }
                 )
                 
@@ -2779,20 +2783,30 @@ Generate in JSON format:
                     
                     if match:
                         data = json.loads(match.group(0))
-                        script_text = data.get("script", transcript)
+                        script_text = data.get("script", "")
+                        
+                        # Verify word count
+                        actual_words = len(script_text.split())
+                        logger.info(f"   Generated: {actual_words} words (target: {target_words})")
+                        
+                        # If too many words, truncate
+                        if actual_words > target_words:
+                            logger.warning(f"   ⚠️ Script too long, truncating...")
+                            words = script_text.split()
+                            script_text = " ".join(words[:target_words - 5]) + " " + cta
                         
                         # Ensure CTA
-                        if "LIKE" not in script_text or "SUBSCRIBE" not in script_text:
+                        if "LIKE" not in script_text.upper() and "SUBSCRIBE" not in script_text.upper():
                             script_text += " " + cta
                         
-                        title = data.get("title", "Amazing Story 🔥 | Must Watch! #Shorts")
-                        description = data.get("description", f"{transcript[:200]}\\n\\nKeywords: hindi story, amazing facts, viral video")
-                        hashtags = data.get("hashtags", ["#Shorts", "#Viral", "#Hindi", "#Trending", "#MustWatch", "#Amazing", "#Story"])
+                        title = data.get("title", "Amazing Story 🔥 #Shorts")
+                        description = data.get("description", f"{transcript[:200]}\\n\\nKeywords: hindi story, viral video")
+                        hashtags = data.get("hashtags", ["#Shorts", "#Viral", "#Hindi", "#Trending"])
                         story_id = data.get("story_id", str(uuid.uuid4())[:8])
                         
-                        logger.info(f"✅ Human-like script generated")
+                        logger.info(f"✅ Concise script generated")
                         logger.info(f"   Title: {title}")
-                        logger.info(f"   Script preview: {script_text[:80]}...")
+                        logger.info(f"   Script: {len(script_text.split())} words")
                         log_memory("ai-done")
                         
                         return {
@@ -2808,14 +2822,15 @@ Generate in JSON format:
         except Exception as e:
             logger.warning(f"   Mistral failed: {e}")
     
-    # FALLBACK
-    logger.info("   Using transcript (fallback)")
-    script = " ".join(transcript.split()[:target_words]) + " " + cta
+    # FALLBACK - use truncated transcript
+    logger.info("   Using truncated transcript (fallback)")
+    words = transcript.split()
+    script = " ".join(words[:target_words - 5]) + " " + cta
     
-    title_base = " ".join(transcript.split()[:5])
-    title = f"{title_base}... 🔥 | Must Watch! #Shorts"
-    description = f"{transcript[:150]}...\n\nKeywords: hindi story, amazing facts, viral video, trending shorts"
-    hashtags = ["#Shorts", "#Viral", "#Hindi", "#Trending", "#MustWatch", "#Amazing", "#Story"]
+    title_base = " ".join(words[:5])
+    title = f"{title_base}... 🔥 #Shorts"
+    description = f"{transcript[:150]}...\n\nKeywords: hindi story, viral video, trending shorts"
+    hashtags = ["#Shorts", "#Viral", "#Hindi", "#Trending"]
     
     log_memory("ai-done")
     
@@ -2831,58 +2846,60 @@ Generate in JSON format:
     }
 
 # ═══════════════════════════════════════════════════════════════════════
-# PERFECT VOICE SYNC - MATCH VIDEO DURATION EXACTLY
+# CHUNK-BASED VOICEOVER GENERATION - PERFECT SYNC
 # ═══════════════════════════════════════════════════════════════════════
-async def generate_perfect_synced_voiceover(metadata: dict, output_dir: str, video_duration: float) -> Tuple[Optional[str], str]:
-    """Generate voiceover that matches video duration EXACTLY (±0.5s max)"""
-    logger.info("🎙️ Perfect Voice Sync (Human-like + Natural Pauses)...")
+async def generate_chunked_voiceover(metadata: dict, output_dir: str, video_duration: float) -> Tuple[Optional[str], str]:
+    """Generate voiceover in equal chunks matching video duration"""
+    logger.info("🎙️ Chunked Voiceover Generation...")
     log_memory("voice-start")
     
     script = metadata.get("script", "")
     gender = metadata["character_gender"]
-    is_female = (gender == "female")
-    voice_id = random.choice(VOICE_IDS[gender])
-    speaking_rate = metadata.get("speaking_rate", 2.5)
     
-    logger.info(f"   Voice: {gender.upper()} - {voice_id}")
-    logger.info(f"   Target duration: {video_duration:.2f}s")
-    logger.info(f"   Speaking rate: {speaking_rate:.2f} words/sec")
+    # ALWAYS USE PRIMARY VOICE ID
+    voice_id = PRIMARY_VOICE_ID
     
-    # Split script by natural pauses ("...")
-    parts = [p.strip() for p in script.split("...") if p.strip()]
+    logger.info(f"   Voice ID: {voice_id} (PRIMARY)")
+    logger.info(f"   Video duration: {video_duration:.2f}s")
+    logger.info(f"   Script length: {len(script.split())} words")
     
-    if not parts:
-        parts = [script]
+    # Calculate chunk size (10 seconds per chunk)
+    chunk_duration = 10.0
+    num_chunks = int(video_duration / chunk_duration)
     
-    # LIMIT TO MAX 8 PARTS - merge if too many!
-    if len(parts) > 8:
-        logger.warning(f"   ⚠️ Too many parts ({len(parts)}), merging to 8...")
-        # Merge parts into 8 chunks
-        chunk_size = len(parts) // 8
-        new_parts = []
-        for i in range(0, len(parts), chunk_size):
-            merged = " ".join(parts[i:i+chunk_size])
-            if merged:
-                new_parts.append(merged)
-        parts = new_parts[:8]  # Ensure exactly 8 or less
+    # If video is less than 10s, use 1 chunk
+    if num_chunks == 0:
+        num_chunks = 1
+        chunk_duration = video_duration
     
-    logger.info(f"   Script parts (limited): {len(parts)}")
+    logger.info(f"   Breaking into {num_chunks} chunks of ~{chunk_duration:.1f}s each")
     
-    # Calculate time per part - NO PAUSES, just divide time evenly
-    # We'll add pauses later if needed
-    time_per_part = video_duration / len(parts) if len(parts) > 0 else video_duration
+    # Split script into equal parts
+    words = script.split()
+    words_per_chunk = len(words) // num_chunks if num_chunks > 0 else len(words)
     
-    # Generate voiceover for each part with AGGRESSIVE speed control
-    part_files = []
+    script_chunks = []
+    for i in range(num_chunks):
+        start_idx = i * words_per_chunk
+        end_idx = start_idx + words_per_chunk if i < num_chunks - 1 else len(words)
+        chunk_text = " ".join(words[start_idx:end_idx])
+        if chunk_text:
+            script_chunks.append(chunk_text)
     
-    for i, part in enumerate(parts):
-        part_file = os.path.join(output_dir, f"part_{i:03d}.mp3")
-        temp_file = part_file.replace(".mp3", "_temp.mp3")
+    logger.info(f"   Script split into {len(script_chunks)} chunks")
+    
+    # Generate voiceover for each chunk
+    chunk_files = []
+    
+    for i, chunk_text in enumerate(script_chunks):
+        chunk_file = os.path.join(output_dir, f"chunk_{i:03d}.mp3")
+        temp_file = chunk_file.replace(".mp3", "_temp.mp3")
         
-        # Generate with ElevenLabs or Edge TTS
+        logger.info(f"   Generating chunk {i+1}/{len(script_chunks)}...")
+        
         success = False
         
-        # Try ElevenLabs
+        # Try ElevenLabs with PRIMARY VOICE ID
         if ELEVENLABS_API_KEY and len(ELEVENLABS_API_KEY) > 20:
             try:
                 async with httpx.AsyncClient(timeout=60) as client:
@@ -2890,14 +2907,13 @@ async def generate_perfect_synced_voiceover(metadata: dict, output_dir: str, vid
                         f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}",
                         headers={"xi-api-key": ELEVENLABS_API_KEY},
                         json={
-                            "text": part,
+                            "text": chunk_text,
                             "model_id": "eleven_multilingual_v2",
                             "voice_settings": {
                                 "stability": 0.5,
                                 "similarity_boost": 0.75,
                                 "style": 0.5,
-                                "use_speaker_boost": True,
-                                "speaking_rate": 1.2  # 20% faster by default
+                                "use_speaker_boost": True
                             }
                         }
                     )
@@ -2906,17 +2922,20 @@ async def generate_perfect_synced_voiceover(metadata: dict, output_dir: str, vid
                         with open(temp_file, 'wb') as f:
                             f.write(resp.content)
                         
-                        actual = get_audio_duration(temp_file)
-                        if actual > 0:
-                            # AGGRESSIVE speed adjustment to match target
-                            ratio = actual / time_per_part
-                            ratio = min(max(ratio, 0.5), 2.0)  # Allow wider range
+                        actual_dur = get_audio_duration(temp_file)
+                        if actual_dur > 0:
+                            # Adjust speed to match chunk duration
+                            target_dur = chunk_duration
+                            ratio = actual_dur / target_dur
                             
-                            if run_ffmpeg(["ffmpeg", "-i", temp_file, "-filter:a", f"atempo={ratio}", "-y", part_file], 30):
+                            # Clamp ratio
+                            ratio = min(max(ratio, 0.5), 2.0)
+                            
+                            if run_ffmpeg(["ffmpeg", "-i", temp_file, "-filter:a", f"atempo={ratio}", "-y", chunk_file], 30):
                                 cleanup(temp_file)
-                                part_dur = get_audio_duration(part_file)
-                                logger.info(f"   ✅ Part {i+1}/{len(parts)} - ElevenLabs ({part_dur:.2f}s / target: {time_per_part:.2f}s)")
-                                part_files.append(part_file)
+                                final_dur = get_audio_duration(chunk_file)
+                                logger.info(f"   ✅ Chunk {i+1}: {final_dur:.2f}s (target: {target_dur:.2f}s)")
+                                chunk_files.append(chunk_file)
                                 success = True
                         
                         cleanup(temp_file)
@@ -2924,7 +2943,7 @@ async def generate_perfect_synced_voiceover(metadata: dict, output_dir: str, vid
                     if resp.status_code == 429:
                         await asyncio.sleep(2)
             except Exception as e:
-                logger.warning(f"   ⚠️ Part {i+1} - ElevenLabs error: {e}")
+                logger.warning(f"   ⚠️ Chunk {i+1} - ElevenLabs error: {e}")
                 cleanup(temp_file)
         
         # Fallback to Edge TTS
@@ -2933,157 +2952,94 @@ async def generate_perfect_synced_voiceover(metadata: dict, output_dir: str, vid
                 import edge_tts
                 voice = EDGE_TTS_VOICES[gender][0]
                 
-                # Generate at faster rate
-                await edge_tts.Communicate(part, voice, rate="+25%").save(temp_file)
+                await edge_tts.Communicate(chunk_text, voice).save(temp_file)
                 
-                actual = get_audio_duration(temp_file)
-                if actual > 0:
-                    ratio = actual / time_per_part
+                actual_dur = get_audio_duration(temp_file)
+                if actual_dur > 0:
+                    target_dur = chunk_duration
+                    ratio = actual_dur / target_dur
                     ratio = min(max(ratio, 0.5), 2.0)
                     
-                    if run_ffmpeg(["ffmpeg", "-i", temp_file, "-filter:a", f"atempo={ratio}", "-y", part_file], 30):
+                    if run_ffmpeg(["ffmpeg", "-i", temp_file, "-filter:a", f"atempo={ratio}", "-y", chunk_file], 30):
                         cleanup(temp_file)
-                        part_dur = get_audio_duration(part_file)
-                        logger.info(f"   ✅ Part {i+1}/{len(parts)} - Edge TTS ({part_dur:.2f}s / target: {time_per_part:.2f}s)")
-                        part_files.append(part_file)
+                        final_dur = get_audio_duration(chunk_file)
+                        logger.info(f"   ✅ Chunk {i+1}: {final_dur:.2f}s - Edge TTS")
+                        chunk_files.append(chunk_file)
                         success = True
                 
                 cleanup(temp_file)
             except Exception as e:
-                logger.warning(f"   ⚠️ Part {i+1} - Edge TTS error: {e}")
+                logger.warning(f"   ⚠️ Chunk {i+1} - Edge TTS error: {e}")
                 cleanup(temp_file)
         
         if not success:
-            logger.error(f"   ❌ Part {i+1} failed")
+            logger.error(f"   ❌ Chunk {i+1} failed")
             continue
         
-        # Small delay between requests
-        await asyncio.sleep(0.5)
+        # Small delay
+        await asyncio.sleep(0.3)
     
-    if not part_files:
-        return None, "All parts failed"
+    if not chunk_files:
+        return None, "All chunks failed"
     
-    logger.info(f"   ✅ Generated {len(part_files)}/{len(parts)} parts")
+    logger.info(f"   ✅ Generated {len(chunk_files)}/{len(script_chunks)} chunks")
     
-    # Concatenate parts - NO SILENCE GAPS if only a few parts!
+    # Concatenate chunks
     final = os.path.join(output_dir, "voice.mp3")
     
-    if len(part_files) == 1:
-        # Single part - just copy
-        shutil.copy(part_files[0], final)
-        cleanup(*part_files)
-    elif len(part_files) <= 5:
-        # Few parts - concatenate WITHOUT silence gaps
+    if len(chunk_files) == 1:
+        shutil.copy(chunk_files[0], final)
+        cleanup(*chunk_files)
+    else:
         concat_file = os.path.join(output_dir, "concat.txt")
         with open(concat_file, 'w') as f:
-            for part_file in part_files:
-                f.write(f"file '{part_file}'\n")
+            for chunk_file in chunk_files:
+                f.write(f"file '{chunk_file}'\n")
         
         if run_ffmpeg(["ffmpeg", "-f", "concat", "-safe", "0", "-i", concat_file, "-c", "copy", "-y", final], 60):
-            cleanup(concat_file, *part_files)
+            cleanup(concat_file, *chunk_files)
         else:
-            cleanup(concat_file, *part_files)
+            cleanup(concat_file, *chunk_files)
             return None, "Concat failed"
-    else:
-        # Many parts - add tiny 100ms pauses only
-        silence_file = os.path.join(output_dir, "silence.mp3")
-        pause_time = 0.1  # Only 100ms
-        
-        if run_ffmpeg([
-            "ffmpeg", "-f", "lavfi", "-i", f"anullsrc=r=22050:cl=mono:d={pause_time}",
-            "-y", silence_file
-        ], 10):
-            concat_file = os.path.join(output_dir, "concat.txt")
-            with open(concat_file, 'w') as f:
-                for i, part_file in enumerate(part_files):
-                    f.write(f"file '{part_file}'\n")
-                    if i < len(part_files) - 1:
-                        f.write(f"file '{silence_file}'\n")
-            
-            if run_ffmpeg(["ffmpeg", "-f", "concat", "-safe", "0", "-i", concat_file, "-c", "copy", "-y", final], 60):
-                cleanup(concat_file, silence_file, *part_files)
-            else:
-                cleanup(concat_file, silence_file, *part_files)
-                return None, "Concat failed"
-        else:
-            cleanup(*part_files)
-            return None, "Silence generation failed"
     
-    # Check final duration and adjust AGGRESSIVELY if needed
+    # Check final duration
     final_dur = get_audio_duration(final)
     diff = abs(final_dur - video_duration)
     
     logger.info(f"   🎵 Voiceover: {final_dur:.2f}s, Video: {video_duration:.2f}s, Diff: {diff:.2f}s")
     
-    # If difference > 0.5s, AGGRESSIVELY adjust speed
-    if diff > 0.5:
-        logger.info(f"   ⚠️ Adjusting speed AGGRESSIVELY for perfect sync...")
+    # Only adjust if difference > 5 seconds (allow ±2s tolerance as requested)
+    if diff > 5.0:
+        logger.info(f"   ⚠️ Large difference detected, adjusting speed...")
         adjusted = os.path.join(output_dir, "voice_adj.mp3")
         ratio = final_dur / video_duration
         
-        # More aggressive clamping
+        # Clamp ratio
         if ratio > 2.0:
-            logger.warning(f"   ⚠️ Speed ratio too high ({ratio:.2f}), clamping to 2.0")
+            logger.warning(f"   ⚠️ Ratio too high ({ratio:.2f}), clamping to 2.0")
             ratio = 2.0
         elif ratio < 0.5:
-            logger.warning(f"   ⚠️ Speed ratio too low ({ratio:.2f}), clamping to 0.5")
+            logger.warning(f"   ⚠️ Ratio too low ({ratio:.2f}), clamping to 0.5")
             ratio = 0.5
         
-        # Use multiple atempo filters if ratio > 2.0 or < 0.5
-        if ratio > 2.0:
-            # Split into multiple atempos (max 2.0 each)
-            filter_str = "atempo=2.0,atempo=2.0"  # 4x total
-        elif ratio < 0.5:
-            # Split into multiple atempos
-            filter_str = "atempo=0.5,atempo=0.5"  # 0.25x total
-        else:
-            filter_str = f"atempo={ratio}"
-        
-        if run_ffmpeg(["ffmpeg", "-i", final, "-filter:a", filter_str, "-y", adjusted], 30):
+        if run_ffmpeg(["ffmpeg", "-i", final, "-filter:a", f"atempo={ratio}", "-y", adjusted], 30):
             cleanup(final)
             final = adjusted
             final_dur = get_audio_duration(final)
             diff = abs(final_dur - video_duration)
             logger.info(f"   ✅ Adjusted: {final_dur:.2f}s (diff: {diff:.2f}s)")
     
-    if diff <= 1.0:  # Allow up to 1 second difference
+    if diff <= 2.0:
         logger.info(f"✅ PERFECT SYNC! Voice: {final_dur:.2f}s ≈ Video: {video_duration:.2f}s (±{diff:.2f}s)")
     else:
-        logger.warning(f"⚠️ Sync acceptable: Voice: {final_dur:.2f}s vs Video: {video_duration:.2f}s (±{diff:.2f}s)")
+        logger.info(f"✅ ACCEPTABLE SYNC: Voice: {final_dur:.2f}s vs Video: {video_duration:.2f}s (±{diff:.2f}s)")
     
     log_memory("voice-done")
     return final, ""
 
 # ═══════════════════════════════════════════════════════════════════════
-# CAPTIONS & VIDEO ASSEMBLY
+# VIDEO ASSEMBLY (NO CAPTIONS)
 # ═══════════════════════════════════════════════════════════════════════
-def generate_srt(script: str, duration: float) -> str:
-    """Generate SRT with natural pauses"""
-    # Split by "..." for natural pauses
-    parts = [p.strip() for p in script.split("...") if p.strip()]
-    
-    if not parts:
-        # Fallback: split by sentences
-        parts = [p.strip() + "." for p in script.split(".") if p.strip()]
-    
-    if not parts:
-        return ""
-    
-    time_per = duration / len(parts)
-    blocks = []
-    
-    for i, part in enumerate(parts):
-        start = i * time_per
-        end = start + time_per
-        
-        sh, sm, ss = int(start//3600), int((start%3600)//60), start%60
-        eh, em, es = int(end//3600), int((end%3600)//60), end%60
-        
-        blocks.append(f"{i+1}\n{sh:02d}:{sm:02d}:{ss:06.3f}".replace(".", ",") + 
-                     f" --> {eh:02d}:{em:02d}:{es:06.3f}".replace(".", ",") + f"\n{part}\n")
-    
-    return "\n".join(blocks)
-
 async def remove_audio(video_in: str, video_out: str) -> bool:
     """Remove audio"""
     success = run_ffmpeg([
@@ -3099,7 +3055,7 @@ async def remove_audio(video_in: str, video_out: str) -> bool:
 
 async def download_bgm(output: str) -> bool:
     """Download BGM"""
-    logger.info("🎵 BGM (Top 10 Royalty-Free)...")
+    logger.info("🎵 BGM...")
     log_memory("bgm-start")
     
     bgm_url = random.choice(TOP_10_BGM_URLS)
@@ -3119,56 +3075,16 @@ async def download_bgm(output: str) -> bool:
         logger.warning("⚠️ BGM error")
         return False
 
-
-async def create_final_video(silent: str, voice: str, srt: str, bgm: Optional[str], output: str) -> tuple[bool, str]:
-    """Create final video with captions and audio"""
-    logger.info("✨ Final Video...")
+async def create_final_video(silent: str, voice: str, bgm: Optional[str], output: str) -> tuple[bool, str]:
+    """Create final video - NO CAPTIONS (removed for speed)"""
+    logger.info("✨ Final Video (No Captions)...")
     log_memory("final-start")
     
-    captioned = output.replace(".mp4", "_cap.mp4")
-    srt_esc = srt.replace("\\", "\\\\").replace(":", "\\:")
-    
-    # Try golden captions
-    logger.info("   Trying GOLDEN captions (#FFD700)...")
-    caption_success = run_ffmpeg([
-        "ffmpeg", "-i", silent,
-        "-vf", f"subtitles={srt_esc}:force_style='FontName=Arial,FontSize=24,PrimaryColour=&H00FFD700,Bold=1,Outline=2,Alignment=2,MarginV=50'",
-        "-c:v", "libx264", "-crf", "26", "-preset", "ultrafast",
-        "-y", captioned
-    ], 180, "Captions-Golden")
-    
-    if caption_success and os.path.exists(captioned) and os.path.getsize(captioned) > 10000:
-        logger.info("✅ Golden captions applied")
-        cleanup(silent)
-        video_for_audio = captioned
-    else:
-        # Fallback to white
-        logger.warning("⚠️ Golden captions failed, trying WHITE...")
-        cleanup(captioned)
-        
-        caption_success = run_ffmpeg([
-            "ffmpeg", "-i", silent,
-            "-vf", f"subtitles={srt_esc}:force_style='FontName=Arial,FontSize=24,PrimaryColour=&H00FFFFFF,Bold=1,Outline=2,Alignment=2,MarginV=50'",
-            "-c:v", "libx264", "-crf", "26", "-preset", "ultrafast",
-            "-y", captioned
-        ], 180, "Captions-White")
-        
-        if caption_success and os.path.exists(captioned) and os.path.getsize(captioned) > 10000:
-            logger.info("✅ White captions applied")
-            cleanup(silent)
-            video_for_audio = captioned
-        else:
-            logger.warning("⚠️ Continuing without captions")
-            cleanup(captioned)
-            video_for_audio = silent
-    
-    cleanup(srt)
-    
-    # Mix audio with BGM
+    # Mix audio with BGM directly - NO CAPTION STEP
     if bgm and os.path.exists(bgm):
         logger.info("   Mixing voice + BGM (volume: 0.18)...")
         success = run_ffmpeg([
-            "ffmpeg", "-i", video_for_audio, "-i", voice, "-i", bgm,
+            "ffmpeg", "-i", silent, "-i", voice, "-i", bgm,
             "-filter_complex", "[1:a]volume=1.0[v];[2:a]volume=0.18[m];[v][m]amix=inputs=2:duration=first[a]",
             "-map", "0:v", "-map", "[a]",
             "-c:v", "copy", "-c:a", "aac", "-b:a", "96k",
@@ -3178,19 +3094,19 @@ async def create_final_video(silent: str, voice: str, srt: str, bgm: Optional[st
         if not success:
             logger.warning("⚠️ Mix with BGM failed, trying without...")
             success = run_ffmpeg([
-                "ffmpeg", "-i", video_for_audio, "-i", voice,
+                "ffmpeg", "-i", silent, "-i", voice,
                 "-c:v", "copy", "-c:a", "aac", "-b:a", "96k",
                 "-shortest", "-y", output
             ], 90, "Add-Voice")
     else:
         logger.info("   Adding voice only...")
         success = run_ffmpeg([
-            "ffmpeg", "-i", video_for_audio, "-i", voice,
+            "ffmpeg", "-i", silent, "-i", voice,
             "-c:v", "copy", "-c:a", "aac", "-b:a", "96k",
             "-shortest", "-y", output
         ], 90, "Add-Voice")
     
-    cleanup(video_for_audio, voice, bgm)
+    cleanup(silent, voice, bgm)
     
     if not success:
         return False, "Audio mix failed"
@@ -3260,7 +3176,7 @@ async def upload_to_youtube(video_path: str, title: str, description: str, user_
 # MAIN PIPELINE
 # ═══════════════════════════════════════════════════════════════════════
 async def process_reel(drive_url: str, user_id: str, task_id: str):
-    """Main pipeline with PERFECT voice sync"""
+    """Main pipeline with chunked voiceover generation"""
     temp_dir = None
     start_time = datetime.now()
     
@@ -3314,42 +3230,36 @@ async def process_reel(drive_url: str, user_id: str, task_id: str):
         if not segments:
             raise Exception(error or "Transcription failed")
         
-        # Generate human-like script
-        update(50, "AI script (human-like + natural pauses)...")
-        metadata = await generate_human_like_script(segments, duration)
+        # Generate concise script
+        update(50, "Generating concise script...")
+        metadata = await generate_concise_script(segments, duration)
         logger.info(f"   Title: {metadata['title']}")
         logger.info(f"   Character: {metadata['character_gender'].upper()}")
         
-        # Perfect synced voiceover
-        update(60, "Perfect voice sync (match video duration)...")
-        voice, error = await generate_perfect_synced_voiceover(metadata, temp_dir, duration)
+        # Chunked voiceover generation
+        update(60, "Generating chunked voiceover...")
+        voice, error = await generate_chunked_voiceover(metadata, temp_dir, duration)
         if not voice:
             raise Exception(error)
         
         # Remove audio
-        update(70, "Removing audio...")
+        update(75, "Removing original audio...")
         silent_video = os.path.join(temp_dir, "silent.mp4")
         if not await remove_audio(raw_video, silent_video):
             raise Exception("Remove audio failed")
         
-        # Captions
-        update(75, "Captions...")
-        srt_path = os.path.join(temp_dir, "captions.srt")
-        with open(srt_path, 'w', encoding='utf-8') as f:
-            f.write(generate_srt(metadata["script"], duration))
-        
         # BGM
-        update(80, "BGM...")
+        update(80, "Downloading BGM...")
         bgm_path = os.path.join(temp_dir, "bgm.mp3")
         bgm_success = await download_bgm(bgm_path)
         
         if not bgm_success:
             bgm_path = None
         
-        # Final video
-        update(85, "Final video...")
+        # Final video (NO CAPTIONS)
+        update(85, "Creating final video...")
         final_video = os.path.join(temp_dir, "final.mp4")
-        success, error = await create_final_video(silent_video, voice, srt_path, bgm_path, final_video)
+        success, error = await create_final_video(silent_video, voice, bgm_path, final_video)
         if not success:
             raise Exception(error)
         
@@ -3360,7 +3270,7 @@ async def process_reel(drive_url: str, user_id: str, task_id: str):
         logger.info(f"   Final: {size_mb:.1f}MB")
         
         # Upload
-        update(95, "Uploading...")
+        update(95, "Uploading to YouTube...")
         full_description = f"{metadata['description']}\n\n{' '.join(metadata['hashtags'])}"
         
         upload_result = await upload_to_youtube(final_video, metadata["title"], full_description, user_id)
@@ -3393,7 +3303,9 @@ async def process_reel(drive_url: str, user_id: str, task_id: str):
             "video_id": upload_result["video_id"],
             "video_url": upload_result["video_url"],
             "completed_at": datetime.utcnow().isoformat(),
-            "sync_mode": "perfect_sync"
+            "sync_mode": "chunked_perfect_sync",
+            "voice_id": PRIMARY_VOICE_ID,
+            "captions_applied": False
         }
         
     except Exception as e:
@@ -3480,24 +3392,21 @@ async def health_endpoint():
         "mistral_configured": bool(MISTRAL_API_KEY),
         "active_tasks": len([s for s in PROCESSING_STATUS.values() if s["status"] == "processing"]),
         "features": {
-            "voiceover_mode": "perfect_sync_optimized",
-            "human_like_script": "yes",
-            "natural_pauses": "yes (5-8 max)",
-            "sync_accuracy": "±1.0s max",
-            "voice_speed": "1.2x faster (aggressive)",
-            "max_parts": "8 (auto-merge if more)",
-            "pause_duration": "0-100ms (minimal)",
-            "speed_adjustment": "aggressive (0.5x-2.0x range)",
-            "caption_colors": "Golden → White → None",
+            "voiceover_mode": "chunked_generation",
+            "primary_voice_id": PRIMARY_VOICE_ID,
+            "chunk_size": "10 seconds",
+            "concise_script": "yes (80% word capacity)",
+            "sync_tolerance": "±2s acceptable, only adjust if >5s diff",
+            "captions_applied": "no (removed for speed)",
             "bgm_volume": "0.18",
             "bgm_tracks": len(TOP_10_BGM_URLS),
-            "seo_optimization": "Title + Description + 65+ Keywords + 7-9 Hashtags"
+            "seo_optimization": "yes"
         }
     })
 
 @router.get("/api/gdrive-reels/bgm-list")
 async def bgm_list_endpoint():
-    """Get list of top 10 BGM tracks"""
+    """Get list of BGM tracks"""
     return JSONResponse(content={
         "success": True,
         "total_tracks": len(TOP_10_BGM_URLS),
@@ -3514,15 +3423,14 @@ async def bgm_list_endpoint():
 async def initialize():
     """Startup"""
     logger.info("="*80)
-    logger.info("🚀 GDRIVE REELS (OPTIMIZED PERFECT SYNC)")
+    logger.info("🚀 GDRIVE REELS (CHUNKED PERFECT SYNC)")
     logger.info("="*80)
-    logger.info("✅ LIMITED pauses (5-8 max, NOT 29!)")
-    logger.info("✅ Auto-merge if > 8 parts")
-    logger.info("✅ Aggressive speed adjustment (0.5x-2.0x)")
-    logger.info("✅ Minimal pause gaps (0-100ms)")
-    logger.info("✅ Perfect sync: 29s video = 29-30s voice (±1.0s max)")
-    logger.info("✅ Human-like conversational script")
-    logger.info("✅ SEO: Title + Description + 65+ Keywords")
+    logger.info(f"✅ PRIMARY Voice ID: {PRIMARY_VOICE_ID}")
+    logger.info("✅ Chunked generation (10s per chunk)")
+    logger.info("✅ Concise scripts (80% word capacity)")
+    logger.info("✅ Perfect sync: ±2s tolerance, adjust only if >5s")
+    logger.info("✅ NO CAPTIONS (removed for speed)")
+    logger.info("✅ SEO optimized titles & descriptions")
     logger.info("="*80)
     
     if GROQ_API_KEY:
@@ -3531,12 +3439,12 @@ async def initialize():
         logger.error("❌ No GROQ_SPEECH_API")
     
     if ELEVENLABS_API_KEY and len(ELEVENLABS_API_KEY) > 20:
-        logger.info("✅ ElevenLabs configured (Priority)")
+        logger.info("✅ ElevenLabs configured (PRIMARY)")
     else:
         logger.warning("⚠️ ElevenLabs not configured")
     
     if MISTRAL_API_KEY:
-        logger.info("✅ Mistral AI configured (Human-like script)")
+        logger.info("✅ Mistral AI configured (Concise scripts)")
     else:
         logger.warning("⚠️ Mistral AI not configured")
     
