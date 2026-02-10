@@ -2313,6 +2313,8 @@ gdrive_reels.py - PERFECT VOICE SYNC WITH CHUNK-BASED GENERATION
 ✅ Fixed voice ID: FZkK3TvQ0pjyDmT8fzIW (Primary ElevenLabs)
 ✅ Break video into equal 10-second chunks
 ✅ Generate voiceover per chunk for perfect sync
+✅ LOUD, CLEAR, NARRATION-STYLE voiceover
+✅ Roman Hindi/Hinglish script (no fumbles)
 ✅ 30s video = 30s voiceover (±2s tolerance is fine)
 ✅ Speed adjustment only if difference > 5s
 ✅ NO CAPTIONS (removed for speed)
@@ -2662,98 +2664,117 @@ def detect_character_gender(segments: List[Dict]) -> str:
         return "male"
 
 # ═══════════════════════════════════════════════════════════════════════
-# CONCISE SCRIPT GENERATION - FEWER WORDS TO FIT IN VOICEOVER
+# CONCISE SCRIPT GENERATION - ROMAN HINDI/HINGLISH FOR TTS
 # ═══════════════════════════════════════════════════════════════════════
 async def generate_concise_script(segments: List[Dict], duration: float) -> dict:
-    """Generate CONCISE script that fits perfectly in voiceover duration"""
-    logger.info("🤖 AI Script (Concise + Fits Duration)...")
+    """Generate CONCISE TTS-friendly script in ROMAN HINDI/HINGLISH"""
+    logger.info("🤖 AI Script (Roman Hindi + TTS Optimized)...")
     log_memory("ai-start")
-    
-    # Combine segments for full text
+
+    # Combine transcript
     transcript = " ".join([seg["text"] for seg in segments])
-    
-    # Calculate REDUCED word count (20% less to ensure it fits)
+
+    # Speaking rate calculation
     word_count = len(transcript.split())
     speaking_rate = word_count / duration if duration > 0 else 2.5
-    
-    # Reduce target by 20% to ensure voiceover doesn't exceed video length
-    target_words = int(duration * speaking_rate * 0.8)
-    
-    logger.info(f"   Original: {word_count} words")
-    logger.info(f"   Target: {target_words} words (80% of capacity)")
-    logger.info(f"   Speaking rate: {speaking_rate:.2f} words/sec")
-    
-    # CTA - shorter version
-    cta = "Like, Subscribe aur Share karein!"
-    
-    # Detect character
+
+    # Keep buffer so VO never exceeds video
+    target_words = int(duration * speaking_rate * 0.75)  # Reduced to 75% for safety
+
+    logger.info(f"   Original words: {word_count}")
+    logger.info(f"   Target words: {target_words}")
+    logger.info(f"   Speaking rate: {speaking_rate:.2f}")
+
+    cta = "Like Subscribe aur Share karein"
+
     character_gender = detect_character_gender(segments)
-    
-    # Try Mistral AI with CONCISE PROMPT
+
     if MISTRAL_API_KEY:
         try:
-            logger.info("   Trying Mistral AI for concise script...")
-            
-            # CONCISE PROMPT - STRICT WORD LIMIT
-            prompt = f"""Generate a CONCISE, NATURAL Hindi narration that fits EXACTLY in the given duration:
+            logger.info("   Using Mistral — Roman Hindi TTS optimized")
 
-Original Transcript: {transcript}
-Video Duration: {duration} seconds
-STRICT MAXIMUM WORDS: {target_words} words
-Speaking Rate: {speaking_rate:.2f} words/second
+            prompt = f"""Generate a SHORT, HIGH-IMPACT Hindi narration for AI voiceover in ROMAN HINDI/HINGLISH format.
 
-CRITICAL REQUIREMENTS:
+CRITICAL: Script must be in ROMAN HINDI (Latin script), NOT Devanagari.
 
-1. **STRICT WORD LIMIT**:
-   - Your script MUST be MAXIMUM {target_words} words
-   - Count every word carefully
-   - If you exceed {target_words} words, the voiceover will be too long
-   - Better to use {target_words - 10} words to be safe
+✅ CORRECT EXAMPLES:
+- "Aaj main aapko ek ajeeb kahani sunane jaa raha hoon"
+- "Ek baar ki baat hai ek gaon mein"
+- "Suniye ye rochak ghatna"
 
-2. **CONCISE STORYTELLING**:
-   - Get to the point quickly
-   - Use short, punchy sentences
-   - Remove unnecessary words
-   - No long descriptions
-   - Every word must add value
+❌ WRONG (Devanagari):
+- "आज मैं आपको एक अजीब कहानी सुनाने जा रहा हूं"
 
-3. **NATURAL HINDI**:
-   - Conversational tone
-   - Mix Hindi with Hinglish
-   - Use simple, everyday words
-   - Natural flow
+TTS VOICE OPTIMIZATION RULES (CRITICAL):
 
-4. **STRUCTURE**:
-   - Quick hook (3-5 words): "Suniye ek baat..."
-   - Main point (concise, direct)
-   - Quick conclusion
-   - Short CTA: "{cta}"
+1. PRONUNCIATION:
+   - Use simple spoken words only
+   - Avoid difficult/poetic vocabulary
+   - Avoid tongue twisters
+   - Avoid complex names (simplify if needed)
+   
+2. SENTENCE STRUCTURE:
+   - Short sentences (under 10 words preferred)
+   - Clear, direct statements
+   - Natural speech rhythm
+   
+3. NARRATION STYLE:
+   - LOUD and DRAMATIC storytelling tone
+   - Emotional and engaging
+   - Use spoken cues: "socho", "achanak", "tabhi", "uske baad", "phir kya hua"
+   - Build suspense and interest
+   
+4. PAUSES:
+   - Use "..." for dramatic pauses (MAX 2-3 times only)
+   - Example: "Ek baar ki baat hai... ek aadmi tha... jo bahut gareeb tha"
+   
+5. FORMATTING:
+   - No special symbols or brackets
+   - No asterisks or quotation marks mid-sentence
+   - Clean, speakable text only
 
-5. **NO LONG PAUSES**: Use "..." only 2-3 times maximum
+TRANSCRIPT REFERENCE:
+{transcript}
 
-SEO REQUIREMENTS:
+VIDEO DURATION: {duration} seconds
+STRICT MAX WORDS: {target_words}
 
-6. Generate a VIRAL Hinglish TITLE (max 100 chars):
-   - Power words: SHOCKING, AMAZING, SECRET, MUST WATCH
-   - Emojis for appeal
-   - Example: "Yeh Sach Jaankar Shocked Ho Jaoge! 😱 #Shorts"
+STRUCTURE:
 
-7. Write Hinglish DESCRIPTION (2-3 short paragraphs)
+1. HOOK (3-6 words): 
+   - "Suniye ye ajeeb baat"
+   - "Aaj main bataunga ek raaz"
+   
+2. MAIN STORY (concise, emotional):
+   - Get to point quickly
+   - Maintain drama
+   - Clear narrative flow
+   
+3. KEY INSIGHT/TWIST:
+   - One strong takeaway
+   
+4. STRONG CTA:
+   - "{cta}"
 
-8. Generate 60-70 SEO KEYWORDS (vertical format, one per line)
+STRICT RULES:
+- Do NOT exceed {target_words} words
+- Better to use {target_words - 10} words for safety
+- Count every word including CTA
 
-9. Generate 8-10 HASHTAGS (vertical format, one per line)
+SEO OUTPUT:
 
-Generate in JSON format:
+Return ONLY valid JSON:
+
 {{
-    "script": "Concise natural Hindi script with maximum {target_words} words including {cta}",
-    "word_count": actual_word_count_number,
-    "title": "Viral Hinglish title with emojis",
-    "description": "Description paragraph 1\\n\\nDescription paragraph 2\\n\\nkeywords\\n\\nhashtags",
-    "hashtags": ["#Shorts", "#Viral", "#Hindi", "#Trending", "#MustWatch"],
-    "story_id": "unique-id"
+  "script": "roman hindi narration under {target_words} words with dramatic narration style",
+  "word_count": actual_number,
+  "title": "Viral Hinglish Title with Emoji 😱🔥 | Max 100 chars",
+  "description": "Hinglish paragraph 1\\n\\nHinglish paragraph 2 with keywords",
+  "keywords": ["keyword1", "keyword2", "keyword3"],
+  "hashtags": ["#Shorts", "#Viral", "#Hindi", "#Trending", "#MustWatch"],
+  "story_id": "unique-id"
 }}"""
-            
+
             async with httpx.AsyncClient(timeout=60) as client:
                 resp = await client.post(
                     "https://api.mistral.ai/v1/chat/completions",
@@ -2763,12 +2784,12 @@ Generate in JSON format:
                         "messages": [
                             {
                                 "role": "system",
-                                "content": "You are a concise storyteller. Create SHORT, NATURAL Hindi scripts that fit perfectly in the given time. STRICT word limits. Output ONLY valid JSON."
+                                "content": "You are a professional storyteller creating ROMAN HINDI scripts for TTS. Write LOUD, DRAMATIC narrations in Latin script (NOT Devanagari). Focus on clear pronunciation and engaging delivery. Output ONLY valid JSON."
                             },
                             {"role": "user", "content": prompt}
                         ],
                         "temperature": 0.7,
-                        "max_tokens": 1000
+                        "max_tokens": 1200
                     }
                 )
                 
@@ -2791,22 +2812,24 @@ Generate in JSON format:
                         
                         # If too many words, truncate
                         if actual_words > target_words:
-                            logger.warning(f"   ⚠️ Script too long, truncating...")
+                            logger.warning(f"   ⚠️ Script too long ({actual_words} words), truncating to {target_words}...")
                             words = script_text.split()
                             script_text = " ".join(words[:target_words - 5]) + " " + cta
                         
                         # Ensure CTA
-                        if "LIKE" not in script_text.upper() and "SUBSCRIBE" not in script_text.upper():
+                        if "like" not in script_text.lower() or "subscribe" not in script_text.lower():
                             script_text += " " + cta
                         
                         title = data.get("title", "Amazing Story 🔥 #Shorts")
-                        description = data.get("description", f"{transcript[:200]}\\n\\nKeywords: hindi story, viral video")
+                        description = data.get("description", f"{transcript[:200]}\n\nKeywords: hindi story, viral video")
+                        keywords = data.get("keywords", ["hindi story", "viral video", "trending shorts"])
                         hashtags = data.get("hashtags", ["#Shorts", "#Viral", "#Hindi", "#Trending"])
                         story_id = data.get("story_id", str(uuid.uuid4())[:8])
                         
-                        logger.info(f"✅ Concise script generated")
+                        logger.info(f"✅ Roman Hindi script generated")
                         logger.info(f"   Title: {title}")
-                        logger.info(f"   Script: {len(script_text.split())} words")
+                        logger.info(f"   Script words: {len(script_text.split())}")
+                        logger.info(f"   Preview: {script_text[:80]}...")
                         log_memory("ai-done")
                         
                         return {
@@ -2815,6 +2838,7 @@ Generate in JSON format:
                             "character_gender": character_gender,
                             "title": title,
                             "description": description,
+                            "keywords": keywords,
                             "hashtags": hashtags,
                             "story_id": story_id,
                             "speaking_rate": speaking_rate
@@ -2840,17 +2864,18 @@ Generate in JSON format:
         "character_gender": character_gender,
         "title": title,
         "description": description,
+        "keywords": ["hindi story", "viral video"],
         "hashtags": hashtags,
         "story_id": str(uuid.uuid4())[:8],
         "speaking_rate": speaking_rate
     }
 
 # ═══════════════════════════════════════════════════════════════════════
-# CHUNK-BASED VOICEOVER GENERATION - PERFECT SYNC
+# LOUD, CLEAR NARRATION-STYLE VOICEOVER GENERATION
 # ═══════════════════════════════════════════════════════════════════════
 async def generate_chunked_voiceover(metadata: dict, output_dir: str, video_duration: float) -> Tuple[Optional[str], str]:
-    """Generate voiceover in equal chunks matching video duration"""
-    logger.info("🎙️ Chunked Voiceover Generation...")
+    """Generate LOUD, CLEAR narration-style voiceover in chunks"""
+    logger.info("🎙️ Chunked Voiceover (LOUD + CLEAR + NARRATION)...")
     log_memory("voice-start")
     
     script = metadata.get("script", "")
@@ -2859,7 +2884,7 @@ async def generate_chunked_voiceover(metadata: dict, output_dir: str, video_dura
     # ALWAYS USE PRIMARY VOICE ID
     voice_id = PRIMARY_VOICE_ID
     
-    logger.info(f"   Voice ID: {voice_id} (PRIMARY)")
+    logger.info(f"   Voice ID: {voice_id} (PRIMARY - Narration Mode)")
     logger.info(f"   Video duration: {video_duration:.2f}s")
     logger.info(f"   Script length: {len(script.split())} words")
     
@@ -2894,12 +2919,13 @@ async def generate_chunked_voiceover(metadata: dict, output_dir: str, video_dura
     for i, chunk_text in enumerate(script_chunks):
         chunk_file = os.path.join(output_dir, f"chunk_{i:03d}.mp3")
         temp_file = chunk_file.replace(".mp3", "_temp.mp3")
+        enhanced_file = chunk_file.replace(".mp3", "_enhanced.mp3")
         
         logger.info(f"   Generating chunk {i+1}/{len(script_chunks)}...")
         
         success = False
         
-        # Try ElevenLabs with PRIMARY VOICE ID
+        # Try ElevenLabs with PRIMARY VOICE ID + NARRATION SETTINGS
         if ELEVENLABS_API_KEY and len(ELEVENLABS_API_KEY) > 20:
             try:
                 async with httpx.AsyncClient(timeout=60) as client:
@@ -2910,10 +2936,10 @@ async def generate_chunked_voiceover(metadata: dict, output_dir: str, video_dura
                             "text": chunk_text,
                             "model_id": "eleven_multilingual_v2",
                             "voice_settings": {
-                                "stability": 0.5,
-                                "similarity_boost": 0.75,
-                                "style": 0.5,
-                                "use_speaker_boost": True
+                                "stability": 0.65,  # Higher for clear, consistent narration
+                                "similarity_boost": 0.85,  # Higher for voice clarity
+                                "style": 0.75,  # Higher for expressive narration
+                                "use_speaker_boost": True  # Boost for louder output
                             }
                         }
                     )
@@ -2922,7 +2948,27 @@ async def generate_chunked_voiceover(metadata: dict, output_dir: str, video_dura
                         with open(temp_file, 'wb') as f:
                             f.write(resp.content)
                         
-                        actual_dur = get_audio_duration(temp_file)
+                        # ENHANCE AUDIO: Loudness normalization + clarity boost
+                        logger.info(f"   🔊 Enhancing audio (loudness + clarity)...")
+                        
+                        # Apply loudnorm filter for professional loudness + bass/treble boost for clarity
+                        enhance_success = run_ffmpeg([
+                            "ffmpeg", "-i", temp_file,
+                            "-filter:a", 
+                            "loudnorm=I=-14:TP=-1.5:LRA=11,equalizer=f=100:width_type=h:width=200:g=3,equalizer=f=3000:width_type=h:width=2000:g=2",
+                            "-ar", "44100",  # Higher sample rate for clarity
+                            "-y", enhanced_file
+                        ], 30, f"Enhance-Chunk-{i+1}")
+                        
+                        if enhance_success:
+                            cleanup(temp_file)
+                            audio_file = enhanced_file
+                        else:
+                            logger.warning(f"   ⚠️ Enhancement failed, using original")
+                            cleanup(enhanced_file)
+                            audio_file = temp_file
+                        
+                        actual_dur = get_audio_duration(audio_file)
                         if actual_dur > 0:
                             # Adjust speed to match chunk duration
                             target_dur = chunk_duration
@@ -2931,20 +2977,20 @@ async def generate_chunked_voiceover(metadata: dict, output_dir: str, video_dura
                             # Clamp ratio
                             ratio = min(max(ratio, 0.5), 2.0)
                             
-                            if run_ffmpeg(["ffmpeg", "-i", temp_file, "-filter:a", f"atempo={ratio}", "-y", chunk_file], 30):
-                                cleanup(temp_file)
+                            if run_ffmpeg(["ffmpeg", "-i", audio_file, "-filter:a", f"atempo={ratio}", "-y", chunk_file], 30):
+                                cleanup(audio_file)
                                 final_dur = get_audio_duration(chunk_file)
-                                logger.info(f"   ✅ Chunk {i+1}: {final_dur:.2f}s (target: {target_dur:.2f}s)")
+                                logger.info(f"   ✅ Chunk {i+1}: {final_dur:.2f}s LOUD+CLEAR (target: {target_dur:.2f}s)")
                                 chunk_files.append(chunk_file)
                                 success = True
                         
-                        cleanup(temp_file)
+                        cleanup(temp_file, enhanced_file, audio_file)
                         
                     if resp.status_code == 429:
                         await asyncio.sleep(2)
             except Exception as e:
                 logger.warning(f"   ⚠️ Chunk {i+1} - ElevenLabs error: {e}")
-                cleanup(temp_file)
+                cleanup(temp_file, enhanced_file)
         
         # Fallback to Edge TTS
         if not success:
@@ -2952,25 +2998,40 @@ async def generate_chunked_voiceover(metadata: dict, output_dir: str, video_dura
                 import edge_tts
                 voice = EDGE_TTS_VOICES[gender][0]
                 
-                await edge_tts.Communicate(chunk_text, voice).save(temp_file)
+                # Use higher pitch and rate for narration
+                await edge_tts.Communicate(chunk_text, voice, rate="+10%", pitch="+5Hz").save(temp_file)
                 
-                actual_dur = get_audio_duration(temp_file)
+                # Enhance Edge TTS output too
+                enhance_success = run_ffmpeg([
+                    "ffmpeg", "-i", temp_file,
+                    "-filter:a", "loudnorm=I=-14:TP=-1.5:LRA=11,equalizer=f=100:width_type=h:width=200:g=2",
+                    "-ar", "44100",
+                    "-y", enhanced_file
+                ], 30)
+                
+                if enhance_success:
+                    cleanup(temp_file)
+                    audio_file = enhanced_file
+                else:
+                    audio_file = temp_file
+                
+                actual_dur = get_audio_duration(audio_file)
                 if actual_dur > 0:
                     target_dur = chunk_duration
                     ratio = actual_dur / target_dur
                     ratio = min(max(ratio, 0.5), 2.0)
                     
-                    if run_ffmpeg(["ffmpeg", "-i", temp_file, "-filter:a", f"atempo={ratio}", "-y", chunk_file], 30):
-                        cleanup(temp_file)
+                    if run_ffmpeg(["ffmpeg", "-i", audio_file, "-filter:a", f"atempo={ratio}", "-y", chunk_file], 30):
+                        cleanup(audio_file)
                         final_dur = get_audio_duration(chunk_file)
-                        logger.info(f"   ✅ Chunk {i+1}: {final_dur:.2f}s - Edge TTS")
+                        logger.info(f"   ✅ Chunk {i+1}: {final_dur:.2f}s - Edge TTS ENHANCED")
                         chunk_files.append(chunk_file)
                         success = True
                 
-                cleanup(temp_file)
+                cleanup(temp_file, enhanced_file, audio_file)
             except Exception as e:
                 logger.warning(f"   ⚠️ Chunk {i+1} - Edge TTS error: {e}")
-                cleanup(temp_file)
+                cleanup(temp_file, enhanced_file)
         
         if not success:
             logger.error(f"   ❌ Chunk {i+1} failed")
@@ -2982,7 +3043,7 @@ async def generate_chunked_voiceover(metadata: dict, output_dir: str, video_dura
     if not chunk_files:
         return None, "All chunks failed"
     
-    logger.info(f"   ✅ Generated {len(chunk_files)}/{len(script_chunks)} chunks")
+    logger.info(f"   ✅ Generated {len(chunk_files)}/{len(script_chunks)} LOUD+CLEAR chunks")
     
     # Concatenate chunks
     final = os.path.join(output_dir, "voice.mp3")
@@ -3008,7 +3069,7 @@ async def generate_chunked_voiceover(metadata: dict, output_dir: str, video_dura
     
     logger.info(f"   🎵 Voiceover: {final_dur:.2f}s, Video: {video_duration:.2f}s, Diff: {diff:.2f}s")
     
-    # Only adjust if difference > 5 seconds (allow ±2s tolerance as requested)
+    # Only adjust if difference > 5 seconds (allow ±2s tolerance)
     if diff > 5.0:
         logger.info(f"   ⚠️ Large difference detected, adjusting speed...")
         adjusted = os.path.join(output_dir, "voice_adj.mp3")
@@ -3080,14 +3141,14 @@ async def create_final_video(silent: str, voice: str, bgm: Optional[str], output
     logger.info("✨ Final Video (No Captions)...")
     log_memory("final-start")
     
-    # Mix audio with BGM directly - NO CAPTION STEP
+    # Mix audio with BGM - VOICE LOUDER than BGM
     if bgm and os.path.exists(bgm):
-        logger.info("   Mixing voice + BGM (volume: 0.18)...")
+        logger.info("   Mixing LOUD voice + BGM (voice:1.0, bgm:0.15)...")
         success = run_ffmpeg([
             "ffmpeg", "-i", silent, "-i", voice, "-i", bgm,
-            "-filter_complex", "[1:a]volume=1.0[v];[2:a]volume=0.18[m];[v][m]amix=inputs=2:duration=first[a]",
+            "-filter_complex", "[1:a]volume=1.0[v];[2:a]volume=0.15[m];[v][m]amix=inputs=2:duration=first[a]",
             "-map", "0:v", "-map", "[a]",
-            "-c:v", "copy", "-c:a", "aac", "-b:a", "96k",
+            "-c:v", "copy", "-c:a", "aac", "-b:a", "128k",
             "-shortest", "-y", output
         ], 120, "Mix-Voice-BGM")
         
@@ -3095,14 +3156,14 @@ async def create_final_video(silent: str, voice: str, bgm: Optional[str], output
             logger.warning("⚠️ Mix with BGM failed, trying without...")
             success = run_ffmpeg([
                 "ffmpeg", "-i", silent, "-i", voice,
-                "-c:v", "copy", "-c:a", "aac", "-b:a", "96k",
+                "-c:v", "copy", "-c:a", "aac", "-b:a", "128k",
                 "-shortest", "-y", output
             ], 90, "Add-Voice")
     else:
-        logger.info("   Adding voice only...")
+        logger.info("   Adding LOUD voice only...")
         success = run_ffmpeg([
             "ffmpeg", "-i", silent, "-i", voice,
-            "-c:v", "copy", "-c:a", "aac", "-b:a", "96k",
+            "-c:v", "copy", "-c:a", "aac", "-b:a", "128k",
             "-shortest", "-y", output
         ], 90, "Add-Voice")
     
@@ -3176,7 +3237,7 @@ async def upload_to_youtube(video_path: str, title: str, description: str, user_
 # MAIN PIPELINE
 # ═══════════════════════════════════════════════════════════════════════
 async def process_reel(drive_url: str, user_id: str, task_id: str):
-    """Main pipeline with chunked voiceover generation"""
+    """Main pipeline with LOUD, CLEAR narration voiceover"""
     temp_dir = None
     start_time = datetime.now()
     
@@ -3230,14 +3291,14 @@ async def process_reel(drive_url: str, user_id: str, task_id: str):
         if not segments:
             raise Exception(error or "Transcription failed")
         
-        # Generate concise script
-        update(50, "Generating concise script...")
+        # Generate Roman Hindi script
+        update(50, "Generating Roman Hindi script...")
         metadata = await generate_concise_script(segments, duration)
         logger.info(f"   Title: {metadata['title']}")
         logger.info(f"   Character: {metadata['character_gender'].upper()}")
         
-        # Chunked voiceover generation
-        update(60, "Generating chunked voiceover...")
+        # LOUD, CLEAR narration voiceover
+        update(60, "Generating LOUD+CLEAR voiceover...")
         voice, error = await generate_chunked_voiceover(metadata, temp_dir, duration)
         if not voice:
             raise Exception(error)
@@ -3256,7 +3317,7 @@ async def process_reel(drive_url: str, user_id: str, task_id: str):
         if not bgm_success:
             bgm_path = None
         
-        # Final video (NO CAPTIONS)
+        # Final video
         update(85, "Creating final video...")
         final_video = os.path.join(temp_dir, "final.mp4")
         success, error = await create_final_video(silent_video, voice, bgm_path, final_video)
@@ -3303,8 +3364,9 @@ async def process_reel(drive_url: str, user_id: str, task_id: str):
             "video_id": upload_result["video_id"],
             "video_url": upload_result["video_url"],
             "completed_at": datetime.utcnow().isoformat(),
-            "sync_mode": "chunked_perfect_sync",
+            "sync_mode": "chunked_loud_clear_narration",
             "voice_id": PRIMARY_VOICE_ID,
+            "voiceover_style": "loud_clear_dramatic",
             "captions_applied": False
         }
         
@@ -3392,15 +3454,18 @@ async def health_endpoint():
         "mistral_configured": bool(MISTRAL_API_KEY),
         "active_tasks": len([s for s in PROCESSING_STATUS.values() if s["status"] == "processing"]),
         "features": {
-            "voiceover_mode": "chunked_generation",
+            "voiceover_mode": "loud_clear_narration",
             "primary_voice_id": PRIMARY_VOICE_ID,
+            "voice_settings": "stability:0.65, similarity:0.85, style:0.75",
+            "audio_enhancement": "loudnorm + EQ boost",
+            "script_format": "roman_hindi_hinglish",
             "chunk_size": "10 seconds",
-            "concise_script": "yes (80% word capacity)",
-            "sync_tolerance": "±2s acceptable, only adjust if >5s diff",
-            "captions_applied": "no (removed for speed)",
-            "bgm_volume": "0.18",
-            "bgm_tracks": len(TOP_10_BGM_URLS),
-            "seo_optimization": "yes"
+            "target_words": "75% capacity",
+            "sync_tolerance": "±2s acceptable, adjust if >5s",
+            "captions": "disabled (speed optimization)",
+            "bgm_volume": "0.15 (voice priority)",
+            "audio_bitrate": "128k",
+            "bgm_tracks": len(TOP_10_BGM_URLS)
         }
     })
 
@@ -3423,14 +3488,15 @@ async def bgm_list_endpoint():
 async def initialize():
     """Startup"""
     logger.info("="*80)
-    logger.info("🚀 GDRIVE REELS (CHUNKED PERFECT SYNC)")
+    logger.info("🚀 GDRIVE REELS (LOUD+CLEAR NARRATION)")
     logger.info("="*80)
-    logger.info(f"✅ PRIMARY Voice ID: {PRIMARY_VOICE_ID}")
-    logger.info("✅ Chunked generation (10s per chunk)")
-    logger.info("✅ Concise scripts (80% word capacity)")
-    logger.info("✅ Perfect sync: ±2s tolerance, adjust only if >5s")
-    logger.info("✅ NO CAPTIONS (removed for speed)")
-    logger.info("✅ SEO optimized titles & descriptions")
+    logger.info(f"✅ PRIMARY Voice: {PRIMARY_VOICE_ID}")
+    logger.info("✅ Voiceover: LOUD, CLEAR, DRAMATIC narration")
+    logger.info("✅ Script: Roman Hindi/Hinglish (no fumbles)")
+    logger.info("✅ Audio: Loudness normalized + EQ enhanced")
+    logger.info("✅ Chunked: 10s chunks for perfect sync")
+    logger.info("✅ Word limit: 75% capacity (safety buffer)")
+    logger.info("✅ NO CAPTIONS (speed optimized)")
     logger.info("="*80)
     
     if GROQ_API_KEY:
@@ -3444,7 +3510,7 @@ async def initialize():
         logger.warning("⚠️ ElevenLabs not configured")
     
     if MISTRAL_API_KEY:
-        logger.info("✅ Mistral AI configured (Concise scripts)")
+        logger.info("✅ Mistral AI configured (Roman Hindi)")
     else:
         logger.warning("⚠️ Mistral AI not configured")
     
