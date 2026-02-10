@@ -2700,69 +2700,81 @@ async def generate_concise_script(segments: List[Dict], duration: float) -> dict
             logger.info("   Using Mistral — Transcript Preserve Mode")
 
             # prompt = f"""
-            prompt = f"""Generate a HUMAN-LIKE, CONVERSATIONAL Hindi narration for AI voiceover.
+            # prompt = f"""Generate a HUMAN-LIKE, CONVERSATIONAL Hindi narration for AI voiceover.
 
-CRITICAL SCRIPT FORMAT:
-- Write ONLY in ROMAN HINDI / HINGLISH (Latin letters)
-- Never use Devanagari
-- Must sound natural when spoken by ElevenLabs Hindi voice
-- Preserve transcript meaning closely (no heavy rewrite)
+            prompt = f"""You are a TTS TRANSCRIPT NORMALIZER — NOT a story writer.
+
+TASK:
+Convert transcript into ElevenLabs-friendly Roman Hindi voiceover text.
+
+STRICT TRANSCRIPT LOCK RULES:
+
+- Preserve original wording and meaning
+- Keep at least 95 percent words SAME
+- Do NOT rewrite sentences
+- Do NOT paraphrase
+- Do NOT summarize
+- Do NOT add new ideas
+- Do NOT change sentence order
+
+ONLY ALLOWED CHANGES:
+
+- Convert Devanagari → Roman Hindi
+- Fix spacing
+- Break long sentences for breathing
+- Replace hard pronunciation words with simpler spoken form
+- Add "..." pause markers (max 3)
+- Minor grammar smoothing only if needed for speech
+
+PRONUNCIATION LOCK (CRITICAL):
+
+Never change these forms incorrectly:
+
+usse → must stay "usse"
+usne → must stay "usne"
+peeche → must stay "peeche"
+phir → must stay "phir"
+kyon → must stay "kyon"
+
+Never output:
+ush ❌
+usnay ❌
+pichey ❌
+firr ❌
+
+TTS SAFETY:
+
+- Use standard Roman Hindi spelling
+- No Hinglish slang mutation
+- No phonetic shortcuts
+- No decorative punctuation
+- No emojis inside script
+- No brackets
 
 INPUT TRANSCRIPT:
 {transcript}
 
-VIDEO DURATION: {duration} seconds
+VIDEO DURATION: {duration}
 TARGET WORDS: {target_words}
 SPEAKING RATE: {speaking_rate:.2f}
 
-VOICEOVER RULES (VERY IMPORTANT):
-
-1. TTS FRIENDLY:
-- Simple spoken words only
-- No difficult Sanskrit/Urdu vocabulary
-- No tongue twisters
-- No complex names
-- Sentence length under 12 words preferred
-
-2. HUMAN SPEECH STYLE:
-- Conversational tone
-- Use Hinglish mix naturally
-- Add light emotion words: socho, dekho, achanak, tabhi
-- Use engaging questions sometimes: "kya aap jaante ho?"
-
-3. NATURAL PAUSES:
-- Use "..." for dramatic pauses
-- Max 3–4 times only
-- Use before reveal moments
-Example:
-"Ek raat... kuch ajeeb hua"
-
-4. RHYTHM:
-- Mix short + medium sentences
-- No comma-heavy text
-- No robotic lists
-
-5. STRICT LIMIT:
-- Do NOT exceed {target_words} words
-- Keep flow tight for duration fit
-
-ENDING CTA (must include at end):
+CTA MUST BE ADDED AT END:
 {cta}
 
-SEO OUTPUT ALSO NEEDED:
-
-Return ONLY valid JSON:
+Return ONLY JSON:
 
 {{
-  "script": "roman hindi conversational narration with pauses ... ending with CTA",
-  "title": "Viral Hinglish Title with Emoji 😱🔥",
+  "script": "roman hindi normalized transcript for TTS",
+  "word_count": number,
+  "title": "Viral Hinglish Title 😱",
   "description": "2 short hinglish paragraphs",
-  "keywords": ["keyword1","keyword2","keyword3"],
-  "hashtags": ["#Shorts","#Viral","#Hindi","#Trending"],
+  "keywords": ["k1","k2","k3"],
+  "hashtags": ["#Shorts","#Viral","#Hindi"],
   "story_id": "unique-id",
   "speaking_rate": {speaking_rate}
 }}
 """
+
 
 
             # ---- Your Mistral API call continues below ----
