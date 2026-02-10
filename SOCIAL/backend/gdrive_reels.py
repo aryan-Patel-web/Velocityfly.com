@@ -2921,11 +2921,11 @@ async def generate_perfect_synced_voiceover(metadata: dict, output_dir: str, vid
                         
                         cleanup(temp_file)
                         
-                        if resp.status_code == 429:
-                            await asyncio.sleep(2)
-                except Exception as e:
-                    logger.warning(f"   ⚠️ Part {i+1} - ElevenLabs error: {e}")
-                    cleanup(temp_file)
+                    if resp.status_code == 429:
+                        await asyncio.sleep(2)
+            except Exception as e:
+                logger.warning(f"   ⚠️ Part {i+1} - ElevenLabs error: {e}")
+                cleanup(temp_file)
         
         # Fallback to Edge TTS
         if not success:
