@@ -97,7 +97,7 @@ BGM_VOLUME = 0.40  # 50% volume
 
 CAPTION_EMOJIS = ["😺", "🐱", "😹", "😼", "🦁", "💪", "🔥", "✨", "💯", "👀", "🎉", "❤️", "😂", "🤣", "😍"]
 
-ELEVENLABS_INTRO_VOICES = ["FZkK3TvQ0pjyDmT8fzIW", "MwUdldmtb1Qt7mDEbKM3", "ryIIztHPLYSJ74ueXxnO"]
+ELEVENLABS_INTRO_VOICES = ["FZkK3TvQ0pjyDmT8fzIW"]
 EDGE_TTS_VOICES = ["hi-IN-MadhurNeural", "hi-IN-SwaraNeural"]
 
 DOUYIN_HEADERS = {

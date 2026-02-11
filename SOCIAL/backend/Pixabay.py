@@ -401,7 +401,7 @@ Rules:
 6. For space: specific phenomena, planets, celestial objects
 7. For nature: specific locations, animals, landscapes
 
-Example output: "BMW M5 racing, luxury sports car, supercar details, exotic car interior"
+Example output: "BMW M5 racing, luxury sports car, hypercar , supercar details, exotic car interior"
 
 Generate keywords:"""
         
