@@ -2,7 +2,7 @@
 gdrive_food_hack_ENHANCED.py - FOOD HACK AI VIDEO PROCESSOR (RENDER-OPTIMIZED)
 ===================================================================
 ✅ Multi-character AI voices (ElevenLabs 3-4 voices)
-✅ 1.155x voiceover speed for all TTS platforms
+✅ 1.1x voiceover speed for all TTS platforms
 ✅ Trending kids BGM (ringtone style) at 10-20% volume
 ✅ Live captions with multiple open-source libraries (fallback system)
 ✅ Emotional connection: "Bye bye mere dosto" in every script
@@ -522,7 +522,7 @@ Generate in JSON format:
 
 async def generate_multi_character_voiceover(characters: List[Dict], output: str) -> tuple[bool, str]:
     """Generate voiceover with ElevenLabs + Edge TTS fallback"""
-    logger.info(f"🎙️ Multi-Character Voiceover ({len(characters)} characters, 1.155x speed)...")
+    logger.info(f"🎙️ Multi-Character Voiceover ({len(characters)} characters, 1.1x speed)...")
     log_memory("voice-start")
     
     # METHOD 1: Try ElevenLabs
@@ -554,7 +554,7 @@ async def generate_multi_character_voiceover(characters: List[Dict], output: str
                                 f.write(resp.content)
                             
                             speed_audio = output.replace(".mp3", f"_char{character_num}_speed.mp3")
-                            if run_ffmpeg(["ffmpeg", "-i", temp_audio, "-filter:a", "atempo=1.155", "-y", speed_audio], 30):
+                            if run_ffmpeg(["ffmpeg", "-i", temp_audio, "-filter:a", "atempo=1.1", "-y", speed_audio], 30):
                                 temp_audio_files.append(speed_audio)
                                 cleanup(temp_audio)
                             else:
@@ -580,7 +580,7 @@ async def generate_multi_character_voiceover(characters: List[Dict], output: str
                         raise Exception("Merge failed")
                 
                 size = os.path.getsize(output) / 1024
-                logger.info(f"✅ Multi-Character Voiceover (1.155x): {size:.1f}KB")
+                logger.info(f"✅ Multi-Character Voiceover (1.1x): {size:.1f}KB")
                 log_memory("voice-done")
                 return True, ""
         except Exception as e:
@@ -601,10 +601,10 @@ async def fallback_single_voiceover(script: str, output: str) -> tuple[bool, str
         base = output.replace(".mp3", "_edge_base.mp3")
         await edge_tts.Communicate(script[:2000], voice, rate="+20%").save(base)
         
-        if run_ffmpeg(["ffmpeg", "-i", base, "-filter:a", "atempo=1.155", "-y", output], 30):
+        if run_ffmpeg(["ffmpeg", "-i", base, "-filter:a", "atempo=1.1", "-y", output], 30):
             cleanup(base)
             size = os.path.getsize(output) / 1024
-            logger.info(f"✅ Edge TTS Voiceover (1.155x): {size:.1f}KB")
+            logger.info(f"✅ Edge TTS Voiceover (1.1x): {size:.1f}KB")
             log_memory("voice-done")
             return True, ""
         
@@ -1033,7 +1033,7 @@ async def process_food_hack_video(drive_url: str, user_id: str, task_id: str):
         logger.info(f"   Title: {metadata['title']}")
         
         # Multi-character voiceover (with fallback)
-        update(55, f"Generating {metadata['num_characters']}-character voiceover (1.155x)...")
+        update(55, f"Generating {metadata['num_characters']}-character voiceover (1.1x)...")
         voiceover = os.path.join(temp_dir, "voice.mp3")
         success, error = await generate_multi_character_voiceover(metadata["characters"], voiceover)
         if not success:
@@ -1201,7 +1201,7 @@ async def health_endpoint():
         "active_tasks": len([s for s in PROCESSING_STATUS.values() if s["status"] == "processing"]),
         "features": {
             "multi_character_voices": len(ELEVENLABS_VOICE_IDS),
-            "voiceover_speed": "1.155x",
+            "voiceover_speed": "1.1x",
             "bgm_volume": "15% (10-20% range)",
             "bgm_type": "Kids ringtone style",
             "caption_libraries": "FFmpeg subtitles + fallback system",
@@ -1236,7 +1236,7 @@ async def initialize():
     logger.info("🚀 FOOD HACK AI VIDEO PROCESSOR (RENDER-OPTIMIZED)")
     logger.info("="*80)
     logger.info("✅ Multi-character AI voices (4 ElevenLabs voices + Edge TTS fallback)")
-    logger.info("✅ 1.155x voiceover speed for all TTS")
+    logger.info("✅ 1.1x voiceover speed for all TTS")
     logger.info("✅ Kids BGM at 15% volume (optional - fallback without BGM)")
     logger.info("✅ Live captions with fallback system (golden/white/none)")
     logger.info("✅ Emotional connection: 'Bye bye mere dosto!'")
