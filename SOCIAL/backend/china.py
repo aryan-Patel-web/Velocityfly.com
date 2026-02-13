@@ -91,6 +91,7 @@ def log_step(step: str, status: str = "START", details: str = ""):
 MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY")
 ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY", "")
 
+
 # SINGLE BGM - Meow Meow Meow ONLY (50% volume)
 CHINA_BGM_URL = "https://raw.githubusercontent.com/aryan-Patel-web/audio-collections/main/Meow%20Meow%20Meow%20Meow%20%F0%9F%8E%B6%20Sad%20TikTok%20Song%20%F0%9F%92%94%F0%9F%98%BF.mp3"
 BGM_VOLUME = 0.40  # 50% volume
