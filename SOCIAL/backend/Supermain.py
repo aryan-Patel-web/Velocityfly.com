@@ -131,7 +131,19 @@ except ImportError as e:
     logger.error(f"❌ Failed to import MrBeast: {e}")
     mrbeast_router = None
     
-
+# ===========================================================================
+# SPLIT-SCREEN REELS MODULE IMPORT
+# ===========================================================================
+try:
+    from split_screen_reels import (
+        router as split_reels_router,
+        initialize as split_reels_initialize
+    )
+    logger.info("✅ split_screen_reels module imported successfully")
+except ImportError as e:
+    logger.error(f"❌ Failed to import split_screen_reels: {e}")
+    split_reels_router = None
+    split_reels_initialize = None
 
 
 # ✅ NEW: CHINA AUTOMATION
@@ -1957,6 +1969,25 @@ except Exception as e:
     logger.error(traceback.format_exc())
 
 
+
+
+# ===========================================================================
+# ✅ SPLIT-SCREEN REELS ROUTES (REACTION VIDEO + MAIN CONTENT COMBINER)
+# ===========================================================================
+try:
+    if split_reels_router is not None:
+        app.include_router(split_reels_router, tags=["split-reels"])
+        logger.info("✅ Split-Screen Reels routes registered successfully!")
+        logger.info("   📍 Available endpoints:")
+        logger.info("      - GET  /api/split-reels/health")
+        logger.info("      - POST /api/split-reels/process-url")
+        logger.info("      - POST /api/split-reels/process-upload")
+        logger.info("      - GET  /api/split-reels/status/{task_id}")
+    else:
+        logger.warning("⚠️ Split-Screen Reels router not available - routes not registered")
+except Exception as e:
+    logger.error(f"❌ Split-Screen Reels routes registration failed: {e}")
+    logger.error(traceback.format_exc())
 
 # ✅ NEW: CHINA AUTOMATION ROUTES (MULTI-NICHE CHINESE VIDEOS)
 # ============================================================================

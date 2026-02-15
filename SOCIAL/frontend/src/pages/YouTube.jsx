@@ -123,7 +123,12 @@ const [foodHackProgress, setFoodHackProgress] = useState(0);
 const [foodHackResult, setFoodHackResult] = useState(null);
 
 
-
+// Add these useState hooks at the top of your component
+const [splitReelUrl, setSplitReelUrl] = useState("");
+const [splitReelFile, setSplitReelFile] = useState(null);
+const [splitReelProcessing, setSplitReelProcessing] = useState(false);
+const [splitReelProgress, setSplitReelProgress] = useState(0);
+const [splitReelResult, setSplitReelResult] = useState(null);
 
 // MrBeast Viral Shorts Generator State
 const [mrBeastConfig, setMrBeastConfig] = useState({
@@ -2364,6 +2369,45 @@ useEffect(() => {
 >
   <span style={{ fontSize: '20px' }}>🇨🇳</span>
   China-Shorts
+</button>
+
+{/* ========== SPLIT-SCREEN REELS TAB BUTTON ========== */}
+<button
+  onClick={() => setActiveTab('split-reels')}
+  style={{
+    padding: '14px 26px',
+    background: activeTab === 'split-reels'
+      ? 'linear-gradient(135deg, #667eea, #764ba2)'
+      : 'white',
+    color: activeTab === 'split-reels' ? 'white' : '#333',
+    border: activeTab === 'split-reels' ? 'none' : '2px solid #e0e0e0',
+    borderRadius: '14px',
+    fontWeight: '700',
+    cursor: 'pointer',
+    transition: 'all 0.3s',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '10px',
+    fontSize: '15px',
+    boxShadow: activeTab === 'split-reels'
+      ? '0 6px 20px rgba(102,126,234,0.4)'
+      : '0 2px 8px rgba(0,0,0,0.08)'
+  }}
+  onMouseEnter={e => {
+    if (activeTab !== 'split-reels') {
+      e.target.style.background = 'linear-gradient(135deg, #f0f4ff, #e8edff)';
+      e.target.style.borderColor = '#667eea';
+    }
+  }}
+  onMouseLeave={e => {
+    if (activeTab !== 'split-reels') {
+      e.target.style.background = 'white';
+      e.target.style.borderColor = '#e0e0e0';
+    }
+  }}
+>
+  <span style={{ fontSize: '22px' }}>😂</span>
+  Split-Reels
 </button>
 
 
@@ -12504,7 +12548,818 @@ onClick={async () => {
 {/* -------------------------------- China Automation code end ---------------------------------------------------- */}
 
 
+{/* ========== SPLIT-SCREEN REELS TAB ========== */}
+{activeTab === 'split-reels' && status?.youtube_connected && (
+  <div style={{ 
+    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', 
+    borderRadius: '20px', 
+    padding: '40px', 
+    boxShadow: '0 12px 40px rgba(0, 0, 0, 0.4)',
+    minHeight: '700px'
+  }}>
+    {/* HEADER */}
+    <div style={{ 
+      display: 'flex', 
+      justifyContent: 'space-between', 
+      alignItems: 'center', 
+      marginBottom: '35px',
+      flexWrap: 'wrap',
+      gap: '20px'
+    }}>
+      <div>
+        <h2 style={{ 
+          color: 'white', 
+          marginBottom: '12px', 
+          fontSize: '38px', 
+          fontWeight: '900',
+          textShadow: '3px 3px 6px rgba(0,0,0,0.4)',
+          margin: 0,
+          letterSpacing: '-0.5px'
+        }}>
+          😂 Split-Screen Reaction Reels
+        </h2>
+        <p style={{ 
+          color: 'rgba(255,255,255,0.95)', 
+          fontSize: '17px',
+          fontWeight: '500',
+          margin: 0,
+          textShadow: '1px 1px 2px rgba(0,0,0,0.2)'
+        }}>
+          Reaction Video (TOP) + Your Content (BOTTOM) → Copyright-Free Viral Shorts 🚀
+        </p>
+      </div>
+      <div style={{
+        background: 'rgba(255,255,255,0.2)',
+        padding: '12px 20px',
+        borderRadius: '25px',
+        backdropFilter: 'blur(10px)',
+        border: '2px solid rgba(255,255,255,0.3)'
+      }}>
+        <div style={{ color: 'white', fontSize: '14px', fontWeight: '700' }}>
+          ⚡ 100% Copyright Safe
+        </div>
+      </div>
+    </div>
 
+    {/* STEP FLOW */}
+    <div style={{
+      display: 'flex',
+      justifyContent: 'center',
+      alignItems: 'center',
+      flexWrap: 'wrap',
+      gap: '6px',
+      marginBottom: '30px'
+    }}>
+      {[
+        { icon: '🎥', label: 'Reaction' },
+        { icon: '⬇️', label: 'Download' },
+        { icon: '✂️', label: 'Split' },
+        { icon: '🎨', label: 'Filters' },
+        { icon: '🎵', label: 'Audio' },
+        { icon: '✨', label: 'Text' },
+        { icon: '📤', label: 'Upload' },
+      ].map((step, i) => (
+        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <div style={{
+            background: 'white',
+            borderRadius: '12px',
+            padding: '10px 12px',
+            textAlign: 'center',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+            minWidth: '80px'
+          }}>
+            <div style={{ fontSize: '20px' }}>{step.icon}</div>
+            <div style={{ fontSize: '10px', fontWeight: '600', color: '#555', marginTop: '4px' }}>
+              {step.label}
+            </div>
+          </div>
+          {i < 6 && <span style={{ color: 'rgba(255,255,255,0.8)', fontSize: '16px', fontWeight: '700' }}>→</span>}
+        </div>
+      ))}
+    </div>
+
+    {/* INPUT SECTION */}
+    <div style={{
+      background: 'rgba(255,255,255,0.98)',
+      borderRadius: '18px',
+      padding: '35px',
+      marginBottom: '25px',
+      boxShadow: '0 8px 32px rgba(0,0,0,0.15)'
+    }}>
+      <h3 style={{ 
+        color: '#1a1a2e', 
+        marginBottom: '25px', 
+        fontSize: '26px', 
+        fontWeight: '800',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '12px'
+      }}>
+        <span style={{ 
+          background: 'linear-gradient(135deg, #667eea, #764ba2)',
+          color: 'white',
+          borderRadius: '12px',
+          width: '42px',
+          height: '42px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: '20px',
+          fontWeight: '900'
+        }}>1</span>
+        Upload Your Content
+      </h3>
+
+      {/* URL INPUT */}
+      <div style={{ marginBottom: '25px' }}>
+        <label style={{ 
+          display: 'block', 
+          fontWeight: '600', 
+          color: '#333', 
+          marginBottom: '10px', 
+          fontSize: '14px' 
+        }}>
+          🔗 Video URL (YouTube, TikTok, Instagram, or Direct Link)
+        </label>
+        
+        <input
+          type="text"
+          value={splitReelUrl}
+          onChange={e => setSplitReelUrl(e.target.value)}
+          placeholder="https://youtube.com/watch?v=... or https://tiktok.com/@user/video/..."
+          disabled={splitReelProcessing}
+          style={{
+            width: '100%',
+            padding: '16px 20px',
+            borderRadius: '12px',
+            border: '2px solid #e0e0e0',
+            fontSize: '15px',
+            outline: 'none',
+            boxSizing: 'border-box',
+            transition: 'all 0.2s',
+            background: splitReelProcessing ? '#f5f5f5' : 'white',
+            fontFamily: 'monospace',
+            color: '#333'
+          }}
+          onFocus={e => e.target.style.borderColor = '#667eea'}
+          onBlur={e => e.target.style.borderColor = '#e0e0e0'}
+        />
+      </div>
+
+      {/* DIVIDER */}
+      <div style={{ 
+        display: 'flex', 
+        alignItems: 'center', 
+        gap: '15px', 
+        margin: '25px 0' 
+      }}>
+        <div style={{ flex: 1, height: '2px', background: '#e0e0e0' }}></div>
+        <span style={{ color: '#999', fontWeight: '600', fontSize: '14px' }}>OR</span>
+        <div style={{ flex: 1, height: '2px', background: '#e0e0e0' }}></div>
+      </div>
+
+      {/* FILE UPLOAD */}
+      <div>
+        <label style={{ 
+          display: 'block', 
+          fontWeight: '600', 
+          color: '#333', 
+          marginBottom: '10px', 
+          fontSize: '14px' 
+        }}>
+          📁 Upload Video File (MP4, MOV, AVI - Max 200MB)
+        </label>
+        
+        <input
+          type="file"
+          accept="video/*"
+          onChange={e => setSplitReelFile(e.target.files[0])}
+          disabled={splitReelProcessing}
+          style={{
+            width: '100%',
+            padding: '16px',
+            borderRadius: '12px',
+            border: '2px dashed #667eea',
+            fontSize: '14px',
+            background: splitReelProcessing ? '#f5f5f5' : 'white',
+            cursor: splitReelProcessing ? 'not-allowed' : 'pointer'
+          }}
+        />
+      </div>
+
+      {/* INFO TAGS */}
+      <div style={{ 
+        marginTop: '20px', 
+        display: 'flex', 
+        gap: '15px',
+        flexWrap: 'wrap' 
+      }}>
+        <div style={{ 
+          fontSize: '13px', 
+          color: '#4caf50',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '6px',
+          background: '#e8f5e9',
+          padding: '8px 14px',
+          borderRadius: '8px'
+        }}>
+          <span>✅</span>
+          <span>Random reaction video added</span>
+        </div>
+        <div style={{ 
+          fontSize: '13px', 
+          color: '#ff9800',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '6px',
+          background: '#fff3e0',
+          padding: '8px 14px',
+          borderRadius: '8px'
+        }}>
+          <span>🎨</span>
+          <span>Copyright filters applied</span>
+        </div>
+        <div style={{ 
+          fontSize: '13px', 
+          color: '#2196f3',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '6px',
+          background: '#e3f2fd',
+          padding: '8px 14px',
+          borderRadius: '8px'
+        }}>
+          <span>🎙️</span>
+          <span>AI voiceover added</span>
+        </div>
+      </div>
+    </div>
+
+    {/* PROCESS BUTTON */}
+    <div style={{
+      background: 'rgba(255,255,255,0.98)',
+      borderRadius: '18px',
+      padding: '35px',
+      marginBottom: '25px',
+      boxShadow: '0 8px 32px rgba(0,0,0,0.15)'
+    }}>
+      <h3 style={{ 
+        color: '#1a1a2e', 
+        marginBottom: '25px', 
+        fontSize: '26px', 
+        fontWeight: '800',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '12px'
+      }}>
+        <span style={{ 
+          background: 'linear-gradient(135deg, #667eea, #764ba2)',
+          color: 'white',
+          borderRadius: '12px',
+          width: '42px',
+          height: '42px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: '20px',
+          fontWeight: '900'
+        }}>2</span>
+        Create & Upload Split-Screen Reel
+      </h3>
+
+      <button
+        onClick={async () => {
+          const hasUrl = splitReelUrl?.trim();
+          const hasFile = splitReelFile;
+          
+          if (!hasUrl && !hasFile) {
+            alert("❌ Please provide a video URL or upload a file!");
+            return;
+          }
+          
+          if (hasUrl && hasFile) {
+            alert("❌ Please use either URL or file upload, not both!");
+            return;
+          }
+          
+          setSplitReelProcessing(true);
+          setSplitReelProgress(0);
+          setSplitReelResult(null);
+
+          // Progress simulation
+          const progressSteps = [5, 15, 25, 35, 50, 65, 80, 92, 98];
+          let stepIndex = 0;
+          const progressInterval = setInterval(() => {
+            if (stepIndex < progressSteps.length) {
+              setSplitReelProgress(progressSteps[stepIndex]);
+              stepIndex++;
+            }
+          }, 4000);
+
+          try {
+            let response;
+            
+            if (hasUrl) {
+              // URL Processing
+              console.log('🎬 Processing from URL...', splitReelUrl);
+              
+              response = await fetch(`${API_BASE}/api/split-reels/process-url`, {
+                method: "POST",
+                headers: { 
+                  "Content-Type": "application/json",
+                  "Authorization": `Bearer ${token}`
+                },
+                body: JSON.stringify({ 
+                  user_id: user.user_id, 
+                  video_url: splitReelUrl.trim()
+                })
+              });
+            } else {
+              // File Upload Processing
+              console.log('📁 Processing uploaded file...', splitReelFile.name);
+              
+              const formData = new FormData();
+              formData.append('user_id', user.user_id);
+              formData.append('video_file', splitReelFile);
+              
+              response = await fetch(`${API_BASE}/api/split-reels/process-upload`, {
+                method: "POST",
+                headers: { 
+                  "Authorization": `Bearer ${token}`
+                },
+                body: formData
+              });
+            }
+            
+            clearInterval(progressInterval);
+            
+            const data = await response.json();
+            console.log('Response:', data);
+            
+            if (data.success && data.task_id) {
+              // Poll for status
+              const taskId = data.task_id;
+              let attempts = 0;
+              const maxAttempts = 60; // 5 minutes max
+              
+              const pollStatus = async () => {
+                if (attempts >= maxAttempts) {
+                  throw new Error("Processing timeout");
+                }
+                
+                const statusResp = await fetch(
+                  `${API_BASE}/api/split-reels/status/${taskId}`,
+                  { headers: { "Authorization": `Bearer ${token}` }}
+                );
+                const status = await statusResp.json();
+                
+                setSplitReelProgress(status.progress || 0);
+                
+                if (status.status === "completed" && status.success) {
+                  setSplitReelProgress(100);
+                  setSplitReelResult(status);
+                  setSplitReelUrl("");
+                  setSplitReelFile(null);
+                  
+                  setTimeout(() => {
+                    const confirmOpen = window.confirm(
+                      `✅ SUCCESS!\n\n` +
+                      `${status.title}\n\n` +
+                      `Split-screen reel uploaded to YouTube!\n\n` +
+                      `📺 ${status.video_url}\n\n` +
+                      `Click OK to watch on YouTube.`
+                    );
+                    
+                    if (confirmOpen) {
+                      window.open(status.video_url, '_blank');
+                    }
+                  }, 500);
+                  
+                } else if (status.status === "failed") {
+                  throw new Error(status.error || "Processing failed");
+                  
+                } else {
+                  // Still processing, poll again
+                  attempts++;
+                  setTimeout(pollStatus, 5000);
+                }
+              };
+              
+              await pollStatus();
+              
+            } else {
+              throw new Error(data.error || "Failed to start processing");
+            }
+            
+          } catch (err) {
+            clearInterval(progressInterval);
+            console.error('❌ Error:', err);
+            alert(`❌ PROCESSING FAILED\n\n${err.message}\n\nPlease check:\n1. Video URL is valid and accessible\n2. File is valid video format\n3. File size < 200MB\n4. Internet connection is stable`);
+          } finally {
+            setSplitReelProcessing(false);
+            setTimeout(() => setSplitReelProgress(0), 3000);
+          }
+        }}
+        disabled={splitReelProcessing || (!splitReelUrl?.trim() && !splitReelFile)}
+        style={{
+          width: '100%',
+          padding: '24px',
+          background: (splitReelProcessing || (!splitReelUrl?.trim() && !splitReelFile))
+            ? 'linear-gradient(135deg, #95a5a6, #7f8c8d)' 
+            : 'linear-gradient(135deg, #667eea, #764ba2)',
+          color: 'white',
+          border: 'none',
+          borderRadius: '15px',
+          fontSize: '22px',
+          fontWeight: '900',
+          cursor: (splitReelProcessing || (!splitReelUrl?.trim() && !splitReelFile)) ? 'not-allowed' : 'pointer',
+          boxShadow: (splitReelProcessing || (!splitReelUrl?.trim() && !splitReelFile))
+            ? 'none'
+            : '0 8px 32px rgba(102,126,234,0.4)',
+          opacity: (splitReelProcessing || (!splitReelUrl?.trim() && !splitReelFile)) ? 0.7 : 1,
+          transition: 'all 0.3s',
+          textTransform: 'uppercase',
+          letterSpacing: '1px'
+        }}
+        onMouseEnter={e => {
+          if (!splitReelProcessing && (splitReelUrl?.trim() || splitReelFile)) {
+            e.target.style.transform = 'translateY(-2px)';
+            e.target.style.boxShadow = '0 12px 40px rgba(102,126,234,0.5)';
+          }
+        }}
+        onMouseLeave={e => {
+          e.target.style.transform = 'translateY(0)';
+          e.target.style.boxShadow = (splitReelProcessing || (!splitReelUrl?.trim() && !splitReelFile))
+            ? 'none'
+            : '0 8px 32px rgba(102,126,234,0.4)';
+        }}
+      >
+        {splitReelProcessing ? (
+          <span style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center', 
+            gap: '15px' 
+          }}>
+            <span style={{ 
+              display: 'inline-block', 
+              width: '24px', 
+              height: '24px', 
+              border: '3px solid rgba(255,255,255,0.3)',
+              borderTop: '3px solid white',
+              borderRadius: '50%',
+              animation: 'spin 1s linear infinite'
+            }}/>
+            CREATING MAGIC...
+          </span>
+        ) : (
+          '🎬 CREATE SPLIT-SCREEN REEL'
+        )}
+      </button>
+
+      {/* PROGRESS BAR */}
+      {splitReelProcessing && (
+        <div style={{ marginTop: '25px' }}>
+          <div style={{
+            width: '100%',
+            height: '50px',
+            background: '#e0e0e0',
+            borderRadius: '25px',
+            overflow: 'hidden',
+            position: 'relative',
+            boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.1)'
+          }}>
+            <div style={{
+              width: `${splitReelProgress}%`,
+              height: '100%',
+              background: 'linear-gradient(90deg, #667eea, #764ba2)',
+              transition: 'width 0.5s ease',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              position: 'relative'
+            }}>
+              <span style={{
+                color: 'white',
+                fontWeight: '900',
+                fontSize: '20px',
+                textShadow: '2px 2px 4px rgba(0,0,0,0.3)'
+              }}>
+                {splitReelProgress}%
+              </span>
+            </div>
+          </div>
+          
+          <p style={{ 
+            textAlign: 'center', 
+            marginTop: '20px', 
+            color: '#666',
+            fontSize: '16px',
+            lineHeight: '1.6',
+            fontWeight: '600'
+          }}>
+            {splitReelProgress < 10  ? "🎥 Selecting random reaction video..." :
+             splitReelProgress < 25  ? "⬇️ Downloading your content..." :
+             splitReelProgress < 40  ? "✂️ Creating split-screen layout..." :
+             splitReelProgress < 55  ? "🎨 Applying copyright-safe filters..." :
+             splitReelProgress < 70  ? "🔇 Removing original audio..." :
+             splitReelProgress < 85  ? "🎵 Mixing BGM and voiceover..." :
+             splitReelProgress < 95  ? "✨ Adding text overlays..." :
+                                       "📤 Uploading to YouTube..."}
+          </p>
+        </div>
+      )}
+
+      {/* SUCCESS RESULT */}
+      {splitReelResult && splitReelResult.success && !splitReelProcessing && (
+        <div style={{
+          marginTop: '30px',
+          padding: '30px',
+          background: 'linear-gradient(135deg, #e8f5e9, #c8e6c9)',
+          borderRadius: '18px',
+          border: '3px solid #4caf50',
+          boxShadow: '0 8px 24px rgba(76,175,80,0.3)',
+          animation: 'fadeIn 0.5s ease'
+        }}>
+          <h4 style={{ 
+            color: '#2e7d32', 
+            marginBottom: '20px', 
+            fontSize: '24px', 
+            fontWeight: '900',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px'
+          }}>
+            <span style={{ fontSize: '32px' }}>🎉</span>
+            Split-Screen Reel Live on YouTube!
+          </h4>
+          
+          <div style={{
+            padding: '20px',
+            background: 'white',
+            borderRadius: '15px',
+            marginBottom: '20px',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+          }}>
+            <div style={{ 
+              fontSize: '13px', 
+              color: '#999', 
+              marginBottom: '10px', 
+              fontWeight: '600',
+              textTransform: 'uppercase',
+              letterSpacing: '1px'
+            }}>
+              📝 VIDEO TITLE
+            </div>
+            <div style={{ 
+              fontSize: '20px', 
+              fontWeight: '800', 
+              color: '#1a1a2e', 
+              marginBottom: '18px',
+              lineHeight: '1.4'
+            }}>
+              {splitReelResult.title}
+            </div>
+            
+            <div style={{ 
+              fontSize: '13px', 
+              color: '#999', 
+              marginBottom: '10px', 
+              fontWeight: '600',
+              textTransform: 'uppercase',
+              letterSpacing: '1px'
+            }}>
+              📄 DESCRIPTION
+            </div>
+            <div style={{ 
+              fontSize: '15px', 
+              color: '#555', 
+              lineHeight: '1.7'
+            }}>
+              {splitReelResult.description?.substring(0, 250)}
+              {splitReelResult.description?.length > 250 && '...'}
+            </div>
+          </div>
+          
+          {/* Stats */}
+          <div style={{ 
+            display: 'grid', 
+            gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', 
+            gap: '15px',
+            marginBottom: '20px'
+          }}>
+            <div style={{ 
+              background: 'white', 
+              padding: '16px', 
+              borderRadius: '12px',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+              textAlign: 'center'
+            }}>
+              <div style={{ 
+                fontSize: '12px', 
+                color: '#999', 
+                marginBottom: '8px',
+                fontWeight: '600'
+              }}>
+                DURATION
+              </div>
+              <div style={{ 
+                fontSize: '22px', 
+                fontWeight: '900', 
+                color: '#667eea' 
+              }}>
+                {splitReelResult.duration?.toFixed(0) || 0}s
+              </div>
+            </div>
+            
+            <div style={{ 
+              background: 'white', 
+              padding: '16px', 
+              borderRadius: '12px',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+              textAlign: 'center'
+            }}>
+              <div style={{ 
+                fontSize: '12px', 
+                color: '#999', 
+                marginBottom: '8px',
+                fontWeight: '600'
+              }}>
+                PROCESSED IN
+              </div>
+              <div style={{ 
+                fontSize: '22px', 
+                fontWeight: '900', 
+                color: '#764ba2' 
+              }}>
+                {splitReelResult.processing_time?.toFixed(0) || 0}s
+              </div>
+            </div>
+            
+            <div style={{ 
+              background: 'white', 
+              padding: '16px', 
+              borderRadius: '12px',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+              textAlign: 'center'
+            }}>
+              <div style={{ 
+                fontSize: '12px', 
+                color: '#999', 
+                marginBottom: '8px',
+                fontWeight: '600'
+              }}>
+                STATUS
+              </div>
+              <div style={{ 
+                fontSize: '16px', 
+                fontWeight: '900', 
+                color: '#4caf50',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px'
+              }}>
+                <span style={{ fontSize: '22px' }}>🟢</span>
+                LIVE
+              </div>
+            </div>
+          </div>
+          
+          {/* YouTube Button */}
+          
+            href={splitReelResult.video_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              display: 'block',
+              width: '100%',
+              padding: '18px',
+              background: 'linear-gradient(135deg, #e53935, #ff5252)',
+              color: 'white',
+              textAlign: 'center',
+              borderRadius: '15px',
+              fontSize: '18px',
+              fontWeight: '900',
+              textDecoration: 'none',
+              boxShadow: '0 6px 20px rgba(229,57,53,0.4)',
+              transition: 'all 0.3s',
+              textTransform: 'uppercase',
+              letterSpacing: '1.5px'
+            }}
+            onMouseEnter={e => {
+              e.target.style.transform = 'translateY(-3px)';
+              e.target.style.boxShadow = '0 10px 30px rgba(229,57,53,0.5)';
+            }}
+            onMouseLeave={e => {
+              e.target.style.transform = 'translateY(0)';
+              e.target.style.boxShadow = '0 6px 20px rgba(229,57,53,0.4)';
+            }}
+          <a>
+            📺 WATCH ON YOUTUBE
+          </a>
+        </div>
+      )}
+    </div>
+
+    {/* INFO SECTION */}
+    <div style={{
+      padding: '35px',
+      background: 'linear-gradient(135deg, rgba(255,255,255,0.2), rgba(255,255,255,0.15))',
+      borderRadius: '18px',
+      color: 'white',
+      backdropFilter: 'blur(15px)',
+      border: '2px solid rgba(255,255,255,0.25)'
+    }}>
+      <h3 style={{ 
+        marginBottom: '25px', 
+        fontSize: '26px', 
+        fontWeight: '900',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '12px'
+      }}>
+        <span style={{ fontSize: '32px' }}>✨</span>
+        How It Works
+      </h3>
+      
+      <div style={{ display: 'grid', gap: '14px' }}>
+        {[
+          'Random reaction video automatically selected from pool',
+          'Your main content is downloaded/uploaded',
+          'Split-screen layout created: Reaction (TOP) + Content (BOTTOM)',
+          'Copyright-safe filters applied (saturation, brightness, contrast)',
+          'Original audio completely removed',
+          'AI voiceover generated using ElevenLabs',
+          'Background music (BGM) added at perfect volume',
+          'Text overlays burned into video',
+          'SEO metadata auto-generated by AI',
+          'Uploaded DIRECTLY to your YouTube Shorts',
+          'Video goes LIVE immediately - ready for views!',
+          'Multiple fallback systems ensure 100% success rate'
+        ].map((feature, idx) => (
+          <div key={idx} style={{
+            display: 'flex',
+            gap: '16px',
+            alignItems: 'flex-start',
+            background: 'rgba(255,255,255,0.12)',
+            padding: '16px 18px',
+            borderRadius: '12px',
+            backdropFilter: 'blur(8px)',
+            border: '1px solid rgba(255,255,255,0.15)',
+            transition: 'all 0.3s',
+            cursor: 'default'
+          }}
+          onMouseEnter={e => {
+            e.currentTarget.style.background = 'rgba(255,255,255,0.18)';
+            e.currentTarget.style.transform = 'translateX(8px)';
+          }}
+          onMouseLeave={e => {
+            e.currentTarget.style.background = 'rgba(255,255,255,0.12)';
+            e.currentTarget.style.transform = 'translateX(0)';
+          }}
+          >
+            <span style={{ 
+              fontSize: '22px', 
+              flexShrink: 0,
+              marginTop: '2px'
+            }}>
+              ✓
+            </span>
+            <span style={{ 
+              fontSize: '15px', 
+              lineHeight: '1.7',
+              fontWeight: '500'
+            }}>
+              {feature}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+
+    {/* ANIMATIONS */}
+    <style>{`
+      @keyframes spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+      }
+      
+      @keyframes fadeIn {
+        from { 
+          opacity: 0; 
+          transform: translateY(30px); 
+        }
+        to { 
+          opacity: 1; 
+          transform: translateY(0); 
+        }
+      }
+    `}</style>
+
+  </div>
+)}
 
 
         {/* Not Connected Message */}
