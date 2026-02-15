@@ -387,8 +387,10 @@ async def create_split_screen_robust(
     is_reaction_fallback: bool = False
 ) -> tuple[bool, str]:
     """
-    Create split-screen video with 3-level fallback
-    Layout: Reaction (TOP) + Main (BOTTOM) in 9:16 aspect ratio
+    Create split-screen video PROPERLY - CapCut/Canva style
+    1. Scale reaction to 720x640 (top half)
+    2. Scale main to 720x640 (bottom half)
+    3. Stack vertically = 720x1280 (perfect 9:16)
     """
     log_step("Split Screen Creation", "START")
     
@@ -400,82 +402,165 @@ async def create_split_screen_robust(
         return False, "Invalid main video"
     
     main_duration = main_info["duration"]
+    reaction_duration = reaction_info.get("duration", 10)
     
-    # METHOD 1: Full split screen with scaling
-    logger.info("   🎨 Method 1: Full split-screen (TOP: reaction, BOTTOM: main)")
+    logger.info(f"   📊 Main video: {main_duration:.1f}s")
+    logger.info(f"   📊 Reaction video: {reaction_duration:.1f}s")
     
-    # If reaction is fallback (image-based), loop it to match main video duration
-    if is_reaction_fallback:
-        loop_filter = f"loop=loop=-1:size=1:start=0"
+    temp_dir = os.path.dirname(output_path)
+    
+    # ═══════════════════════════════════════════════════════════════
+    # STEP 1: Scale reaction video to exact 720x640
+    # ═══════════════════════════════════════════════════════════════
+    log_step("Scale Reaction Video", "START", "Target: 720x640")
+    
+    reaction_scaled = os.path.join(temp_dir, "reaction_scaled.mp4")
+    
+    # If reaction is shorter, loop it
+    if reaction_duration < main_duration:
+        logger.info(f"   🔄 Looping reaction: {reaction_duration:.1f}s → {main_duration:.1f}s")
+        loop_count = int(main_duration / reaction_duration) + 2
+        
+        success = run_ffmpeg([
+            "ffmpeg", "-stream_loop", str(loop_count), "-i", reaction_video,
+            "-vf", "scale=720:640:force_original_aspect_ratio=decrease,pad=720:640:(ow-iw)/2:(oh-ih)/2,setsar=1",
+            "-t", str(main_duration),
+            "-c:v", "libx264", "-preset", "ultrafast", "-crf", "28",
+            "-an",  # Remove audio
+            "-y", reaction_scaled
+        ], 120, "Scale-Reaction")
     else:
-        loop_filter = "null"
+        success = run_ffmpeg([
+            "ffmpeg", "-i", reaction_video,
+            "-vf", "scale=720:640:force_original_aspect_ratio=decrease,pad=720:640:(ow-iw)/2:(oh-ih)/2,setsar=1",
+            "-t", str(main_duration),
+            "-c:v", "libx264", "-preset", "ultrafast", "-crf", "28",
+            "-an",
+            "-y", reaction_scaled
+        ], 120, "Scale-Reaction")
     
-    filter_complex = (
-        # Scale reaction video to top half (720x640)
-        f"[0:v]{loop_filter},scale=720:640,setpts=PTS-STARTPTS[top];"
-        # Scale main video to bottom half (720:640)
-        "[1:v]scale=720:640,setpts=PTS-STARTPTS[bottom];"
-        # Stack vertically
-        "[top][bottom]vstack=inputs=2[v]"
-    )
+    if not success or not os.path.exists(reaction_scaled):
+        return False, "Failed to scale reaction video"
+    
+    log_step("Scale Reaction Video", "SUCCESS")
+    
+    # ═══════════════════════════════════════════════════════════════
+    # STEP 2: Scale main video to exact 720x640
+    # ═══════════════════════════════════════════════════════════════
+    log_step("Scale Main Video", "START", "Target: 720x640")
+    
+    main_scaled = os.path.join(temp_dir, "main_scaled.mp4")
     
     success = run_ffmpeg([
-        "ffmpeg",
-        "-i", reaction_video,
-        "-i", main_video,
-        "-filter_complex", filter_complex,
-        "-map", "[v]",
-        "-t", str(main_duration),
-        "-c:v", "libx264",
-        "-preset", "ultrafast",
-        "-crf", "23",
-        "-y", output_path
-    ], 180, "Split-Screen-Method1")
+        "ffmpeg", "-i", main_video,
+        "-vf", "scale=720:640:force_original_aspect_ratio=decrease,pad=720:640:(ow-iw)/2:(oh-ih)/2,setsar=1",
+        "-c:v", "libx264", "-preset", "ultrafast", "-crf", "28",
+        "-an",  # Remove audio for now
+        "-y", main_scaled
+    ], 120, "Scale-Main")
     
-    if success and os.path.exists(output_path) and os.path.getsize(output_path) > 50000:
-        log_step("Split Screen Creation", "SUCCESS", "Method 1")
+    if not success or not os.path.exists(main_scaled):
+        cleanup(reaction_scaled)
+        return False, "Failed to scale main video"
+    
+    log_step("Scale Main Video", "SUCCESS")
+    
+    # ═══════════════════════════════════════════════════════════════
+    # STEP 3: Stack vertically (NOW both are 720x640!)
+    # ═══════════════════════════════════════════════════════════════
+    log_step("Vertical Stack", "START", "720x640 + 720x640 = 720x1280")
+    
+    # Create a file list for concat
+    concat_file = os.path.join(temp_dir, "concat_list.txt")
+    with open(concat_file, 'w') as f:
+        f.write(f"file '{reaction_scaled}'\n")
+        f.write(f"file '{main_scaled}'\n")
+    
+    # METHOD 1: Using vstack filter (now both have same width!)
+    success = run_ffmpeg([
+        "ffmpeg",
+        "-i", reaction_scaled,
+        "-i", main_scaled,
+        "-filter_complex", "[0:v][1:v]vstack=inputs=2[v]",
+        "-map", "[v]",
+        "-c:v", "libx264", "-preset", "ultrafast", "-crf", "23",
+        "-t", str(main_duration),
+        "-y", output_path
+    ], 120, "VStack-Final")
+    
+    if success and os.path.exists(output_path) and os.path.getsize(output_path) > 100000:
+        cleanup(reaction_scaled, main_scaled, concat_file)
+        log_step("Split Screen Creation", "SUCCESS", "Method 1: VStack")
         return True, ""
     
     cleanup(output_path)
     
-    # METHOD 2: Simple vertical stack (no scaling)
-    logger.warning("   🔄 Method 2: Simple vertical stack")
+    # METHOD 2: Using concat demuxer (alternative approach)
+    logger.warning("   🔄 Method 2: Trying alternative stacking...")
     
+    # First, create vertical videos
+    reaction_vertical = os.path.join(temp_dir, "reaction_vert.mp4")
+    success = run_ffmpeg([
+        "ffmpeg", "-i", reaction_scaled,
+        "-vf", "pad=720:1280:0:0",
+        "-c:v", "libx264", "-preset", "ultrafast",
+        "-y", reaction_vertical
+    ], 60, "Reaction-Vertical")
+    
+    if not success:
+        cleanup(reaction_scaled, main_scaled, concat_file)
+        return False, "Failed to create vertical reaction"
+    
+    main_vertical = os.path.join(temp_dir, "main_vert.mp4")
+    success = run_ffmpeg([
+        "ffmpeg", "-i", main_scaled,
+        "-vf", "pad=720:1280:0:640",
+        "-c:v", "libx264", "-preset", "ultrafast",
+        "-y", main_vertical
+    ], 60, "Main-Vertical")
+    
+    if not success:
+        cleanup(reaction_scaled, main_scaled, reaction_vertical, concat_file)
+        return False, "Failed to create vertical main"
+    
+    # Overlay them
     success = run_ffmpeg([
         "ffmpeg",
-        "-i", reaction_video,
-        "-i", main_video,
-        "-filter_complex", "[0:v][1:v]vstack=inputs=2,scale=720:1280[v]",
+        "-i", main_vertical,
+        "-i", reaction_vertical,
+        "-filter_complex", "[0:v][1:v]overlay=0:0[v]",
         "-map", "[v]",
+        "-c:v", "libx264", "-preset", "ultrafast", "-crf", "23",
         "-t", str(main_duration),
-        "-c:v", "libx264",
-        "-preset", "ultrafast",
         "-y", output_path
-    ], 180, "Split-Screen-Method2")
+    ], 120, "Overlay-Final")
     
-    if success and os.path.exists(output_path) and os.path.getsize(output_path) > 50000:
-        log_step("Split Screen Creation", "SUCCESS", "Method 2")
+    cleanup(reaction_scaled, main_scaled, reaction_vertical, main_vertical, concat_file)
+    
+    if success and os.path.exists(output_path) and os.path.getsize(output_path) > 100000:
+        log_step("Split Screen Creation", "SUCCESS", "Method 2: Overlay")
         return True, ""
     
     cleanup(output_path)
     
-    # METHOD 3: Just use main video (fallback)
-    logger.warning("   🔄 Method 3: Using main video only (fallback)")
+    # METHOD 3: Just use main video (ultimate fallback)
+    logger.warning("   🔄 Method 3: Using main video only")
     
     success = run_ffmpeg([
         "ffmpeg", "-i", main_video,
         "-vf", "scale=720:1280:force_original_aspect_ratio=decrease,pad=720:1280:(ow-iw)/2:(oh-ih)/2",
-        "-c:v", "libx264",
-        "-preset", "ultrafast",
-        "-t", str(main_duration),
+        "-c:v", "libx264", "-preset", "ultrafast", "-crf", "23",
+        "-an",
         "-y", output_path
-    ], 120, "Split-Screen-Method3-Fallback")
+    ], 90, "Fallback-MainOnly")
     
     if success and os.path.exists(output_path):
-        log_step("Split Screen Creation", "FALLBACK", "Method 3 - Main video only")
+        log_step("Split Screen Creation", "FALLBACK", "Main video only")
         return True, ""
     
     return False, "All split-screen methods failed"
+
+
 
 async def apply_copyright_filters_robust(input_path: str, output_path: str) -> tuple[bool, str]:
     """Apply copyright avoidance filters with fallback"""
