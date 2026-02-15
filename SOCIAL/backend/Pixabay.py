@@ -12,7 +12,7 @@ pixabay_final_complete_WORKING.py - COMPLETE WORKING VERSION WITH ALL NEW FEATUR
 ✅ Space niche with multiple music options (NEW)
 ✅ 5 Professional transitions
 ✅ HD thumbnails with golden text overlay
-✅ 1.15x voice speed
+✅ 1.25x voice speed
 ✅ Custom duration (20-55s)
 ✅ NEW: Vertex AI TTS as fallback when ElevenLabs fails
 ✅ NEW: 3 Hindi voices (Kore Female, Iapetus Male, Achernar Female)
@@ -1283,7 +1283,7 @@ async def generate_voice_vertex_ai(text: str, temp_dir: str) -> Optional[str]:
             },
             "audioConfig": {
                 "audioEncoding": "MP3",
-                "speakingRate": 1.15,
+                "speakingRate": 1.25,
                 "pitch": 0.0,
                 "volumeGainDb": 0.0
             }
@@ -1350,11 +1350,11 @@ async def generate_voice_115x(text: str, voice_id: str, temp_dir: str) -> Option
                     
                     final = os.path.join(temp_dir, "voice.mp3")
                     if run_ffmpeg([
-                        "ffmpeg", "-i", base, "-filter:a", "atempo=1.15",
+                        "ffmpeg", "-i", base, "-filter:a", "atempo=1.25",
                         "-y", final
                     ], 30):
                         force_cleanup(base)
-                        logger.info(f"✅ ElevenLabs Voice (1.15x): {get_size_mb(final):.2f}MB")
+                        logger.info(f"✅ ElevenLabs Voice (1.25x): {get_size_mb(final):.2f}MB")
                         return final
                     force_cleanup(base)
         except Exception as e:
@@ -1384,11 +1384,11 @@ async def generate_voice_115x(text: str, voice_id: str, temp_dir: str) -> Option
         ).save(base)
         
         if run_ffmpeg([
-            "ffmpeg", "-i", base, "-filter:a", "atempo=1.15",
+            "ffmpeg", "-i", base, "-filter:a", "atempo=1.25",
             "-y", final
         ], 30):
             force_cleanup(base)
-            logger.info(f"✅ Edge TTS Voice (1.15x): {get_size_mb(final):.2f}MB")
+            logger.info(f"✅ Edge TTS Voice (1.25x): {get_size_mb(final):.2f}MB")
             return final
         force_cleanup(base)
     except Exception as e:
