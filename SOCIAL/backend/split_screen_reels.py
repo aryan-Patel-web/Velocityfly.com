@@ -310,38 +310,207 @@ async def download_reaction_video_robust(temp_dir: str) -> tuple[Optional[str], 
     logger.error("❌ All reaction video methods failed!")
     return None, False
 
+
+
+
+
+
+
 async def download_main_video(url: str, output_path: str) -> tuple[bool, str]:
-    """Download main video from URL"""
+    """
+    Download main video from URL with Google Drive support
+    Supports: Direct URLs, YouTube, TikTok, Instagram, Google Drive
+    """
     log_step("Main Video Download", "START", url)
     
-    # Try direct download
+    # ═══════════════════════════════════════════════════════════════
+    # DETECT URL TYPE
+    # ═══════════════════════════════════════════════════════════════
+    is_gdrive = False
+    gdrive_id = None
+    
+    # Check if it's a Google Drive URL
+    if "drive.google.com" in url:
+        is_gdrive = True
+        logger.info("   🔍 Detected: Google Drive URL")
+        
+        # Extract file ID from various Google Drive URL formats
+        import re
+        patterns = [
+            r'/file/d/([a-zA-Z0-9_-]+)',           # /file/d/ID/view
+            r'id=([a-zA-Z0-9_-]+)',                 # ?id=ID
+            r'/d/([a-zA-Z0-9_-]+)',                 # /d/ID
+            r'open\?id=([a-zA-Z0-9_-]+)',          # open?id=ID
+        ]
+        
+        for pattern in patterns:
+            match = re.search(pattern, url)
+            if match:
+                gdrive_id = match.group(1)
+                logger.info(f"   📋 Extracted Google Drive ID: {gdrive_id}")
+                break
+        
+        if not gdrive_id:
+            return False, "Could not extract Google Drive file ID"
+    
+    # ═══════════════════════════════════════════════════════════════
+    # METHOD 1: Google Drive Download (if applicable)
+    # ═══════════════════════════════════════════════════════════════
+    if is_gdrive and gdrive_id:
+        logger.info("   📥 Method 1: Google Drive direct download...")
+        
+        # Try gdown library first
+        try:
+            import gdown
+            logger.info("   🔧 Using gdown library...")
+            
+            # gdown.download needs file ID
+            gdrive_url = f"https://drive.google.com/uc?id={gdrive_id}"
+            
+            # Download with gdown
+            result = gdown.download(gdrive_url, output_path, quiet=False)
+            
+            if result and os.path.exists(output_path) and os.path.getsize(output_path) > 100000:
+                logger.info(f"   ✅ Downloaded via gdown: {os.path.getsize(output_path) / (1024*1024):.2f}MB")
+                
+                # Validate video
+                info = await get_video_info(output_path)
+                if info.get("valid"):
+                    log_step("Main Video Download", "SUCCESS", "via gdown")
+                    return True, ""
+                else:
+                    cleanup(output_path)
+                    logger.warning("   ⚠️ gdown file is not a valid video")
+            else:
+                logger.warning("   ⚠️ gdown failed or file too small")
+                cleanup(output_path)
+                
+        except Exception as e:
+            logger.warning(f"   ⚠️ gdown method failed: {e}")
+            cleanup(output_path)
+        
+        # Try direct download URL (Method 2)
+        logger.info("   📥 Method 2: Google Drive direct URL...")
+        try:
+            direct_url = f"https://drive.google.com/uc?export=download&id={gdrive_id}"
+            
+            async with httpx.AsyncClient(timeout=300, follow_redirects=True) as client:
+                async with client.stream("GET", direct_url) as response:
+                    if response.status_code == 200:
+                        total_size = 0
+                        with open(output_path, 'wb') as f:
+                            async for chunk in response.aiter_bytes(1024 * 1024):
+                                f.write(chunk)
+                                total_size += len(chunk)
+                        
+                        if total_size > 100000:  # > 100KB
+                            logger.info(f"   ✅ Downloaded: {total_size / (1024*1024):.2f}MB")
+                            
+                            # Validate
+                            info = await get_video_info(output_path)
+                            if info.get("valid"):
+                                log_step("Main Video Download", "SUCCESS", "via direct URL")
+                                return True, ""
+                            else:
+                                cleanup(output_path)
+                                logger.warning("   ⚠️ Downloaded file is not valid video")
+                        else:
+                            cleanup(output_path)
+                            logger.warning(f"   ⚠️ File too small: {total_size} bytes")
+        except Exception as e:
+            logger.warning(f"   ⚠️ Direct URL method failed: {e}")
+            cleanup(output_path)
+        
+        # Try confirmation URL for large files (Method 3)
+        logger.info("   📥 Method 3: Google Drive with confirmation...")
+        try:
+            # First request to get confirmation token
+            confirm_url = f"https://drive.google.com/uc?export=download&id={gdrive_id}"
+            
+            async with httpx.AsyncClient(timeout=300, follow_redirects=True) as client:
+                # Get the page
+                response = await client.get(confirm_url)
+                
+                # Look for confirmation token
+                import re
+                match = re.search(r'confirm=([0-9A-Za-z_]+)', response.text)
+                if match:
+                    confirm_token = match.group(1)
+                    logger.info(f"   🔑 Found confirmation token: {confirm_token[:10]}...")
+                    
+                    # Download with confirmation
+                    download_url = f"https://drive.google.com/uc?export=download&id={gdrive_id}&confirm={confirm_token}"
+                    
+                    async with client.stream("GET", download_url) as dl_response:
+                        if dl_response.status_code == 200:
+                            total_size = 0
+                            with open(output_path, 'wb') as f:
+                                async for chunk in dl_response.aiter_bytes(1024 * 1024):
+                                    f.write(chunk)
+                                    total_size += len(chunk)
+                            
+                            if total_size > 100000:
+                                logger.info(f"   ✅ Downloaded: {total_size / (1024*1024):.2f}MB")
+                                
+                                info = await get_video_info(output_path)
+                                if info.get("valid"):
+                                    log_step("Main Video Download", "SUCCESS", "via confirmation")
+                                    return True, ""
+                                else:
+                                    cleanup(output_path)
+        except Exception as e:
+            logger.warning(f"   ⚠️ Confirmation method failed: {e}")
+            cleanup(output_path)
+        
+        return False, "All Google Drive download methods failed"
+    
+    # ═══════════════════════════════════════════════════════════════
+    # METHOD 2: Direct HTTP Download (for direct video URLs)
+    # ═══════════════════════════════════════════════════════════════
+    logger.info("   📥 Method 1: Direct HTTP download...")
     success, error = await download_file(url, output_path, "main video")
     if success:
         info = await get_video_info(output_path)
         if info.get("valid"):
-            log_step("Main Video Download", "SUCCESS")
+            log_step("Main Video Download", "SUCCESS", "via direct download")
             return True, ""
         else:
             cleanup(output_path)
-            return False, "Invalid video file"
+            logger.warning("   ⚠️ Direct download produced invalid video")
     
-    # Try yt-dlp for YouTube/TikTok URLs
+    # ═══════════════════════════════════════════════════════════════
+    # METHOD 3: yt-dlp (for YouTube, TikTok, Instagram, etc.)
+    # ═══════════════════════════════════════════════════════════════
+    logger.info("   📥 Method 2: Trying yt-dlp...")
     try:
-        logger.info("   🔄 Trying yt-dlp...")
         result = subprocess.run([
-            "yt-dlp", "-f", "best[height<=720]",
+            "yt-dlp",
+            "-f", "best[height<=720]",
             "-o", output_path,
             "--no-warnings",
+            "--no-check-certificate",
             url
         ], capture_output=True, timeout=180, text=True)
         
         if result.returncode == 0 and os.path.exists(output_path):
-            log_step("Main Video Download", "SUCCESS", "via yt-dlp")
-            return True, ""
+            info = await get_video_info(output_path)
+            if info.get("valid"):
+                log_step("Main Video Download", "SUCCESS", "via yt-dlp")
+                return True, ""
+            else:
+                cleanup(output_path)
+                logger.warning("   ⚠️ yt-dlp produced invalid video")
+        else:
+            logger.warning(f"   ⚠️ yt-dlp failed: {result.stderr[:200]}")
+    except subprocess.TimeoutExpired:
+        logger.warning("   ⚠️ yt-dlp timeout")
     except Exception as e:
-        logger.warning(f"yt-dlp failed: {e}")
+        logger.warning(f"   ⚠️ yt-dlp error: {e}")
     
-    return False, error or "Download failed"
+    return False, error or "All download methods failed"
+
+
+
 
 async def save_uploaded_file(upload_file: UploadFile, output_path: str) -> tuple[bool, str]:
     """Save uploaded file from frontend"""
@@ -375,6 +544,37 @@ async def save_uploaded_file(upload_file: UploadFile, output_path: str) -> tuple
     except Exception as e:
         cleanup(output_path)
         return False, str(e)
+
+
+
+
+def extract_gdrive_id(url: str) -> Optional[str]:
+    """
+    Extract Google Drive file ID from various URL formats
+    
+    Supported formats:
+    - https://drive.google.com/file/d/FILE_ID/view
+    - https://drive.google.com/open?id=FILE_ID
+    - https://drive.google.com/uc?id=FILE_ID
+    - https://drive.google.com/uc?export=download&id=FILE_ID
+    """
+    import re
+    
+    patterns = [
+        r'/file/d/([a-zA-Z0-9_-]+)',           # /file/d/ID/view
+        r'id=([a-zA-Z0-9_-]+)',                 # ?id=ID or &id=ID
+        r'/d/([a-zA-Z0-9_-]+)',                 # /d/ID
+        r'open\?id=([a-zA-Z0-9_-]+)',          # open?id=ID
+        r'/folders/([a-zA-Z0-9_-]+)',          # /folders/ID (folder, not file)
+    ]
+    
+    for pattern in patterns:
+        match = re.search(pattern, url)
+        if match:
+            return match.group(1)
+    
+    return None
+
 
 # ═══════════════════════════════════════════════════════════════════════
 # VIDEO PROCESSING

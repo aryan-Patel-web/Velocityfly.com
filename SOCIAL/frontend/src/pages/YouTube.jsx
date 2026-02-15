@@ -12682,29 +12682,49 @@ onClick={async () => {
           🔗 Video URL (YouTube, TikTok, Instagram, or Direct Link)
         </label>
         
-        <input
-          type="text"
-          value={splitReelUrl}
-          onChange={e => setSplitReelUrl(e.target.value)}
-          placeholder="https://youtube.com/watch?v=... or https://tiktok.com/@user/video/..."
-          disabled={splitReelProcessing}
-          style={{
-            width: '100%',
-            padding: '16px 20px',
-            borderRadius: '12px',
-            border: '2px solid #e0e0e0',
-            fontSize: '15px',
-            outline: 'none',
-            boxSizing: 'border-box',
-            transition: 'all 0.2s',
-            background: splitReelProcessing ? '#f5f5f5' : 'white',
-            fontFamily: 'monospace',
-            color: '#333'
-          }}
-          onFocus={e => e.target.style.borderColor = '#667eea'}
-          onBlur={e => e.target.style.borderColor = '#e0e0e0'}
-        />
+
+
+
+
+<input
+  type="text"
+  value={splitReelUrl}
+  onChange={e => setSplitReelUrl(e.target.value)}
+  placeholder="YouTube, TikTok, Instagram, Google Drive, or Direct Video URL"
+  disabled={splitReelProcessing}
+  style={{
+    width: '100%',
+    padding: '16px 20px',
+    borderRadius: '12px',
+    border: '2px solid #e0e0e0',
+    fontSize: '15px',
+    outline: 'none',
+    boxSizing: 'border-box',
+    transition: 'all 0.2s',
+    background: splitReelProcessing ? '#f5f5f5' : 'white',
+    fontFamily: 'monospace',
+    color: '#333'
+  }}
+  onFocus={e => e.target.style.borderColor = '#667eea'}
+  onBlur={e => e.target.style.borderColor = '#e0e0e0'}
+/>
       </div>
+
+<div style={{ 
+  fontSize: '13px', 
+  color: '#2196f3',
+  display: 'flex',
+  alignItems: 'center',
+  gap: '6px',
+  background: '#e3f2fd',
+  padding: '8px 14px',
+  borderRadius: '8px'
+}}>
+  <span>☁️</span>
+  <span>Google Drive links supported</span>
+</div>
+
+
 
       {/* DIVIDER */}
       <div style={{ 
