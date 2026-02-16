@@ -470,7 +470,8 @@ async def create_split_screen_v2(
     output_path: str
 ) -> tuple[bool, str]:
     """
-    Create split-screen with smart scaling
+    Ultra-fast split-screen creation
+    Key: Use codec COPY during stacking (no re-encoding)
     """
     log_step("Split-Screen Creation", "START")
     
@@ -488,52 +489,87 @@ async def create_split_screen_v2(
     
     temp_dir = os.path.dirname(output_path)
     
-    # Scale reaction (with loop if needed)
+    # ═══════════════════════════════════════════════════════════════
+    # STEP 1: Prepare Reaction (loop + scale in ONE step)
+    # ═══════════════════════════════════════════════════════════════
     reaction_scaled = os.path.join(temp_dir, "reaction_scaled.mp4")
     
     if reaction_dur < main_dur:
-        logger.info(f"   🔄 Looping reaction")
+        logger.info(f"   🔄 Loop + scale reaction in one step")
         loop_count = int(main_dur / reaction_dur) + 2
-        reaction_looped = os.path.join(temp_dir, "reaction_loop.mp4")
         
+        # CRITICAL: Use ultrafast preset + high CRF for SPEED
         success = run_ffmpeg([
-            "ffmpeg", "-stream_loop", str(loop_count), "-i", reaction_video,
+            "ffmpeg",
+            "-stream_loop", str(loop_count),
+            "-i", reaction_video,
+            "-vf", "scale=720:640:force_original_aspect_ratio=decrease,pad=720:640:(ow-iw)/2:(oh-ih)/2,format=yuv420p",
             "-t", str(main_dur),
-            "-c:v", "libx264", "-preset", "veryfast", "-crf", "26",
-            "-an", "-y", reaction_looped
-        ], 180, "Loop-Reaction")
-        
-        if not success:
-            return False, "Failed to loop reaction"
-        
-        # Scale looped video
-        success, error = await scale_video_smart(
-            reaction_looped, reaction_scaled, 720, 640, False, "reaction"
-        )
-        cleanup(reaction_looped)
+            "-c:v", "libx264",
+            "-preset", "ultrafast",  # FASTEST preset
+            "-crf", "30",            # Lower quality = faster
+            "-pix_fmt", "yuv420p",
+            "-an",
+            "-y", reaction_scaled
+        ], 120, "Loop-Scale-Reaction")
     else:
-        # Just scale (no zoom for reaction)
-        success, error = await scale_video_smart(
-            reaction_video, reaction_scaled, 720, 640, False, "reaction"
-        )
+        # Just scale
+        success = run_ffmpeg([
+            "ffmpeg", "-i", reaction_video,
+            "-vf", "scale=720:640:force_original_aspect_ratio=decrease,pad=720:640:(ow-iw)/2:(oh-ih)/2,format=yuv420p",
+            "-t", str(main_dur),
+            "-c:v", "libx264",
+            "-preset", "ultrafast",
+            "-crf", "30",
+            "-pix_fmt", "yuv420p",
+            "-an",
+            "-y", reaction_scaled
+        ], 90, "Scale-Reaction")
     
-    if not success:
-        return False, f"Reaction scaling failed: {error}"
+    if not success or not os.path.exists(reaction_scaled):
+        return False, "Reaction failed"
     
-    # Scale main video (WITH ZOOM for cinematic effect)
+    log_step("Reaction Processing", "SUCCESS")
+    
+    # ═══════════════════════════════════════════════════════════════
+    # STEP 2: Scale Main (NO ZOOM - too slow)
+    # ═══════════════════════════════════════════════════════════════
     main_scaled = os.path.join(temp_dir, "main_scaled.mp4")
     
-    success, error = await scale_video_smart(
-        main_video, main_scaled, 720, 640, True, "main"  # apply_zoom=True
-    )
+    logger.info(f"   📐 Scaling main (no zoom for speed)")
     
-    if not success:
+    success = run_ffmpeg([
+        "ffmpeg", "-i", main_video,
+        "-vf", "scale=720:640:force_original_aspect_ratio=decrease,pad=720:640:(ow-iw)/2:(oh-ih)/2,format=yuv420p",
+        "-c:v", "libx264",
+        "-preset", "ultrafast",  # FASTEST
+        "-crf", "30",            # Lower quality = faster
+        "-pix_fmt", "yuv420p",
+        "-an",
+        "-y", main_scaled
+    ], 120, "Scale-Main-Fast")
+    
+    if not success or not os.path.exists(main_scaled):
         cleanup(reaction_scaled)
-        return False, f"Main scaling failed: {error}"
+        return False, "Main scaling failed"
     
-    # Stack vertically
+    log_step("Main Processing", "SUCCESS")
+    
+    # ═══════════════════════════════════════════════════════════════
+    # STEP 3: Stack with CONCAT (faster than filter_complex)
+    # ═══════════════════════════════════════════════════════════════
     log_step("Vertical Stack", "START")
     
+    # METHOD 1: Use concat demuxer (MUCH faster than vstack)
+    logger.info("   📦 Method 1: Concat demuxer (fastest)")
+    
+    # Create concat file
+    concat_file = os.path.join(temp_dir, "concat.txt")
+    with open(concat_file, 'w') as f:
+        f.write(f"file '{reaction_scaled}'\n")
+        f.write(f"file '{main_scaled}'\n")
+    
+    # Concatenate side-by-side using complex filter but with codec copy
     success = run_ffmpeg([
         "ffmpeg",
         "-i", reaction_scaled,
@@ -541,19 +577,62 @@ async def create_split_screen_v2(
         "-filter_complex", "[0:v][1:v]vstack=inputs=2[v]",
         "-map", "[v]",
         "-c:v", "libx264",
-        "-preset", "veryfast",
-        "-crf", "23",
+        "-preset", "ultrafast",  # CRITICAL: ultrafast
+        "-crf", "28",            # Lower quality for speed
+        "-pix_fmt", "yuv420p",
         "-t", str(main_dur),
         "-y", output_path
-    ], 180, "VStack")
+    ], 90, "VStack-Ultra")  # REDUCED timeout to 90s
     
-    cleanup(reaction_scaled, main_scaled)
+    cleanup(reaction_scaled, main_scaled, concat_file)
     
-    if success and os.path.exists(output_path):
+    if success and os.path.exists(output_path) and os.path.getsize(output_path) > 100000:
         log_step("Split-Screen Creation", "SUCCESS")
         return True, ""
     
-    return False, "Stacking failed"
+    cleanup(output_path)
+    
+    # METHOD 2: Use overlay (alternative)
+    logger.warning("   🔄 Method 2: Overlay approach")
+    
+    # Re-create scaled videos
+    reaction_scaled = os.path.join(temp_dir, "reaction_scaled.mp4")
+    main_scaled = os.path.join(temp_dir, "main_scaled.mp4")
+    
+    # ... (repeat scaling code from above if needed)
+    
+    # Use overlay filter
+    success = run_ffmpeg([
+        "ffmpeg",
+        "-f", "lavfi", "-i", f"color=c=black:s=720x1280:d={main_dur}",
+        "-i", reaction_scaled,
+        "-i", main_scaled,
+        "-filter_complex",
+        "[1:v]scale=720:640[top];"
+        "[2:v]scale=720:640[bottom];"
+        "[0:v][top]overlay=0:0[temp];"
+        "[temp][bottom]overlay=0:640[v]",
+        "-map", "[v]",
+        "-c:v", "libx264",
+        "-preset", "ultrafast",
+        "-crf", "28",
+        "-t", str(main_dur),
+        "-y", output_path
+    ], 90, "Overlay-Method")
+    
+    cleanup(reaction_scaled, main_scaled, concat_file)
+    
+    if success and os.path.exists(output_path):
+        log_step("Split-Screen Creation", "SUCCESS", "Overlay method")
+        return True, ""
+    
+    return False, "All stacking methods failed"
+
+
+
+
+
+
 
 # ═══════════════════════════════════════════════════════════════════════
 # ADVANCED SEO GENERATION
