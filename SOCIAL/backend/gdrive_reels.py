@@ -380,7 +380,7 @@ Duration: {duration} seconds (approximately {words} words)
 CRITICAL REQUIREMENTS:
 1. Create 100% UNIQUE Hindi content (natural flow, not robotic)
 2. Use commas, exclamations for natural speech breaks
-3. NO "pause" word - use natural rhythm
+3. NO "pause" word - use natural rhythm this is must 
 4. Include hook + main story + conclusion
 5. Add CTA at end: "{cta}"
 
@@ -396,7 +396,7 @@ SEO REQUIREMENTS (VERY STRICT – FOLLOW EXACTLY):
    - Second paragraph: Add emotional appeal or curiosity
    - End with: "Keywords: ..."
 
-8. Generate EXACTLY 65-70 SEO KEYWORDS:
+8. Generate EXACTLY 35-40 SEO KEYWORDS:
    - ALL keywords MUST be derived from video content
    - Use real YouTube search-style phrases
    - Mix Hindi + English terms naturally
