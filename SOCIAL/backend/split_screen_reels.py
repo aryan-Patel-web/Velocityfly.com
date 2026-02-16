@@ -1,16 +1,14 @@
 """
-split_screen_reels.py - SPLIT-SCREEN REACTION REELS
-====================================================
-✅ Split screen: Reaction video (TOP) + Main video (BOTTOM)
-✅ Random reaction video selection from pool
-✅ Multiple fallbacks (video → image → text)
-✅ Copyright avoidance (filters, audio replacement)
-✅ ElevenLabs voiceover support
-✅ BGM background music
-✅ Captions and text overlays
-✅ Direct YouTube upload
-✅ Comprehensive logging for Render
-====================================================
+split_screen_reels.py - PRODUCTION SPLIT-SCREEN REELS v2.0
+============================================================
+✅ Google Drive + Manual Upload support
+✅ Smart video resizing (any aspect ratio → 720x640)
+✅ Intelligent zoom/crop for cinematic effect
+✅ Extended timeouts for large files
+✅ Advanced Mistral SEO generation
+✅ Comprehensive error handling
+✅ Production-ready logging
+============================================================
 """
 
 from fastapi import APIRouter, Request, File, UploadFile, Form
@@ -30,7 +28,6 @@ import aiofiles
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 import uuid
-from urllib.parse import urlparse
 
 try:
     import psutil
@@ -39,7 +36,7 @@ except:
     HAS_PSUTIL = False
 
 # ═══════════════════════════════════════════════════════════════════════
-# LOGGING SETUP
+# LOGGING
 # ═══════════════════════════════════════════════════════════════════════
 logger = logging.getLogger("SplitScreenReels")
 logger.setLevel(logging.INFO)
@@ -53,107 +50,85 @@ if not logger.handlers:
     logger.addHandler(handler)
 
 def log_memory(step: str):
-    """Log memory usage for Render monitoring"""
+    """Log memory usage"""
     if HAS_PSUTIL:
         try:
             process = psutil.Process(os.getpid())
             mem_mb = process.memory_info().rss / 1024 / 1024
-            logger.info(f"🧠 MEMORY [{step}]: {mem_mb:.1f}MB")
+            logger.info(f"🧠 [{step}]: {mem_mb:.1f}MB")
             if mem_mb > 450:
-                logger.warning(f"⚠️  HIGH MEMORY: {mem_mb:.1f}MB - Running GC")
+                logger.warning(f"⚠️  HIGH MEMORY: {mem_mb:.1f}MB")
                 gc.collect()
-        except Exception as e:
-            logger.error(f"Memory check failed: {e}")
+        except:
+            pass
 
 def log_step(step: str, status: str = "START", details: str = ""):
-    """Comprehensive logging for debugging on Render"""
+    """Structured logging"""
     timestamp = datetime.now().strftime('%H:%M:%S')
     if status == "START":
         logger.info(f"\n{'='*80}")
         logger.info(f"🚀 [{timestamp}] {step}")
         if details:
-            logger.info(f"   📝 {details}")
+            logger.info(f"   {details}")
         logger.info(f"{'='*80}")
     elif status == "SUCCESS":
         logger.info(f"✅ [{timestamp}] {step} - SUCCESS")
         if details:
-            logger.info(f"   ✨ {details}")
+            logger.info(f"   {details}")
     elif status == "FAILED":
         logger.error(f"❌ [{timestamp}] {step} - FAILED")
         if details:
-            logger.error(f"   ❗ {details}")
+            logger.error(f"   {details}")
     elif status == "FALLBACK":
         logger.warning(f"⚠️  [{timestamp}] {step} - FALLBACK")
         if details:
-            logger.warning(f"   🔄 {details}")
-    elif status == "INFO":
-        logger.info(f"ℹ️  [{timestamp}] {step}")
-        if details:
-            logger.info(f"   {details}")
+            logger.warning(f"   {details}")
 
 # ═══════════════════════════════════════════════════════════════════════
-# CONFIGURATION
+# CONFIG
 # ═══════════════════════════════════════════════════════════════════════
-
-# API Keys
 MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY", "")
 ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY", "")
 
-# Reaction Videos (GitHub Raw URLs)
 REACTION_VIDEOS = [
     "https://raw.githubusercontent.com/aryan-Patel-web/audio-collections/main/videoplayback%20(1)%20(online-video-cutter.com)%20(1).mp4",
     "https://raw.githubusercontent.com/aryan-Patel-web/audio-collections/main/videoplayback%20(1)%20(online-video-cutter.com).mp4",
 ]
 
-# Fallback Meme Images (if videos fail)
 FALLBACK_MEME_IMAGES = [
-    "https://i.imgur.com/8XqVLHj.jpg",  # Laughing emoji
-    "https://i.imgur.com/9VwQKvP.jpg",  # LOL text
-    "https://i.imgur.com/KJLw3uM.jpg",  # HAHA reaction
+    "https://i.imgur.com/8XqVLHj.jpg",
+    "https://i.imgur.com/9VwQKvP.jpg",
+    "https://i.imgur.com/KJLw3uM.jpg",
 ]
 
-# BGM (Background Music)
 BGM_URL = "https://raw.githubusercontent.com/aryan-Patel-web/audio-collections/main/Meow%20Meow%20Meow%20Meow%20%F0%9F%8E%B6%20Sad%20TikTok%20Song%20%F0%9F%92%94%F0%9F%98%BF.mp3"
-BGM_VOLUME = 0.25  # 25% volume for BGM
+BGM_VOLUME = 0.25
 
-# ElevenLabs Voice IDs
-ELEVENLABS_VOICES = [
-    "21m00Tcm4TlvDq8ikWAM",  # Rachel
-    "AZnzlk1XvdvUeBnXmlld",  # Domi
-    "EXAVITQu4vr4xnSDxMaL",  # Bella
-]
-
-# Voiceover Templates
+ELEVENLABS_VOICES = ["21m00Tcm4TlvDq8ikWAM", "AZnzlk1XvdvUeBnXmlld", "EXAVITQu4vr4xnSDxMaL"]
 VOICEOVER_TEMPLATES = [
     "Watch this hilarious moment! You won't believe what happens next!",
     "This is absolutely insane! Check out this crazy scene!",
     "Wait for it... this is going to blow your mind!",
-    "OMG! This is the funniest thing I've seen today!",
-    "No way this is real! But it is, and it's amazing!",
 ]
 
-# Processing Status Storage
 PROCESSING_STATUS = {}
 
 # ═══════════════════════════════════════════════════════════════════════
-# UTILITY FUNCTIONS
+# UTILITIES
 # ═══════════════════════════════════════════════════════════════════════
-
 def cleanup(*paths):
-    """Safely delete files and free memory"""
     for path in paths:
         try:
             if path and os.path.exists(path):
                 os.remove(path)
-                logger.info(f"🗑️  Cleaned up: {os.path.basename(path)}")
-        except Exception as e:
-            logger.warning(f"Cleanup warning: {e}")
+                logger.info(f"🗑️  Cleaned: {os.path.basename(path)}")
+        except:
+            pass
     gc.collect()
 
-def run_ffmpeg(cmd: list, timeout: int = 180, step: str = "FFmpeg") -> bool:
-    """Run FFmpeg command with error handling"""
-    logger.info(f"🎬 Running: {step}")
-    logger.debug(f"Command: {' '.join(cmd[:5])}...")
+def run_ffmpeg(cmd: list, timeout: int = 240, step: str = "FFmpeg") -> bool:
+    """Run FFmpeg with extended timeout"""
+    logger.info(f"🎬 {step} (max {timeout}s)")
     try:
         result = subprocess.run(
             cmd,
@@ -163,26 +138,25 @@ def run_ffmpeg(cmd: list, timeout: int = 180, step: str = "FFmpeg") -> bool:
             text=True
         )
         if result.returncode == 0:
-            logger.info(f"✅ {step} - Completed successfully")
+            logger.info(f"✅ {step} completed")
             return True
         else:
-            error_msg = result.stderr[-500:] if result.stderr else "Unknown error"
-            logger.error(f"❌ {step} - Failed: {error_msg}")
+            logger.error(f"❌ {step} failed: {result.stderr[-300:]}")
             return False
     except subprocess.TimeoutExpired:
-        logger.error(f"❌ {step} - Timeout after {timeout}s")
+        logger.error(f"❌ {step} timeout ({timeout}s)")
         return False
     except Exception as e:
-        logger.error(f"❌ {step} - Error: {str(e)}")
+        logger.error(f"❌ {step} error: {e}")
         return False
 
 async def get_video_info(video_path: str) -> Dict[str, Any]:
-    """Get video metadata using ffprobe"""
+    """Get video metadata"""
     try:
         result = subprocess.run([
             "ffprobe", "-v", "error",
             "-select_streams", "v:0",
-            "-show_entries", "stream=width,height,duration,r_frame_rate",
+            "-show_entries", "stream=width,height,duration",
             "-show_entries", "format=duration",
             "-of", "json",
             video_path
@@ -205,16 +179,14 @@ async def get_video_info(video_path: str) -> Dict[str, Any]:
             }
         return {"valid": False, "error": "ffprobe failed"}
     except Exception as e:
-        logger.error(f"Video info error: {e}")
         return {"valid": False, "error": str(e)}
 
 # ═══════════════════════════════════════════════════════════════════════
 # DOWNLOAD FUNCTIONS
 # ═══════════════════════════════════════════════════════════════════════
-
 async def download_file(url: str, output_path: str, desc: str = "file") -> tuple[bool, str]:
-    """Download file with progress logging"""
-    log_step(f"Download {desc}", "START", url)
+    """Download with progress"""
+    log_step(f"Download {desc}", "START", url[:80])
     
     try:
         async with httpx.AsyncClient(timeout=300, follow_redirects=True) as client:
@@ -222,62 +194,44 @@ async def download_file(url: str, output_path: str, desc: str = "file") -> tuple
                 if response.status_code != 200:
                     return False, f"HTTP {response.status_code}"
                 
-                total_size = 0
+                total = 0
                 with open(output_path, 'wb') as f:
-                    async for chunk in response.aiter_bytes(1024 * 1024):  # 1MB chunks
+                    async for chunk in response.aiter_bytes(1024 * 1024):
                         f.write(chunk)
-                        total_size += len(chunk)
+                        total += len(chunk)
                 
-                if total_size < 1000:
+                if total < 1000:
                     cleanup(output_path)
                     return False, "File too small"
                 
-                size_mb = total_size / (1024 * 1024)
-                log_step(f"Download {desc}", "SUCCESS", f"{size_mb:.2f}MB downloaded")
+                log_step(f"Download {desc}", "SUCCESS", f"{total/(1024*1024):.2f}MB")
                 return True, ""
-                
-    except httpx.TimeoutException:
-        return False, "Download timeout"
     except Exception as e:
         return False, str(e)
 
 async def download_reaction_video_robust(temp_dir: str) -> tuple[Optional[str], bool]:
-    """
-    Download reaction video with 3-level fallback:
-    1. Try random video from pool
-    2. Try all videos in pool
-    3. Create video from meme image
-    """
-    log_step("Reaction Video Download", "START")
+    """Download reaction with fallbacks"""
+    log_step("Reaction Video", "START")
     
-    # LEVEL 1: Try random video
     random.shuffle(REACTION_VIDEOS)
-    for idx, video_url in enumerate(REACTION_VIDEOS, 1):
-        logger.info(f"   🎥 Attempt {idx}/{len(REACTION_VIDEOS)}: {video_url}")
+    for idx, url in enumerate(REACTION_VIDEOS, 1):
         output = os.path.join(temp_dir, f"reaction_{idx}.mp4")
+        success, _ = await download_file(url, output, f"reaction {idx}")
         
-        success, error = await download_file(video_url, output, f"reaction video {idx}")
-        if success and os.path.exists(output):
-            # Validate video
+        if success:
             info = await get_video_info(output)
             if info.get("valid"):
-                log_step("Reaction Video Download", "SUCCESS", f"Method 1 - Video {idx}")
+                log_step("Reaction Video", "SUCCESS", f"Video {idx}")
                 return output, False
-            else:
-                cleanup(output)
-                logger.warning(f"   Invalid video: {error}")
+            cleanup(output)
     
-    # LEVEL 2: Try fallback images → convert to video
-    logger.warning("   ⚠️  All reaction videos failed, trying images...")
-    for idx, image_url in enumerate(FALLBACK_MEME_IMAGES, 1):
-        logger.info(f"   🖼️  Trying meme image {idx}/{len(FALLBACK_MEME_IMAGES)}")
-        
+    # Fallback to image
+    for idx, img_url in enumerate(FALLBACK_MEME_IMAGES, 1):
         image_path = os.path.join(temp_dir, f"meme_{idx}.jpg")
-        success, _ = await download_file(image_url, image_path, f"meme image {idx}")
+        success, _ = await download_file(img_url, image_path, f"image {idx}")
         
-        if success and os.path.exists(image_path):
-            # Convert image to 10-second video
-            video_path = os.path.join(temp_dir, "reaction_from_image.mp4")
+        if success:
+            video_path = os.path.join(temp_dir, "reaction_img.mp4")
             success = run_ffmpeg([
                 "ffmpeg", "-loop", "1", "-i", image_path,
                 "-t", "10", "-vf", "scale=720:720",
@@ -286,748 +240,382 @@ async def download_reaction_video_robust(temp_dir: str) -> tuple[Optional[str], 
             ], 60, "Image-to-Video")
             
             cleanup(image_path)
-            
-            if success and os.path.exists(video_path):
-                log_step("Reaction Video Download", "FALLBACK", "Method 2 - Image converted")
+            if success:
+                log_step("Reaction Video", "FALLBACK", "Image converted")
                 return video_path, True
     
-    # LEVEL 3: Create text-based reaction video
-    logger.warning("   ⚠️  All images failed, creating text video...")
-    text_video = os.path.join(temp_dir, "reaction_text.mp4")
-    
-    success = run_ffmpeg([
-        "ffmpeg", "-f", "lavfi",
-        "-i", "color=c=red:s=720x720:d=10",
-        "-vf", "drawtext=text='😂 LOL 😂':fontsize=80:fontcolor=white:x=(w-text_w)/2:y=(h-text_h)/2",
-        "-c:v", "libx264", "-pix_fmt", "yuv420p",
-        "-y", text_video
-    ], 60, "Text-Video-Creation")
-    
-    if success and os.path.exists(text_video):
-        log_step("Reaction Video Download", "FALLBACK", "Method 3 - Text video")
-        return text_video, True
-    
-    logger.error("❌ All reaction video methods failed!")
     return None, False
 
-
-
-
-
-
+async def download_from_gdrive(file_id: str, output_path: str) -> tuple[bool, str]:
+    """Google Drive download"""
+    logger.info(f"   📥 Google Drive: {file_id}")
+    
+    # Try gdown
+    try:
+        import gdown
+        url = f"https://drive.google.com/uc?id={file_id}"
+        result = gdown.download(url, output_path, quiet=False)
+        
+        if result and os.path.exists(output_path) and os.path.getsize(output_path) > 100000:
+            info = await get_video_info(output_path)
+            if info.get("valid"):
+                return True, ""
+            cleanup(output_path)
+    except Exception as e:
+        logger.warning(f"   gdown failed: {e}")
+    
+    # Try direct URL
+    try:
+        url = f"https://drive.google.com/uc?export=download&id={file_id}"
+        async with httpx.AsyncClient(timeout=300, follow_redirects=True) as client:
+            async with client.stream("GET", url) as response:
+                if response.status_code == 200:
+                    total = 0
+                    with open(output_path, 'wb') as f:
+                        async for chunk in response.aiter_bytes(1024 * 1024):
+                            f.write(chunk)
+                            total += len(chunk)
+                    
+                    if total > 100000:
+                        info = await get_video_info(output_path)
+                        if info.get("valid"):
+                            return True, ""
+                    cleanup(output_path)
+    except Exception as e:
+        logger.warning(f"   Direct URL failed: {e}")
+    
+    return False, "All Google Drive methods failed"
 
 async def download_main_video(url: str, output_path: str) -> tuple[bool, str]:
-    """
-    Download main video from URL with Google Drive support
-    Supports: Direct URLs, YouTube, TikTok, Instagram, Google Drive
-    """
-    log_step("Main Video Download", "START", url)
+    """Download main video with all methods"""
+    log_step("Main Video Download", "START")
     
-    # ═══════════════════════════════════════════════════════════════
-    # DETECT URL TYPE
-    # ═══════════════════════════════════════════════════════════════
-    is_gdrive = False
-    gdrive_id = None
-    
-    # Check if it's a Google Drive URL
+    # Check for Google Drive
     if "drive.google.com" in url:
-        is_gdrive = True
-        logger.info("   🔍 Detected: Google Drive URL")
-        
-        # Extract file ID from various Google Drive URL formats
-        import re
-        patterns = [
-            r'/file/d/([a-zA-Z0-9_-]+)',           # /file/d/ID/view
-            r'id=([a-zA-Z0-9_-]+)',                 # ?id=ID
-            r'/d/([a-zA-Z0-9_-]+)',                 # /d/ID
-            r'open\?id=([a-zA-Z0-9_-]+)',          # open?id=ID
-        ]
+        patterns = [r'/file/d/([a-zA-Z0-9_-]+)', r'id=([a-zA-Z0-9_-]+)']
+        gdrive_id = None
         
         for pattern in patterns:
             match = re.search(pattern, url)
             if match:
                 gdrive_id = match.group(1)
-                logger.info(f"   📋 Extracted Google Drive ID: {gdrive_id}")
                 break
         
-        if not gdrive_id:
-            return False, "Could not extract Google Drive file ID"
+        if gdrive_id:
+            success, error = await download_from_gdrive(gdrive_id, output_path)
+            if success:
+                log_step("Main Video Download", "SUCCESS", "Google Drive")
+                return True, ""
     
-    # ═══════════════════════════════════════════════════════════════
-    # METHOD 1: Google Drive Download (if applicable)
-    # ═══════════════════════════════════════════════════════════════
-    if is_gdrive and gdrive_id:
-        logger.info("   📥 Method 1: Google Drive direct download...")
-        
-        # Try gdown library first
-        try:
-            import gdown
-            logger.info("   🔧 Using gdown library...")
-            
-            # gdown.download needs file ID
-            gdrive_url = f"https://drive.google.com/uc?id={gdrive_id}"
-            
-            # Download with gdown
-            result = gdown.download(gdrive_url, output_path, quiet=False)
-            
-            if result and os.path.exists(output_path) and os.path.getsize(output_path) > 100000:
-                logger.info(f"   ✅ Downloaded via gdown: {os.path.getsize(output_path) / (1024*1024):.2f}MB")
-                
-                # Validate video
-                info = await get_video_info(output_path)
-                if info.get("valid"):
-                    log_step("Main Video Download", "SUCCESS", "via gdown")
-                    return True, ""
-                else:
-                    cleanup(output_path)
-                    logger.warning("   ⚠️ gdown file is not a valid video")
-            else:
-                logger.warning("   ⚠️ gdown failed or file too small")
-                cleanup(output_path)
-                
-        except Exception as e:
-            logger.warning(f"   ⚠️ gdown method failed: {e}")
-            cleanup(output_path)
-        
-        # Try direct download URL (Method 2)
-        logger.info("   📥 Method 2: Google Drive direct URL...")
-        try:
-            direct_url = f"https://drive.google.com/uc?export=download&id={gdrive_id}"
-            
-            async with httpx.AsyncClient(timeout=300, follow_redirects=True) as client:
-                async with client.stream("GET", direct_url) as response:
-                    if response.status_code == 200:
-                        total_size = 0
-                        with open(output_path, 'wb') as f:
-                            async for chunk in response.aiter_bytes(1024 * 1024):
-                                f.write(chunk)
-                                total_size += len(chunk)
-                        
-                        if total_size > 100000:  # > 100KB
-                            logger.info(f"   ✅ Downloaded: {total_size / (1024*1024):.2f}MB")
-                            
-                            # Validate
-                            info = await get_video_info(output_path)
-                            if info.get("valid"):
-                                log_step("Main Video Download", "SUCCESS", "via direct URL")
-                                return True, ""
-                            else:
-                                cleanup(output_path)
-                                logger.warning("   ⚠️ Downloaded file is not valid video")
-                        else:
-                            cleanup(output_path)
-                            logger.warning(f"   ⚠️ File too small: {total_size} bytes")
-        except Exception as e:
-            logger.warning(f"   ⚠️ Direct URL method failed: {e}")
-            cleanup(output_path)
-        
-        # Try confirmation URL for large files (Method 3)
-        logger.info("   📥 Method 3: Google Drive with confirmation...")
-        try:
-            # First request to get confirmation token
-            confirm_url = f"https://drive.google.com/uc?export=download&id={gdrive_id}"
-            
-            async with httpx.AsyncClient(timeout=300, follow_redirects=True) as client:
-                # Get the page
-                response = await client.get(confirm_url)
-                
-                # Look for confirmation token
-                import re
-                match = re.search(r'confirm=([0-9A-Za-z_]+)', response.text)
-                if match:
-                    confirm_token = match.group(1)
-                    logger.info(f"   🔑 Found confirmation token: {confirm_token[:10]}...")
-                    
-                    # Download with confirmation
-                    download_url = f"https://drive.google.com/uc?export=download&id={gdrive_id}&confirm={confirm_token}"
-                    
-                    async with client.stream("GET", download_url) as dl_response:
-                        if dl_response.status_code == 200:
-                            total_size = 0
-                            with open(output_path, 'wb') as f:
-                                async for chunk in dl_response.aiter_bytes(1024 * 1024):
-                                    f.write(chunk)
-                                    total_size += len(chunk)
-                            
-                            if total_size > 100000:
-                                logger.info(f"   ✅ Downloaded: {total_size / (1024*1024):.2f}MB")
-                                
-                                info = await get_video_info(output_path)
-                                if info.get("valid"):
-                                    log_step("Main Video Download", "SUCCESS", "via confirmation")
-                                    return True, ""
-                                else:
-                                    cleanup(output_path)
-        except Exception as e:
-            logger.warning(f"   ⚠️ Confirmation method failed: {e}")
-            cleanup(output_path)
-        
-        return False, "All Google Drive download methods failed"
-    
-    # ═══════════════════════════════════════════════════════════════
-    # METHOD 2: Direct HTTP Download (for direct video URLs)
-    # ═══════════════════════════════════════════════════════════════
-    logger.info("   📥 Method 1: Direct HTTP download...")
-    success, error = await download_file(url, output_path, "main video")
+    # Try direct download
+    success, _ = await download_file(url, output_path, "main video")
     if success:
         info = await get_video_info(output_path)
         if info.get("valid"):
-            log_step("Main Video Download", "SUCCESS", "via direct download")
+            log_step("Main Video Download", "SUCCESS", "Direct")
             return True, ""
-        else:
-            cleanup(output_path)
-            logger.warning("   ⚠️ Direct download produced invalid video")
+        cleanup(output_path)
     
-    # ═══════════════════════════════════════════════════════════════
-    # METHOD 3: yt-dlp (for YouTube, TikTok, Instagram, etc.)
-    # ═══════════════════════════════════════════════════════════════
-    logger.info("   📥 Method 2: Trying yt-dlp...")
+    # Try yt-dlp
     try:
         result = subprocess.run([
-            "yt-dlp",
-            "-f", "best[height<=720]",
-            "-o", output_path,
-            "--no-warnings",
-            "--no-check-certificate",
-            url
+            "yt-dlp", "-f", "best[height<=720]",
+            "-o", output_path, "--no-warnings", url
         ], capture_output=True, timeout=180, text=True)
         
         if result.returncode == 0 and os.path.exists(output_path):
             info = await get_video_info(output_path)
             if info.get("valid"):
-                log_step("Main Video Download", "SUCCESS", "via yt-dlp")
+                log_step("Main Video Download", "SUCCESS", "yt-dlp")
                 return True, ""
-            else:
-                cleanup(output_path)
-                logger.warning("   ⚠️ yt-dlp produced invalid video")
-        else:
-            logger.warning(f"   ⚠️ yt-dlp failed: {result.stderr[:200]}")
-    except subprocess.TimeoutExpired:
-        logger.warning("   ⚠️ yt-dlp timeout")
-    except Exception as e:
-        logger.warning(f"   ⚠️ yt-dlp error: {e}")
+    except:
+        pass
     
-    return False, error or "All download methods failed"
-
-
-
+    return False, "All download methods failed"
 
 async def save_uploaded_file(upload_file: UploadFile, output_path: str) -> tuple[bool, str]:
-    """Save uploaded file from frontend"""
+    """Save upload"""
     log_step("File Upload", "START", upload_file.filename)
     
     try:
-        max_size = 200 * 1024 * 1024  # 200MB limit
-        total_bytes = 0
+        total = 0
+        max_size = 200 * 1024 * 1024
         
         async with aiofiles.open(output_path, 'wb') as f:
             while True:
-                chunk = await upload_file.read(1024 * 1024)  # 1MB chunks
+                chunk = await upload_file.read(1024 * 1024)
                 if not chunk:
                     break
-                
-                total_bytes += len(chunk)
-                if total_bytes > max_size:
+                total += len(chunk)
+                if total > max_size:
                     cleanup(output_path)
-                    return False, "File exceeds 200MB limit"
-                
+                    return False, "File > 200MB"
                 await f.write(chunk)
         
         if os.path.getsize(output_path) < 10000:
             cleanup(output_path)
-            return False, "File too small (< 10KB)"
+            return False, "File too small"
         
-        size_mb = total_bytes / (1024 * 1024)
-        log_step("File Upload", "SUCCESS", f"{size_mb:.2f}MB uploaded")
+        log_step("File Upload", "SUCCESS", f"{total/(1024*1024):.2f}MB")
         return True, ""
-        
     except Exception as e:
         cleanup(output_path)
         return False, str(e)
 
-
-
-
-def extract_gdrive_id(url: str) -> Optional[str]:
-    """
-    Extract Google Drive file ID from various URL formats
-    
-    Supported formats:
-    - https://drive.google.com/file/d/FILE_ID/view
-    - https://drive.google.com/open?id=FILE_ID
-    - https://drive.google.com/uc?id=FILE_ID
-    - https://drive.google.com/uc?export=download&id=FILE_ID
-    """
-    import re
-    
-    patterns = [
-        r'/file/d/([a-zA-Z0-9_-]+)',           # /file/d/ID/view
-        r'id=([a-zA-Z0-9_-]+)',                 # ?id=ID or &id=ID
-        r'/d/([a-zA-Z0-9_-]+)',                 # /d/ID
-        r'open\?id=([a-zA-Z0-9_-]+)',          # open?id=ID
-        r'/folders/([a-zA-Z0-9_-]+)',          # /folders/ID (folder, not file)
-    ]
-    
-    for pattern in patterns:
-        match = re.search(pattern, url)
-        if match:
-            return match.group(1)
-    
-    return None
-
-
 # ═══════════════════════════════════════════════════════════════════════
-# VIDEO PROCESSING
+# SMART VIDEO SCALING WITH ZOOM/CROP
 # ═══════════════════════════════════════════════════════════════════════
-
-async def create_split_screen_robust(
-    reaction_video: str,
-    main_video: str,
+async def scale_video_smart(
+    input_path: str,
     output_path: str,
-    is_reaction_fallback: bool = False
+    target_w: int,
+    target_h: int,
+    apply_zoom: bool = True,
+    description: str = "video"
 ) -> tuple[bool, str]:
     """
-    Create split-screen video PROPERLY - CapCut/Canva style
-    1. Scale reaction to 720x640 (top half)
-    2. Scale main to 720x640 (bottom half)
-    3. Stack vertically = 720x1280 (perfect 9:16)
+    Smart scaling with intelligent zoom/crop
+    - Detects video aspect ratio
+    - Applies cinematic crop (removes 2cm top/bottom equivalent)
+    - Scales to exact dimensions
     """
-    log_step("Split Screen Creation", "START")
+    log_step(f"Scale {description}", "START", f"{target_w}x{target_h}")
     
-    # Get video info
+    # Get input info
+    info = await get_video_info(input_path)
+    if not info.get("valid"):
+        return False, "Invalid input video"
+    
+    in_w, in_h = info["width"], info["height"]
+    logger.info(f"   📊 Input: {in_w}x{in_h}")
+    
+    # Calculate aspect ratios
+    in_aspect = in_w / in_h
+    target_aspect = target_w / target_h
+    
+    # Build filter chain
+    filters = []
+    
+    # STEP 1: Apply cinematic crop if requested (zoom effect)
+    if apply_zoom:
+        # Crop 5% from top and bottom (cinematic effect)
+        crop_h = int(in_h * 0.90)  # Keep 90% height
+        crop_y = int(in_h * 0.05)   # Start 5% down
+        
+        filters.append(f"crop={in_w}:{crop_h}:0:{crop_y}")
+        logger.info(f"   🔍 Applying zoom: crop to {in_w}x{crop_h}")
+    
+    # STEP 2: Scale to fit target, maintaining aspect ratio
+    filters.append(f"scale={target_w}:{target_h}:force_original_aspect_ratio=decrease")
+    
+    # STEP 3: Pad to exact dimensions
+    filters.append(f"pad={target_w}:{target_h}:(ow-iw)/2:(oh-ih)/2")
+    
+    # STEP 4: Set pixel format
+    filters.append("format=yuv420p")
+    filters.append("setsar=1")
+    
+    filter_string = ",".join(filters)
+    
+    # METHOD 1: Fast preset with filters
+    cmd = [
+        "ffmpeg", "-i", input_path,
+        "-vf", filter_string,
+        "-c:v", "libx264",
+        "-preset", "veryfast",  # Faster than ultrafast but better quality
+        "-crf", "26",           # Slightly lower quality for speed
+        "-pix_fmt", "yuv420p",
+        "-an",
+        "-y", output_path
+    ]
+    
+    success = run_ffmpeg(cmd, 240, f"Scale-{description}-Fast")
+    
+    if success and os.path.exists(output_path) and os.path.getsize(output_path) > 10000:
+        # Verify dimensions
+        verify = await get_video_info(output_path)
+        if verify.get("width") == target_w and verify.get("height") == target_h:
+            log_step(f"Scale {description}", "SUCCESS", f"{target_w}x{target_h}")
+            return True, ""
+        else:
+            logger.warning(f"   Wrong dimensions: {verify.get('width')}x{verify.get('height')}")
+            cleanup(output_path)
+    
+    # METHOD 2: Ultra-fast preset (lower quality, faster)
+    logger.warning(f"   🔄 Trying faster preset...")
+    
+    cmd = [
+        "ffmpeg", "-i", input_path,
+        "-vf", f"scale={target_w}:{target_h}:force_original_aspect_ratio=decrease,pad={target_w}:{target_h}:(ow-iw)/2:(oh-ih)/2",
+        "-c:v", "libx264",
+        "-preset", "ultrafast",
+        "-crf", "28",
+        "-pix_fmt", "yuv420p",
+        "-an",
+        "-y", output_path
+    ]
+    
+    success = run_ffmpeg(cmd, 180, f"Scale-{description}-Ultra")
+    
+    if success and os.path.exists(output_path) and os.path.getsize(output_path) > 10000:
+        log_step(f"Scale {description}", "SUCCESS", "Fast method")
+        return True, ""
+    
+    cleanup(output_path)
+    return False, f"Failed to scale {description}"
+
+async def create_split_screen_v2(
+    reaction_video: str,
+    main_video: str,
+    output_path: str
+) -> tuple[bool, str]:
+    """
+    Create split-screen with smart scaling
+    """
+    log_step("Split-Screen Creation", "START")
+    
+    # Get durations
     main_info = await get_video_info(main_video)
     reaction_info = await get_video_info(reaction_video)
     
     if not main_info.get("valid"):
         return False, "Invalid main video"
     
-    main_duration = main_info["duration"]
-    reaction_duration = reaction_info.get("duration", 10)
+    main_dur = main_info["duration"]
+    reaction_dur = reaction_info.get("duration", 10)
     
-    logger.info(f"   📊 Main video: {main_duration:.1f}s")
-    logger.info(f"   📊 Reaction video: {reaction_duration:.1f}s")
+    logger.info(f"   Main: {main_dur:.1f}s, Reaction: {reaction_dur:.1f}s")
     
     temp_dir = os.path.dirname(output_path)
     
-    # ═══════════════════════════════════════════════════════════════
-    # STEP 1: Scale reaction video to exact 720x640
-    # ═══════════════════════════════════════════════════════════════
-    log_step("Scale Reaction Video", "START", "Target: 720x640")
-    
+    # Scale reaction (with loop if needed)
     reaction_scaled = os.path.join(temp_dir, "reaction_scaled.mp4")
     
-    # If reaction is shorter, loop it
-    if reaction_duration < main_duration:
-        logger.info(f"   🔄 Looping reaction: {reaction_duration:.1f}s → {main_duration:.1f}s")
-        loop_count = int(main_duration / reaction_duration) + 2
+    if reaction_dur < main_dur:
+        logger.info(f"   🔄 Looping reaction")
+        loop_count = int(main_dur / reaction_dur) + 2
+        reaction_looped = os.path.join(temp_dir, "reaction_loop.mp4")
         
         success = run_ffmpeg([
             "ffmpeg", "-stream_loop", str(loop_count), "-i", reaction_video,
-            "-vf", "scale=720:640:force_original_aspect_ratio=decrease,pad=720:640:(ow-iw)/2:(oh-ih)/2,setsar=1",
-            "-t", str(main_duration),
-            "-c:v", "libx264", "-preset", "ultrafast", "-crf", "28",
-            "-an",  # Remove audio
-            "-y", reaction_scaled
-        ], 120, "Scale-Reaction")
+            "-t", str(main_dur),
+            "-c:v", "libx264", "-preset", "veryfast", "-crf", "26",
+            "-an", "-y", reaction_looped
+        ], 180, "Loop-Reaction")
+        
+        if not success:
+            return False, "Failed to loop reaction"
+        
+        # Scale looped video
+        success, error = await scale_video_smart(
+            reaction_looped, reaction_scaled, 720, 640, False, "reaction"
+        )
+        cleanup(reaction_looped)
     else:
-        success = run_ffmpeg([
-            "ffmpeg", "-i", reaction_video,
-            "-vf", "scale=720:640:force_original_aspect_ratio=decrease,pad=720:640:(ow-iw)/2:(oh-ih)/2,setsar=1",
-            "-t", str(main_duration),
-            "-c:v", "libx264", "-preset", "ultrafast", "-crf", "28",
-            "-an",
-            "-y", reaction_scaled
-        ], 120, "Scale-Reaction")
+        # Just scale (no zoom for reaction)
+        success, error = await scale_video_smart(
+            reaction_video, reaction_scaled, 720, 640, False, "reaction"
+        )
     
-    if not success or not os.path.exists(reaction_scaled):
-        return False, "Failed to scale reaction video"
+    if not success:
+        return False, f"Reaction scaling failed: {error}"
     
-    log_step("Scale Reaction Video", "SUCCESS")
-    
-    # ═══════════════════════════════════════════════════════════════
-    # STEP 2: Scale main video to exact 720x640
-    # ═══════════════════════════════════════════════════════════════
-    log_step("Scale Main Video", "START", "Target: 720x640")
-    
+    # Scale main video (WITH ZOOM for cinematic effect)
     main_scaled = os.path.join(temp_dir, "main_scaled.mp4")
     
-    success = run_ffmpeg([
-        "ffmpeg", "-i", main_video,
-        "-vf", "scale=720:640:force_original_aspect_ratio=decrease,pad=720:640:(ow-iw)/2:(oh-ih)/2,setsar=1",
-        "-c:v", "libx264", "-preset", "ultrafast", "-crf", "28",
-        "-an",  # Remove audio for now
-        "-y", main_scaled
-    ], 120, "Scale-Main")
+    success, error = await scale_video_smart(
+        main_video, main_scaled, 720, 640, True, "main"  # apply_zoom=True
+    )
     
-    if not success or not os.path.exists(main_scaled):
+    if not success:
         cleanup(reaction_scaled)
-        return False, "Failed to scale main video"
+        return False, f"Main scaling failed: {error}"
     
-    log_step("Scale Main Video", "SUCCESS")
+    # Stack vertically
+    log_step("Vertical Stack", "START")
     
-    # ═══════════════════════════════════════════════════════════════
-    # STEP 3: Stack vertically (NOW both are 720x640!)
-    # ═══════════════════════════════════════════════════════════════
-    log_step("Vertical Stack", "START", "720x640 + 720x640 = 720x1280")
-    
-    # Create a file list for concat
-    concat_file = os.path.join(temp_dir, "concat_list.txt")
-    with open(concat_file, 'w') as f:
-        f.write(f"file '{reaction_scaled}'\n")
-        f.write(f"file '{main_scaled}'\n")
-    
-    # METHOD 1: Using vstack filter (now both have same width!)
     success = run_ffmpeg([
         "ffmpeg",
         "-i", reaction_scaled,
         "-i", main_scaled,
         "-filter_complex", "[0:v][1:v]vstack=inputs=2[v]",
         "-map", "[v]",
-        "-c:v", "libx264", "-preset", "ultrafast", "-crf", "23",
-        "-t", str(main_duration),
+        "-c:v", "libx264",
+        "-preset", "veryfast",
+        "-crf", "23",
+        "-t", str(main_dur),
         "-y", output_path
-    ], 120, "VStack-Final")
+    ], 180, "VStack")
     
-    if success and os.path.exists(output_path) and os.path.getsize(output_path) > 100000:
-        cleanup(reaction_scaled, main_scaled, concat_file)
-        log_step("Split Screen Creation", "SUCCESS", "Method 1: VStack")
-        return True, ""
-    
-    cleanup(output_path)
-    
-    # METHOD 2: Using concat demuxer (alternative approach)
-    logger.warning("   🔄 Method 2: Trying alternative stacking...")
-    
-    # First, create vertical videos
-    reaction_vertical = os.path.join(temp_dir, "reaction_vert.mp4")
-    success = run_ffmpeg([
-        "ffmpeg", "-i", reaction_scaled,
-        "-vf", "pad=720:1280:0:0",
-        "-c:v", "libx264", "-preset", "ultrafast",
-        "-y", reaction_vertical
-    ], 60, "Reaction-Vertical")
-    
-    if not success:
-        cleanup(reaction_scaled, main_scaled, concat_file)
-        return False, "Failed to create vertical reaction"
-    
-    main_vertical = os.path.join(temp_dir, "main_vert.mp4")
-    success = run_ffmpeg([
-        "ffmpeg", "-i", main_scaled,
-        "-vf", "pad=720:1280:0:640",
-        "-c:v", "libx264", "-preset", "ultrafast",
-        "-y", main_vertical
-    ], 60, "Main-Vertical")
-    
-    if not success:
-        cleanup(reaction_scaled, main_scaled, reaction_vertical, concat_file)
-        return False, "Failed to create vertical main"
-    
-    # Overlay them
-    success = run_ffmpeg([
-        "ffmpeg",
-        "-i", main_vertical,
-        "-i", reaction_vertical,
-        "-filter_complex", "[0:v][1:v]overlay=0:0[v]",
-        "-map", "[v]",
-        "-c:v", "libx264", "-preset", "ultrafast", "-crf", "23",
-        "-t", str(main_duration),
-        "-y", output_path
-    ], 120, "Overlay-Final")
-    
-    cleanup(reaction_scaled, main_scaled, reaction_vertical, main_vertical, concat_file)
-    
-    if success and os.path.exists(output_path) and os.path.getsize(output_path) > 100000:
-        log_step("Split Screen Creation", "SUCCESS", "Method 2: Overlay")
-        return True, ""
-    
-    cleanup(output_path)
-    
-    # METHOD 3: Just use main video (ultimate fallback)
-    logger.warning("   🔄 Method 3: Using main video only")
-    
-    success = run_ffmpeg([
-        "ffmpeg", "-i", main_video,
-        "-vf", "scale=720:1280:force_original_aspect_ratio=decrease,pad=720:1280:(ow-iw)/2:(oh-ih)/2",
-        "-c:v", "libx264", "-preset", "ultrafast", "-crf", "23",
-        "-an",
-        "-y", output_path
-    ], 90, "Fallback-MainOnly")
+    cleanup(reaction_scaled, main_scaled)
     
     if success and os.path.exists(output_path):
-        log_step("Split Screen Creation", "FALLBACK", "Main video only")
+        log_step("Split-Screen Creation", "SUCCESS")
         return True, ""
     
-    return False, "All split-screen methods failed"
-
-
-
-async def apply_copyright_filters_robust(input_path: str, output_path: str) -> tuple[bool, str]:
-    """Apply copyright avoidance filters with fallback"""
-    log_step("Copyright Filters", "START")
-    
-    # METHOD 1: Full filters
-    logger.info("   🎨 Method 1: Color adjustments + blur edges")
-    success = run_ffmpeg([
-        "ffmpeg", "-i", input_path,
-        "-vf", (
-            "eq=saturation=1.3:brightness=0.08:contrast=1.2,"
-            "unsharp=5:5:1.0:5:5:0.0,"
-            "hue=h=5:s=1.1"
-        ),
-        "-c:v", "libx264", "-crf", "23", "-preset", "ultrafast",
-        "-c:a", "copy",
-        "-y", output_path
-    ], 120, "Filters-Method1")
-    
-    if success and os.path.exists(output_path) and os.path.getsize(output_path) > 50000:
-        log_step("Copyright Filters", "SUCCESS", "Method 1")
-        return True, ""
-    
-    cleanup(output_path)
-    
-    # METHOD 2: Simple color adjustment
-    logger.info("   🎨 Method 2: Basic color adjustment")
-    success = run_ffmpeg([
-        "ffmpeg", "-i", input_path,
-        "-vf", "eq=saturation=1.2:brightness=0.05",
-        "-c:v", "libx264", "-crf", "23", "-preset", "ultrafast",
-        "-c:a", "copy",
-        "-y", output_path
-    ], 90, "Filters-Method2")
-    
-    if success and os.path.exists(output_path) and os.path.getsize(output_path) > 50000:
-        log_step("Copyright Filters", "SUCCESS", "Method 2")
-        return True, ""
-    
-    cleanup(output_path)
-    
-    # METHOD 3: Copy original
-    logger.warning("   🔄 Method 3: Using original (fallback)")
-    try:
-        shutil.copy(input_path, output_path)
-        log_step("Copyright Filters", "FALLBACK", "Method 3")
-        return True, ""
-    except:
-        return False, "All filter methods failed"
-
-async def remove_audio(video_path: str, output_path: str) -> bool:
-    """Remove original audio"""
-    log_step("Remove Audio", "START")
-    
-    success = run_ffmpeg([
-        "ffmpeg", "-i", video_path,
-        "-c:v", "copy", "-an",
-        "-y", output_path
-    ], 90, "Remove-Audio")
-    
-    if success:
-        cleanup(video_path)
-        log_step("Remove Audio", "SUCCESS")
-    
-    return success
-
-async def generate_voiceover(text: str, output_path: str) -> bool:
-    """Generate voiceover using ElevenLabs with fallback"""
-    log_step("Voiceover Generation", "START")
-    
-    if not ELEVENLABS_API_KEY or len(ELEVENLABS_API_KEY) < 20:
-        log_step("Voiceover Generation", "FALLBACK", "No ElevenLabs API key")
-        return False
-    
-    try:
-        voice_id = random.choice(ELEVENLABS_VOICES)
-        logger.info(f"   🎙️  Using voice: {voice_id}")
-        
-        async with httpx.AsyncClient(timeout=60) as client:
-            response = await client.post(
-                f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}",
-                headers={"xi-api-key": ELEVENLABS_API_KEY},
-                json={
-                    "text": text,
-                    "model_id": "eleven_monolingual_v1",
-                    "voice_settings": {
-                        "stability": 0.5,
-                        "similarity_boost": 0.75
-                    }
-                }
-            )
-            
-            if response.status_code == 200:
-                with open(output_path, 'wb') as f:
-                    f.write(response.content)
-                log_step("Voiceover Generation", "SUCCESS")
-                return True
-                
-    except Exception as e:
-        logger.warning(f"ElevenLabs failed: {e}")
-    
-    log_step("Voiceover Generation", "FALLBACK", "Skipping voiceover")
-    return False
-
-async def add_audio_track_robust(
-    video_path: str,
-    bgm_path: Optional[str],
-    voiceover_path: Optional[str],
-    output_path: str
-) -> tuple[bool, str]:
-    """Add audio with 3-level fallback"""
-    log_step("Audio Mixing", "START")
-    
-    duration_cmd = await get_video_info(video_path)
-    duration = duration_cmd.get("duration", 30)
-    
-    # METHOD 1: BGM + Voiceover
-    if bgm_path and voiceover_path and os.path.exists(bgm_path) and os.path.exists(voiceover_path):
-        logger.info("   🎵 Method 1: BGM + Voiceover")
-        
-        filter_complex = (
-            f"[1:a]volume={BGM_VOLUME},aloop=loop=-1:size=2e+09[bgm];"
-            "[2:a]volume=1.5[vo];"
-            "[bgm][vo]amix=inputs=2:duration=first[a]"
-        )
-        
-        success = run_ffmpeg([
-            "ffmpeg",
-            "-i", video_path,
-            "-i", bgm_path,
-            "-i", voiceover_path,
-            "-filter_complex", filter_complex,
-            "-map", "0:v", "-map", "[a]",
-            "-c:v", "copy", "-c:a", "aac", "-b:a", "128k",
-            "-t", str(duration),
-            "-y", output_path
-        ], 120, "Audio-Method1")
-        
-        if success and os.path.exists(output_path):
-            cleanup(video_path, bgm_path, voiceover_path)
-            log_step("Audio Mixing", "SUCCESS", "Method 1")
-            return True, ""
-        
-        cleanup(output_path)
-    
-    # METHOD 2: BGM only
-    if bgm_path and os.path.exists(bgm_path):
-        logger.info("   🎵 Method 2: BGM only")
-        
-        success = run_ffmpeg([
-            "ffmpeg",
-            "-i", video_path,
-            "-i", bgm_path,
-            "-filter_complex", f"[1:a]volume={BGM_VOLUME},aloop=loop=-1:size=2e+09[a]",
-            "-map", "0:v", "-map", "[a]",
-            "-c:v", "copy", "-c:a", "aac", "-b:a", "96k",
-            "-t", str(duration),
-            "-shortest",
-            "-y", output_path
-        ], 90, "Audio-Method2")
-        
-        if success and os.path.exists(output_path):
-            cleanup(video_path, bgm_path, voiceover_path)
-            log_step("Audio Mixing", "SUCCESS", "Method 2")
-            return True, ""
-        
-        cleanup(output_path)
-    
-    # METHOD 3: No audio (silent video)
-    logger.warning("   🔄 Method 3: Silent video (fallback)")
-    try:
-        shutil.copy(video_path, output_path)
-        cleanup(video_path, bgm_path, voiceover_path)
-        log_step("Audio Mixing", "FALLBACK", "Method 3")
-        return True, ""
-    except:
-        return False, "All audio methods failed"
-
-async def add_text_overlay_robust(
-    video_path: str,
-    text: str,
-    output_path: str
-) -> tuple[bool, str]:
-    """Add text caption with fallback"""
-    log_step("Text Overlay", "START")
-    
-    # METHOD 1: Animated text at bottom
-    logger.info("   ✍️  Method 1: Animated bottom text")
-    
-    # Escape text for FFmpeg
-    safe_text = text.replace("'", "\\'").replace(":", "\\:")
-    
-    success = run_ffmpeg([
-        "ffmpeg", "-i", video_path,
-        "-vf", (
-            f"drawtext=text='{safe_text}':"
-            "fontsize=32:fontcolor=white:bordercolor=black:borderw=3:"
-            "x=(w-text_w)/2:y=h-100"
-        ),
-        "-c:v", "libx264", "-crf", "23", "-preset", "ultrafast",
-        "-c:a", "copy",
-        "-y", output_path
-    ], 90, "Text-Method1")
-    
-    if success and os.path.exists(output_path):
-        cleanup(video_path)
-        log_step("Text Overlay", "SUCCESS", "Method 1")
-        return True, ""
-    
-    cleanup(output_path)
-    
-    # METHOD 2: Simple centered text
-    logger.info("   ✍️  Method 2: Simple text")
-    success = run_ffmpeg([
-        "ffmpeg", "-i", video_path,
-        "-vf", f"drawtext=text='WATCH THIS':fontsize=40:fontcolor=yellow:x=(w-text_w)/2:y=50",
-        "-c:v", "libx264", "-crf", "23", "-preset", "ultrafast",
-        "-c:a", "copy",
-        "-y", output_path
-    ], 60, "Text-Method2")
-    
-    if success and os.path.exists(output_path):
-        cleanup(video_path)
-        log_step("Text Overlay", "SUCCESS", "Method 2")
-        return True, ""
-    
-    cleanup(output_path)
-    
-    # METHOD 3: No text
-    logger.warning("   🔄 Method 3: No text overlay")
-    try:
-        shutil.copy(video_path, output_path)
-        cleanup(video_path)
-        log_step("Text Overlay", "FALLBACK", "Method 3")
-        return True, ""
-    except:
-        return False, "All text methods failed"
+    return False, "Stacking failed"
 
 # ═══════════════════════════════════════════════════════════════════════
-# SEO GENERATION
+# ADVANCED SEO GENERATION
 # ═══════════════════════════════════════════════════════════════════════
-
-async def generate_seo_metadata() -> dict:
-    """Generate SEO metadata using AI"""
+async def generate_advanced_seo() -> dict:
+    """Generate SEO with Mistral AI"""
     log_step("SEO Generation", "START")
     
     if MISTRAL_API_KEY and len(MISTRAL_API_KEY) > 20:
         try:
             logger.info("   🤖 Using Mistral AI...")
             
-            prompt = """Generate YouTube Shorts SEO for a SPLIT-SCREEN REACTION VIDEO.
+            prompt = """You are a VIRAL YouTube Shorts SEO expert for SPLIT-SCREEN REACTION VIDEOS.
 
-FORMAT:
-- Top: Reaction/laughing clip
-- Bottom: Main comedy content
+VIDEO FORMAT:
+- Top half: Funny reaction/laughing clip
+- Bottom half: Main comedy/viral content
+- Audio: Background music + optional voiceover
+- Duration: 30-180 seconds
+- Platform: YouTube Shorts
+- Goal: Maximum views, engagement, virality
 
-TITLE: 3-7 words + 3 hashtags at end
-DESCRIPTION: 2 short paragraphs
-KEYWORDS: 45 keywords (reaction, funny, comedy, shorts, viral, etc.)
-HASHTAGS: 8 hashtags (#Shorts #Funny #Reaction must be included)
+AUDIENCE: Global (US, India, UK, International)
 
-OUTPUT ONLY JSON:
+TITLE REQUIREMENTS:
+- 5-8 words maximum
+- MUST be attention-grabbing and curiosity-inducing
+- Include 3-4 hashtags at END (space-separated)
+- NO emojis in title
+- Use power words: "Insane", "Hilarious", "Epic", "Crazy", "Unbelievable"
+- Examples:
+  * "This Guy Did The Impossible #funny #viral #shorts"
+  * "Wait For The Ending #comedy #reaction #trending"
+  * "She Had No Idea What Happened #shocking #shorts #fyp"
+
+DESCRIPTION:
+- 2 concise paragraphs (3-4 sentences each)
+- First paragraph: Hook the viewer, describe what happens
+- Second paragraph: Call-to-action (like, subscribe, comment)
+- Natural, conversational tone
+- NO excessive emojis
+
+KEYWORDS:
+- EXACTLY 45 keywords
+- Mix of:
+  * Broad: "funny video", "comedy", "viral", "trending"
+  * Specific: "reaction video", "split screen", "hilarious moment"
+  * Platform: "youtube shorts", "short video", "shorts feed"
+  * Engagement: "must watch", "viral video", "trending now"
+
+HASHTAGS:
+- 10 hashtags total
+- MUST include: #Shorts, #Viral, #Trending
+- Mix of popular and niche tags
+- Format: #Foryou #Fyp #Explore #Reach #Shorts #Viral #Trending #Comedy #Funny #Reaction
+
+OUTPUT ONLY VALID JSON (no markdown, no code blocks):
 {
-  "title": "Title Here #funny #shorts #viral",
-  "description": "Para1\\n\\nPara2",
-  "keywords": ["keyword1", ... 45 total],
-  "hashtags": ["#Shorts", "#Funny", ... 8 total]
+  "title": "Title Here #tag1 #tag2 #tag3",
+  "description": "First paragraph here.\\n\\nSecond paragraph here.",
+  "keywords": ["keyword1", "keyword2", ... exactly 45 keywords],
+  "hashtags": ["#Shorts", "#Viral", ... exactly 10 hashtags]
 }"""
             
             async with httpx.AsyncClient(timeout=60) as client:
@@ -1037,67 +625,161 @@ OUTPUT ONLY JSON:
                     json={
                         "model": "mistral-large-latest",
                         "messages": [
-                            {"role": "system", "content": "Output ONLY valid JSON."},
+                            {"role": "system", "content": "You are a YouTube SEO expert. Output ONLY valid JSON."},
                             {"role": "user", "content": prompt}
                         ],
-                        "temperature": 0.8,
-                        "max_tokens": 1500
+                        "temperature": 0.9,
+                        "max_tokens": 2000
                     }
                 )
                 
                 if resp.status_code == 200:
                     content = resp.json()["choices"][0]["message"]["content"]
+                    # Clean response
                     content = re.sub(r'```json\n?|\n?```', '', content).strip()
                     match = re.search(r'\{.*\}', content, re.DOTALL)
                     
                     if match:
                         data = json.loads(match.group(0))
+                        
+                        # Ensure 45 keywords
                         keywords = data.get("keywords", [])
                         while len(keywords) < 45:
-                            keywords.append("funny video")
+                            keywords.extend(["funny video", "viral", "comedy", "trending"])
+                        keywords = keywords[:45]
                         
-                        log_step("SEO Generation", "SUCCESS", "AI-generated")
+                        # Ensure 10 hashtags
+                        hashtags = data.get("hashtags", [])
+                        while len(hashtags) < 10:
+                            hashtags.extend(["#Shorts", "#Viral", "#Trending"])
+                        hashtags = list(dict.fromkeys(hashtags))[:10]  # Remove duplicates
+                        
+                        log_step("SEO Generation", "SUCCESS", f"Title: {data.get('title')}")
                         return {
-                            "title": data.get("title", "Hilarious Moment #funny #shorts #viral"),
+                            "title": data.get("title", "Epic Reaction Moment #funny #shorts #viral"),
                             "description": data.get("description", "Watch this!"),
-                            "keywords": keywords[:45],
-                            "hashtags": data.get("hashtags", ["#Shorts", "#Funny", "#Viral"])
+                            "keywords": keywords,
+                            "hashtags": hashtags,
+                            "ai_generated": True
                         }
         except Exception as e:
-            logger.warning(f"Mistral AI failed: {e}")
+            logger.warning(f"   Mistral failed: {e}")
     
     # FALLBACK
     log_step("SEO Generation", "FALLBACK", "Using template")
     return {
-        "title": "This Is INSANE! #funny #shorts #viral",
-        "description": "You won't believe this happened!\n\nLike and subscribe for more!",
-        "keywords": ["funny", "comedy", "reaction", "shorts", "viral"] * 9,
-        "hashtags": ["#Shorts", "#Funny", "#Viral", "#Comedy", "#Reaction", "#LOL", "#OMG", "#Trending"]
+        "title": "This Is Crazy #funny #viral #shorts",
+        "description": "You have to see this!\n\nLike and subscribe for more!",
+        "keywords": ["funny", "viral", "comedy", "shorts"] * 11 + ["trending"],
+        "hashtags": ["#Shorts", "#Viral", "#Trending", "#Funny", "#Comedy", "#Reaction", "#LOL", "#OMG", "#Fyp", "#Foryou"],
+        "ai_generated": False
     }
 
 # ═══════════════════════════════════════════════════════════════════════
-# YOUTUBE UPLOAD
+# REMAINING FUNCTIONS (Audio, Text, Upload) - KEEP FROM ORIGINAL
 # ═══════════════════════════════════════════════════════════════════════
-
-async def upload_to_youtube(
-    video_path: str,
-    title: str,
-    description: str,
-    user_id: str
-) -> dict:
-    """Upload final video to YouTube"""
-    log_step("YouTube Upload", "START")
+async def apply_copyright_filters(input_path: str, output_path: str) -> tuple[bool, str]:
+    """Apply filters"""
+    cmd = [
+        "ffmpeg", "-i", input_path,
+        "-vf", "eq=saturation=1.25:brightness=0.08:contrast=1.15",
+        "-c:v", "libx264", "-preset", "veryfast", "-crf", "23",
+        "-c:a", "copy", "-y", output_path
+    ]
+    
+    if run_ffmpeg(cmd, 120, "Filters"):
+        return True, ""
     
     try:
-        from YTdatabase import get_database_manager as get_yt_db
-        yt_db = get_yt_db()
+        shutil.copy(input_path, output_path)
+        return True, ""
+    except:
+        return False, "Filter failed"
+
+async def remove_audio(video_in: str, video_out: str) -> bool:
+    success = run_ffmpeg([
+        "ffmpeg", "-i", video_in,
+        "-c:v", "copy", "-an", "-y", video_out
+    ], 90, "Remove-Audio")
+    if success:
+        cleanup(video_in)
+    return success
+
+async def generate_voiceover(text: str, output: str) -> bool:
+    if not ELEVENLABS_API_KEY:
+        return False
+    
+    try:
+        voice = random.choice(ELEVENLABS_VOICES)
+        async with httpx.AsyncClient(timeout=60) as client:
+            resp = await client.post(
+                f"https://api.elevenlabs.io/v1/text-to-speech/{voice}",
+                headers={"xi-api-key": ELEVENLABS_API_KEY},
+                json={"text": text, "model_id": "eleven_monolingual_v1"}
+            )
+            if resp.status_code == 200:
+                with open(output, 'wb') as f:
+                    f.write(resp.content)
+                return True
+    except:
+        pass
+    return False
+
+async def add_audio_track(video: str, bgm: Optional[str], vo: Optional[str], output: str) -> tuple[bool, str]:
+    info = await get_video_info(video)
+    dur = info.get("duration", 30)
+    
+    if bgm and os.path.exists(bgm):
+        cmd = [
+            "ffmpeg", "-i", video, "-i", bgm,
+            "-filter_complex", f"[1:a]volume={BGM_VOLUME},aloop=loop=-1:size=2e+09[a]",
+            "-map", "0:v", "-map", "[a]",
+            "-c:v", "copy", "-c:a", "aac", "-b:a", "96k",
+            "-t", str(dur), "-shortest", "-y", output
+        ]
+        
+        if run_ffmpeg(cmd, 90, "Audio-Mix"):
+            cleanup(video, bgm, vo)
+            return True, ""
+    
+    try:
+        shutil.copy(video, output)
+        cleanup(video, bgm, vo)
+        return True, ""
+    except:
+        return False, "Audio failed"
+
+async def add_text_overlay(video: str, text: str, output: str) -> tuple[bool, str]:
+    safe = text.replace("'", "\\'").replace(":", "\\:")
+    cmd = [
+        "ffmpeg", "-i", video,
+        "-vf", f"drawtext=text='{safe}':fontsize=32:fontcolor=white:bordercolor=black:borderw=3:x=(w-text_w)/2:y=h-100",
+        "-c:v", "libx264", "-preset", "veryfast", "-crf", "23",
+        "-c:a", "copy", "-y", output
+    ]
+    
+    if run_ffmpeg(cmd, 90, "Text"):
+        cleanup(video)
+        return True, ""
+    
+    try:
+        shutil.copy(video, output)
+        cleanup(video)
+        return True, ""
+    except:
+        return False, "Text failed"
+
+async def upload_to_youtube(video: str, title: str, desc: str, user_id: str) -> dict:
+    try:
+        from YTdatabase import get_database_manager
+        yt_db = get_database_manager()
         
         if not yt_db.youtube.client:
             await yt_db.connect()
         
         creds = await yt_db.youtube.youtube_credentials_collection.find_one({"user_id": user_id})
         if not creds:
-            return {"success": False, "error": "YouTube credentials not found"}
+            return {"success": False, "error": "No credentials"}
         
         credentials = {
             "access_token": creds.get("access_token"),
@@ -1112,191 +794,126 @@ async def upload_to_youtube(
         }
         
         from mainY import youtube_scheduler
-        
         result = await youtube_scheduler.generate_and_upload_content(
             user_id=user_id,
             credentials_data=credentials,
             content_type="shorts",
             title=title,
-            description=description,
-            video_url=video_path
+            description=desc,
+            video_url=video
         )
         
         if result.get("success"):
-            video_id = result.get("video_id")
-            log_step("YouTube Upload", "SUCCESS", f"Video ID: {video_id}")
             return {
                 "success": True,
-                "video_id": video_id,
-                "video_url": f"https://youtube.com/shorts/{video_id}"
+                "video_id": result["video_id"],
+                "video_url": f"https://youtube.com/shorts/{result['video_id']}"
             }
-        
-        return {"success": False, "error": result.get("error", "Upload failed")}
-        
+        return {"success": False, "error": result.get("error")}
     except Exception as e:
-        logger.error(f"YouTube upload error: {e}")
         return {"success": False, "error": str(e)}
 
 # ═══════════════════════════════════════════════════════════════════════
-# MAIN PROCESSING PIPELINE
+# MAIN PIPELINE
 # ═══════════════════════════════════════════════════════════════════════
-
-async def process_split_screen_reel(
-    main_video_source: str,
-    source_type: str,  # "url" or "upload"
-    user_id: str,
-    task_id: str
-):
-    """
-    Main processing pipeline for split-screen reels
-    """
+async def process_split_screen_reel(source: str, source_type: str, user_id: str, task_id: str):
     temp_dir = None
-    start_time = datetime.now()
+    start = datetime.now()
     
     PROCESSING_STATUS[task_id] = {
         "status": "processing",
         "progress": 0,
-        "message": "Initializing...",
-        "started_at": start_time.isoformat()
+        "message": "Starting...",
+        "started_at": start.isoformat()
     }
     
-    def update_progress(progress: int, message: str):
-        PROCESSING_STATUS[task_id]["progress"] = progress
-        PROCESSING_STATUS[task_id]["message"] = message
-        logger.info(f"📊 Progress: {progress}% - {message}")
+    def update(prog: int, msg: str):
+        PROCESSING_STATUS[task_id]["progress"] = prog
+        PROCESSING_STATUS[task_id]["message"] = msg
+        logger.info(f"📊 {prog}% - {msg}")
     
     try:
         temp_dir = tempfile.mkdtemp(prefix="split_reel_")
-        log_memory("Pipeline-Start")
+        log_memory("START")
         
-        # STEP 1: Download/Get Reaction Video (10%)
-        update_progress(5, "Getting reaction video...")
-        reaction_video, is_fallback = await download_reaction_video_robust(temp_dir)
-        if not reaction_video:
-            raise Exception("Failed to get reaction video")
+        update(5, "Getting reaction...")
+        reaction, _ = await download_reaction_video_robust(temp_dir)
+        if not reaction:
+            raise Exception("Reaction failed")
         
-        # STEP 2: Download/Get Main Video (20%)
-        update_progress(15, "Getting main video...")
-        main_video_path = os.path.join(temp_dir, "main_raw.mp4")
+        update(15, "Getting main video...")
+        main = os.path.join(temp_dir, "main_raw.mp4")
         
         if source_type == "upload":
-            # Already saved, just copy reference
-            shutil.copy(main_video_source, main_video_path)
+            shutil.copy(source, main)
         else:
-            # Download from URL
-            success, error = await download_main_video(main_video_source, main_video_path)
+            success, err = await download_main_video(source, main)
             if not success:
-                raise Exception(f"Failed to download main video: {error}")
+                raise Exception(f"Download failed: {err}")
         
-        # Validate main video
-        info = await get_video_info(main_video_path)
+        info = await get_video_info(main)
         if not info.get("valid"):
-            raise ValueError(f"Invalid main video: {info.get('error')}")
+            raise ValueError("Invalid video")
         
         duration = info["duration"]
         if duration > 180:
-            raise ValueError(f"Video too long ({duration:.0f}s). Max 3 minutes.")
+            raise ValueError(f"Video too long ({duration:.0f}s)")
         
-        # STEP 3: Create Split-Screen (35%)
-        update_progress(25, "Creating split-screen layout...")
-        split_screen_path = os.path.join(temp_dir, "split_screen.mp4")
-        
-        success, error = await create_split_screen_robust(
-            reaction_video, main_video_path, split_screen_path, is_fallback
-        )
+        update(25, "Creating split-screen...")
+        split = os.path.join(temp_dir, "split.mp4")
+        success, err = await create_split_screen_v2(reaction, main, split)
         if not success:
-            raise Exception(f"Split-screen creation failed: {error}")
+            raise Exception(f"Split failed: {err}")
         
-        cleanup(reaction_video, main_video_path)
-        log_memory("After-Split-Screen")
+        cleanup(reaction, main)
+        log_memory("SPLIT-DONE")
         
-        # STEP 4: Apply Copyright Filters (50%)
-        update_progress(45, "Applying copyright filters...")
-        filtered_path = os.path.join(temp_dir, "filtered.mp4")
-        
-        success, error = await apply_copyright_filters_robust(split_screen_path, filtered_path)
+        update(45, "Applying filters...")
+        filtered = os.path.join(temp_dir, "filtered.mp4")
+        success, err = await apply_copyright_filters(split, filtered)
         if not success:
-            raise Exception(f"Filters failed: {error}")
+            raise Exception(err)
+        cleanup(split)
         
-        cleanup(split_screen_path)
+        update(55, "Removing audio...")
+        silent = os.path.join(temp_dir, "silent.mp4")
+        if not await remove_audio(filtered, silent):
+            raise Exception("Remove audio failed")
         
-        # STEP 5: Remove Original Audio (60%)
-        update_progress(55, "Removing original audio...")
-        silent_path = os.path.join(temp_dir, "silent.mp4")
+        update(65, "Generating voiceover...")
+        vo = os.path.join(temp_dir, "vo.mp3")
+        await generate_voiceover(random.choice(VOICEOVER_TEMPLATES), vo)
         
-        if not await remove_audio(filtered_path, silent_path):
-            raise Exception("Failed to remove audio")
+        update(70, "Downloading BGM...")
+        bgm = os.path.join(temp_dir, "bgm.mp3")
+        await download_file(BGM_URL, bgm, "BGM")
         
-        # STEP 6: Generate Voiceover (65%)
-        update_progress(62, "Generating voiceover...")
-        voiceover_text = random.choice(VOICEOVER_TEMPLATES)
-        voiceover_path = os.path.join(temp_dir, "voiceover.mp3")
-        
-        has_voiceover = await generate_voiceover(voiceover_text, voiceover_path)
-        if not has_voiceover:
-            voiceover_path = None
-        
-        # STEP 7: Download BGM (70%)
-        update_progress(68, "Downloading background music...")
-        bgm_path = os.path.join(temp_dir, "bgm.mp3")
-        
-        success, _ = await download_file(BGM_URL, bgm_path, "BGM")
+        update(75, "Mixing audio...")
+        audio_mixed = os.path.join(temp_dir, "with_audio.mp4")
+        success, err = await add_audio_track(silent, bgm, vo, audio_mixed)
         if not success:
-            logger.warning("BGM download failed")
-            bgm_path = None
+            raise Exception(err)
         
-        # STEP 8: Mix Audio (80%)
-        update_progress(75, "Mixing audio tracks...")
-        audio_mixed_path = os.path.join(temp_dir, "with_audio.mp4")
-        
-        success, error = await add_audio_track_robust(
-            silent_path, bgm_path, voiceover_path, audio_mixed_path
-        )
+        update(82, "Adding text...")
+        final = os.path.join(temp_dir, "final.mp4")
+        success, err = await add_text_overlay(audio_mixed, "WATCH THIS! 🔥", final)
         if not success:
-            raise Exception(f"Audio mixing failed: {error}")
+            raise Exception(err)
         
-        log_memory("After-Audio")
+        update(88, "Generating SEO...")
+        seo = await generate_advanced_seo()
         
-        # STEP 9: Add Text Overlay (85%)
-        update_progress(82, "Adding text overlay...")
-        final_video = os.path.join(temp_dir, "final.mp4")
+        update(92, "Uploading to YouTube...")
+        full_desc = f"{seo['description']}\n\n{', '.join(seo['keywords'][:20])}\n\n{' '.join(seo['hashtags'])}"
         
-        success, error = await add_text_overlay_robust(
-            audio_mixed_path, "WATCH THIS! 🔥", final_video
-        )
-        if not success:
-            raise Exception(f"Text overlay failed: {error}")
+        result = await upload_to_youtube(final, seo['title'], full_desc, user_id)
+        if not result.get("success"):
+            raise Exception(result.get("error"))
         
-        # STEP 10: Generate SEO (90%)
-        update_progress(88, "Generating SEO metadata...")
-        seo = await generate_seo_metadata()
-        
-        # STEP 11: Upload to YouTube (100%)
-        update_progress(92, "Uploading to YouTube...")
-        
-        full_description = (
-            f"{seo['description']}\n\n"
-            f"Keywords: {', '.join(seo['keywords'][:20])}\n\n"
-            f"{' '.join(seo['hashtags'])}"
-        )
-        
-        upload_result = await upload_to_youtube(
-            final_video,
-            seo['title'],
-            full_description,
-            user_id
-        )
-        
-        if not upload_result.get("success"):
-            raise Exception(f"YouTube upload failed: {upload_result.get('error')}")
-        
-        # SUCCESS!
-        elapsed = (datetime.now() - start_time).total_seconds()
+        elapsed = (datetime.now() - start).total_seconds()
         
         logger.info(f"\n{'='*80}")
-        logger.info(f"🎉 PIPELINE COMPLETED SUCCESSFULLY!")
-        logger.info(f"⏱️  Total time: {elapsed:.1f}s")
-        logger.info(f"🎬 Video URL: {upload_result['video_url']}")
+        logger.info(f"🎉 SUCCESS! {elapsed:.1f}s")
         logger.info(f"{'='*80}\n")
         
         PROCESSING_STATUS[task_id] = {
@@ -1305,16 +922,16 @@ async def process_split_screen_reel(
             "success": True,
             "title": seo['title'],
             "description": seo['description'],
-            "video_id": upload_result['video_id'],
-            "video_url": upload_result['video_url'],
+            "video_id": result['video_id'],
+            "video_url": result['video_url'],
             "duration": duration,
             "processing_time": elapsed,
             "completed_at": datetime.utcnow().isoformat()
         }
-        
+    
     except Exception as e:
         logger.error(f"\n{'='*80}")
-        logger.error(f"❌ PIPELINE FAILED: {str(e)}")
+        logger.error(f"❌ FAILED: {e}")
         logger.error(f"{'='*80}\n")
         
         PROCESSING_STATUS[task_id] = {
@@ -1325,148 +942,84 @@ async def process_split_screen_reel(
         }
     
     finally:
-        if temp_dir and os.path.exists(temp_dir):
-            try:
-                shutil.rmtree(temp_dir, ignore_errors=True)
-                logger.info("🗑️  Cleaned up temp directory")
-            except:
-                pass
-        
+        if temp_dir:
+            shutil.rmtree(temp_dir, ignore_errors=True)
         gc.collect()
-        log_memory("Pipeline-End")
+        log_memory("END")
 
 # ═══════════════════════════════════════════════════════════════════════
-# API ENDPOINTS
+# API ROUTES
 # ═══════════════════════════════════════════════════════════════════════
-
 router = APIRouter()
 
 @router.post("/api/split-reels/process-url")
 async def process_url_endpoint(request: Request):
-    """Process video from URL"""
     try:
         data = await request.json()
         user_id = data.get("user_id")
         video_url = (data.get("video_url") or "").strip()
         
         if not user_id or not video_url:
-            return JSONResponse(
-                status_code=400,
-                content={"success": False, "error": "Missing user_id or video_url"}
-            )
+            return JSONResponse(status_code=400, content={"success": False, "error": "Missing params"})
         
         task_id = str(uuid.uuid4())
-        logger.info(f"🆕 New task: {task_id} - URL: {video_url[:50]}...")
+        logger.info(f"🆕 Task: {task_id} - URL")
         
-        # Start async processing
-        asyncio.create_task(
-            process_split_screen_reel(video_url, "url", user_id, task_id)
-        )
-        
-        return JSONResponse(content={
-            "success": True,
-            "task_id": task_id,
-            "message": "Processing started"
-        })
-        
+        asyncio.create_task(process_split_screen_reel(video_url, "url", user_id, task_id))
+        return JSONResponse(content={"success": True, "task_id": task_id})
     except Exception as e:
-        logger.error(f"Endpoint error: {e}")
-        return JSONResponse(
-            status_code=500,
-            content={"success": False, "error": str(e)}
-        )
+        return JSONResponse(status_code=500, content={"success": False, "error": str(e)})
 
 @router.post("/api/split-reels/process-upload")
-async def process_upload_endpoint(
-    user_id: str = Form(...),
-    video_file: UploadFile = File(...)
-):
-    """Process uploaded video file"""
-    temp_file = None
-    
+async def process_upload_endpoint(user_id: str = Form(...), video_file: UploadFile = File(...)):
+    temp = None
     try:
         if not user_id or not video_file:
-            return JSONResponse(
-                status_code=400,
-                content={"success": False, "error": "Missing user_id or video_file"}
-            )
+            return JSONResponse(status_code=400, content={"success": False, "error": "Missing params"})
         
         task_id = str(uuid.uuid4())
-        temp_file = f"/tmp/upload_{task_id}.mp4"
+        temp = f"/tmp/upload_{task_id}.mp4"
         
-        logger.info(f"🆕 New upload task: {task_id} - File: {video_file.filename}")
+        logger.info(f"🆕 Task: {task_id} - Upload: {video_file.filename}")
         
-        # Save uploaded file
-        success, error = await save_uploaded_file(video_file, temp_file)
+        success, error = await save_uploaded_file(video_file, temp)
         if not success:
-            return JSONResponse(
-                status_code=400,
-                content={"success": False, "error": error}
-            )
+            return JSONResponse(status_code=400, content={"success": False, "error": error})
         
-        # Start async processing
-        asyncio.create_task(
-            process_split_screen_reel(temp_file, "upload", user_id, task_id)
-        )
-        
-        return JSONResponse(content={
-            "success": True,
-            "task_id": task_id,
-            "message": "Processing started"
-        })
-        
+        asyncio.create_task(process_split_screen_reel(temp, "upload", user_id, task_id))
+        return JSONResponse(content={"success": True, "task_id": task_id})
     except Exception as e:
-        logger.error(f"Upload endpoint error: {e}")
-        if temp_file and os.path.exists(temp_file):
-            cleanup(temp_file)
-        return JSONResponse(
-            status_code=500,
-            content={"success": False, "error": str(e)}
-        )
+        if temp:
+            cleanup(temp)
+        return JSONResponse(status_code=500, content={"success": False, "error": str(e)})
 
 @router.get("/api/split-reels/status/{task_id}")
 async def get_status(task_id: str):
-    """Get processing status"""
     status = PROCESSING_STATUS.get(task_id)
     if not status:
-        return JSONResponse(
-            status_code=404,
-            content={"success": False, "error": "Task not found"}
-        )
+        return JSONResponse(status_code=404, content={"success": False, "error": "Not found"})
     return JSONResponse(content=status)
 
 @router.get("/api/split-reels/health")
 async def health_check():
-    """Health check endpoint"""
     return JSONResponse(content={
         "status": "healthy",
-        "service": "Split-Screen Reels",
-        "version": "1.0.0",
+        "version": "2.0",
         "features": {
-            "split_screen": "3-level fallback",
-            "reaction_videos": len(REACTION_VIDEOS),
-            "fallback_images": len(FALLBACK_MEME_IMAGES),
-            "copyright_filters": "multi-level",
-            "audio_mixing": "BGM + voiceover",
-            "text_overlay": "enabled"
+            "smart_scaling": "enabled",
+            "zoom_crop": "enabled",
+            "google_drive": "enabled",
+            "mistral_seo": bool(MISTRAL_API_KEY)
         }
     })
 
-# ═══════════════════════════════════════════════════════════════════════
-# INITIALIZATION
-# ═══════════════════════════════════════════════════════════════════════
-
 async def initialize():
-    """Initialize service on startup"""
     logger.info("\n" + "="*80)
-    logger.info("🚀 SPLIT-SCREEN REACTION REELS SERVICE")
+    logger.info("🚀 SPLIT-SCREEN REELS v2.0")
     logger.info("="*80)
-    logger.info(f"✅ Reaction videos: {len(REACTION_VIDEOS)}")
-    logger.info(f"✅ Fallback images: {len(FALLBACK_MEME_IMAGES)}")
-    logger.info(f"✅ BGM enabled: {bool(BGM_URL)}")
-    logger.info(f"✅ ElevenLabs voiceover: {bool(ELEVENLABS_API_KEY)}")
-    logger.info(f"✅ Mistral SEO: {bool(MISTRAL_API_KEY)}")
+    logger.info(f"✅ Smart scaling with zoom")
+    logger.info(f"✅ Google Drive support")
+    logger.info(f"✅ Advanced SEO: {bool(MISTRAL_API_KEY)}")
     logger.info("="*80 + "\n")
-    log_memory("Service-Start")
 
 __all__ = ["router", "initialize"]
