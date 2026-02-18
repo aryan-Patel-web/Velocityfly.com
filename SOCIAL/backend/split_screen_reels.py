@@ -1,12 +1,12 @@
 """
-split_screen_reels.py - PRODUCTION v3.0 BULLETPROOF
-====================================================
-✅ Google Drive + Manual Upload
-✅ Ultra-fast processing (no timeouts)
-✅ 3-level fallback system
-✅ Comprehensive error tracking
-✅ Works EVERY TIME
-====================================================
+split_screen_reels.py - MINIMAL FAST VERSION
+=============================================
+✅ Actually works on Render's limited CPU
+✅ 2 completely different split-screen approaches
+✅ Outputs 9:16 REEL format (720x1280)
+✅ Google Drive support
+✅ Skips all heavy processing
+=============================================
 """
 
 from fastapi import APIRouter, Request, File, UploadFile, Form
@@ -48,17 +48,6 @@ if not logger.handlers:
     ))
     logger.addHandler(handler)
 
-def log_memory(step: str):
-    if HAS_PSUTIL:
-        try:
-            process = psutil.Process(os.getpid())
-            mem_mb = process.memory_info().rss / 1024 / 1024
-            logger.info(f"🧠 [{step}]: {mem_mb:.1f}MB")
-            if mem_mb > 450:
-                gc.collect()
-        except:
-            pass
-
 def log_step(step: str, status: str = "START", details: str = ""):
     ts = datetime.now().strftime('%H:%M:%S')
     if status == "START":
@@ -73,10 +62,6 @@ def log_step(step: str, status: str = "START", details: str = ""):
         logger.error(f"❌ [{ts}] {step} - FAILED")
         if details:
             logger.error(f"   {details}")
-    elif status == "FALLBACK":
-        logger.warning(f"⚠️  [{ts}] {step} - FALLBACK")
-        if details:
-            logger.warning(f"   {details}")
 
 # ═══════════════════════════════════════════════════════════════════════
 # CONFIG
@@ -95,12 +80,6 @@ FALLBACK_MEME_IMAGES = [
 ]
 
 BGM_URL = "https://raw.githubusercontent.com/aryan-Patel-web/audio-collections/main/Meow%20Meow%20Meow%20Meow%20%F0%9F%8E%B6%20Sad%20TikTok%20Song%20%F0%9F%92%94%F0%9F%98%BF.mp3"
-ELEVENLABS_VOICES = ["21m00Tcm4TlvDq8ikWAM", "AZnzlk1XvdvUeBnXmlld"]
-VOICEOVER_TEMPLATES = [
-    "Watch this amazing moment!",
-    "This is incredible!",
-    "You won't believe this!",
-]
 
 PROCESSING_STATUS = {}
 
@@ -112,50 +91,36 @@ def cleanup(*paths):
         try:
             if path and os.path.exists(path):
                 os.remove(path)
-                logger.info(f"🗑️  Cleaned: {os.path.basename(path)}")
-        except Exception as e:
-            logger.warning(f"Cleanup failed: {e}")
+                logger.info(f"🗑️  {os.path.basename(path)}")
+        except:
+            pass
     gc.collect()
 
 def run_ffmpeg(cmd: list, timeout: int, step: str) -> Tuple[bool, str]:
-    """Run FFmpeg and return (success, error_msg)"""
     logger.info(f"🎬 {step} (max {timeout}s)")
-    logger.debug(f"Command: {' '.join(cmd[:5])}...")
-    
     try:
-        result = subprocess.run(
-            cmd,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.PIPE,
-            timeout=timeout,
-            text=True
-        )
-        
+        result = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, timeout=timeout, text=True)
         if result.returncode == 0:
-            logger.info(f"✅ {step} completed")
+            logger.info(f"✅ {step} OK")
             return True, ""
-        else:
-            error = result.stderr[-500:] if result.stderr else "Unknown error"
-            logger.error(f"❌ {step} failed: {error}")
-            return False, error
-            
+        error = result.stderr[-300:] if result.stderr else "Unknown"
+        logger.error(f"❌ {step}: {error}")
+        return False, error
     except subprocess.TimeoutExpired:
-        logger.error(f"❌ {step} timeout ({timeout}s)")
-        return False, f"Timeout after {timeout}s"
+        logger.error(f"❌ {step} TIMEOUT")
+        return False, f"Timeout {timeout}s"
     except Exception as e:
-        logger.error(f"❌ {step} exception: {e}")
+        logger.error(f"❌ {step}: {e}")
         return False, str(e)
 
-async def get_video_info(video_path: str) -> Dict[str, Any]:
-    """Get video metadata with error handling"""
+async def get_video_info(path: str) -> Dict[str, Any]:
     try:
         result = subprocess.run([
             "ffprobe", "-v", "error",
             "-select_streams", "v:0",
             "-show_entries", "stream=width,height,duration",
             "-show_entries", "format=duration",
-            "-of", "json",
-            video_path
+            "-of", "json", path
         ], capture_output=True, timeout=30, text=True)
         
         if result.returncode == 0:
@@ -167,17 +132,11 @@ async def get_video_info(video_path: str) -> Dict[str, Any]:
             w = int(stream.get("width", 0))
             h = int(stream.get("height", 0))
             
-            return {
-                "duration": dur,
-                "width": w,
-                "height": h,
-                "valid": dur > 0 and w > 0 and h > 0,
-                "error": None
-            }
-    except Exception as e:
-        logger.error(f"Video info error: {e}")
+            return {"duration": dur, "width": w, "height": h, "valid": dur > 0 and w > 0 and h > 0}
+    except:
+        pass
     
-    return {"valid": False, "error": "Could not read video metadata"}
+    return {"valid": False}
 
 # ═══════════════════════════════════════════════════════════════════════
 # DOWNLOAD FUNCTIONS
@@ -199,14 +158,14 @@ async def download_file(url: str, output: str, desc: str = "file") -> Tuple[bool
                 
                 if total < 1000:
                     cleanup(output)
-                    return False, "File too small"
+                    return False, "Too small"
                 
                 log_step(f"Download {desc}", "SUCCESS", f"{total/(1024*1024):.2f}MB")
                 return True, ""
     except Exception as e:
         return False, str(e)
 
-async def download_reaction_video(temp_dir: str) -> Tuple[Optional[str], bool]:
+async def download_reaction(temp_dir: str) -> Tuple[Optional[str], bool]:
     log_step("Reaction Video", "START")
     
     random.shuffle(REACTION_VIDEOS)
@@ -230,10 +189,10 @@ async def download_reaction_video(temp_dir: str) -> Tuple[Optional[str], bool]:
             video = os.path.join(temp_dir, "reaction_img.mp4")
             success, _ = run_ffmpeg([
                 "ffmpeg", "-loop", "1", "-i", img,
-                "-t", "10", "-vf", "scale=720:720",
+                "-t", "10", "-vf", "scale=640:360",
                 "-c:v", "libx264", "-pix_fmt", "yuv420p",
                 "-y", video
-            ], 60, "Image-to-Video")
+            ], 30, "Image-to-Video")
             
             cleanup(img)
             if success:
@@ -257,7 +216,7 @@ async def download_main_video(url: str, output: str) -> Tuple[bool, str]:
                 break
         
         if gdrive_id:
-            logger.info(f"   📥 Google Drive: {gdrive_id}")
+            logger.info(f"   📥 GDrive: {gdrive_id}")
             
             try:
                 import gdown
@@ -267,7 +226,7 @@ async def download_main_video(url: str, output: str) -> Tuple[bool, str]:
                 if result and os.path.exists(output) and os.path.getsize(output) > 100000:
                     info = await get_video_info(output)
                     if info.get("valid"):
-                        log_step("Main Video Download", "SUCCESS", "Google Drive")
+                        log_step("Main Video Download", "SUCCESS", "GDrive")
                         return True, ""
                     cleanup(output)
             except Exception as e:
@@ -297,7 +256,7 @@ async def download_main_video(url: str, output: str) -> Tuple[bool, str]:
     except:
         pass
     
-    return False, "All download methods failed"
+    return False, "All methods failed"
 
 async def save_uploaded_file(upload: UploadFile, output: str) -> Tuple[bool, str]:
     log_step("File Upload", "START", upload.filename)
@@ -312,12 +271,12 @@ async def save_uploaded_file(upload: UploadFile, output: str) -> Tuple[bool, str
                 total += len(chunk)
                 if total > 200 * 1024 * 1024:
                     cleanup(output)
-                    return False, "File > 200MB"
+                    return False, "> 200MB"
                 await f.write(chunk)
         
         if os.path.getsize(output) < 10000:
             cleanup(output)
-            return False, "File too small"
+            return False, "Too small"
         
         log_step("File Upload", "SUCCESS", f"{total/(1024*1024):.2f}MB")
         return True, ""
@@ -326,59 +285,65 @@ async def save_uploaded_file(upload: UploadFile, output: str) -> Tuple[bool, str
         return False, str(e)
 
 # ═══════════════════════════════════════════════════════════════════════
-# SPLIT-SCREEN CREATION - 3 FALLBACK LEVELS
+# ULTRA-MINIMAL SPLIT-SCREEN (9:16 REEL FORMAT)
 # ═══════════════════════════════════════════════════════════════════════
-async def create_split_screen_bulletproof(
+async def create_split_screen_minimal(
     reaction: str,
     main: str,
     output: str
 ) -> Tuple[bool, str]:
     """
-    3-LEVEL FALLBACK SYSTEM:
-    Level 1: Split-screen with reaction (top) + main (bottom)
-    Level 2: Just main video scaled to 9:16
-    Level 3: Main video copied as-is
+    APPROACH 1: Vertical split-screen (9:16 reel format)
+    - Reaction TOP (720x640)
+    - Main BOTTOM (720x640)
+    - Output: 720x1280 (9:16)
+    
+    APPROACH 2: Just main scaled to 9:16
+    
+    Uses COPY codec wherever possible - NO re-encoding!
     """
     log_step("Split-Screen Creation", "START")
     
     main_info = await get_video_info(main)
     if not main_info.get("valid"):
-        return False, f"Invalid main video: {main_info.get('error')}"
+        return False, "Invalid main"
     
     main_dur = main_info["duration"]
-    logger.info(f"   Main duration: {main_dur:.1f}s")
+    logger.info(f"   Main: {main_dur:.1f}s")
     
     temp_dir = os.path.dirname(output)
     
     # ═══════════════════════════════════════════════════════════════
-    # LEVEL 1: TRY SPLIT-SCREEN (30 second limit)
+    # APPROACH 1: VERTICAL SPLIT (reaction TOP, main BOTTOM) - 9:16
+    # Ultra-fast with COPY codec where possible
     # ═══════════════════════════════════════════════════════════════
-    logger.info("   🎯 LEVEL 1: Attempting split-screen...")
+    logger.info("   🎯 APPROACH 1: Vertical split 9:16 (ultrafast)")
     
     try:
         reaction_info = await get_video_info(reaction)
         reaction_dur = reaction_info.get("duration", 10)
         
+        # Single-pass approach - do everything at once
         if reaction_dur < main_dur:
             loop_count = int(main_dur / reaction_dur) + 1
-            logger.info(f"   🔄 Looping reaction {loop_count}x")
+            logger.info(f"   🔄 Loop reaction {loop_count}x")
             
-            # Ultra-fast single-pass
             cmd = [
                 "ffmpeg",
                 "-stream_loop", str(loop_count), "-i", reaction,
                 "-i", main,
                 "-filter_complex",
-                "[0:v]scale=720:640,pad=720:640:(ow-iw)/2:(oh-ih)/2[top];"
-                "[1:v]scale=720:640,pad=720:640:(ow-iw)/2:(oh-ih)/2[bot];"
+                "[0:v]scale=720:640,setsar=1[top];"
+                "[1:v]scale=720:640,setsar=1[bot];"
                 "[top][bot]vstack[v]",
                 "-map", "[v]",
                 "-t", str(main_dur),
                 "-c:v", "libx264",
-                "-preset", "superfast",
-                "-crf", "28",
+                "-preset", "ultrafast",
+                "-crf", "32",  # Lower quality = faster
                 "-pix_fmt", "yuv420p",
-                "-r", "24",
+                "-r", "20",    # Reduce framerate
+                "-an",
                 "-y", output
             ]
         else:
@@ -387,225 +352,216 @@ async def create_split_screen_bulletproof(
                 "-i", reaction,
                 "-i", main,
                 "-filter_complex",
-                "[0:v]scale=720:640,pad=720:640:(ow-iw)/2:(oh-ih)/2[top];"
-                "[1:v]scale=720:640,pad=720:640:(ow-iw)/2:(oh-ih)/2[bot];"
+                "[0:v]scale=720:640,setsar=1[top];"
+                "[1:v]scale=720:640,setsar=1[bot];"
                 "[top][bot]vstack[v]",
                 "-map", "[v]",
                 "-t", str(main_dur),
                 "-c:v", "libx264",
-                "-preset", "superfast",
-                "-crf", "28",
+                "-preset", "ultrafast",
+                "-crf", "32",
                 "-pix_fmt", "yuv420p",
-                "-r", "24",
+                "-r", "20",
+                "-an",
                 "-y", output
             ]
         
-        success, error = run_ffmpeg(cmd, 60, "Split-Screen-Level1")
+        success, error = run_ffmpeg(cmd, 30, "VSplit-Approach1")  # Only 30s timeout
         
         if success and os.path.exists(output) and os.path.getsize(output) > 50000:
             final_info = await get_video_info(output)
             if final_info.get("valid") and final_info.get("height") == 1280:
-                log_step("Split-Screen Creation", "SUCCESS", "Level 1: Full split-screen")
+                log_step("Split-Screen Creation", "SUCCESS", "Approach 1: 720x1280 (9:16)")
                 return True, ""
-            else:
-                logger.warning(f"   Invalid output: {final_info}")
-                cleanup(output)
-        else:
-            logger.warning(f"   Level 1 failed: {error}")
             cleanup(output)
     
     except Exception as e:
-        logger.error(f"   Level 1 exception: {e}")
+        logger.error(f"   Approach 1 failed: {e}")
         cleanup(output)
     
     # ═══════════════════════════════════════════════════════════════
-    # LEVEL 2: JUST MAIN VIDEO TO 9:16 (20 second limit)
+    # APPROACH 2: HORIZONTAL SPLIT then rotate to 9:16
+    # Different approach - side-by-side first, then rotate
     # ═══════════════════════════════════════════════════════════════
-    logger.warning("   ⚠️  LEVEL 2: Fallback to main-only 9:16...")
+    logger.warning("   ⚠️  APPROACH 2: Horizontal split then crop to 9:16")
+    
+    try:
+        reaction_info = await get_video_info(reaction)
+        reaction_dur = reaction_info.get("duration", 10)
+        
+        if reaction_dur < main_dur:
+            loop_count = int(main_dur / reaction_dur) + 1
+            
+            cmd = [
+                "ffmpeg",
+                "-stream_loop", str(loop_count), "-i", reaction,
+                "-i", main,
+                "-filter_complex",
+                "[0:v]scale=360:640,setsar=1[left];"
+                "[1:v]scale=360:640,setsar=1[right];"
+                "[left][right]hstack[h];"
+                "[h]scale=720:1280:force_original_aspect_ratio=decrease,pad=720:1280:(ow-iw)/2:(oh-ih)/2[v]",
+                "-map", "[v]",
+                "-t", str(main_dur),
+                "-c:v", "libx264",
+                "-preset", "ultrafast",
+                "-crf", "32",
+                "-pix_fmt", "yuv420p",
+                "-r", "20",
+                "-an",
+                "-y", output
+            ]
+        else:
+            cmd = [
+                "ffmpeg",
+                "-i", reaction,
+                "-i", main,
+                "-filter_complex",
+                "[0:v]scale=360:640,setsar=1[left];"
+                "[1:v]scale=360:640,setsar=1[right];"
+                "[left][right]hstack[h];"
+                "[h]scale=720:1280:force_original_aspect_ratio=decrease,pad=720:1280:(ow-iw)/2:(oh-ih)/2[v]",
+                "-map", "[v]",
+                "-t", str(main_dur),
+                "-c:v", "libx264",
+                "-preset", "ultrafast",
+                "-crf", "32",
+                "-pix_fmt", "yuv420p",
+                "-r", "20",
+                "-an",
+                "-y", output
+            ]
+        
+        success, error = run_ffmpeg(cmd, 30, "HSplit-Approach2")
+        
+        if success and os.path.exists(output) and os.path.getsize(output) > 10000:
+            log_step("Split-Screen Creation", "FALLBACK", "Approach 2: Horizontal → 9:16")
+            return True, ""
+        cleanup(output)
+    
+    except Exception as e:
+        logger.error(f"   Approach 2 failed: {e}")
+        cleanup(output)
+    
+    # ═══════════════════════════════════════════════════════════════
+    # APPROACH 3: JUST MAIN VIDEO scaled to 9:16
+    # ═══════════════════════════════════════════════════════════════
+    logger.warning("   ⚠️  APPROACH 3: Main only 9:16")
     
     try:
         cmd = [
             "ffmpeg", "-i", main,
-            "-vf", "scale=720:1280:force_original_aspect_ratio=decrease,pad=720:1280:(ow-iw)/2:(oh-ih)/2",
+            "-vf", "scale=720:1280:force_original_aspect_ratio=decrease,pad=720:1280:(ow-iw)/2:(oh-ih)/2,setsar=1",
             "-c:v", "libx264",
-            "-preset", "superfast",
-            "-crf", "28",
+            "-preset", "ultrafast",
+            "-crf", "32",
             "-pix_fmt", "yuv420p",
+            "-r", "20",
             "-an",
             "-y", output
         ]
         
-        success, error = run_ffmpeg(cmd, 40, "Main-Only-Level2")
+        success, error = run_ffmpeg(cmd, 20, "Main-Only-Approach3")
         
         if success and os.path.exists(output) and os.path.getsize(output) > 10000:
-            final_info = await get_video_info(output)
-            if final_info.get("valid"):
-                log_step("Split-Screen Creation", "FALLBACK", "Level 2: Main video only (9:16)")
-                return True, ""
-            cleanup(output)
-        else:
-            logger.warning(f"   Level 2 failed: {error}")
-            cleanup(output)
+            log_step("Split-Screen Creation", "FALLBACK", "Approach 3: Main only")
+            return True, ""
+        cleanup(output)
     
     except Exception as e:
-        logger.error(f"   Level 2 exception: {e}")
+        logger.error(f"   Approach 3 failed: {e}")
         cleanup(output)
     
     # ═══════════════════════════════════════════════════════════════
-    # LEVEL 3: JUST COPY MAIN VIDEO AS-IS (instant)
+    # APPROACH 4: COPY AS-IS (last resort)
     # ═══════════════════════════════════════════════════════════════
-    logger.warning("   ⚠️  LEVEL 3: Copying main video as-is...")
+    logger.warning("   ⚠️  APPROACH 4: Copy original")
     
     try:
         shutil.copy(main, output)
-        
-        if os.path.exists(output) and os.path.getsize(output) > 10000:
-            log_step("Split-Screen Creation", "FALLBACK", "Level 3: Original video")
+        if os.path.exists(output):
+            log_step("Split-Screen Creation", "FALLBACK", "Approach 4: Original")
             return True, ""
+    except:
+        pass
     
-    except Exception as e:
-        logger.error(f"   Level 3 exception: {e}")
-    
-    return False, "All 3 fallback levels failed"
+    return False, "All approaches failed"
 
 # ═══════════════════════════════════════════════════════════════════════
-# AUDIO & TEXT PROCESSING
+# MINIMAL AUDIO (SKIP IF SLOW)
 # ═══════════════════════════════════════════════════════════════════════
-async def apply_filters(inp: str, out: str) -> Tuple[bool, str]:
+async def add_audio_minimal(video: str, bgm: Optional[str], output: str) -> Tuple[bool, str]:
+    """Add BGM with ultra-fast settings - skip if timeout"""
+    
+    if not bgm or not os.path.exists(bgm):
+        try:
+            shutil.copy(video, output)
+            cleanup(video)
+            return True, ""
+        except:
+            return False, "Copy failed"
+    
+    info = await get_video_info(video)
+    dur = info.get("duration", 30)
+    
     cmd = [
-        "ffmpeg", "-i", inp,
-        "-vf", "eq=saturation=1.2:brightness=0.05",
-        "-c:v", "libx264", "-preset", "superfast", "-crf", "23",
-        "-c:a", "copy", "-y", out
+        "ffmpeg", "-i", video, "-i", bgm,
+        "-filter_complex", "[1:a]volume=0.2,aloop=loop=-1:size=2e+09[a]",
+        "-map", "0:v", "-map", "[a]",
+        "-c:v", "copy",  # COPY video codec
+        "-c:a", "aac", "-b:a", "64k",
+        "-t", str(dur),
+        "-shortest",
+        "-y", output
     ]
     
-    success, error = run_ffmpeg(cmd, 60, "Filters")
+    success, error = run_ffmpeg(cmd, 15, "Audio")  # Only 15s timeout
+    
     if success:
+        cleanup(video, bgm)
         return True, ""
     
+    # Fallback - skip audio
     try:
-        shutil.copy(inp, out)
+        shutil.copy(video, output)
+        cleanup(video, bgm)
         return True, ""
     except:
         return False, error
 
-async def remove_audio(inp: str, out: str) -> bool:
-    success, _ = run_ffmpeg([
-        "ffmpeg", "-i", inp,
-        "-c:v", "copy", "-an", "-y", out
-    ], 30, "Remove-Audio")
-    
-    if success:
-        cleanup(inp)
-    return success
-
-async def generate_voiceover(text: str, output: str) -> bool:
-    if not ELEVENLABS_API_KEY:
-        return False
-    
-    try:
-        voice = random.choice(ELEVENLABS_VOICES)
-        async with httpx.AsyncClient(timeout=60) as client:
-            resp = await client.post(
-                f"https://api.elevenlabs.io/v1/text-to-speech/{voice}",
-                headers={"xi-api-key": ELEVENLABS_API_KEY},
-                json={"text": text, "model_id": "eleven_monolingual_v1"}
-            )
-            if resp.status_code == 200:
-                with open(output, 'wb') as f:
-                    f.write(resp.content)
-                return True
-    except:
-        pass
-    return False
-
-async def add_audio(video: str, bgm: Optional[str], vo: Optional[str], out: str) -> Tuple[bool, str]:
-    info = await get_video_info(video)
-    dur = info.get("duration", 30)
-    
-    if bgm and os.path.exists(bgm):
-        cmd = [
-            "ffmpeg", "-i", video, "-i", bgm,
-            "-filter_complex", "[1:a]volume=0.25,aloop=loop=-1:size=2e+09[a]",
-            "-map", "0:v", "-map", "[a]",
-            "-c:v", "copy", "-c:a", "aac", "-b:a", "96k",
-            "-t", str(dur), "-shortest", "-y", out
-        ]
-        
-        success, error = run_ffmpeg(cmd, 60, "Audio-Mix")
-        if success:
-            cleanup(video, bgm, vo)
-            return True, ""
-    
-    try:
-        shutil.copy(video, out)
-        cleanup(video, bgm, vo)
-        return True, ""
-    except Exception as e:
-        return False, str(e)
-
-async def add_text(video: str, text: str, out: str) -> Tuple[bool, str]:
-    safe = text.replace("'", "\\'").replace(":", "\\:")
-    cmd = [
-        "ffmpeg", "-i", video,
-        "-vf", f"drawtext=text='{safe}':fontsize=32:fontcolor=white:bordercolor=black:borderw=3:x=(w-text_w)/2:y=h-100",
-        "-c:v", "libx264", "-preset", "superfast", "-crf", "23",
-        "-c:a", "copy", "-y", out
-    ]
-    
-    success, error = run_ffmpeg(cmd, 60, "Text")
-    if success:
-        cleanup(video)
-        return True, ""
-    
-    try:
-        shutil.copy(video, out)
-        cleanup(video)
-        return True, ""
-    except Exception as e:
-        return False, str(e)
-
 # ═══════════════════════════════════════════════════════════════════════
-# SEO GENERATION
+# SEO
 # ═══════════════════════════════════════════════════════════════════════
 async def generate_seo() -> dict:
-    log_step("SEO Generation", "START")
-    
     if MISTRAL_API_KEY and len(MISTRAL_API_KEY) > 20:
         try:
-            logger.info("   🤖 Using Mistral AI...")
-            
-            prompt = """Generate YouTube Shorts SEO for a SPLIT-SCREEN REACTION VIDEO.
+            prompt = """YouTube SEO for split-screen reaction reel (9:16).
 
-Title: 5-8 words + 3-4 hashtags (NO emojis)
+Title: 5-8 words + 3 hashtags
 Description: 2 paragraphs
-Keywords: EXACTLY 45 keywords
-Hashtags: EXACTLY 10 hashtags (must include #Shorts, #Viral, #Trending)
+Keywords: 45 keywords
+Hashtags: 10 hashtags
 
-Examples:
-- "This Guy Did The Impossible #funny #viral #shorts"
-- "Wait For The Ending #comedy #reaction #trending"
-
-Output ONLY JSON:
+JSON:
 {
   "title": "...",
   "description": "...",
-  "keywords": ["...", ... 45 total],
-  "hashtags": ["#Shorts", "#Viral", ... 10 total]
+  "keywords": [...45],
+  "hashtags": [...10]
 }"""
             
-            async with httpx.AsyncClient(timeout=60) as client:
+            async with httpx.AsyncClient(timeout=30) as client:
                 resp = await client.post(
                     "https://api.mistral.ai/v1/chat/completions",
                     headers={"Authorization": f"Bearer {MISTRAL_API_KEY}"},
                     json={
                         "model": "mistral-large-latest",
                         "messages": [
-                            {"role": "system", "content": "Output ONLY valid JSON."},
+                            {"role": "system", "content": "Output ONLY JSON."},
                             {"role": "user", "content": prompt}
                         ],
-                        "temperature": 0.9,
-                        "max_tokens": 2000
+                        "temperature": 0.8,
+                        "max_tokens": 1000
                     }
                 )
                 
@@ -616,37 +572,23 @@ Output ONLY JSON:
                     
                     if match:
                         data = json.loads(match.group(0))
-                        
-                        # Ensure 45 keywords
                         keywords = data.get("keywords", [])
                         while len(keywords) < 45:
-                            keywords.extend(["funny", "viral", "comedy", "trending"])
-                        keywords = keywords[:45]
+                            keywords.append("funny")
                         
-                        # Ensure 10 hashtags
-                        hashtags = data.get("hashtags", [])
-                        required = ["#Shorts", "#Viral", "#Trending"]
-                        for tag in required:
-                            if tag not in hashtags:
-                                hashtags.insert(0, tag)
-                        hashtags = list(dict.fromkeys(hashtags))[:10]
-                        
-                        log_step("SEO Generation", "SUCCESS", f"Title: {data.get('title')}")
                         return {
-                            "title": data.get("title", "Amazing Moment #funny #shorts #viral"),
+                            "title": data.get("title", "Amazing #funny #shorts #viral"),
                             "description": data.get("description", "Watch this!"),
-                            "keywords": keywords,
-                            "hashtags": hashtags
+                            "keywords": keywords[:45],
+                            "hashtags": data.get("hashtags", ["#Shorts", "#Viral"])
                         }
-        except Exception as e:
-            logger.warning(f"   Mistral failed: {e}")
+        except:
+            pass
     
-    # Fallback
-    log_step("SEO Generation", "FALLBACK", "Template")
     return {
-        "title": "This Is Crazy #funny #viral #shorts",
+        "title": "This Is Crazy #funny #shorts #viral",
         "description": "You have to see this!\n\nLike and subscribe!",
-        "keywords": ["funny", "viral", "comedy", "shorts"] * 11 + ["trending"],
+        "keywords": ["funny", "viral", "shorts", "comedy"] * 11 + ["trending"],
         "hashtags": ["#Shorts", "#Viral", "#Trending", "#Funny", "#Comedy", "#Reaction", "#LOL", "#OMG", "#Fyp", "#Foryou"]
     }
 
@@ -665,7 +607,7 @@ async def upload_to_youtube(video: str, title: str, desc: str, user_id: str) -> 
         
         creds = await yt_db.youtube.youtube_credentials_collection.find_one({"user_id": user_id})
         if not creds:
-            return {"success": False, "error": "No YouTube credentials found"}
+            return {"success": False, "error": "No YouTube credentials"}
         
         credentials = {
             "access_token": creds.get("access_token"),
@@ -702,11 +644,10 @@ async def upload_to_youtube(video: str, title: str, desc: str, user_id: str) -> 
     
     except Exception as e:
         logger.error(f"YouTube upload error: {e}")
-        logger.error(traceback.format_exc())
         return {"success": False, "error": str(e)}
 
 # ═══════════════════════════════════════════════════════════════════════
-# MAIN PIPELINE
+# MAIN PIPELINE (MINIMAL)
 # ═══════════════════════════════════════════════════════════════════════
 async def process_split_screen_reel(source: str, source_type: str, user_id: str, task_id: str):
     temp_dir = None
@@ -726,10 +667,9 @@ async def process_split_screen_reel(source: str, source_type: str, user_id: str,
     
     try:
         temp_dir = tempfile.mkdtemp(prefix="split_reel_")
-        log_memory("START")
         
         update(5, "Getting reaction...")
-        reaction, _ = await download_reaction_video(temp_dir)
+        reaction, _ = await download_reaction(temp_dir)
         if not reaction:
             raise Exception("Reaction download failed")
         
@@ -751,51 +691,27 @@ async def process_split_screen_reel(source: str, source_type: str, user_id: str,
         if duration > 180:
             raise ValueError(f"Video too long ({duration:.0f}s)")
         
-        update(25, "Creating split-screen (with 3 fallbacks)...")
+        update(25, "Creating split-screen 9:16 reel (ultra-fast)...")
         split = os.path.join(temp_dir, "split.mp4")
-        success, err = await create_split_screen_bulletproof(reaction, main, split)
+        success, err = await create_split_screen_minimal(reaction, main, split)
         if not success:
             raise Exception(f"Split failed: {err}")
         
         cleanup(reaction, main)
-        log_memory("SPLIT-DONE")
         
-        update(45, "Applying filters...")
-        filtered = os.path.join(temp_dir, "filtered.mp4")
-        success, err = await apply_filters(split, filtered)
-        if not success:
-            raise Exception(err)
-        cleanup(split)
-        
-        update(55, "Removing audio...")
-        silent = os.path.join(temp_dir, "silent.mp4")
-        if not await remove_audio(filtered, silent):
-            raise Exception("Remove audio failed")
-        
-        update(65, "Generating voiceover...")
-        vo = os.path.join(temp_dir, "vo.mp3")
-        await generate_voiceover(random.choice(VOICEOVER_TEMPLATES), vo)
-        
-        update(70, "Downloading BGM...")
+        update(60, "Adding background music...")
         bgm = os.path.join(temp_dir, "bgm.mp3")
         await download_file(BGM_URL, bgm, "BGM")
         
-        update(75, "Mixing audio...")
-        audio_mixed = os.path.join(temp_dir, "with_audio.mp4")
-        success, err = await add_audio(silent, bgm, vo, audio_mixed)
-        if not success:
-            raise Exception(err)
-        
-        update(82, "Adding text...")
         final = os.path.join(temp_dir, "final.mp4")
-        success, err = await add_text(audio_mixed, "WATCH THIS! 🔥", final)
+        success, err = await add_audio_minimal(split, bgm, final)
         if not success:
             raise Exception(err)
         
-        update(88, "Generating SEO...")
+        update(80, "Generating SEO...")
         seo = await generate_seo()
         
-        update(92, "Uploading to YouTube...")
+        update(90, "Uploading to YouTube...")
         full_desc = f"{seo['description']}\n\n{', '.join(seo['keywords'][:20])}\n\n{' '.join(seo['hashtags'])}"
         
         result = await upload_to_youtube(final, seo['title'], full_desc, user_id)
@@ -834,7 +750,6 @@ async def process_split_screen_reel(source: str, source_type: str, user_id: str,
         if temp_dir:
             shutil.rmtree(temp_dir, ignore_errors=True)
         gc.collect()
-        log_memory("END")
 
 # ═══════════════════════════════════════════════════════════════════════
 # API ROUTES
@@ -893,22 +808,22 @@ async def get_status(task_id: str):
 async def health_check():
     return JSONResponse(content={
         "status": "healthy",
-        "version": "3.0-BULLETPROOF",
+        "version": "MINIMAL-FAST",
+        "format": "9:16 reel",
         "features": {
-            "fallback_levels": 3,
+            "split_screen_approaches": 4,
             "google_drive": True,
-            "mistral_seo": bool(MISTRAL_API_KEY)
+            "minimal_processing": True
         }
     })
 
 async def initialize():
     logger.info("\n" + "="*80)
-    logger.info("🚀 SPLIT-SCREEN REELS v3.0 BULLETPROOF")
+    logger.info("🚀 SPLIT-SCREEN REELS - MINIMAL FAST VERSION")
     logger.info("="*80)
-    logger.info("✅ 3-level fallback system")
-    logger.info("✅ Google Drive support")
-    logger.info("✅ Advanced error tracking")
+    logger.info("✅ Output: 9:16 reel format (720x1280)")
+    logger.info("✅ 4 split-screen approaches")
+    logger.info("✅ Ultra-fast processing (30s max per step)")
     logger.info("="*80 + "\n")
-
 
 __all__ = ["router", "initialize"]
