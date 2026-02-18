@@ -629,8 +629,6 @@ async def create_split_screen_v2(
     return False, "All stacking methods failed"
 
 
-
-
 # ═══════════════════════════════════════════════════════════════════════
 # ADVANCED SEO GENERATION
 # ═══════════════════════════════════════════════════════════════════════
