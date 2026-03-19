@@ -2030,7 +2030,7 @@ useEffect(() => {
             Connect YouTube
           </button>
 
-          <button 
+          {/* <button 
             onClick={() => setActiveTab('setup')}
             style={{
               padding: '12px 24px',
@@ -2053,7 +2053,7 @@ useEffect(() => {
           >
             <span style={{ fontSize: '20px' }}>⚙️</span>
             Setup Automation
-          </button>
+          </button> */}
 
           <button 
             onClick={() => setActiveTab('content')}
