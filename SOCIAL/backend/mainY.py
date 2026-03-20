@@ -1659,6 +1659,7 @@ async def login(request: LoginRequest):
 
 
 # ======================================================================
+# ======================================================================
 
 
 # FIXED YouTube OAuth endpoints
@@ -1676,6 +1677,7 @@ async def youtube_oauth_url(request: YouTubeOAuthRequest):
             )
         
         # FORCED backend redirect URI - hardcoded to ensure correctness
+        # ✅ This stays as BACKEND url (velocityfly.onrender.com) - DO NOT CHANGE
         backend_redirect_uri = "https://velocityfly.onrender.com/api/youtube/oauth-callback"
         
         logger.info(f"Using FORCED BACKEND redirect URI: {backend_redirect_uri}")
@@ -1701,7 +1703,7 @@ async def youtube_oauth_url(request: YouTubeOAuthRequest):
 
 @app.get("/api/youtube/oauth-callback")
 async def youtube_oauth_callback_get(code: str, state: str):
-    """Handle YouTube OAuth callback from Google - FIXED to redirect to / (main page)"""
+    """Handle YouTube OAuth callback from Google - redirects to FRONTEND"""
     try:
         logger.info(f"=== YouTube OAuth Callback Started ===")
         logger.info(f"State: {state}")
@@ -1714,7 +1716,7 @@ async def youtube_oauth_callback_get(code: str, state: str):
         else:
             logger.error(f"✗ Invalid state format: {state}")
             return RedirectResponse(
-                url="https://velocityfly.onrender.com/?error=invalid_state",
+                url="https://velocityfly-ai.onrender.com/?error=invalid_state",
                 status_code=302
             )
         
@@ -1722,11 +1724,12 @@ async def youtube_oauth_callback_get(code: str, state: str):
         if not youtube_connector:
             logger.error("✗ YouTube connector not available")
             return RedirectResponse(
-                url="https://velocityfly.onrender.com/?error=service_unavailable",
+                url="https://velocityfly-ai.onrender.com/?error=service_unavailable",
                 status_code=302
             )
         
         # Exchange code for token
+        # ✅ This stays as BACKEND url (velocityfly.onrender.com) - DO NOT CHANGE
         backend_redirect_uri = "https://velocityfly.onrender.com/api/youtube/oauth-callback"
         logger.info(f"Token exchange with redirect_uri: {backend_redirect_uri}")
             
@@ -1740,17 +1743,17 @@ async def youtube_oauth_callback_get(code: str, state: str):
             error_msg = token_result.get('error', 'unknown')
             logger.error(f"✗ Token exchange failed: {error_msg}")
 
-            # FIX: Specific redirect for accounts with no YouTube channel
+            # Specific redirect for accounts with no YouTube channel
             if "No YouTube channel" in error_msg:
                 logger.warning(f"✗ No YouTube channel found for this Google account")
                 return RedirectResponse(
-                    url="https://velocityfly.onrender.com/?error=no_youtube_channel",
+                    url="https://velocityfly-ai.onrender.com/?error=no_youtube_channel",
                     status_code=302
                 )
 
-            # FIX: All other token errors also redirect to / instead of /youtube-callback
+            # All other token errors redirect to FRONTEND
             return RedirectResponse(
-                url=f"https://velocityfly.onrender.com/?error=token_failed&details={error_msg}",
+                url=f"https://velocityfly-ai.onrender.com/?error=token_failed&details={error_msg}",
                 status_code=302
             )
         
@@ -1780,16 +1783,14 @@ async def youtube_oauth_callback_get(code: str, state: str):
             else:
                 logger.error(f"✗ Failed to store credentials")
                 return RedirectResponse(
-                    # FIX: redirect to / instead of /youtube-callback
-                    url="https://velocityfly.onrender.com/?error=storage_failed",
+                    url="https://velocityfly-ai.onrender.com/?error=storage_failed",
                     status_code=302
                 )
                 
         except Exception as db_error:
             logger.error(f"✗ Database error: {db_error}")
             return RedirectResponse(
-                # FIX: redirect to / instead of /youtube-callback
-                url="https://velocityfly.onrender.com/?error=database_error",
+                url="https://velocityfly-ai.onrender.com/?error=database_error",
                 status_code=302
             )
         
@@ -1798,10 +1799,10 @@ async def youtube_oauth_callback_get(code: str, state: str):
         channel_id = token_result["channel_info"].get("id", "")
         
         logger.info(f"✓ Channel: {channel_title} (ID: {channel_id})")
-        logger.info(f"=== Redirecting to / (main page) ===")
+        logger.info(f"=== Redirecting to FRONTEND ===")
         
-        # FIX: Redirect to / (main page) NOT /youtube-callback which has no React build
-        redirect_url = f"https://velocityfly.onrender.com/?youtube_connected=true&channel={channel_title}"
+        # ✅ Redirect to FRONTEND url after successful connection
+        redirect_url = f"https://velocityfly-ai.onrender.com/?youtube_connected=true&channel={channel_title}"
         logger.info(f"Redirect URL: {redirect_url}")
         
         return RedirectResponse(
@@ -1814,12 +1815,9 @@ async def youtube_oauth_callback_get(code: str, state: str):
         import traceback
         logger.error(traceback.format_exc())
         return RedirectResponse(
-            # FIX: redirect to / instead of /youtube-callback
-            url="https://velocityfly.onrender.com/?error=oauth_failed",
+            url="https://velocityfly-ai.onrender.com/?error=oauth_failed",
             status_code=302
         )
-
-
 
 
 # =====================================================================
