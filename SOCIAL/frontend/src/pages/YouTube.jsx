@@ -1283,87 +1283,99 @@ const deleteComment = useCallback(async (commentId) => {
 
 
 
-const handleOAuthCallbackDirect = useCallback(async (code) => {
-  try {
-    setLoading(true);
-    setError('');
+// const handleOAuthCallbackDirect = useCallback(async (code) => {
+//   try {
+//     setLoading(true);
+//     setError('');
     
-    console.log('Processing OAuth callback with code:', code.substring(0, 20) + '...');
+//     console.log('Processing OAuth callback with code:', code.substring(0, 20) + '...');
     
-    let userData = getUserData();
-    let currentToken = token;
+//     let userData = getUserData();
+//     let currentToken = token;
     
-    if (!userData) {
-      const possibleTokenKeys = ['token', 'auth_token', 'access_token', 'authToken'];
-      for (const key of possibleTokenKeys) {
-        const storedToken = localStorage.getItem(key);
-        if (storedToken) {
-          currentToken = storedToken;
-          break;
-        }
-      }
-      userData = getUserData();
-    }
+//     if (!userData) {
+//       const possibleTokenKeys = ['token', 'auth_token', 'access_token', 'authToken'];
+//       for (const key of possibleTokenKeys) {
+//         const storedToken = localStorage.getItem(key);
+//         if (storedToken) {
+//           currentToken = storedToken;
+//           break;
+//         }
+//       }
+//       userData = getUserData();
+//     }
     
-    if (!userData || !userData.user_id) {
-      throw new Error('User authentication required. Please log in first.');
-    }
+//     if (!userData || !userData.user_id) {
+//       throw new Error('User authentication required. Please log in first.');
+//     }
     
-    if (!currentToken) {
-      throw new Error('Authentication token not found. Please log in again.');
-    }
+//     if (!currentToken) {
+//       throw new Error('Authentication token not found. Please log in again.');
+//     }
     
-    const currentOrigin = window.location.origin;
-    const redirectUri = `${currentOrigin}/youtube`;
+//     const currentOrigin = window.location.origin;
+//     const redirectUri = `${currentOrigin}/youtube`;
     
-    console.log('Making OAuth callback request for user:', userData.user_id);
+//     console.log('Making OAuth callback request for user:', userData.user_id);
     
-    const response = await fetch(`${API_BASE}/api/youtube/oauth-callback`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${currentToken}`,
-        'X-User-ID': userData.user_id
-      },
-      body: JSON.stringify({
-        user_id: userData.user_id,
-        code: code,
-        redirect_uri: redirectUri
-      })
-    });
+//     const response = await fetch(`${API_BASE}/api/youtube/oauth-callback`, {
+//       method: 'POST',
+//       headers: {
+//         'Content-Type': 'application/json',
+//         'Authorization': `Bearer ${currentToken}`,
+//         'X-User-ID': userData.user_id
+//       },
+//       body: JSON.stringify({
+//         user_id: userData.user_id,
+//         code: code,
+//         redirect_uri: redirectUri
+//       })
+//     });
     
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ error: 'Network error' }));
-      throw new Error(`OAuth callback failed: ${errorData.error || response.statusText}`);
-    }
+//     if (!response.ok) {
+//       const errorData = await response.json().catch(() => ({ error: 'Network error' }));
+//       throw new Error(`OAuth callback failed: ${errorData.error || response.statusText}`);
+//     }
     
-    const result = await response.json();
+//     const result = await response.json();
     
-    if (result.success) {
-      // Clear URL parameters AFTER successful processing
-      window.history.replaceState({}, document.title, window.location.pathname);
+//     if (result.success) {
+//       // Clear URL parameters AFTER successful processing
+//       window.history.replaceState({}, document.title, window.location.pathname);
       
-      setError('');
-      setStatus(prev => ({ ...prev, youtube_connected: true, ...result }));
-      setActiveTab('setup');
+//       setError('');
+//       setStatus(prev => ({ ...prev, youtube_connected: true, ...result }));
+//       setActiveTab('setup');
       
-      await fetchAutomationStatus();
-      console.log('YouTube connected successfully - redirecting to setup');
-    } else {
-      throw new Error(result.error || result.message || 'YouTube connection failed');
-    }
-  } catch (error) {
-    // Clear URL on error too
-    window.history.replaceState({}, document.title, window.location.pathname);
-    console.error('OAuth callback error:', error);
-    setError(error.message);
-  } finally {
-    setLoading(false);
-  }
-}, [getUserData, token, API_BASE, fetchAutomationStatus]);
+//       await fetchAutomationStatus();
+//       console.log('YouTube connected successfully - redirecting to setup');
+//     } else {
+//       throw new Error(result.error || result.message || 'YouTube connection failed');
+//     }
+//   } catch (error) {
+//     // Clear URL on error too
+//     window.history.replaceState({}, document.title, window.location.pathname);
+//     console.error('OAuth callback error:', error);
+//     setError(error.message);
+//   } finally {
+//     setLoading(false);
+//   }
+// }, [getUserData, token, API_BASE, fetchAutomationStatus]);
 
 
-// ✅ Disconnect YouTube Handler
+
+
+
+// ====================================================================
+
+// ============================================================
+// ❌ DELETE the entire handleOAuthCallbackDirect function
+// The backend now handles the OAuth token exchange itself.
+// The frontend no longer needs to POST to /api/youtube/oauth-callback
+// ============================================================
+
+
+// ✅ KEEP THIS - Disconnect YouTube Handler (NO CHANGES)
 const handleDisconnectYouTube = async () => {
   setDisconnecting(true);
   setDisconnectError(null);
@@ -1392,30 +1404,20 @@ const handleDisconnectYouTube = async () => {
     console.log('✅ Disconnect response:', response.data);
 
     if (response.data.success) {
-      // Show success message
       alert(`✅ ${response.data.message}\n\n${response.data.action || ''}`);
-      
-      // Close modal
       setShowDisconnectModal(false);
-      
-      // Refresh status
       await fetchYouTubeStatus();
-      
-      // Reset to connect tab
       setActiveTab('connect');
-      
       console.log('✅ YouTube disconnected successfully');
     } else {
       throw new Error(response.data.error || 'Disconnect failed');
     }
   } catch (error) {
     console.error('❌ Disconnect error:', error);
-    
     const errorMessage = error.response?.data?.detail 
       || error.response?.data?.error 
       || error.message 
       || 'Failed to disconnect YouTube';
-    
     setDisconnectError(errorMessage);
   } finally {
     setDisconnecting(false);
@@ -1424,45 +1426,97 @@ const handleDisconnectYouTube = async () => {
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+// ============================================================
+// ✅ REPLACE your existing useEffect with this one
+// Now reads ?youtube_connected=true or ?error=... from backend redirect
+// ============================================================
 useEffect(() => {
   const urlParams = new URLSearchParams(window.location.search);
-  const code = urlParams.get('code');
-  const state = urlParams.get('state');
-  const error_param = urlParams.get('error');
-  
-  console.log('YouTube useEffect - URL params:', { 
-    code: code ? code.substring(0, 20) + '...' : null, 
-    state, 
-    error: error_param,
+
+  // NEW: params sent by backend after OAuth
+  const youtubeConnected = urlParams.get('youtube_connected');
+  const channelName = urlParams.get('channel');
+  const errorParam = urlParams.get('error');
+  const errorDetails = urlParams.get('details');
+
+  console.log('YouTube useEffect - URL params:', {
+    youtubeConnected,
+    channelName,
+    errorParam,
+    errorDetails,
     fullURL: window.location.href
   });
-  console.log('YouTube useEffect - Auth state:', { isAuthenticated, hasToken: !!token });
-  
-  if (error_param) {
-    console.error('OAuth error detected:', error_param);
-    setError(`OAuth error: ${error_param}`);
+
+  // ✅ SUCCESS: Backend connected YouTube and redirected here
+  if (youtubeConnected === 'true') {
+    console.log('✅ YouTube connected via backend redirect, channel:', channelName);
+
+    // Clean the URL immediately
     window.history.replaceState({}, document.title, window.location.pathname);
+
+    // Update state to show connected
+    setStatus(prev => ({ ...prev, youtube_connected: true }));
+    setActiveTab('setup');
+    setError('');
+
+    // Refresh status from server
+    fetchAutomationStatus();
+    fetchScheduledPosts();
+
+    // Optional: show success toast/alert
+    alert(`✅ YouTube Connected!\nChannel: ${channelName || 'Your Channel'}`);
     return;
   }
-  
-  if (code && state === 'youtube_oauth') {
-    console.log('✅ OAuth callback detected - processing code:', code.substring(0, 20) + '...');
-    handleOAuthCallbackDirect(code);
+
+  // ❌ ERROR: No YouTube channel on this Google account
+  if (errorParam === 'no_youtube_channel') {
+    console.error('❌ No YouTube channel found for this Google account');
+    window.history.replaceState({}, document.title, window.location.pathname);
+    setError('This Google account has no YouTube channel. Please use an account that has a YouTube channel created.');
     return;
   }
-  
-  // Normal initialization
+
+  // ❌ ERROR: Token exchange or other OAuth failure
+  if (errorParam === 'token_failed') {
+    console.error('❌ Token exchange failed:', errorDetails);
+    window.history.replaceState({}, document.title, window.location.pathname);
+    setError(`YouTube connection failed: ${errorDetails || 'Token exchange error'}`);
+    return;
+  }
+
+  // ❌ ERROR: Generic errors
+  if (errorParam) {
+    console.error('❌ OAuth error:', errorParam);
+    window.history.replaceState({}, document.title, window.location.pathname);
+    setError(`YouTube connection error: ${errorParam}`);
+    return;
+  }
+
+  // ✅ NORMAL: No OAuth params, just regular page load
   if (isAuthenticated && token) {
     console.log('Normal initialization - fetching status');
     fetchAutomationStatus();
-    fetchScheduledPosts();  // NEW: Load scheduled posts
+    fetchScheduledPosts();
   } else {
     console.log('Waiting for authentication...');
   }
-}, [isAuthenticated, token, handleOAuthCallbackDirect]);
 
-// }, [isAuthenticated, token, handleOAuthCallbackDirect]);
-// NEW: Load saved automation config
+}, [isAuthenticated, token]); 
+// ✅ Removed handleOAuthCallbackDirect from deps since function is deleted
+
+
+// ✅ KEEP THIS - Load saved automation config (NO CHANGES)
 useEffect(() => {
   const loadAutomationConfig = async () => {
     if (!user?.user_id || !token) return;
@@ -1480,8 +1534,6 @@ useEffect(() => {
         if (data.success && data.config) {
           setAutomationConfig(data.config);
           setAutomationEnabled(data.config.enabled || false);
-          
-          // If has base_url and search_query, set as savedUrl too
           if (data.config.base_url && data.config.search_query) {
             setSavedUrl(`${data.config.base_url} | Search: ${data.config.search_query}`);
           }
@@ -1494,6 +1546,166 @@ useEffect(() => {
   
   loadAutomationConfig();
 }, [user, token]);
+
+
+// =======================================================================
+
+
+
+
+// // ✅ Disconnect YouTube Handler
+// const handleDisconnectYouTube = async () => {
+//   setDisconnecting(true);
+//   setDisconnectError(null);
+
+//   try {
+//     const userId = localStorage.getItem('user_id');
+//     const token = localStorage.getItem('token');
+
+//     if (!userId) {
+//       throw new Error('User ID not found. Please log in again.');
+//     }
+
+//     console.log('🔴 Disconnecting YouTube for user:', userId);
+
+//     const response = await axios.post(
+//       `${API_URL}/api/youtube/disconnect/${userId}`,
+//       {},
+//       {
+//         headers: {
+//           'Authorization': `Bearer ${token}`,
+//           'Content-Type': 'application/json'
+//         }
+//       }
+//     );
+
+//     console.log('✅ Disconnect response:', response.data);
+
+//     if (response.data.success) {
+//       // Show success message
+//       alert(`✅ ${response.data.message}\n\n${response.data.action || ''}`);
+      
+//       // Close modal
+//       setShowDisconnectModal(false);
+      
+//       // Refresh status
+//       await fetchYouTubeStatus();
+      
+//       // Reset to connect tab
+//       setActiveTab('connect');
+      
+//       console.log('✅ YouTube disconnected successfully');
+//     } else {
+//       throw new Error(response.data.error || 'Disconnect failed');
+//     }
+//   } catch (error) {
+//     console.error('❌ Disconnect error:', error);
+    
+//     const errorMessage = error.response?.data?.detail 
+//       || error.response?.data?.error 
+//       || error.message 
+//       || 'Failed to disconnect YouTube';
+    
+//     setDisconnectError(errorMessage);
+//   } finally {
+//     setDisconnecting(false);
+//   }
+// };
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// useEffect(() => {
+//   const urlParams = new URLSearchParams(window.location.search);
+//   const code = urlParams.get('code');
+//   const state = urlParams.get('state');
+//   const error_param = urlParams.get('error');
+  
+//   console.log('YouTube useEffect - URL params:', { 
+//     code: code ? code.substring(0, 20) + '...' : null, 
+//     state, 
+//     error: error_param,
+//     fullURL: window.location.href
+//   });
+//   console.log('YouTube useEffect - Auth state:', { isAuthenticated, hasToken: !!token });
+  
+//   if (error_param) {
+//     console.error('OAuth error detected:', error_param);
+//     setError(`OAuth error: ${error_param}`);
+//     window.history.replaceState({}, document.title, window.location.pathname);
+//     return;
+//   }
+  
+//   if (code && state === 'youtube_oauth') {
+//     console.log('✅ OAuth callback detected - processing code:', code.substring(0, 20) + '...');
+//     handleOAuthCallbackDirect(code);
+//     return;
+//   }
+  
+
+
+
+//   // Normal initialization
+//   if (isAuthenticated && token) {
+//     console.log('Normal initialization - fetching status');
+//     fetchAutomationStatus();
+//     fetchScheduledPosts();  // NEW: Load scheduled posts
+//   } else {
+//     console.log('Waiting for authentication...');
+//   }
+// }, [isAuthenticated, token, handleOAuthCallbackDirect]);
+
+
+
+
+
+
+
+
+// // }, [isAuthenticated, token, handleOAuthCallbackDirect]);
+// // NEW: Load saved automation config
+// useEffect(() => {
+//   const loadAutomationConfig = async () => {
+//     if (!user?.user_id || !token) return;
+    
+//     try {
+//       const response = await fetch(`${API_BASE}/api/automation/config/${user.user_id}`, {
+//         headers: {
+//           'Authorization': `Bearer ${token}`,
+//           'Content-Type': 'application/json'
+//         }
+//       });
+      
+//       if (response.ok) {
+//         const data = await response.json();
+//         if (data.success && data.config) {
+//           setAutomationConfig(data.config);
+//           setAutomationEnabled(data.config.enabled || false);
+          
+//           // If has base_url and search_query, set as savedUrl too
+//           if (data.config.base_url && data.config.search_query) {
+//             setSavedUrl(`${data.config.base_url} | Search: ${data.config.search_query}`);
+//           }
+//         }
+//       }
+//     } catch (error) {
+//       console.error('Failed to load automation config:', error);
+//     }
+//   };
+  
+//   loadAutomationConfig();
+// }, [user, token]);
 
 
 
