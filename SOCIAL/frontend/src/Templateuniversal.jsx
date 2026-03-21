@@ -17,7 +17,7 @@ const PAGENAME = () => {
         <div className="header-content">
           <Link to="/" className="logo">
             <span className="logo-emoji">🚀</span>
-            <span className="logo-text">VelocityPost</span>
+            <span className="logo-text">VelocityFly</span>
           </Link>
           
           <nav className="nav-links">
@@ -111,7 +111,7 @@ const PAGENAME = () => {
             </div>
           </div>
           <div className="footer-bottom">
-            <p>© {new Date().getFullYear()} VelocityPost. All rights reserved.</p>
+            <p>© {new Date().getFullYear()} VelocityFly. All rights reserved.</p>
           </div>
         </div>
       </footer>

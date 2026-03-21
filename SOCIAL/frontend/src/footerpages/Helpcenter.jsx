@@ -124,7 +124,7 @@ const HelpCenter = () => {
             maxWidth: '800px',
             margin: '0 auto 32px'
           }}>
-            Find answers, get support, and learn how to make the most of VelocityPost
+            Find answers, get support, and learn how to make the most of VelocityFly
           </p>
 
           {/* Search Bar */}

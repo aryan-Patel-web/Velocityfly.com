@@ -112,7 +112,7 @@ export default function TestimonialsSection() {
       location: "Mumbai, Maharashtra",
       avatar: "👨‍💻",
       content:
-        "VelocityPost completely transformed my YouTube channel. I went from 500 to 50,000 subscribers in just 6 months with automated Shorts. The AI thumbnail creator alone increased my CTR by 12%!",
+        "VelocityFly completely transformed my YouTube channel. I went from 500 to 50,000 subscribers in just 6 months with automated Shorts. The AI thumbnail creator alone increased my CTR by 12%!",
       stats: [
         { value: "300%", label: "Engagement" },
         { value: "20hrs", label: "Saved/Week" },
@@ -126,7 +126,7 @@ export default function TestimonialsSection() {
       location: "Bangalore, Karnataka",
       avatar: "👩‍🎨",
       content:
-        "Automated 500 Instagram posts in a month! As someone managing multiple brand collaborations, VelocityPost is my secret weapon. The multi-platform sync saves me 4+ hours daily.",
+        "Automated 500 Instagram posts in a month! As someone managing multiple brand collaborations, VelocityFly is my secret weapon. The multi-platform sync saves me 4+ hours daily.",
       stats: [
         { value: "500%", label: "ROI" },
         { value: "20+", label: "Brands" },
@@ -140,7 +140,7 @@ export default function TestimonialsSection() {
       location: "Delhi NCR",
       avatar: "👨‍💼",
       content:
-        "₹2 lakh monthly revenue from automated content! I manage 15 client accounts and VelocityPost handles everything. Best investment I made for my agency.",
+        "₹2 lakh monthly revenue from automated content! I manage 15 client accounts and VelocityFly handles everything. Best investment I made for my agency.",
       stats: [
         { value: "₹2L+", label: "Monthly" },
         { value: "15", label: "Clients" },

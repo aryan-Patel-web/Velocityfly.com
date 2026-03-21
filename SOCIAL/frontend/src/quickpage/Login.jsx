@@ -99,7 +99,7 @@ const Login = () => {
             marginBottom: '16px'
           }}>
             <span style={{ fontSize: '40px' }}>🚀</span>
-            VelocityPost
+            VelocityFly
           </Link>
           <p style={{
             color: 'rgba(255, 255, 255, 0.9)',

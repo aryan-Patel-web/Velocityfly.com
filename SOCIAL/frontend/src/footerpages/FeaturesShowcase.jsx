@@ -181,7 +181,7 @@ const FeaturesShowcase = () => {
           </h1>
           
           <p className="fs-hero-subtitle">
-            We're not just another scheduling tool. VelocityPost uses cutting-edge AI 
+            We're not just another scheduling tool. VelocityFly uses cutting-edge AI 
             to make you look like a social media genius - without the effort.
           </p>
 
@@ -286,7 +286,7 @@ const FeaturesShowcase = () => {
 
         {/* Comparison Table */}
         <section className="fs-comparison">
-          <h2 className="fs-section-title">VelocityPost vs Others</h2>
+          <h2 className="fs-section-title">VelocityFly vs Others</h2>
           <p className="fs-section-subtitle">
             See why thousands choose us over traditional tools
           </p>
@@ -295,7 +295,7 @@ const FeaturesShowcase = () => {
             <div className="comparison-header">
               <div className="comparison-col">Feature</div>
               <div className="comparison-col">Other Tools</div>
-              <div className="comparison-col highlight">VelocityPost</div>
+              <div className="comparison-col highlight">VelocityFly</div>
             </div>
             
             {comparisons.map((item, idx) => (
@@ -381,7 +381,7 @@ const FeaturesShowcase = () => {
           <div className="final-cta-content">
             <h2 className="final-cta-title">Ready to 10x Your Social Media?</h2>
             <p className="final-cta-text">
-              Join 50,000+ users who've transformed their social media presence with VelocityPost
+              Join 50,000+ users who've transformed their social media presence with VelocityFly
             </p>
             <div className="final-cta-buttons">
               <Link to="/register" className="final-cta-primary">

@@ -66,7 +66,7 @@ const TermsOfService = () => {
               1. Acceptance of Terms
             </h2>
             <p style={{ marginBottom: '12px' }}>
-              By accessing and using VelocityPost ("Service"), you accept and agree to be bound by these Terms of Service ("Terms"). If you do not agree to these Terms, please do not use our Service.
+              By accessing and using VelocityFly ("Service"), you accept and agree to be bound by these Terms of Service ("Terms"). If you do not agree to these Terms, please do not use our Service.
             </p>
           </section>
 
@@ -80,7 +80,7 @@ const TermsOfService = () => {
               2. Description of Service
             </h2>
             <p style={{ marginBottom: '12px' }}>
-              VelocityPost provides AI-powered social media automation tools that allow users to:
+              VelocityFly provides AI-powered social media automation tools that allow users to:
             </p>
             <ul style={{ paddingLeft: '24px', marginBottom: '16px' }}>
               <li style={{ marginBottom: '8px' }}>Schedule and automate social media posts</li>
@@ -165,7 +165,7 @@ const TermsOfService = () => {
               6. Intellectual Property
             </h2>
             <p style={{ marginBottom: '12px' }}>
-              The Service and its original content, features, and functionality are owned by VelocityPost and are protected by international copyright, trademark, and other intellectual property laws.
+              The Service and its original content, features, and functionality are owned by VelocityFly and are protected by international copyright, trademark, and other intellectual property laws.
             </p>
             <p style={{ marginBottom: '12px' }}>
               You retain ownership of content you create using our Service. By using the Service, you grant us a limited license to host, store, and display your content.
@@ -196,7 +196,7 @@ const TermsOfService = () => {
               8. Limitation of Liability
             </h2>
             <p style={{ marginBottom: '12px' }}>
-              To the maximum extent permitted by law, VelocityPost shall not be liable for any indirect, incidental, special, consequential, or punitive damages, including loss of profits, data, or other intangible losses resulting from:
+              To the maximum extent permitted by law, VelocityFly shall not be liable for any indirect, incidental, special, consequential, or punitive damages, including loss of profits, data, or other intangible losses resulting from:
             </p>
             <ul style={{ paddingLeft: '24px', marginBottom: '16px' }}>
               <li style={{ marginBottom: '8px' }}>Your use or inability to use the Service</li>
@@ -287,7 +287,7 @@ const TermsOfService = () => {
               marginTop: '16px'
             }}>
               <p style={{ marginBottom: '8px' }}><strong>Email:</strong> legal@velocitypost.com</p>
-              <p style={{ marginBottom: '8px' }}><strong>Address:</strong> VelocityPost Inc., 123 Tech Street, San Francisco, CA 94105</p>
+              <p style={{ marginBottom: '8px' }}><strong>Address:</strong> VelocityFly Inc., 123 Tech Street, San Francisco, CA 94105</p>
               <p><strong>Phone:</strong> +1 (555) 123-4567</p>
             </div>
           </section>

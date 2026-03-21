@@ -8,13 +8,13 @@ const Community = () => {
         <div style={{ background: 'white', borderRadius: '20px', padding: '48px', marginBottom: '32px', boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2)', textAlign: 'center' }}>
           <Link to="/" style={{ color: '#667eea', textDecoration: 'none', fontSize: '14px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '6px', marginBottom: '20px' }}>← Back to Home</Link>
           <h1 style={{ fontSize: '48px', fontWeight: '900', background: 'linear-gradient(135deg, #667eea, #764ba2)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', marginBottom: '16px' }}>Community</h1>
-          <p style={{ color: '#6b7280', fontSize: '20px', maxWidth: '800px', margin: '0 auto' }}>Connect with other VelocityPost users, share tips, and get support</p>
+          <p style={{ color: '#6b7280', fontSize: '20px', maxWidth: '800px', margin: '0 auto' }}>Connect with other VelocityFly users, share tips, and get support</p>
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '24px' }}>
           {[
             { icon: '💬', title: 'Discord Community', desc: 'Join 5,000+ members in our Discord server', btn: 'Join Discord' },
-            { icon: '🐦', title: 'Twitter/X', desc: 'Follow us for updates and tips', btn: 'Follow @VelocityPost' },
+            { icon: '🐦', title: 'Twitter/X', desc: 'Follow us for updates and tips', btn: 'Follow @VelocityFly' },
             { icon: '📘', title: 'Facebook Group', desc: 'Connect with users on Facebook', btn: 'Join Group' },
             { icon: '💼', title: 'LinkedIn', desc: 'Professional networking and updates', btn: 'Follow on LinkedIn' },
             { icon: '📺', title: 'YouTube Channel', desc: 'Tutorials and feature demos', btn: 'Subscribe' },

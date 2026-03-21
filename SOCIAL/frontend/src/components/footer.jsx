@@ -36,7 +36,7 @@ export default function Footer() {
                   <Zap className="w-6 h-6 text-white" />
                 </div>
               </div>
-              <span className="text-xl font-bold text-white">VelocityPost</span>
+              <span className="text-xl font-bold text-white">VelocityFly</span>
             </a>
             <p className="text-white/50 text-sm mb-4 max-w-xs">
               Automate. Grow. Dominate.
@@ -90,7 +90,7 @@ export default function Footer() {
         </div>
 
         <div className="pt-8 border-t border-white/10 flex flex-col md:flex-row items-center justify-between gap-4">
-          <p className="text-white/40 text-sm">© 2026 VelocityPost. All rights reserved.</p>
+          <p className="text-white/40 text-sm">© 2026 VelocityFly. All rights reserved.</p>
           <div className="flex items-center gap-2 text-sm text-white/40">
             <span>🇮🇳</span>
             <span>Proudly Made in India for Indian Creators</span>

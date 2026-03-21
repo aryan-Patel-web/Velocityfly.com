@@ -41,7 +41,7 @@ const About = () => {
             WebkitTextFillColor: 'transparent',
             marginBottom: '16px'
           }}>
-            About VelocityPost
+            About VelocityFly
           </h1>
           
           <p style={{
@@ -156,13 +156,13 @@ const About = () => {
             lineHeight: '1.8'
           }}>
             <p style={{ marginBottom: '16px' }}>
-              VelocityPost was founded in 2024 by a team of entrepreneurs and engineers who experienced firsthand the challenges of managing multiple social media accounts while running a business.
+              VelocityFly was founded in 2024 by a team of entrepreneurs and engineers who experienced firsthand the challenges of managing multiple social media accounts while running a business.
             </p>
             <p style={{ marginBottom: '16px' }}>
               We saw business owners spending hours every day creating content, scheduling posts, and trying to maintain a consistent presence across platforms. We knew there had to be a better way.
             </p>
             <p style={{ marginBottom: '16px' }}>
-              Combining our expertise in artificial intelligence, social media marketing, and software development, we built VelocityPost—a platform that automates the tedious parts of social media management while maintaining authenticity and engagement.
+              Combining our expertise in artificial intelligence, social media marketing, and software development, we built VelocityFly—a platform that automates the tedious parts of social media management while maintaining authenticity and engagement.
             </p>
             <p>
               Today, we serve thousands of businesses worldwide, from solo entrepreneurs to enterprise teams, helping them save time and achieve better results on social media.

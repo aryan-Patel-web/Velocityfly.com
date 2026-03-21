@@ -221,7 +221,7 @@ const PrivacyPolicy = () => {
               marginTop: '16px'
             }}>
               <p style={{ marginBottom: '8px' }}><strong>Email:</strong> privacy@velocitypost.com</p>
-              <p style={{ marginBottom: '8px' }}><strong>Address:</strong> VelocityPost Inc., 123 Tech Street, San Francisco, CA 94105</p>
+              <p style={{ marginBottom: '8px' }}><strong>Address:</strong> VelocityFly Inc., 123 Tech Street, San Francisco, CA 94105</p>
               <p><strong>Phone:</strong> +1 (555) 123-4567</p>
             </div>
           </section>

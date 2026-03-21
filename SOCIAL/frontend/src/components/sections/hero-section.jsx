@@ -261,7 +261,7 @@ export default function HeroSection() {
           <br />
           <span className="gradient-text glow-text">Social Media Empire</span>
           <br />
-          <span className="text-white">With VelocityPost</span>
+          <span className="text-white">With VelocityFly</span>
         </h1>
 
         <p className="text-base sm:text-lg md:text-xl text-white/60 max-w-2xl mx-auto mb-10 leading-relaxed">

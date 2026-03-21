@@ -64,7 +64,7 @@ const Header = () => {
           {/* Logo */}
           <Link to="/" className="header-logo" onClick={() => setMobileMenuOpen(false)}>
             <span className="logo-icon">🚀</span>
-            <span className="logo-text">VelocityPost</span>
+            <span className="logo-text">VelocityFly</span>
           </Link>
 
           {/* Desktop Navigation */}

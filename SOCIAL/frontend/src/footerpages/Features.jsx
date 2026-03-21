@@ -224,7 +224,7 @@ const Features = () => {
             fontSize: '18px',
             marginBottom: '32px'
           }}>
-            Join thousands of businesses already using VelocityPost
+            Join thousands of businesses already using VelocityFly
           </p>
           <div style={{
             display: 'flex',

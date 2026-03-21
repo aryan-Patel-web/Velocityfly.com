@@ -13,7 +13,7 @@ const HowToConnect = () => {
       steps: [
         'Click "Connect Facebook" button',
         'Log in to your Facebook account',
-        'Authorize VelocityPost to post on your behalf',
+        'Authorize VelocityFly to post on your behalf',
         'Select pages you want to manage',
         'Start automating!'
       ],
@@ -124,7 +124,7 @@ const HowToConnect = () => {
             <p className="privacy-text">
               When you click "Connect" on any platform, you'll be redirected to the official 
               website of that social media platform. You'll log in directly on their secure 
-              page - NOT on VelocityPost.
+              page - NOT on VelocityFly.
             </p>
             <div className="privacy-points">
               <div className="privacy-point">
@@ -249,7 +249,7 @@ const HowToConnect = () => {
             <div className="faq-card">
               <h3 className="faq-question">🔄 Can I disconnect anytime?</h3>
               <p className="faq-answer">
-                Yes! You can revoke access from your VelocityPost dashboard or directly 
+                Yes! You can revoke access from your VelocityFly dashboard or directly 
                 from your social media platform's settings page.
               </p>
             </div>

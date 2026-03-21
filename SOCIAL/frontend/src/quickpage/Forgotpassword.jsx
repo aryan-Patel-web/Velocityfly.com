@@ -93,7 +93,7 @@ const ForgotPassword = () => {
             marginBottom: '16px'
           }}>
             <span style={{ fontSize: '40px' }}>🚀</span>
-            VelocityPost
+            VelocityFly
           </Link>
         </div>
 

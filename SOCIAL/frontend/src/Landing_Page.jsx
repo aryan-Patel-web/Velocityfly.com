@@ -103,7 +103,7 @@
 //       name: 'Sarah Johnson',
 //       role: 'Marketing Director',
 //       company: 'TechCorp',
-//       content: 'VelocityPost has transformed our social media strategy. We\'ve seen a 300% increase in engagement and saved 20 hours per week.',
+//       content: 'VelocityFly has transformed our social media strategy. We\'ve seen a 300% increase in engagement and saved 20 hours per week.',
 //       image: 'https://images.unsplash.com/photo-1494790242533-d9824626793e?w=200&h=200&fit=crop',
 //       rating: 5
 //     },
@@ -350,7 +350,7 @@
 //             <div className="footer-brand">
 //               <div className="footer-logo">
 //                 <span>🚀</span>
-//                 VelocityPost
+//                 VelocityFly
 //               </div>
 //               <p className="footer-description">
 //                 AI-powered social media automation platform helping businesses save time and boost engagement.
@@ -406,7 +406,7 @@
 
 //           <div className="footer-bottom">
 //             <p className="footer-copyright">
-//               © {new Date().getFullYear()} VelocityPost. All rights reserved.
+//               © {new Date().getFullYear()} VelocityFly. All rights reserved.
 //             </p>
 //             <div className="footer-legal-links">
 //               <Link to="/privacypolicy" className="footer-legal-link">Privacy</Link>

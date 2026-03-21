@@ -188,7 +188,7 @@ const DashboardNavbar = () => {
       <div className="dashboard-nav-content">
         <Link to="/" className="dashboard-logo">
           <span className="logo-emoji">🚀</span>
-          <span className="logo-text">VelocityPost</span>
+          <span className="logo-text">VelocityFly</span>
         </Link>
 
         <div className="dashboard-nav-links">

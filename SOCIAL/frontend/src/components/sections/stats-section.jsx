@@ -212,7 +212,7 @@ export default function StatsSection() {
             <span className="gradient-text">Speak For Themselves</span>
           </h2>
           <p className="text-lg text-white/60 max-w-2xl mx-auto">
-            Real results from real Indian businesses using VelocityPost
+            Real results from real Indian businesses using VelocityFly
           </p>
         </div>
 

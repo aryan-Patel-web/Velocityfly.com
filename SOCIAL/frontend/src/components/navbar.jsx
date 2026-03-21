@@ -352,7 +352,7 @@ export default function Navbar() {
                   backgroundClip: "text",
                 }}
               >
-                VelocityPost
+                VelocityFly
               </span>
               <span
                 style={{

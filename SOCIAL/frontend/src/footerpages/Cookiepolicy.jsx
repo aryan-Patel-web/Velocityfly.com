@@ -80,7 +80,7 @@ const CookiePolicy = () => {
               How We Use Cookies
             </h2>
             <p style={{ marginBottom: '12px' }}>
-              VelocityPost uses cookies and similar tracking technologies to:
+              VelocityFly uses cookies and similar tracking technologies to:
             </p>
             <ul style={{ paddingLeft: '24px', marginBottom: '16px' }}>
               <li style={{ marginBottom: '8px' }}>Remember your login information and preferences</li>
@@ -340,7 +340,7 @@ const CookiePolicy = () => {
               marginTop: '16px'
             }}>
               <p style={{ marginBottom: '8px' }}><strong>Email:</strong> privacy@velocitypost.com</p>
-              <p style={{ marginBottom: '8px' }}><strong>Address:</strong> VelocityPost Inc., 123 Tech Street, San Francisco, CA 94105</p>
+              <p style={{ marginBottom: '8px' }}><strong>Address:</strong> VelocityFly Inc., 123 Tech Street, San Francisco, CA 94105</p>
               <p><strong>Phone:</strong> +1 (555) 123-4567</p>
             </div>
           </section>
